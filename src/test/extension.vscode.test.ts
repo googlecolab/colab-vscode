@@ -1,25 +1,24 @@
-import * as assert from 'assert';
-import * as vscode from 'vscode';
+import * as assert from "assert";
+import * as vscode from "vscode";
 
-suite('Extension', () => {
-	test('should be present', () => {
-		assert.ok(vscode.extensions.getExtension('google.colab'));
-	});
+describe("Extension", () => {
+  it("should be present", () => {
+    assert.ok(vscode.extensions.getExtension("google.colab"));
+  });
 
-	test('should activate', async () => {
-		const extension = vscode.extensions.getExtension('google.colab');
+  it("should activate", async () => {
+    await setConfig("resoruceProxyBaseUrl", "foo");
+    await setConfig("resoruceProxyToken", "bar");
+    const extension = vscode.extensions.getExtension("google.colab");
 
-		await extension?.activate();
+    await extension?.activate();
 
-		assert.strictEqual(extension?.isActive, true);
-	});
-
-	test('should register the helloWorld command', async () => {
-		const extension = vscode.extensions.getExtension('google.colab');
-		await extension?.activate();
-
-		const commands = await vscode.commands.getCommands(true);
-
-		assert.ok(commands.includes('colab.helloWorld'));
-	});
+    assert.strictEqual(extension?.isActive, true);
+  });
 });
+
+async function setConfig(section: string, value: string): Promise<void> {
+  await vscode.workspace
+    .getConfiguration("colab")
+    .update(section, value, vscode.ConfigurationTarget.Global);
+}

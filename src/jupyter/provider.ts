@@ -8,23 +8,6 @@ import {
 import { CancellationToken, Uri, ProviderResult } from "vscode";
 
 /**
- * Registers the Colab Jupyter Server provider with the Jupyter Kernels API.
- *
- * @param jupyter Kernels API.
- * @param config for connecting to the Resource Proxy.
- */
-export function register(
-  jupyter: Jupyter,
-  config: RpConfig
-): JupyterServerCollection {
-  return jupyter.createJupyterServerCollection(
-    "colab",
-    "Colab",
-    new ColabJupyterServerProvider(config)
-  );
-}
-
-/**
  * Configuration for the Resource Proxy connection.
  */
 export interface RpConfig {
@@ -45,6 +28,20 @@ export interface RpConfig {
  * Provides a static list of Colab Jupyter servers and resolves the connection information using the provided config.
  */
 export class ColabJupyterServerProvider implements JupyterServerProvider {
+  /**
+   * Registers the Colab Jupyter Server provider with the Jupyter Kernels API.
+   *
+   * @param jupyter Kernels API.
+   * @param config for connecting to the Resource Proxy.
+   */
+  static register(jupyter: Jupyter, config: RpConfig): JupyterServerCollection {
+    return jupyter.createJupyterServerCollection(
+      "colab",
+      "Colab",
+      new ColabJupyterServerProvider(config)
+    );
+  }
+
   // TODO: Fetch available servers from the backend. Hardcoded for now.
   private readonly idToServer = new Map<string, ColabJupyterServer>([
     ["m", new ColabJupyterServer("m", "Colab CPU")],

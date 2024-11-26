@@ -4,9 +4,9 @@ import {
   JupyterServerCollection,
 } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
-import sinon from "sinon";
+import * as sinon from "sinon";
 import { CancellationToken, Uri } from "vscode";
-import { ColabJupyterServerProvider, register, RpConfig } from "./provider";
+import { ColabJupyterServerProvider, RpConfig } from "./provider";
 
 describe("register", () => {
   it("creates a Jupyter server collection", () => {
@@ -26,7 +26,7 @@ describe("register", () => {
       token: "foo",
     };
 
-    const servers = register(jupyterMock, config);
+    const servers = ColabJupyterServerProvider.register(jupyterMock, config);
 
     sinon.assert.calledOnce(createJupyterServerCollectionStub);
     const call = createJupyterServerCollectionStub.getCall(0);

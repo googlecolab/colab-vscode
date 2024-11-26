@@ -1,31 +1,26 @@
 {
-	"include": [
-		"src/**/*",
-		"eslint.config.mjs"
-	],
-	"compilerOptions": {
-		"module": "Node16",
-		"target": "ES2022",
-		"rootDir": "src",
-		"outDir": "out",
-		"lib": [
-			"ES2022"
-		],
-		"forceConsistentCasingInFileNames": true,
-		"noFallthroughCasesInSwitch": true,
-		"noImplicitAny": true,
-		"noImplicitOverride": true,
-		"noImplicitReturns": true,
-		"noImplicitThis": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"resolveJsonModule": true,
-		"sourceMap": true,
-		"strict": true,
-		"strictBindCallApply": true,
-		"strictFunctionTypes": true,
-		"strictNullChecks": true,
-		"strictPropertyInitialization": false,
-		"useUnknownInCatchVariables": false
-	}
+  "include": ["src/**/*", "eslint.config.mjs"],
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "rootDir": "src",
+    "outDir": "out",
+    "lib": ["ES2022"],
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "strict": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": false,
+    "useUnknownInCatchVariables": false
+  }
 }

@@ -4,21 +4,38 @@
   "displayName": "Colab",
   "description": "Connect to Colab runtimes.",
   "version": "0.0.1",
+  "type": "commonjs",
   "engines": {
     "vscode": "^1.93.1"
   },
+  "extensionDependencies": [
+    "ms-toolsai.jupyter"
+  ],
   "categories": [
     "Notebooks"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onNotebook:jupyter-notebook",
+    "onNotebook:interactive"
+  ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "colab.helloWorld",
-        "title": "Hello World"
+    "configuration": {
+      "type": "object",
+      "title": "Colab",
+      "properties": {
+        "colab.resoruceProxyBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "A temporary setting to hardcode a resource proxy base URL."
+        },
+        "colab.resoruceProxyToken": {
+          "type": "string",
+          "default": "",
+          "description": "A temporary setting to hardcode a resource proxy token."
+        }
       }
-    ]
+    }
   },
   "scripts": {
     "clean": "rm -rf out/*",
