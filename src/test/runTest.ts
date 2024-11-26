@@ -17,4 +17,7 @@ async function main() {
     }
 }
 
-main();
+main().catch((error: unknown) => {
+    console.error('Unhandled error in main function', error);
+    process.exit(1);
+});

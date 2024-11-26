@@ -1,6 +1,6 @@
 import * as path from 'path';
-import Mocha from 'mocha';
 import { Glob } from 'glob';
+import Mocha from 'mocha';
 
 export function run(): Promise<void> {
     const mocha = new Mocha({
@@ -19,14 +19,14 @@ export function run(): Promise<void> {
         try {
             mocha.run(failures => {
                 if (failures > 0) {
-                    e(new Error(`${failures} tests failed.`));
+                    e(new Error(`${failures.toString()} tests failed.`));
                 } else {
                     c();
                 }
             });
         } catch (err) {
             console.error(err);
-            e(err);
+            e(err instanceof Error ? err : new Error(String(err)));
         }
     });
 }
