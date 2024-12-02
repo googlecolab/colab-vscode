@@ -26,8 +26,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "pretest": "npm run compile && npm run lint",
-    "test:xvfb": "xvfb-run -s '-screen 0 1024x768x24' vscode-test",
-    "test": "if [ -z \"$DISPLAY\" ]; then npm run test:xvfb; else vscode-test; fi",
+    "test:xvfb": "xvfb-run -s '-screen 0 1024x768x24' node ./out/test/runTest.js",
+    "test": "node ./out/test/runTest.js",
     "vscode:prepublish": "npm run compile",
     "watch": "tsc -watch -p ./"
   },

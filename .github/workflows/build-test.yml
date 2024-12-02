@@ -1,0 +1,41 @@
+# For PRs.
+
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  vsCodeTests:
+    name: VS Code Integration Tests
+
+    strategy:
+      matrix:
+        # macos-latest and windows-latest can be added as we work towards a release.
+        # For now, there's no sense acruing the cost of the runners.
+        os: [ubuntu-latest]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases
+        node-version: [18.x, 20.x, 22.x]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+      - run: npm ci
+      - run: npm run compile
+      - name: npm test (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run test:xvfb
+      - name: npm test
+        if: matrix.os != 'ubuntu-latest'
+        run: npm test
