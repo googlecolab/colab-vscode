@@ -10,26 +10,37 @@ on:
     branches:
       - main
 
+env:
+  # See supported Node.js release schedule at https://nodejs.org/en/about/releases
+  NODE_VERSION: 20.x
+
 jobs:
+  unitTests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm run test:unittests
+
   vsCodeTests:
     name: VS Code Integration Tests
-
     strategy:
       matrix:
         # macos-latest and windows-latest can be added as we work towards a release.
         # For now, there's no sense acruing the cost of the runners.
         os: [ubuntu-latest]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases
-        node-version: [18.x, 20.x, 22.x]
-
     runs-on: ${{ matrix.os }}
-
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
       - run: npm run compile
