@@ -5,7 +5,7 @@
       "label": "npm: compile",
       "type": "npm",
       "script": "compile",
-      "problemMatcher": [],
+      "problemMatcher": []
     },
     {
       "label": "npm: watch",

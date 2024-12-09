@@ -22,7 +22,7 @@ describe("getJupyterApi", () => {
       throw new Error("Expected getJupyterApi to throw an error");
     } catch (error) {
       expect((error as Error).message).to.equal(
-        "Jupyter Extension not installed"
+        "Jupyter Extension not installed",
       );
     }
   });

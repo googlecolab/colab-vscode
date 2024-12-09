@@ -1,6 +1,6 @@
-import { defineConfig } from '@vscode/test-cli';
+import { defineConfig } from "@vscode/test-cli";
 
 export default defineConfig({
-	files: 'out/test/**/*vscode.test.js',
-	installExtensions: ['google.colab'],
+  files: "out/test/**/*vscode.test.js",
+  installExtensions: ["google.colab"],
 });

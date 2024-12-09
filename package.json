@@ -40,8 +40,10 @@
   "scripts": {
     "clean": "rm -rf out/*",
     "compile": "tsc -p ./",
-    "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "lint": "eslint src/",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "pretest": "npm run compile && npm run lint",
     "test:unittests": "npm run compile && mocha --enable-source-maps './out/**/*.unit.test.js'",
     "test:xvfb": "xvfb-run -s '-screen 0 1024x768x24' node ./out/test/runTest.js",
@@ -60,8 +62,10 @@
     "@vscode/test-electron": "^2.4.1",
     "chai": "^4.5.0",
     "eslint": "^9.15.0",
+    "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.31.0",
     "mocha": "^10.8.2",
+    "prettier": "3.4.2",
     "sinon": "^19.0.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.15.0"

@@ -18,7 +18,7 @@ function getRpConfig(): RpConfig {
 
   if (!baseUrl || !token) {
     throw new Error(
-      'Resource proxy configuration is missing. Requires both an "rpBaseUrl" and "rpToken"'
+      'Resource proxy configuration is missing. Requires both an "rpBaseUrl" and "rpToken"',
     );
   }
 

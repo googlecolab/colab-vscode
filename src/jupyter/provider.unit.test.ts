@@ -79,7 +79,7 @@ describe("ColabJupyterServerProvider", () => {
 
   it("provides Jupyter servers", async () => {
     const providedServers = await serverProvider.provideJupyterServers(
-      {} as CancellationToken
+      {} as CancellationToken,
     );
 
     expect(providedServers).to.deep.equal(expectedServers);
@@ -97,7 +97,7 @@ describe("ColabJupyterServerProvider", () => {
 
       const resolvedServer = await serverProvider.resolveJupyterServer(
         server,
-        {} as CancellationToken
+        {} as CancellationToken,
       );
 
       expect(resolvedServer).to.deep.equal(expectedResolvedServer);

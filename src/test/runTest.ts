@@ -18,7 +18,7 @@ function getExtensionsDir(vscodeExecutablePath: string): string {
 function installExtension(
   cliPath: string,
   extensionsDir: string,
-  extension: string
+  extension: string,
 ) {
   console.info("Installing Jupyter Extension");
   spawnSync(
@@ -33,7 +33,7 @@ function installExtension(
     {
       encoding: "utf-8",
       stdio: "inherit",
-    }
+    },
   );
 }
 

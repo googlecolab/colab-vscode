@@ -38,7 +38,7 @@ export class ColabJupyterServerProvider implements JupyterServerProvider {
     return jupyter.createJupyterServerCollection(
       "colab",
       "Colab",
-      new ColabJupyterServerProvider(config)
+      new ColabJupyterServerProvider(config),
     );
   }
 
@@ -58,7 +58,7 @@ export class ColabJupyterServerProvider implements JupyterServerProvider {
    * Provides the list of {@link JupyterServer Jupyter Servers}.
    */
   provideJupyterServers(
-    _token: CancellationToken
+    _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
     return Array.from(this.idToServer.values());
   }
@@ -68,7 +68,7 @@ export class ColabJupyterServerProvider implements JupyterServerProvider {
    */
   resolveJupyterServer(
     server: JupyterServer,
-    _token: CancellationToken
+    _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
     const colabServer = this.idToServer.get(server.id);
     if (!colabServer) {
@@ -82,7 +82,10 @@ export class ColabJupyterServerProvider implements JupyterServerProvider {
 class ColabJupyterServer implements JupyterServer {
   connectionInformation?: JupyterServerConnectionInformation;
 
-  constructor(readonly id: string, readonly label: string) {}
+  constructor(
+    readonly id: string,
+    readonly label: string,
+  ) {}
 
   resolve(config: RpConfig): void {
     // TODO: Assign the appropriate machine for the server instead of the single hardcoded configuration.
