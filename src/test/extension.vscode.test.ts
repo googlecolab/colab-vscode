@@ -1,5 +1,6 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
+import { Config } from "../extension";
 
 describe("Extension", () => {
   it("should be present", () => {
@@ -7,8 +8,8 @@ describe("Extension", () => {
   });
 
   it("should activate", async () => {
-    await setConfig("resoruceProxyBaseUrl", "foo");
-    await setConfig("resoruceProxyToken", "bar");
+    await setConfig(Config.ProxyBaseUrl, "foo");
+    await setConfig(Config.ProxyToken, "bar");
     const extension = vscode.extensions.getExtension("google.colab");
 
     await extension?.activate();
