@@ -11,10 +11,16 @@ export async function activate(context: ExtensionContext) {
   context.subscriptions.push(servers);
 }
 
+/** Configuration settings enum */
+export enum Config {
+  ProxyBaseUrl = "resourceProxyBaseUrl",
+  ProxyToken = "resourceProxyToken",
+}
+
 function getRpConfig(): RpConfig {
   const config = workspace.getConfiguration("colab");
-  const baseUrl = config.get<string>("resoruceProxyBaseUrl");
-  const token = config.get<string>("resoruceProxyToken");
+  const baseUrl = config.get<string>(Config.ProxyBaseUrl);
+  const token = config.get<string>(Config.ProxyToken);
 
   if (!baseUrl || !token) {
     throw new Error(

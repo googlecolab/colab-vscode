@@ -24,12 +24,12 @@
       "type": "object",
       "title": "Colab",
       "properties": {
-        "colab.resoruceProxyBaseUrl": {
+        "colab.resourceProxyBaseUrl": {
           "type": "string",
           "default": "",
           "description": "A temporary setting to hardcode a resource proxy base URL."
         },
-        "colab.resoruceProxyToken": {
+        "colab.resourceProxyToken": {
           "type": "string",
           "default": "",
           "description": "A temporary setting to hardcode a resource proxy token."
