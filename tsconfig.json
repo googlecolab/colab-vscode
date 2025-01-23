@@ -6,6 +6,7 @@
     "rootDir": "src",
     "outDir": "out",
     "lib": ["ES2022"],
+    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,

@@ -1,10 +1,10 @@
-import { ExtensionContext, workspace, Uri } from "vscode";
-import { getJupyterApi } from "./jupyter/jupyter_extension";
+import vscode from "vscode";
+import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider, RpConfig } from "./jupyter/provider";
 
 // Called when the extension is activated.
-export async function activate(context: ExtensionContext) {
-  const jupyter = await getJupyterApi();
+export async function activate(context: vscode.ExtensionContext) {
+  const jupyter = await getJupyterApi(vscode);
   const rpConfig = getRpConfig();
   const servers = ColabJupyterServerProvider.register(jupyter, rpConfig);
 
@@ -18,7 +18,7 @@ export enum Config {
 }
 
 function getRpConfig(): RpConfig {
-  const config = workspace.getConfiguration("colab");
+  const config = vscode.workspace.getConfiguration("colab");
   const baseUrl = config.get<string>(Config.ProxyBaseUrl);
   const token = config.get<string>(Config.ProxyToken);
 
@@ -28,5 +28,5 @@ function getRpConfig(): RpConfig {
     );
   }
 
-  return { baseUri: Uri.parse(baseUrl), token };
+  return { baseUri: vscode.Uri.parse(baseUrl), token };
 }
