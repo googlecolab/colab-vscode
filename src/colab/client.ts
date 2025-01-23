@@ -1,0 +1,169 @@
+import * as https from "https";
+import fetch, { Request } from "node-fetch";
+import { AuthenticationSession } from "vscode";
+import {
+  Assignment,
+  CCUInfo,
+  Variant,
+  Accelerator,
+  GetAssignmentResponse,
+} from "./api";
+
+const XSSI_PREFIX = ")]}'\n";
+const XSRF_HEADER_KEY = "X-Goog-Colab-Token";
+const CCU_INFO_ENDPOINT = "/tun/m/ccu-info?authuser=0";
+const ASSIGN_ENDPOINT = "/tun/m/assign?authuser=0";
+
+// To discriminate the type of GET assignment responses.
+interface AssignmentToken extends GetAssignmentResponse {
+  type: "to_assign";
+}
+
+// To discriminate the type of GET assignment responses.
+interface AssignedAssignment extends Assignment {
+  type: "assigned";
+}
+
+/**
+ * A client for interacting with the Colab backend.
+ */
+export class ColabClient {
+  private readonly httpsAgent?: https.Agent;
+
+  constructor(
+    private readonly domain: URL,
+    private session: () => Promise<AuthenticationSession>,
+  ) {
+    // TODO: Temporary workaround to allow self-signed certificates
+    // in local development.
+    if (domain.host === "https://localhost:8888") {
+      this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    }
+  }
+
+  /**
+   * Fetches the current Cloud Compute Units (CCU) information.
+   *
+   * @returns The current CCU information.
+   */
+  async ccuInfo(): Promise<CCUInfo> {
+    return this.issueRequest<CCUInfo>(
+      new URL(CCU_INFO_ENDPOINT, this.domain),
+      "GET",
+    );
+  }
+
+  /**
+   * Returns the existing machine assignment if one exists, or creates one if it does not.
+   *
+   * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest. This value should always be a string of length 44 (see: http://go/so/13378815).
+   * @param variant - The machine variant to assign.
+   * @param accelerator - The accelerator to assign.
+   * @returns The assignment which is assigned to the user.
+   */
+  async assign(
+    notebookHash: string,
+    variant: Variant,
+    accelerator?: Accelerator,
+  ): Promise<Assignment> {
+    const getAssignment = await this.getAssignment(
+      notebookHash,
+      variant,
+      accelerator,
+    );
+    switch (getAssignment.type) {
+      case "assigned": {
+        // Not required, but we want to remove the type field we use internally
+        // to discriminate the union of types returned from getAssignment.
+        const { type: _, ...rest } = getAssignment;
+        return rest;
+      }
+      case "to_assign": {
+        return await this.postAssignment(
+          notebookHash,
+          getAssignment.token,
+          variant,
+          accelerator,
+        );
+      }
+    }
+  }
+
+  private async getAssignment(
+    notebookHash: string,
+    variant: Variant,
+    accelerator?: Accelerator,
+  ): Promise<AssignmentToken | AssignedAssignment> {
+    const url = this.assignUrl(notebookHash, variant, accelerator);
+    const response = await this.issueRequest<
+      GetAssignmentResponse | Assignment
+    >(url, "GET");
+    if ("token" in response) {
+      return { ...response, type: "to_assign" };
+    } else {
+      return { ...response, type: "assigned" };
+    }
+  }
+
+  private async postAssignment(
+    notebookHash: string,
+    xsrfToken: string,
+    variant: Variant,
+    accelerator?: Accelerator,
+  ): Promise<Assignment> {
+    const url = this.assignUrl(notebookHash, variant, accelerator);
+    return this.issueRequest<Assignment>(url, "POST", [
+      [XSRF_HEADER_KEY, xsrfToken],
+    ]);
+  }
+
+  private assignUrl(
+    notebookHash: string,
+    variant: Variant,
+    accelerator?: Accelerator,
+  ): URL {
+    const url = new URL(ASSIGN_ENDPOINT, this.domain);
+    url.searchParams.append("nbh", notebookHash);
+    if (variant !== Variant.DEFAULT) {
+      url.searchParams.append("variant", variant.toString());
+    }
+    if (accelerator) {
+      url.searchParams.append("accelerator", accelerator.toString());
+    }
+    return url;
+  }
+
+  private async issueRequest<T>(
+    endpoint: URL,
+    method: "GET" | "POST",
+    headers?: fetch.HeadersInit,
+  ): Promise<T> {
+    const authSession = await this.session();
+    const requestHeaders = new fetch.Headers(headers);
+    requestHeaders.set("Accept", "application/json");
+    requestHeaders.set("Authorization", `Bearer ${authSession.accessToken}`);
+    const request = new Request(endpoint, {
+      method,
+      headers: requestHeaders,
+      agent: this.httpsAgent,
+    });
+    const response = await fetch(request);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to ${method} ${endpoint.toString()}: ${response.statusText}`,
+      );
+    }
+    const body = await response.text();
+    return JSON.parse(stripXssiPrefix(body)) as T;
+  }
+}
+
+/**
+ * If present, strip the XSSI busting prefix from v.
+ */
+function stripXssiPrefix(v: string): string {
+  if (!v.startsWith(XSSI_PREFIX)) {
+    return v;
+  }
+  return v.slice(XSSI_PREFIX.length);
+}
