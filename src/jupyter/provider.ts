@@ -1,58 +1,37 @@
 import {
   Jupyter,
   JupyterServer,
-  JupyterServerCollection,
-  JupyterServerConnectionInformation,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import { CancellationToken, Uri, ProviderResult } from "vscode";
-
-/**
- * Configuration for the Resource Proxy connection.
- */
-export interface RpConfig {
-  /**
-   * Base {@link Uri Uri} of the Jupyter Server behind the resource proxy.
-   */
-  readonly baseUri: Uri;
-
-  /**
-   * The resource proxy token attached as a header to Jupyter Server requests.
-   */
-  readonly token: string;
-}
+import { CancellationToken, ProviderResult } from "vscode";
+import vscode from "vscode";
+import { CCUInfo, Variant } from "../colab/api";
+import { ColabClient } from "../colab/client";
+import { SERVERS } from "./servers";
 
 /**
  * Colab Jupyter server provider.
  *
  * Provides a static list of Colab Jupyter servers and resolves the connection information using the provided config.
  */
-export class ColabJupyterServerProvider implements JupyterServerProvider {
-  /**
-   * Registers the Colab Jupyter Server provider with the Jupyter Kernels API.
-   *
-   * @param jupyter Kernels API.
-   * @param config for connecting to the Resource Proxy.
-   */
-  static register(jupyter: Jupyter, config: RpConfig): JupyterServerCollection {
-    return jupyter.createJupyterServerCollection(
-      "colab",
-      "Colab",
-      new ColabJupyterServerProvider(config),
+export class ColabJupyterServerProvider
+  implements JupyterServerProvider, vscode.Disposable
+{
+  private readonly disposable: vscode.Disposable;
+
+  constructor(
+    private readonly vs: typeof vscode,
+    jupyter: Jupyter,
+    private readonly client: ColabClient,
+  ) {
+    this.disposable = this.vs.Disposable.from(
+      jupyter.createJupyterServerCollection("colab", "Colab", this),
     );
   }
 
-  // TODO: Fetch available servers from the backend. Hardcoded for now.
-  private readonly idToServer = new Map<string, ColabJupyterServer>([
-    ["m", new ColabJupyterServer("m", "Colab CPU")],
-    ["gpu-t4", new ColabJupyterServer("gpu-t4", "Colab T4")],
-    ["gpu-l4", new ColabJupyterServer("gpu-l4", "Colab L4")],
-    ["gpu-a100", new ColabJupyterServer("gpu-a100", "Colab A100")],
-    ["tpu-v28", new ColabJupyterServer("tpu-v28", "Colab TPU v2-8")],
-    ["tpu-v5e1", new ColabJupyterServer("tpu-v5e1", "Colab TPU v5e-1")],
-  ]);
-
-  constructor(private readonly config: RpConfig) {}
+  dispose() {
+    this.disposable.dispose();
+  }
 
   /**
    * Provides the list of {@link JupyterServer Jupyter Servers}.
@@ -60,7 +39,24 @@ export class ColabJupyterServerProvider implements JupyterServerProvider {
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return Array.from(this.idToServer.values());
+    return this.client.ccuInfo().then((ccuInfo: CCUInfo) => {
+      const eligibleGpus = new Set(ccuInfo.eligibleGpus);
+      const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
+      // TODO: TPUs are currently not supported by the CCU Info API.
+      return Array.from(SERVERS.values()).filter((server) => {
+        if (server.variant !== Variant.GPU) {
+          return true;
+        }
+        // Check both to make introducing new accelerators safer.
+        const eligibleGpu =
+          server.accelerator && eligibleGpus.has(server.accelerator);
+        const ineligibleGpu =
+          server.accelerator && ineligibleGpus.has(server.accelerator);
+        // TODO: Provide a ⚠️ warning for the servers which are inneligible for the user.
+
+        return eligibleGpu && !ineligibleGpu;
+      });
+    });
   }
 
   /**
@@ -70,28 +66,31 @@ export class ColabJupyterServerProvider implements JupyterServerProvider {
     server: JupyterServer,
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
-    const colabServer = this.idToServer.get(server.id);
+    const nbh = "booooooooooooooooooooooooooooooooooooooooooo";
+
+    const colabServer = SERVERS.get(server.id);
     if (!colabServer) {
-      return;
+      return Promise.reject(new Error(`Unknown server: ${server.id}`));
     }
-    colabServer.resolve(this.config);
-    return colabServer;
-  }
-}
 
-class ColabJupyterServer implements JupyterServer {
-  connectionInformation?: JupyterServerConnectionInformation;
+    return this.client
+      .assign(nbh, colabServer.variant, colabServer.accelerator)
+      .then((assignment): JupyterServer => {
+        const { url, token } = assignment.runtimeProxyInfo ?? {};
 
-  constructor(
-    readonly id: string,
-    readonly label: string,
-  ) {}
+        if (!url || !token) {
+          throw new Error(
+            "Unable to obtain connection information for server.",
+          );
+        }
 
-  resolve(config: RpConfig): void {
-    // TODO: Assign the appropriate machine for the server instead of the single hardcoded configuration.
-    this.connectionInformation = {
-      baseUrl: config.baseUri,
-      headers: { "X-Colab-Runtime-Proxy-Token": config.token },
-    };
+        return {
+          ...server,
+          connectionInformation: {
+            baseUrl: this.vs.Uri.parse(url),
+            headers: { "X-Colab-Runtime-Proxy-Token": token },
+          },
+        };
+      });
   }
 }
