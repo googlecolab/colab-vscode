@@ -8,6 +8,19 @@
       "problemMatcher": []
     },
     {
+      "label": "npm: watch prod",
+      "type": "npm",
+      "script": "watch:prod",
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "never"
+      },
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
       "label": "npm: watch",
       "type": "npm",
       "script": "watch",
@@ -17,8 +30,7 @@
         "reveal": "never"
       },
       "group": {
-        "kind": "build",
-        "isDefault": true
+        "kind": "build"
       }
     },
     {

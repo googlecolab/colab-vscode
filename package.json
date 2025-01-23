@@ -49,6 +49,7 @@
     "test:xvfb": "xvfb-run -s '-screen 0 1024x768x24' node ./out/test/runTest.js",
     "test": "node ./out/test/runTest.js",
     "vscode:prepublish": "npm run compile",
+    "watch:prod": "tsc -watch -p ./tsconfig.prod.json",
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
