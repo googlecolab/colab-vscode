@@ -19,11 +19,15 @@ describe("Jupyter Extension", () => {
       activateStub = sinon.stub();
     });
 
+    afterEach(() => {
+      sinon.restore();
+    });
+
     function getJupyterExtension(
       status: ExtensionStatus,
     ): Partial<vscode.Extension<Jupyter>> {
       return {
-        isActive: status === ExtensionStatus.Active ? true : false,
+        isActive: status === ExtensionStatus.Active,
         activate: activateStub,
         exports: {
           kernels: {
@@ -34,30 +38,30 @@ describe("Jupyter Extension", () => {
       };
     }
 
-    it("should throw an error if the Jupyter extension is not installed", async () => {
+    it("rejects if the Jupyter extension is not installed", async () => {
       getExtensionStub.returns(undefined);
 
-      await expect(
-        getJupyterApi(vscodeStub as typeof vscode),
-      ).to.be.rejectedWith("Jupyter Extension not installed");
+      await expect(getJupyterApi(vscodeStub)).to.be.rejectedWith(
+        "Jupyter Extension not installed",
+      );
       sinon.assert.notCalled(activateStub);
     });
 
-    it("should activate the extension if it is not active", async () => {
+    it("activates the extension if it is not active", async () => {
       const ext = getJupyterExtension(ExtensionStatus.Inactive);
       getExtensionStub.returns(ext as vscode.Extension<Jupyter>);
 
-      const result = await getJupyterApi(vscodeStub as typeof vscode);
+      const result = await getJupyterApi(vscodeStub);
 
       sinon.assert.calledOnce(activateStub);
       expect(result).to.equal(ext.exports);
     });
 
-    it("should return the exports if the extension is already active", async () => {
+    it("returns the exports if the extension is already active", async () => {
       const ext = getJupyterExtension(ExtensionStatus.Active);
       getExtensionStub.returns(ext as vscode.Extension<Jupyter>);
 
-      const result = await getJupyterApi(vscodeStub as typeof vscode);
+      const result = await getJupyterApi(vscodeStub);
 
       sinon.assert.notCalled(activateStub);
       expect(result).to.equal(ext.exports);

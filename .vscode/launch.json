@@ -2,9 +2,9 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug Unit Tests",
       "type": "node",
       "request": "launch",
-      "name": "Debug Unit Tests",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run-script", "test:unittests", "--", "--timeout", "0"],
       "skipFiles": ["<node_internals>/**"]

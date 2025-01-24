@@ -8,10 +8,13 @@ const getExtensionStub: SinonStub<
   vscode.Extension<any> | undefined
 > = sinon.stub();
 
-const vscodeStub: Pick<typeof vscode, "extensions"> = {
+const vscodeStub: typeof vscode = {
   extensions: {
     getExtension: getExtensionStub,
-  } as Partial<typeof vscode.extensions> as typeof vscode.extensions,
-};
+  } as Pick<
+    typeof vscode.extensions,
+    "getExtension"
+  > as typeof vscode.extensions,
+} as Pick<typeof vscode, "extensions"> as typeof vscode;
 
 export { getExtensionStub, vscodeStub };
