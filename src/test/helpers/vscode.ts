@@ -227,10 +227,7 @@ const vscodeStub: typeof vscode = {
   Disposable: DisposableStub,
   extensions: {
     getExtension: getExtensionStub,
-  } as Pick<
-    typeof vscode.extensions,
-    "getExtension"
-  > as typeof vscode.extensions,
+  } as Partial<typeof vscode.extensions> as typeof vscode.extensions,
 } as Pick<
   typeof vscode,
   "Uri" | "EventEmitter" | "Disposable" | "extensions"
