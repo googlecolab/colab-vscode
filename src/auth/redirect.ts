@@ -50,7 +50,6 @@ export class RedirectUriCodeProvider
         waitForExchangeTimeout(),
       ]);
     } catch (err: unknown) {
-      this.inFlightPromises.delete(nonce);
       if (err instanceof Error) {
         reject(err);
       } else {
