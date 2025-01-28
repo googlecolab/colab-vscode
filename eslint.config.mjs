@@ -29,6 +29,10 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_" },
       ],
+      "@typescript-eslint/explicit-member-accessibility": [
+        "error",
+        { accessibility: "no-public" },
+      ],
     },
   },
   // Intentionally last to override any conflicting rules.
