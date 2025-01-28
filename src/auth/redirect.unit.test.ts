@@ -10,7 +10,7 @@ describe("RedirectUriCodeProvider", () => {
   let provider: RedirectUriCodeProvider;
 
   beforeEach(() => {
-    clock = sinon.useFakeTimers();
+    clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
     cancellationTokenSource = new TestCancellationTokenSource();
     provider = new RedirectUriCodeProvider();
   });
