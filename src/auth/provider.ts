@@ -262,33 +262,76 @@ function parseAuthenticationSessions(
 }
 
 /**
- * Type guard to validate the object is an array of {@link vscode.AuthenticationSession}.
+ * Type guard to check if a value is a string.
  */
-function areAuthenticationSessions(
-  objs: unknown,
-): objs is vscode.AuthenticationSession[] {
-  if (!Array.isArray(objs)) {
+const isString = (value: unknown): value is string => {
+  return typeof value === "string";
+};
+
+/**
+ * Type guard to check if a value is an array of strings.
+ */
+const isStringArray = (value: unknown): value is readonly string[] => {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+};
+
+/**
+ * Type guard to check if a value matches the AuthenticationSessionAccountInformation shape
+ */
+const isAuthSessionAccountInfo = (
+  value: unknown,
+): value is vscode.AuthenticationSessionAccountInformation => {
+  if (!value || typeof value !== "object") {
     return false;
   }
-  for (const obj of objs) {
-    if (typeof obj !== "object" || obj === null) {
-      return false;
-    }
-    const session = obj as vscode.AuthenticationSession;
-    if (
-      typeof session.id !== "string" ||
-      typeof session.accessToken !== "string" ||
-      typeof session.account !== "object" ||
-      typeof session.account.id !== "string" ||
-      typeof session.account.label !== "string" ||
-      !Array.isArray(session.scopes) ||
-      session.scopes.some((scope: unknown) => typeof scope !== "string")
-    ) {
-      return false;
-    }
+
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+
+  const account = value as any;
+  return (
+    typeof account === "object" &&
+    account !== null &&
+    "id" in account &&
+    "label" in account &&
+    isString(account.id) &&
+    isString(account.label)
+  );
+};
+
+/**
+ * Type guard to check if a value matches the AuthenticationSession interface
+ */
+const isAuthenticationSession = (
+  value: unknown,
+): value is vscode.AuthenticationSession => {
+  if (!value || typeof value !== "object") {
+    return false;
   }
-  return true;
-}
+
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  const session = value as any;
+  return (
+    "id" in session &&
+    "accessToken" in session &&
+    "account" in session &&
+    "scopes" in session &&
+    isString(session.id) &&
+    isString(session.accessToken) &&
+    isAuthSessionAccountInfo(session.account) &&
+    isStringArray(session.scopes)
+  );
+};
+
+/**
+ * Type guard to check if a value is an array of {@link vscode.AuthenticationSession} objects.
+ */
+const areAuthenticationSessions = (
+  value: unknown,
+): value is vscode.AuthenticationSession[] => {
+  return Array.isArray(value) && value.every(isAuthenticationSession);
+};
 
 /**
  * User information queried for following a successful login.
@@ -302,10 +345,16 @@ interface UserInfo {
  * Type guard to validate the object is {@link UserInfo}.
  */
 function isUserInfo(obj: unknown): obj is UserInfo {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  const userInfo = obj as any;
   return (
-    typeof obj === "object" &&
-    obj !== null &&
-    typeof (obj as UserInfo).name === "string" &&
-    typeof (obj as UserInfo).email === "string"
+    "name" in userInfo &&
+    "email" in userInfo &&
+    isString(userInfo.name) &&
+    isString(userInfo.email)
   );
 }
