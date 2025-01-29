@@ -7,7 +7,7 @@ import { CodeProvider } from "./redirect";
 
 const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
-const REQUIRED_SCOPES = ["profile", "email"];
+const REQUIRED_SCOPES = ["profile", "email"] as const;
 const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
 
 /**
@@ -84,16 +84,15 @@ export class GoogleAuthProvider
    * @param _options - Currently unused.
    * @returns An array of stored authentication sessions.
    */
-  public async getSessions(
+  async getSessions(
     _scopes: readonly string[] | undefined,
     _options: vscode.AuthenticationProviderSessionOptions,
   ): Promise<vscode.AuthenticationSession[]> {
-    const allSessions = await this.context.secrets.get(SESSIONS_KEY);
-    if (!allSessions) {
+    const sessionJson = await this.context.secrets.get(SESSIONS_KEY);
+    if (!sessionJson) {
       return [];
     }
-
-    return JSON.parse(allSessions) as vscode.AuthenticationSession[];
+    return parseAuthenticationSessions(sessionJson);
   }
 
   /**
@@ -103,9 +102,7 @@ export class GoogleAuthProvider
    * @returns The created session.
    * @throws An error if login fails.
    */
-  public async createSession(
-    scopes: string[],
-  ): Promise<vscode.AuthenticationSession> {
+  async createSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
     try {
       const scopeSet = new Set([...scopes, ...REQUIRED_SCOPES]);
       const sortedScopes = Array.from(scopeSet).sort();
@@ -134,10 +131,13 @@ export class GoogleAuthProvider
       });
 
       return session;
-    } catch (e) {
-      const error = e as Error;
-      this.vs.window.showErrorMessage(`Sign in failed: ${error.message}`);
-      throw e;
+    } catch (err: unknown) {
+      let reason = "unknown error";
+      if (err instanceof Error) {
+        reason = err.message;
+      }
+      this.vs.window.showErrorMessage(`Sign in failed: ${reason}`);
+      throw err;
     }
   }
 
@@ -146,15 +146,14 @@ export class GoogleAuthProvider
    *
    * @param sessionId - The session ID.
    */
-  public async removeSession(sessionId: string): Promise<void> {
-    const allSessions = await this.context.secrets.get(SESSIONS_KEY);
-    if (!allSessions) {
+  async removeSession(sessionId: string): Promise<void> {
+    const sessionsJson = await this.context.secrets.get(SESSIONS_KEY);
+    if (!sessionsJson) {
       return;
     }
+    const sessions = parseAuthenticationSessions(sessionsJson);
 
-    const sessions = JSON.parse(allSessions) as vscode.AuthenticationSession[];
     const sessionIndex = sessions.findIndex((s) => s.id === sessionId);
-
     if (sessionIndex === -1) {
       return;
     }
@@ -243,11 +242,52 @@ export class GoogleAuthProvider
     }
     const json: unknown = await response.json();
     if (!isUserInfo(json)) {
-      throw new Error("Invalid user info, got: " + JSON.stringify(json));
+      throw new Error(`Invalid user info, got: ${JSON.stringify(json)}`);
     }
 
     return json;
   }
+}
+
+function parseAuthenticationSessions(
+  sessionsJson: string,
+): vscode.AuthenticationSession[] {
+  const sessions: unknown = JSON.parse(sessionsJson);
+  if (!areAuthenticationSessions(sessions)) {
+    throw new Error(
+      `Invalid authentication sessions, got: ${JSON.stringify(sessionsJson)}`,
+    );
+  }
+  return sessions;
+}
+
+/**
+ * Type guard to validate the object is an array of {@link vscode.AuthenticationSession}.
+ */
+function areAuthenticationSessions(
+  objs: unknown,
+): objs is vscode.AuthenticationSession[] {
+  if (!Array.isArray(objs)) {
+    return false;
+  }
+  for (const obj of objs) {
+    if (typeof obj !== "object" || obj === null) {
+      return false;
+    }
+    const session = obj as vscode.AuthenticationSession;
+    if (
+      typeof session.id !== "string" ||
+      typeof session.accessToken !== "string" ||
+      typeof session.account !== "object" ||
+      typeof session.account.id !== "string" ||
+      typeof session.account.label !== "string" ||
+      !Array.isArray(session.scopes) ||
+      session.scopes.some((scope: unknown) => typeof scope !== "string")
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -259,13 +299,13 @@ interface UserInfo {
 }
 
 /**
- * Type guard to validate the UserInfo structure.
+ * Type guard to validate the object is {@link UserInfo}.
  */
-function isUserInfo(data: unknown): data is UserInfo {
+function isUserInfo(obj: unknown): obj is UserInfo {
   return (
-    typeof data === "object" &&
-    data !== null &&
-    typeof (data as UserInfo).name === "string" &&
-    typeof (data as UserInfo).email === "string"
+    typeof obj === "object" &&
+    obj !== null &&
+    typeof (obj as UserInfo).name === "string" &&
+    typeof (obj as UserInfo).email === "string"
   );
 }

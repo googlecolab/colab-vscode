@@ -275,7 +275,7 @@ describe("GoogleAuthProvider", () => {
   });
 
   describe("removeSession", () => {
-    it("when no sessions exist", async () => {
+    it("does nothing when no sessions exist", async () => {
       secretsStub.get.withArgs(SESSIONS_KEY).resolves(JSON.stringify([]));
 
       await authProvider.removeSession(DEFAULT_SESSION.id);
@@ -283,7 +283,7 @@ describe("GoogleAuthProvider", () => {
       sinon.assert.notCalled(secretsStub.store);
     });
 
-    it("when session does not exist", async () => {
+    it("does nothing when provided session does not exist", async () => {
       secretsStub.get
         .withArgs(SESSIONS_KEY)
         .resolves(JSON.stringify([DEFAULT_SESSION]));
@@ -293,7 +293,7 @@ describe("GoogleAuthProvider", () => {
       sinon.assert.notCalled(secretsStub.store);
     });
 
-    it("when there is just the one", async () => {
+    it("removes when there is just the one sessions", async () => {
       secretsStub.get
         .withArgs(SESSIONS_KEY)
         .resolves(JSON.stringify([DEFAULT_SESSION]));
@@ -307,7 +307,7 @@ describe("GoogleAuthProvider", () => {
       );
     });
 
-    it("when there are many", async () => {
+    it("removes the provided session when there are many", async () => {
       const secondSession = {
         ...DEFAULT_SESSION,
         id: "2",
