@@ -19,7 +19,7 @@ const AUTH_CLIENT = new OAuth2Client(
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
   const jupyter = await getJupyterApi(vscode);
-  const redirectUriHandler = new RedirectUriCodeProvider(vscode);
+  const redirectUriHandler = new RedirectUriCodeProvider();
   const disposeUriHandler =
     vscode.window.registerUriHandler(redirectUriHandler);
   const authProvider = new GoogleAuthProvider(
