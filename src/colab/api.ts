@@ -6,37 +6,55 @@
  */
 
 export interface FreeCCUQuotaInfo {
-  // Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
-  // free usage allowance in milli-CCUs).
+  /**
+   * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
+   * free usage allowance in milli-CCUs).
+   */
   remainingTokens: number;
-  // Next free quota refill timestamp (epoch) in seconds.
+  /**
+   * Next free quota refill timestamp (epoch) in seconds.
+   */
   nextRefillTimestampSec: number;
 }
 
-// Cloud compute unit (CCU) information.
+/**
+ * Cloud compute unit (CCU) information.
+ */
 export interface CCUInfo {
-  // The current balance of the paid CCUs.
-  //
-  // Naming is unfortunate due to historical reasons and free CCU quota
-  // balance is made available in a separate field for the same reasons.
+  /**
+   * The current balance of the paid CCUs.
+   *
+   * Naming is unfortunate due to historical reasons and free CCU quota
+   * balance is made available in a separate field for the same reasons.
+   */
   currentBalance: number;
-  // The current rate of consumption of the user's CCUs (paid or free) based on
-  // all assigned VMs. VMs consume paid CCUs if the user's paid CCU balance is
-  // positive and free CCU quota if the paid balance is zero.
+  /**
+   * The current rate of consumption of the user's CCUs (paid or free) based on
+   * all assigned VMs. VMs consume paid CCUs if the user's paid CCU balance is
+   * positive and free CCU quota if the paid balance is zero.
+   */
   consumptionRateHourly: number;
-  // The number of runtimes currently assigned when the user's paid CCU balance
-  // is positive. This should match the number returned by the '/assignments'
-  // endpoint. This will be always zero if the paid CCU balance is zero and the
-  // /ccu-info request was made without the query param.
+  /**
+   * The number of runtimes currently assigned when the user's paid CCU balance
+   * is positive. This should match the number returned by the '/assignments'
+   * endpoint. This will be always zero if the paid CCU balance is zero and the
+   * /ccu-info request was made without the query param.
+   */
   assignmentsCount: number;
-  // The list of eligible GPU accelerators (w.r.t. their CCU balance and maybe
-  // their subscription status) in the priority order.
+  /**
+   * The list of eligible GPU accelerators (w.r.t. their CCU balance and maybe
+   * their subscription status) in the priority order.
+   */
   eligibleGpus: Accelerator[];
-  // The list of ineligible GPU accelerators. This can be used to display the
-  // items as disabled and upsell CCUs if non-empty.
+  /**
+   * The list of ineligible GPU accelerators. This can be used to display the
+   * items as disabled and upsell CCUs if non-empty.
+   */
   ineligibleGpus: Accelerator[];
-  // Free CCU quota information if the user's paid CCU balance is zero with
-  // non-zero assignments. Otherwise undefined.
+  /**
+   * Free CCU quota information if the user's paid CCU balance is zero with
+   * non-zero assignments. Otherwise undefined.
+   */
   freeCcuQuotaInfo?: FreeCCUQuotaInfo;
 }
 
@@ -93,36 +111,78 @@ export enum Accelerator {
 export interface GetAssignmentResponse {
   /** The pool's {@link Accelerator}. */
   acc: Accelerator;
-  // The notebook ID hash. Same as the `nbh` query parameter from the request.
+  /**
+   * The notebook ID hash. Same as the `nbh` query parameter from the request.
+   */
   nbh: string;
-  // Whether or not Recaptcha should prompt.
+  /**
+   * Whether or not Recaptcha should prompt.
+   */
   p: boolean;
-  // XSRF token to be provided when posting an assignment.
+  /**
+   * XSRF token to be provided when posting an assignment.
+   */
   token: string;
   /**
    * The string representation of the pool {@link Variant}.
-   * TODO: should the enum just be string values? Check with the return from POST assign.
    */
   variant: Variant;
 }
 
 export interface RuntimeProxyInfo {
+  /**
+   * Token for the runtime proxy.
+   */
   token: string;
+  /**
+   * Token expiration time in seconds.
+   */
   tokenExpiresInSeconds: number;
+  /**
+   * URL of the runtime proxy.
+   */
   url: string;
 }
 
 export interface Assignment {
+  /**
+   * The assigned accelerator.
+   */
   accelerator: Accelerator;
+  /**
+   * The endpoint URL.
+   */
   endpoint: string;
-  // FrontendIdleTimeoutSeconds
+  /**
+   * Frontend idle timeout in seconds.
+   */
   fit?: number;
-  // TrustedBackend
+  /**
+   * Whether the backend is trusted.
+   */
   allowedCredentials?: boolean;
+  /**
+   * The subscription state.
+   */
   sub: SubscriptionState;
+  /**
+   * The subscription tier.
+   */
   subTier: SubscriptionTier;
+  /**
+   * The outcome of the assignment.
+   */
   outcome?: Outcome;
+  /**
+   * The variant of the assignment.
+   */
   variant: Variant;
+  /**
+   * The machine shape.
+   */
   machineShape: Shape;
+  /**
+   * Information about the runtime proxy.
+   */
   runtimeProxyInfo?: RuntimeProxyInfo;
 }

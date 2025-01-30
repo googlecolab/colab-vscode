@@ -16,12 +16,12 @@ const ASSIGN_ENDPOINT = "/tun/m/assign?authuser=0";
 
 // To discriminate the type of GET assignment responses.
 interface AssignmentToken extends GetAssignmentResponse {
-  type: "to_assign";
+  kind: "to_assign";
 }
 
 // To discriminate the type of GET assignment responses.
 interface AssignedAssignment extends Assignment {
-  type: "assigned";
+  kind: "assigned";
 }
 
 /**
@@ -36,7 +36,7 @@ export class ColabClient {
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
-    if (domain.host === "https://localhost:8888") {
+    if (domain.hostname === "localhost") {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
   }
@@ -66,22 +66,22 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
   ): Promise<Assignment> {
-    const getAssignment = await this.getAssignment(
+    const assignment = await this.getAssignment(
       notebookHash,
       variant,
       accelerator,
     );
-    switch (getAssignment.type) {
+    switch (assignment.kind) {
       case "assigned": {
         // Not required, but we want to remove the type field we use internally
         // to discriminate the union of types returned from getAssignment.
-        const { type: _, ...rest } = getAssignment;
+        const { kind: _, ...rest } = assignment;
         return rest;
       }
       case "to_assign": {
         return await this.postAssignment(
           notebookHash,
-          getAssignment.token,
+          assignment.token,
           variant,
           accelerator,
         );
@@ -94,14 +94,14 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
   ): Promise<AssignmentToken | AssignedAssignment> {
-    const url = this.assignUrl(notebookHash, variant, accelerator);
+    const url = this.buildAssignUrl(notebookHash, variant, accelerator);
     const response = await this.issueRequest<
       GetAssignmentResponse | Assignment
     >(url, "GET");
     if ("token" in response) {
-      return { ...response, type: "to_assign" };
+      return { ...response, kind: "to_assign" };
     } else {
-      return { ...response, type: "assigned" };
+      return { ...response, kind: "assigned" };
     }
   }
 
@@ -111,13 +111,13 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
   ): Promise<Assignment> {
-    const url = this.assignUrl(notebookHash, variant, accelerator);
+    const url = this.buildAssignUrl(notebookHash, variant, accelerator);
     return this.issueRequest<Assignment>(url, "POST", [
       [XSRF_HEADER_KEY, xsrfToken],
     ]);
   }
 
-  private assignUrl(
+  private buildAssignUrl(
     notebookHash: string,
     variant: Variant,
     accelerator?: Accelerator,
@@ -154,6 +154,7 @@ export class ColabClient {
       );
     }
     const body = await response.text();
+    // TODO: Type-guard the response, likely with zod, explicit type guards or something else functionally equivalent.
     return JSON.parse(stripXssiPrefix(body)) as T;
   }
 }

@@ -43,11 +43,11 @@ describe("ColabClient", () => {
   });
 
   afterEach(() => {
-    fetchStub.restore();
+    sinon.restore();
   });
 
   describe("getCCUInfo", () => {
-    it("success", async () => {
+    it("successfully resolves CCU info", async () => {
       const mockResponse: CCUInfo = {
         currentBalance: 1,
         consumptionRateHourly: 2,
@@ -65,27 +65,27 @@ describe("ColabClient", () => {
           new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
         );
 
-      const result = await client.ccuInfo();
+      await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
 
-      expect(result).to.deep.equal(mockResponse);
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("handles error responses", async () => {
+    it("rejects when error responses are returned", () => {
       fetchStub.resolves(
         new Response("Error", {
           status: 500,
           statusText: "Internal Server Error",
         }),
       );
-      await expect(client.ccuInfo()).to.be.rejectedWith(
+
+      expect(client.ccuInfo()).to.eventually.be.rejectedWith(
         `Failed to GET ${DOMAIN}/tun/m/ccu-info?authuser=0: Internal Server Error`,
       );
     });
   });
 
   describe("assignment", () => {
-    it("with existing assignment", async () => {
+    it("resolves an existing assignment", async () => {
       const mockResponse: Assignment = {
         accelerator: Accelerator.A100,
         endpoint: "mock-endpoint",
@@ -105,17 +105,14 @@ describe("ColabClient", () => {
           new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
         );
 
-      const result = await client.assign(
-        NOTEBOOK_HASH,
-        Variant.GPU,
-        Accelerator.A100,
-      );
+      await expect(
+        client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
+      ).to.eventually.deep.equal(mockResponse);
 
-      expect(result).to.deep.equal(mockResponse);
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("without existing assignment", async () => {
+    it("creates and resolves a new assignment when an existing one does not exist", async () => {
       const mockGetResponse: GetAssignmentResponse = {
         acc: Accelerator.A100,
         nbh: NOTEBOOK_HASH,
@@ -152,26 +149,24 @@ describe("ColabClient", () => {
           }),
         );
 
-      const result = await client.assign(
-        NOTEBOOK_HASH,
-        Variant.GPU,
-        Accelerator.A100,
-      );
+      await expect(
+        client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
+      ).to.eventually.deep.equal(mockPostResponse);
 
-      expect(result).to.deep.equal(mockPostResponse);
       sinon.assert.calledTwice(fetchStub);
     });
 
-    it("handles error responses", async () => {
+    it("rejects when error responses are returned", () => {
       fetchStub.resolves(
         new Response("Error", {
           status: 500,
           statusText: "Internal Server Error",
         }),
       );
-      await expect(
+
+      expect(
         client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
-      ).to.be.rejectedWith(
+      ).to.eventually.be.rejectedWith(
         `Failed to GET ${DOMAIN}/tun/m/assign?authuser=0&nbh=${NOTEBOOK_HASH}: Internal Server Error`,
       );
     });
@@ -193,18 +188,17 @@ describe("ColabClient", () => {
       .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
       .resolves(new Response(JSON.stringify(mockResponse), { status: 200 }));
 
-    const result = await client.ccuInfo();
+    await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
 
-    expect(result).to.deep.equal(mockResponse);
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it("handles invalid JSON responses", async () => {
+  it("rejects invalid JSON responses", () => {
     fetchStub
       .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
       .resolves(new Response(withXSSI("this ain't JSON"), { status: 200 }));
 
-    await expect(client.ccuInfo()).to.be.rejectedWith(/this ain't JSON/);
+    expect(client.ccuInfo()).to.eventually.be.rejectedWith(/this ain't JSON/);
   });
 });
 
