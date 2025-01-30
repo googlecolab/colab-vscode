@@ -52,7 +52,7 @@ export class ColabJupyterServerProvider
           server.accelerator && eligibleGpus.has(server.accelerator);
         const ineligibleGpu =
           server.accelerator && ineligibleGpus.has(server.accelerator);
-        // TODO: Provide a ⚠️ warning for the servers which are inneligible for the user.
+        // TODO: Provide a ⚠️ warning for the servers which are ineligible for the user.
 
         return eligibleGpu && !ineligibleGpu;
       });

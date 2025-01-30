@@ -37,7 +37,5 @@ export async function activate(context: vscode.ExtensionContext) {
     colabClient,
   );
 
-  context.subscriptions.push(disposeUriHandler);
-  context.subscriptions.push(authProvider);
-  context.subscriptions.push(serverProvider);
+  context.subscriptions.push(disposeUriHandler, authProvider, serverProvider);
 }

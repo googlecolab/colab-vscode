@@ -2,7 +2,6 @@ import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
-import vscode from "vscode";
 import {
   Accelerator,
   Assignment,
@@ -42,7 +41,7 @@ describe("ColabJupyterServerProvider", () => {
     DisposableStub.from.returns(registrationDisposable);
 
     serverProvider = new ColabJupyterServerProvider(
-      vscodeStub as typeof vscode,
+      vscodeStub,
       jupyterStub as Partial<Jupyter> as Jupyter,
       colabClientStub as Partial<ColabClient> as ColabClient,
     );
