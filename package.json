@@ -46,8 +46,8 @@
     "format:check": "prettier . --check",
     "pretest": "npm run compile && npm run lint",
     "test:unittests": "npm run compile && mocha --enable-source-maps --require ./out/test/unit-test-setup.js './out/**/*.unit.test.js'",
-    "test:xvfb": "xvfb-run -s '-screen 0 1024x768x24' node ./out/test/runTest.js",
-    "test": "node ./out/test/runTest.js",
+    "test:xvfb": "xvfb-run -s '-screen 0 1024x768x24' node ./out/test/integration-test-runner.js",
+    "test": "node ./out/test/integration-test-runner.js",
     "vscode:prepublish": "npm run compile",
     "watch:prod": "tsc -watch -p ./tsconfig.prod.json",
     "watch": "tsc -watch -p ./"

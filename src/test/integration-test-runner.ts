@@ -54,7 +54,8 @@ async function main() {
       extensionTestsPath,
       launchArgs: ["--extensions-dir", extensionsDir]
         .concat(["--skip-welcome"])
-        .concat(["--skip-release-notes"]),
+        .concat(["--skip-release-notes"])
+        .concat(["--timeout", "5000"]),
       version: "insiders",
     });
   } catch (err) {
