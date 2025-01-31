@@ -196,19 +196,19 @@ export class GoogleAuthProvider
 
         const code = await promisedCode;
 
-        const tokenReponse = await this.oAuth2Client.getToken({
+        const tokenResponse = await this.oAuth2Client.getToken({
           code,
           codeVerifier: pkce.codeVerifier,
         });
 
         if (
-          tokenReponse.res?.status !== 200 ||
-          !tokenReponse.tokens.access_token
+          tokenResponse.res?.status !== 200 ||
+          !tokenResponse.tokens.access_token
         ) {
           throw new Error("No access token returned");
         }
 
-        return tokenReponse.tokens.access_token;
+        return tokenResponse.tokens.access_token;
       },
     );
   }

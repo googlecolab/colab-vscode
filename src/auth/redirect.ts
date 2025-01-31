@@ -62,7 +62,7 @@ export class RedirectUriCodeProvider
   }
 
   /**
-   * Resolves the in-flight promise correpsonding to the provided URI.
+   * Resolves the in-flight promise corresponding to the provided URI.
    *
    * @param uri - The URI containing the query parameters for nonce and code.
    */

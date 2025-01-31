@@ -1,12 +1,14 @@
 import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
-import * as importPlugin from "eslint-plugin-import";
+import importPlugin from "eslint-plugin-import";
+import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
 
 export default tseslint.config(
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
+  cspellESLintPluginRecommended,
   {
     ignores: ["eslint.config.mjs"],
     languageOptions: {

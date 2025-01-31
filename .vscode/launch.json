@@ -6,7 +6,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run-script", "test:unittests", "--", "--timeout", "0"],
+      "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"],
       "skipFiles": ["<node_internals>/**"]
     },
     {

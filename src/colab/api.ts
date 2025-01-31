@@ -48,7 +48,7 @@ export interface CCUInfo {
   eligibleGpus: Accelerator[];
   /**
    * The list of ineligible GPU accelerators. This can be used to display the
-   * items as disabled and upsell CCUs if non-empty.
+   * items as disabled and up-sell CCUs if non-empty.
    */
   ineligibleGpus: Accelerator[];
   /**
