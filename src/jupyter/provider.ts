@@ -67,7 +67,7 @@ export class ColabJupyterServerProvider
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
     // TODO: Derive NBH.
-    const nbh = "booooooooooooooooooooooooooooooooooooooooooo";
+    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
 
     const colabServer = SERVERS.get(server.id);
     if (!colabServer) {

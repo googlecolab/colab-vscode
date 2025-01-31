@@ -2,7 +2,7 @@ import { JupyterServer } from "@vscode/jupyter-extension";
 import { Accelerator, Variant } from "../colab/api";
 
 /**
- * Colab's Jupter server descriptor which includes machine-specific designations.
+ * Colab's Jupyter server descriptor which includes machine-specific designations.
  */
 export interface ColabJupyterServer extends JupyterServer {
   variant: Variant;

@@ -6,9 +6,11 @@ import { ColabClient } from "./colab/client";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
 
+/* cSpell:disable */
 const CLIENT_ID =
   "1014160490159-8bdmhbrghjfch5sb8ltuofo1mk1totmr.apps.googleusercontent.com";
 const CLIENT_NOT_SO_SECRET = "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";
+/* cSpell:enable */
 const AUTH_CLIENT = new OAuth2Client(
   CLIENT_ID,
   CLIENT_NOT_SO_SECRET,
