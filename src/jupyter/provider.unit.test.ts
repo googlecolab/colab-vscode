@@ -151,7 +151,6 @@ describe("ColabJupyterServerProvider", () => {
     it("rejects for server assignments without connection information", async () => {
       const server = SERVERS.get("gpu-a100");
       assert.isDefined(server);
-      // TODO: Derive NBH.
       const nbh = "booooooooooooooooooooooooooooooooooooooooooo";
       const assignment: Assignment = {
         accelerator: Accelerator.A100,

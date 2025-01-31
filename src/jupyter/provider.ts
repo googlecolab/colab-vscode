@@ -66,6 +66,7 @@ export class ColabJupyterServerProvider
     server: JupyterServer,
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
+    // TODO: Derive NBH.
     const nbh = "booooooooooooooooooooooooooooooooooooooooooo";
 
     const colabServer = SERVERS.get(server.id);
