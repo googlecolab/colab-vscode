@@ -1,6 +1,9 @@
 import { assert, expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
-import { GetTokenResponse } from "google-auth-library/build/src/auth/oauth2client";
+import {
+  CodeChallengeMethod,
+  GetTokenResponse,
+} from "google-auth-library/build/src/auth/oauth2client";
 import * as nodeFetch from "node-fetch";
 import { SinonStub, SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
@@ -12,6 +15,7 @@ import {
   ProgressLocation,
   registerAuthenticationProviderStub,
   showErrorMessageStub,
+  TestUri,
   vscodeStub,
   withProgressStub,
 } from "../test/helpers/vscode";
@@ -19,6 +23,7 @@ import { GoogleAuthProvider } from "./provider";
 import { CodeProvider } from "./redirect";
 
 const REQUIRED_SCOPES = ["profile", "email"];
+const CLIENT_ID = "testClientId";
 const SESSIONS_KEY = "google.sessions";
 const DEFAULT_SESSION: vscode.AuthenticationSession = {
   id: "1",
@@ -32,7 +37,7 @@ const DEFAULT_SESSION: vscode.AuthenticationSession = {
 
 describe("GoogleAuthProvider", () => {
   const oAuth2Client = new OAuth2Client(
-    "testClientId",
+    CLIENT_ID,
     "testClientSecret",
     "https://localhost:8888/vscode/redirect",
   );
@@ -233,14 +238,20 @@ describe("GoogleAuthProvider", () => {
             );
           }),
         )
-        .resolvesArg(0);
+        .callsFake((_uri) =>
+          Promise.resolve(
+            TestUri.parse(
+              `vscode://google.colab?nonce%3D${nonce}%26windowId%3D1`,
+            ),
+          ),
+        );
       openExternalStub
         .withArgs(
-          sinon.match((uri: vscode.Uri) => {
-            return /https:\/\/accounts.google.com\/o\/oauth2\/v2\/auth\/authorize\?client_id=.+redirect_uri=.+response_type=.+scope=.+state=.+code_challenge=.+code_challenge_method=S256&prompt=login/.test(
-              uri.toString(),
-            );
-          }),
+          sinon.match((uri: vscode.Uri) =>
+            uri
+              .toString()
+              .startsWith("https://accounts.google.com/o/oauth2/v2/auth?"),
+          ),
         )
         .resolves(true);
       const userInfoResponse = new nodeFetch.Response(
@@ -271,6 +282,22 @@ describe("GoogleAuthProvider", () => {
         ...DEFAULT_SESSION,
         id: undefined,
       });
+      sinon.assert.calledOnce(openExternalStub);
+      const [query] = openExternalStub.firstCall.args.map(
+        (arg) => new URLSearchParams(arg.query),
+      );
+      expect([...query.entries()]).to.deep.include.members([
+        ["response_type", "code"],
+        ["scope", "email profile"],
+        ["prompt", "login"],
+        ["code_challenge_method", CodeChallengeMethod.S256],
+        ["client_id", CLIENT_ID],
+        ["redirect_uri", "https://localhost:8888/vscode/redirect"],
+      ]);
+      expect(query.get("state")).to.match(
+        /^vscode:\/\/google\.colab\?nonce%3D[a-f0-9-]+%26windowId%3D1$/,
+      );
+      expect(query.get("code_challenge")).to.match(/^[A-Za-z0-9_-]+$/);
     });
   });
 
