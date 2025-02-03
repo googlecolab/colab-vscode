@@ -181,7 +181,7 @@ export class GoogleAuthProvider
         const promisedCode = this.codeProvider.waitForCode(nonce, cancel);
 
         const callbackUri = await this.getCallbackUri(nonce);
-        const encodedCallbackUri = encodeURIComponent(callbackUri.toString());
+        const encodedCallbackUri = callbackUri.toString();
         const pkce = await this.oAuth2Client.generateCodeVerifierAsync();
         const authorizeUrl = this.oAuth2Client.generateAuthUrl({
           response_type: "code",
@@ -218,11 +218,8 @@ export class GoogleAuthProvider
     const packageInfo = this.context.extension.packageJSON as PackageInfo;
     const pub = packageInfo.publisher;
     const name = packageInfo.name;
-    const nonceUri = encodeURIComponent(nonce);
 
-    const uri = this.vs.Uri.parse(
-      `${scheme}://${pub}.${name}?nonce=${nonceUri}`,
-    );
+    const uri = this.vs.Uri.parse(`${scheme}://${pub}.${name}?nonce=${nonce}`);
 
     return await this.vs.env.asExternalUri(uri);
   }
