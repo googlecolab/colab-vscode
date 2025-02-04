@@ -1,5 +1,6 @@
 import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
+import * as nodeFetch from "node-fetch";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import {
@@ -171,6 +172,7 @@ describe("ColabJupyterServerProvider", () => {
     it("successfully", async () => {
       const server = SERVERS.get("gpu-a100");
       assert.isDefined(server);
+      const fetchStub = sinon.stub(nodeFetch, "default");
       const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
       const assignment: Assignment = {
         accelerator: Accelerator.A100,
@@ -192,6 +194,9 @@ describe("ColabJupyterServerProvider", () => {
         cancellationToken,
       );
 
+      assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+      sinon.replace(resolvedServer.connectionInformation, "fetch", fetchStub);
+
       assert.isDefined(assignment.runtimeProxyInfo);
       const expectedResolvedServer: ColabJupyterServer = {
         id: server.id,
@@ -201,11 +206,63 @@ describe("ColabJupyterServerProvider", () => {
           headers: {
             "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
           },
+          fetch: fetchStub.resolves(),
         },
         variant: server.variant,
         accelerator: server.accelerator,
       };
       expect(resolvedServer).to.deep.equal(expectedResolvedServer);
     });
+  });
+
+  it(`uses correct values from custom fetch`, async () => {
+    const server = SERVERS.get("m");
+    assert.isDefined(server);
+    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
+    const assignment: Assignment = {
+      accelerator: Accelerator.NONE,
+      endpoint: "mock-endpoint",
+      sub: SubscriptionState.UNSUBSCRIBED,
+      subTier: SubscriptionTier.UNKNOWN_TIER,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      runtimeProxyInfo: {
+        token: "mock-token",
+        tokenExpiresInSeconds: 42,
+        url: "https://mock-url.com",
+      },
+    };
+    colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
+
+    let fetchInfo: nodeFetch.RequestInfo = "";
+    let fetchInit: nodeFetch.RequestInit = {};
+    sinon.replace(nodeFetch, "default", ((
+      info: nodeFetch.RequestInfo,
+      init: nodeFetch.RequestInit,
+    ) => {
+      fetchInfo = info;
+      fetchInit = init;
+    }) as typeof nodeFetch.default);
+
+    assert.isDefined(assignment.runtimeProxyInfo);
+    const expectedHeaders = new nodeFetch.Headers();
+    expectedHeaders.append(
+      "X-Colab-Runtime-Proxy-Token",
+      assignment.runtimeProxyInfo.token,
+    );
+
+    const resolvedServer = await serverProvider.resolveJupyterServer(
+      server,
+      cancellationToken,
+    );
+
+    assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+    await resolvedServer.connectionInformation.fetch(
+      assignment.runtimeProxyInfo.url,
+    );
+
+    expect(fetchInfo).to.equal(assignment.runtimeProxyInfo.url);
+    assert.isDefined(fetchInit.headers);
+    expect(fetchInit.headers).to.deep.equal(expectedHeaders);
   });
 });
