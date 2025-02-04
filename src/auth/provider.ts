@@ -169,8 +169,8 @@ export class GoogleAuthProvider
     });
   }
 
-  private async login(scopes: string) {
-    return await this.vs.window.withProgress<string>(
+  private async login(scopes: string): Promise<string> {
+    const token = await this.vs.window.withProgress<string>(
       {
         location: this.vs.ProgressLocation.Notification,
         title: "Signing in to Google...",
@@ -210,6 +210,9 @@ export class GoogleAuthProvider
         return tokenResponse.tokens.access_token;
       },
     );
+    this.vs.window.showInformationMessage("Signed in to Google!");
+
+    return token;
   }
 
   private async getCallbackUri(nonce: string): Promise<vscode.Uri> {

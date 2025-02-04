@@ -21,6 +21,15 @@ const asExternalUriStub: SinonStub<
   Thenable<vscode.Uri>
 > = sinon.stub();
 
+const showInformationMessageStub: SinonStub<
+  [
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: vscode.MessageItem[],
+  ],
+  Thenable<vscode.MessageItem | undefined>
+> = sinon.stub();
+
 const withProgressStub: SinonStub<
   [
     options: vscode.ProgressOptions,
@@ -77,6 +86,7 @@ const vscodeStub: typeof vscode = {
   } as Partial<typeof vscode.env> as typeof vscode.env,
   window: {
     withProgress: withProgressStub,
+    showInformationMessage: showInformationMessageStub,
     showErrorMessage: showErrorMessageStub,
   } as Partial<typeof vscode.window> as typeof vscode.window,
   ProgressLocation: ProgressLocation,
@@ -106,6 +116,7 @@ export {
   openExternalStub,
   asExternalUriStub,
   withProgressStub,
+  showInformationMessageStub,
   showErrorMessageStub,
   ProgressLocation,
   getExtensionStub,
