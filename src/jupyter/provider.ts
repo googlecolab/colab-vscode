@@ -4,11 +4,10 @@ import {
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
 import * as nodeFetch from "node-fetch";
-import { CancellationToken, ProviderResult } from "vscode";
-import vscode from "vscode";
-import { CCUInfo, Variant } from "../colab/api";
-import { ColabClient } from "../colab/client";
-import { SERVERS } from "./servers";
+import vscode, {CancellationToken, ProviderResult} from "vscode";
+import {CCUInfo, Variant} from "../colab/api";
+import {ColabClient} from "../colab/client";
+import {SERVERS} from "./servers";
 
 /**
  * Colab Jupyter server provider.
@@ -102,10 +101,6 @@ export class ColabJupyterServerProvider
               const requestHeaders = new nodeFetch.Headers(init.headers);
               requestHeaders.append("X-Colab-Runtime-Proxy-Token", token);
               init.headers = requestHeaders;
-
-              if (typeof info !== "string" && !("href" in info)) {
-                info = new nodeFetch.Request(info.url, info);
-              }
 
               return nodeFetch.default(info, init);
             },
