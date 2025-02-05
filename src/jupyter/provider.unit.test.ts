@@ -1,6 +1,6 @@
 import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
-import * as nodeFetch from "node-fetch";
+import fetch, { Headers } from "node-fetch";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import {
@@ -18,7 +18,10 @@ import {
   TestUri,
   vscodeStub,
 } from "../test/helpers/vscode";
-import { ColabJupyterServerProvider } from "./provider";
+import {
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+  ColabJupyterServerProvider,
+} from "./provider";
 import { ColabJupyterServer, SERVERS } from "./servers";
 
 describe("ColabJupyterServerProvider", () => {
@@ -172,7 +175,7 @@ describe("ColabJupyterServerProvider", () => {
     it("successfully", async () => {
       const server = SERVERS.get("gpu-a100");
       assert.isDefined(server);
-      const fetchStub = sinon.stub(nodeFetch, "default");
+      const fetchStub = sinon.stub(fetch);
       const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
       const assignment: Assignment = {
         accelerator: Accelerator.A100,
@@ -188,15 +191,6 @@ describe("ColabJupyterServerProvider", () => {
         },
       };
       colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
-
-      const resolvedServer = await serverProvider.resolveJupyterServer(
-        server,
-        cancellationToken,
-      );
-
-      assert.isDefined(resolvedServer?.connectionInformation?.fetch);
-      sinon.replace(resolvedServer.connectionInformation, "fetch", fetchStub);
-
       assert.isDefined(assignment.runtimeProxyInfo);
       const expectedResolvedServer: ColabJupyterServer = {
         id: server.id,
@@ -204,18 +198,27 @@ describe("ColabJupyterServerProvider", () => {
         connectionInformation: {
           baseUrl: TestUri.parse(assignment.runtimeProxyInfo.url),
           headers: {
-            "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+            COLAB_RUNTIME_PROXY_TOKEN_HEADER: assignment.runtimeProxyInfo.token,
           },
-          fetch: fetchStub.resolves(),
+          fetch: fetchStub,
         },
         variant: server.variant,
         accelerator: server.accelerator,
       };
+
+      const resolvedServer = await serverProvider.resolveJupyterServer(
+        server,
+        cancellationToken,
+      );
+      assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+      sinon.replace(resolvedServer.connectionInformation, "fetch", fetchStub);
+
       expect(resolvedServer).to.deep.equal(expectedResolvedServer);
     });
   });
 
-  it(`uses correct values from custom fetch`, async () => {
+  it("uses correct values from custom fetch", async () => {
+    const fetchStub = sinon.stub(fetch, "default");
     const server = SERVERS.get("m");
     assert.isDefined(server);
     const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
@@ -233,23 +236,15 @@ describe("ColabJupyterServerProvider", () => {
       },
     };
     colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
-
-    let fetchInfo: nodeFetch.RequestInfo = "";
-    let fetchInit: nodeFetch.RequestInit = {};
-    sinon.replace(nodeFetch, "default", ((
-      info: nodeFetch.RequestInfo,
-      init: nodeFetch.RequestInit,
-    ) => {
-      fetchInfo = info;
-      fetchInit = init;
-    }) as typeof nodeFetch.default);
-
     assert.isDefined(assignment.runtimeProxyInfo);
-    const expectedHeaders = new nodeFetch.Headers();
+    const expectedHeaders = new Headers();
     expectedHeaders.append(
-      "X-Colab-Runtime-Proxy-Token",
+      COLAB_RUNTIME_PROXY_TOKEN_HEADER,
       assignment.runtimeProxyInfo.token,
     );
+    const expectedInit: fetch.RequestInit = {
+      headers: expectedHeaders,
+    };
 
     const resolvedServer = await serverProvider.resolveJupyterServer(
       server,
@@ -260,9 +255,10 @@ describe("ColabJupyterServerProvider", () => {
     await resolvedServer.connectionInformation.fetch(
       assignment.runtimeProxyInfo.url,
     );
-
-    expect(fetchInfo).to.equal(assignment.runtimeProxyInfo.url);
-    assert.isDefined(fetchInit.headers);
-    expect(fetchInit.headers).to.deep.equal(expectedHeaders);
+    sinon.assert.calledOnceWithExactly(
+      fetchStub,
+      assignment.runtimeProxyInfo.url,
+      expectedInit,
+    );
   });
 });

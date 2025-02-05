@@ -15,6 +15,7 @@ import {
   ProgressLocation,
   registerAuthenticationProviderStub,
   showErrorMessageStub,
+  showInformationMessageStub,
   TestUri,
   vscodeStub,
   withProgressStub,
@@ -298,6 +299,10 @@ describe("GoogleAuthProvider", () => {
         /^vscode:\/\/google\.colab\?nonce%3D[a-f0-9-]+%26windowId%3D1$/,
       );
       expect(query.get("code_challenge")).to.match(/^[A-Za-z0-9_-]+$/);
+      sinon.assert.calledOnceWithMatch(
+        showInformationMessageStub,
+        sinon.match(/Signed in/),
+      );
     });
   });
 
