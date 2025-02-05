@@ -3,9 +3,9 @@ import {
   JupyterServer,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import { CancellationToken, ProviderResult } from "vscode";
-import vscode from "vscode";
-import { CCUInfo, Variant } from "../colab/api";
+import vscode, { CancellationToken, ProviderResult } from "vscode";
+import { Variant } from "../colab/api";
+import { CCUInformation as CCUInfo } from "../colab/ccu-info";
 import { ColabClient } from "../colab/client";
 import { SERVERS } from "./servers";
 
@@ -18,12 +18,17 @@ export class ColabJupyterServerProvider
   implements JupyterServerProvider, vscode.Disposable
 {
   private readonly disposable: vscode.Disposable;
+  private onChangeServersEmitter: vscode.EventEmitter<void>;
+  private ccuInfo?: CCUInfo;
+  onDidChangeServers: vscode.Event<void>;
 
   constructor(
     private readonly vs: typeof vscode,
     jupyter: Jupyter,
     private readonly client: ColabClient,
   ) {
+    this.onChangeServersEmitter = new vs.EventEmitter<void>();
+    this.onDidChangeServers = this.onChangeServersEmitter.event;
     this.disposable = this.vs.Disposable.from(
       jupyter.createJupyterServerCollection("colab", "Colab", this),
     );
@@ -39,9 +44,9 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return this.client.ccuInfo().then((ccuInfo: CCUInfo) => {
-      const eligibleGpus = new Set(ccuInfo.eligibleGpus);
-      const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
+    const parseCCUInfo = (nextCCUInfo: CCUInfo) => {
+      const eligibleGpus = new Set(nextCCUInfo.ccuInfo.eligibleGpus);
+      const ineligibleGpus = new Set(nextCCUInfo.ccuInfo.ineligibleGpus);
       // TODO: TPUs are currently not supported by the CCU Info API.
       return Array.from(SERVERS.values()).filter((server) => {
         if (server.variant !== Variant.GPU) {
@@ -56,7 +61,25 @@ export class ColabJupyterServerProvider
 
         return eligibleGpu && !ineligibleGpu;
       });
-    });
+    };
+
+    if (!this.ccuInfo) {
+      return CCUInfo.initialize(this.vs, this.client).then(
+        (ccuInfo: CCUInfo) => {
+          this.ccuInfo = ccuInfo;
+          this.ccuInfo.didChangeCCUInfo.event(
+            () => {
+              this.onChangeServersEmitter.fire();
+            },
+            this,
+            [this.disposable],
+          );
+
+          return parseCCUInfo(this.ccuInfo);
+        },
+      );
+    }
+    return parseCCUInfo(this.ccuInfo);
   }
 
   /**

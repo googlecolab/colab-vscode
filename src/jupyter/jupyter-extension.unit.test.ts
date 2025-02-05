@@ -1,7 +1,6 @@
 import { Jupyter } from "@vscode/jupyter-extension";
 import { expect } from "chai";
-import { SinonStub } from "sinon";
-import sinon from "sinon";
+import sinon, { SinonStub } from "sinon";
 import vscode from "vscode";
 import { getExtensionStub, vscodeStub } from "../test/helpers/vscode";
 import { getJupyterApi } from "./jupyter-extension";
@@ -32,6 +31,7 @@ describe("Jupyter Extension", () => {
         exports: {
           kernels: {
             getKernel: sinon.stub(),
+            onDidStart: sinon.stub(),
           },
           createJupyterServerCollection: sinon.stub(),
         },

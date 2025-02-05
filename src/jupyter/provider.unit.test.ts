@@ -1,7 +1,7 @@
 import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
-import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
+import { SinonStubbedInstance } from "sinon";
 import {
   Accelerator,
   Assignment,
@@ -27,7 +27,7 @@ describe("ColabJupyterServerProvider", () => {
     Pick<Jupyter, "createJupyterServerCollection">
   >;
   let colabClientStub: SinonStubbedInstance<
-    Pick<ColabClient, "ccuInfo" | "assign">
+    Pick<ColabClient, "assign" | "ccuInfo">
   >;
   let registrationDisposable: DisposableStub;
   let serverProvider: ColabJupyterServerProvider;

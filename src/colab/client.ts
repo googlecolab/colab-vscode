@@ -1,18 +1,13 @@
 import * as https from "https";
 import fetch, { Request } from "node-fetch";
 import { AuthenticationSession } from "vscode";
-import {
-  Assignment,
-  CCUInfo,
-  Variant,
-  Accelerator,
-  GetAssignmentResponse,
-} from "./api";
+import { Accelerator, Assignment, GetAssignmentResponse, Variant } from "./api";
+import { CCUInfo } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
 const XSRF_HEADER_KEY = "X-Goog-Colab-Token";
-const CCU_INFO_ENDPOINT = "/tun/m/ccu-info?authuser=0";
 const ASSIGN_ENDPOINT = "/tun/m/assign?authuser=0";
+const CCU_INFO_ENDPOINT = "/tun/m/ccu-info?authuser=0";
 
 // To discriminate the type of GET assignment responses.
 interface AssignmentToken extends GetAssignmentResponse {
@@ -31,7 +26,7 @@ export class ColabClient {
   private readonly httpsAgent?: https.Agent;
 
   constructor(
-    private readonly domain: URL,
+    readonly domain: URL,
     private session: () => Promise<AuthenticationSession>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
@@ -133,7 +128,7 @@ export class ColabClient {
     return url;
   }
 
-  private async issueRequest<T>(
+  async issueRequest<T>(
     endpoint: URL,
     method: "GET" | "POST",
     headers?: fetch.HeadersInit,
