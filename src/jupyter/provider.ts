@@ -36,6 +36,7 @@ export class ColabJupyterServerProvider
 
   dispose() {
     this.disposable.dispose();
+    this.ccuInfo?.dispose();
   }
 
   /**

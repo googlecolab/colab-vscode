@@ -1,7 +1,7 @@
-import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
-import { assert, expect } from "chai";
+import {Jupyter, JupyterServer} from "@vscode/jupyter-extension";
+import {assert, expect} from "chai";
 import * as sinon from "sinon";
-import { SinonStubbedInstance } from "sinon";
+import {SinonStubbedInstance} from "sinon";
 import {
   Accelerator,
   Assignment,
@@ -10,15 +10,15 @@ import {
   SubscriptionTier,
   Variant,
 } from "../colab/api";
-import { ColabClient } from "../colab/client";
+import {ColabClient} from "../colab/client";
 import {
   DisposableStub,
   TestCancellationTokenSource,
   TestUri,
   vscodeStub,
 } from "../test/helpers/vscode";
-import { ColabJupyterServerProvider } from "./provider";
-import { ColabJupyterServer, SERVERS } from "./servers";
+import {ColabJupyterServerProvider} from "./provider";
+import {ColabJupyterServer, SERVERS} from "./servers";
 
 describe("ColabJupyterServerProvider", () => {
   const cancellationTokenSource = new TestCancellationTokenSource();
@@ -48,6 +48,7 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   afterEach(() => {
+    serverProvider.dispose();
     sinon.reset();
   });
 
