@@ -39,6 +39,7 @@
   },
   "scripts": {
     "clean": "rm -rf out/*",
+    "compile": "tsc -p ./",
     "build": "tsc -p ./ --outDir /dev/null & babel ./src --out-dir ./out --extensions .ts",
     "lint:fix": "eslint src/ --fix",
     "lint": "eslint src/",
