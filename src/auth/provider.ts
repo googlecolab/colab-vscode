@@ -1,9 +1,9 @@
-import { CodeChallengeMethod, OAuth2Client } from "google-auth-library";
+import {CodeChallengeMethod, OAuth2Client} from "google-auth-library";
 import fetch from "node-fetch";
-import { v4 as uuid } from "uuid";
+import {v4 as uuid} from "uuid";
 import vscode from "vscode";
-import { PackageInfo } from "../config/package_info";
-import { CodeProvider } from "./redirect";
+import {PackageInfo} from "../config/package_info";
+import {CodeProvider} from "./redirect";
 
 const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
@@ -19,9 +19,11 @@ const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
 export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
 {
-  readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
+  readonly onDidChangeSessions: vscode.Event<
+    vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
   private readonly disposable: vscode.Disposable;
-  private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
+  private readonly emitter: vscode.EventEmitter<
+    vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
 
   /**
    * Initializes the GoogleAuthProvider.
@@ -39,7 +41,8 @@ export class GoogleAuthProvider
     private readonly codeProvider: CodeProvider,
   ) {
     this.emitter =
-      new vs.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
+      new vs.EventEmitter<
+        vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
     this.onDidChangeSessions = this.emitter.event;
 
     this.disposable = this.vs.Disposable.from(
