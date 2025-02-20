@@ -36,6 +36,7 @@ export default tseslint.config(
           ignoreStrings: true,
           ignoreTemplateLiterals: true,
           ignoreUrls: true,
+          ignorePattern: "<.*>",
         },
       ],
       "@typescript-eslint/no-unused-vars": [
