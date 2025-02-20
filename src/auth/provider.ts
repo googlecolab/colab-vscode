@@ -1,4 +1,4 @@
-import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
+import { CodeChallengeMethod, OAuth2Client } from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
 import vscode from "vscode";
@@ -13,8 +13,8 @@ const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
 /**
  * Provides authentication using Google OAuth2.
  *
- * Registers itself with the VS Code authentication API and emits events
- * when authentication sessions change.
+ * Registers itself with the VS Code authentication API and emits events when
+ * authentication sessions change.
  */
 export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
@@ -29,7 +29,8 @@ export class GoogleAuthProvider
    * @param vs - The VS Code API.
    * @param context - The extension context used for managing lifecycle.
    * @param oAuth2Client - The OAuth2 client for handling Google authentication.
-   * @param codeProvider - The provider responsible for generating authorization codes.
+   * @param codeProvider - The provider responsible for generating authorization
+   *                       codes.
    */
   constructor(
     private readonly vs: typeof vscode,
@@ -277,7 +278,8 @@ const isStringArray = (value: unknown): value is readonly string[] => {
 };
 
 /**
- * Type guard to check if a value matches the AuthenticationSessionAccountInformation shape
+ * Type guard to check if a value matches the
+ * AuthenticationSessionAccountInformation shape
  */
 const isAuthSessionAccountInfo = (
   value: unknown,
@@ -286,8 +288,9 @@ const isAuthSessionAccountInfo = (
     return false;
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
-
+  /* eslint-disable @typescript-eslint/no-explicit-any,
+     @typescript-eslint/no-unsafe-assignment,
+     @typescript-eslint/no-unsafe-member-access */
   const account = value as any;
   return (
     typeof account === "object" &&
@@ -309,7 +312,11 @@ const isAuthenticationSession = (
     return false;
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  /*
+    eslint-disable @typescript-eslint/no-explicit-any,
+    @typescript-eslint/no-unsafe-assignment,
+    @typescript-eslint/no-unsafe-member-access
+  */
   const session = value as any;
   return (
     "id" in session &&
@@ -324,7 +331,8 @@ const isAuthenticationSession = (
 };
 
 /**
- * Type guard to check if a value is an array of {@link vscode.AuthenticationSession} objects.
+ * Type guard to check if a value is an array of
+ * {@link vscode.AuthenticationSession} objects.
  */
 const areAuthenticationSessions = (
   value: unknown,
@@ -348,7 +356,11 @@ function isUserInfo(obj: unknown): obj is UserInfo {
     return false;
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  /*
+    eslint-disable @typescript-eslint/no-explicit-any,
+    @typescript-eslint/no-unsafe-assignment,
+    @typescript-eslint/no-unsafe-member-access
+  */
   const userInfo = obj as any;
   return (
     "name" in userInfo &&

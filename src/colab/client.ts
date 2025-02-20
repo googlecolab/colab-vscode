@@ -2,11 +2,11 @@ import * as https from "https";
 import fetch, { Request } from "node-fetch";
 import { AuthenticationSession } from "vscode";
 import {
+  Accelerator,
   Assignment,
   CCUInfo,
-  Variant,
-  Accelerator,
   GetAssignmentResponse,
+  Variant,
 } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
@@ -54,9 +54,12 @@ export class ColabClient {
   }
 
   /**
-   * Returns the existing machine assignment if one exists, or creates one if it does not.
+   * Returns the existing machine assignment if one exists, or creates one if it
+   * does not.
    *
-   * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest. This value should always be a string of length 44 (see: http://go/so/13378815).
+   * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest.
+   *                       This value should always be a string of length 44
+   *                       (see: http://go/so/13378815).
    * @param variant - The machine variant to assign.
    * @param accelerator - The accelerator to assign.
    * @returns The assignment which is assigned to the user.
@@ -154,7 +157,8 @@ export class ColabClient {
       );
     }
     const body = await response.text();
-    // TODO: Type-guard the response, likely with zod, explicit type guards or something else functionally equivalent.
+    // TODO: Type-guard the response, likely with zod, explicit type guards or
+    // something else functionally equivalent.
     return JSON.parse(stripXssiPrefix(body)) as T;
   }
 }

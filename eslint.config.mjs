@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
+import stylisticTs from "@stylistic/eslint-plugin-ts";
 import tseslint from "typescript-eslint";
 import importPlugin from "eslint-plugin-import";
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
@@ -18,6 +19,7 @@ export default tseslint.config(
       },
     },
     plugins: {
+      "@stylistic/ts": stylisticTs,
       import: importPlugin,
     },
     rules: {
@@ -25,6 +27,15 @@ export default tseslint.config(
         "error",
         {
           alphabetize: { order: "asc", caseInsensitive: true },
+        },
+      ],
+      "@/max-len": [
+        "error",
+        {
+          ignoreTrailingComments: true,
+          ignoreStrings: true,
+          ignoreTemplateLiterals: true,
+          ignoreUrls: true,
         },
       ],
       "@typescript-eslint/no-unused-vars": [

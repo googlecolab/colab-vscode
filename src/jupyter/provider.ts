@@ -3,8 +3,7 @@ import {
   JupyterServer,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import { CancellationToken, ProviderResult } from "vscode";
-import vscode from "vscode";
+import vscode, { CancellationToken, ProviderResult } from "vscode";
 import { CCUInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import { SERVERS } from "./servers";
@@ -12,7 +11,8 @@ import { SERVERS } from "./servers";
 /**
  * Colab Jupyter server provider.
  *
- * Provides a static list of Colab Jupyter servers and resolves the connection information using the provided config.
+ * Provides a static list of Colab Jupyter servers and resolves the connection
+ * information using the provided config.
  */
 export class ColabJupyterServerProvider
   implements JupyterServerProvider, vscode.Disposable
@@ -52,7 +52,8 @@ export class ColabJupyterServerProvider
           server.accelerator && eligibleGpus.has(server.accelerator);
         const ineligibleGpu =
           server.accelerator && ineligibleGpus.has(server.accelerator);
-        // TODO: Provide a ⚠️ warning for the servers which are ineligible for the user.
+        // TODO: Provide a ⚠️ warning for the servers which are ineligible for
+        // the user.
 
         return eligibleGpu && !ineligibleGpu;
       });
@@ -60,7 +61,8 @@ export class ColabJupyterServerProvider
   }
 
   /**
-   * Resolves the connection for the provided {@link JupyterServer Jupyter Server}.
+   * Resolves the connection for the provided
+   * {@link JupyterServer Jupyter Server}.
    */
   resolveJupyterServer(
     server: JupyterServer,

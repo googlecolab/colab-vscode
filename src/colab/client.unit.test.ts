@@ -1,18 +1,18 @@
 import { expect } from "chai";
-import { Response } from "node-fetch";
 import * as nodeFetch from "node-fetch";
-import { SinonStub, SinonMatcher } from "sinon";
+import { Response } from "node-fetch";
 import * as sinon from "sinon";
+import { SinonMatcher, SinonStub } from "sinon";
 import { AuthenticationSession } from "vscode";
 import {
   Accelerator,
-  CCUInfo,
   Assignment,
+  CCUInfo,
+  GetAssignmentResponse,
   Shape,
   SubscriptionState,
   SubscriptionTier,
   Variant,
-  GetAssignmentResponse,
 } from "./api";
 import { ColabClient } from "./client";
 
