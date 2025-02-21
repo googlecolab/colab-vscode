@@ -18,10 +18,7 @@ import {
   TestUri,
   vscodeStub,
 } from "../test/helpers/vscode";
-import {
-  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-  ColabJupyterServerProvider,
-} from "./provider";
+import { ColabJupyterServerProvider } from "./provider";
 import { ColabJupyterServer, SERVERS } from "./servers";
 
 describe("ColabJupyterServerProvider", () => {
@@ -217,7 +214,7 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  it("uses correct values from custom fetch", async () => {
+  it("specifies the Colab runtime proxy token header on fetch requests", async () => {
     const fetchStub = sinon.stub(fetch, "default");
     const server = SERVERS.get("m");
     assert.isDefined(server);
@@ -237,14 +234,6 @@ describe("ColabJupyterServerProvider", () => {
     };
     colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
     assert.isDefined(assignment.runtimeProxyInfo);
-    const expectedHeaders = new Headers();
-    expectedHeaders.append(
-      COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-      assignment.runtimeProxyInfo.token,
-    );
-    const expectedInit: fetch.RequestInit = {
-      headers: expectedHeaders,
-    };
 
     const resolvedServer = await serverProvider.resolveJupyterServer(
       server,
@@ -258,7 +247,11 @@ describe("ColabJupyterServerProvider", () => {
     sinon.assert.calledOnceWithExactly(
       fetchStub,
       assignment.runtimeProxyInfo.url,
-      expectedInit,
+      {
+        headers: new Headers({
+          "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+        })
+      },
     );
   });
 });

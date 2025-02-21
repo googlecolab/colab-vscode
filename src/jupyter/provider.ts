@@ -12,7 +12,7 @@ import { SERVERS } from "./servers";
 /**
  * Header key for the runtime proxy token.
  */
-export const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
+const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
 
 /**
  * Colab Jupyter server provider.
