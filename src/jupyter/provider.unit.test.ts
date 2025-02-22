@@ -207,9 +207,9 @@ describe("ColabJupyterServerProvider", () => {
         server,
         cancellationToken,
       );
+
       assert.isDefined(resolvedServer?.connectionInformation?.fetch);
       sinon.replace(resolvedServer.connectionInformation, "fetch", fetchStub);
-
       expect(resolvedServer).to.deep.equal(expectedResolvedServer);
     });
   });
