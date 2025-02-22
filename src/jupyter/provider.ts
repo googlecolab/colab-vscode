@@ -3,11 +3,11 @@ import {
   JupyterServer,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import fetch, {Headers, Request, RequestInfo, RequestInit} from "node-fetch";
-import vscode, {CancellationToken, ProviderResult} from "vscode";
-import {CCUInfo, Variant} from "../colab/api";
-import {ColabClient} from "../colab/client";
-import {SERVERS} from "./servers";
+import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
+import vscode, { CancellationToken, ProviderResult } from "vscode";
+import { CCUInfo, Variant } from "../colab/api";
+import { ColabClient } from "../colab/client";
+import { SERVERS } from "./servers";
 
 /**
  * Header key for the runtime proxy token.
@@ -96,10 +96,7 @@ export class ColabJupyterServerProvider
             baseUrl: this.vs.Uri.parse(url),
             headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
             // Overwrite the fetch method so that we can add our own custom headers to all requests made by the Jupyter extension.
-            fetch: async (
-              info: RequestInfo,
-              init?: RequestInit,
-            ) => {
+            fetch: async (info: RequestInfo, init?: RequestInit) => {
               if (!init) {
                 init = {};
               }

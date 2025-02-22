@@ -284,7 +284,7 @@ describe("ColabJupyterServerProvider", () => {
 
     assert.isDefined(resolvedServer?.connectionInformation?.fetch);
     await resolvedServer.connectionInformation.fetch(
-      new Request(assignment.runtimeProxyInfo.url, {method: "GET"}),
+      new Request(assignment.runtimeProxyInfo.url, { method: "GET" }),
     );
     sinon.assert.calledOnceWithExactly(
       fetchStub,
