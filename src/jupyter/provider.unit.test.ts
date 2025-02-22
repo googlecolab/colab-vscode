@@ -250,7 +250,7 @@ describe("ColabJupyterServerProvider", () => {
       {
         headers: new Headers({
           "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
-        })
+        }),
       },
     );
   });
