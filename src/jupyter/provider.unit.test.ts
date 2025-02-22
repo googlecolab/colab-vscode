@@ -1,6 +1,6 @@
 import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
-import fetch, { Headers } from "node-fetch";
+import fetch, { Headers, Request as nodeRequest } from "node-fetch";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import {
@@ -253,5 +253,48 @@ describe("ColabJupyterServerProvider", () => {
         }),
       },
     );
+    fetchStub.restore();
+  });
+
+  it("updates and utilizes a new node-fetch Request", async () => {
+    const fetchStub = sinon.stub(fetch, "default");
+    const server = SERVERS.get("m");
+    assert.isDefined(server);
+    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
+    const assignment: Assignment = {
+      accelerator: Accelerator.NONE,
+      endpoint: "mock-endpoint",
+      sub: SubscriptionState.UNSUBSCRIBED,
+      subTier: SubscriptionTier.UNKNOWN_TIER,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      runtimeProxyInfo: {
+        token: "mock-token",
+        tokenExpiresInSeconds: 42,
+        url: "https://mock-url.com",
+      },
+    };
+    colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
+    assert.isDefined(assignment.runtimeProxyInfo);
+
+    const resolvedServer = await serverProvider.resolveJupyterServer(
+      server,
+      cancellationToken,
+    );
+
+    assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+    await resolvedServer.connectionInformation.fetch(
+      new Request(assignment.runtimeProxyInfo.url, {method: "GET"}),
+    );
+    sinon.assert.calledOnceWithExactly(
+      fetchStub,
+      new nodeRequest(assignment.runtimeProxyInfo.url),
+      {
+        headers: new Headers({
+          "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+        }),
+      },
+    );
+    fetchStub.restore();
   });
 });

@@ -3,11 +3,11 @@ import {
   JupyterServer,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import fetch, { Headers } from "node-fetch";
-import vscode, { CancellationToken, ProviderResult } from "vscode";
-import { CCUInfo, Variant } from "../colab/api";
-import { ColabClient } from "../colab/client";
-import { SERVERS } from "./servers";
+import fetch, {Headers, Request, RequestInfo, RequestInit} from "node-fetch";
+import vscode, {CancellationToken, ProviderResult} from "vscode";
+import {CCUInfo, Variant} from "../colab/api";
+import {ColabClient} from "../colab/client";
+import {SERVERS} from "./servers";
 
 /**
  * Header key for the runtime proxy token.
@@ -97,8 +97,8 @@ export class ColabJupyterServerProvider
             headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
             // Overwrite the fetch method so that we can add our own custom headers to all requests made by the Jupyter extension.
             fetch: async (
-              info: fetch.RequestInfo,
-              init?: fetch.RequestInit,
+              info: RequestInfo,
+              init?: RequestInit,
             ) => {
               if (!init) {
                 init = {};
@@ -106,6 +106,16 @@ export class ColabJupyterServerProvider
               const requestHeaders = new Headers(init.headers);
               requestHeaders.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
               init.headers = requestHeaders;
+
+              // Create a new request with the correct symbols, so that
+              // node-fetch will parse it correctly.
+              // This is a known issue with node-fetch, it does not seem like it
+              // is considered enough of a problem to create an issue on. And
+              // this is the expected workaround:
+              // https://github.com/node-fetch/node-fetch/discussions/1598
+              if (typeof info !== "string" && !("href" in info)) {
+                info = new Request(info.url, info);
+              }
 
               return fetch(info, init);
             },
