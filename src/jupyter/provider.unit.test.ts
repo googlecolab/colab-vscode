@@ -214,7 +214,7 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  it("specifies the Colab runtime proxy token header on fetch requests", async () => {
+  it("specifies the Colab runtime proxy token and client agent header on fetch requests", async () => {
     const fetchStub = sinon.stub(fetch, "default");
     const server = SERVERS.get("m");
     assert.isDefined(server);
@@ -250,6 +250,7 @@ describe("ColabJupyterServerProvider", () => {
       {
         headers: new Headers({
           "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+          "X-Colab-Client-Agent": "vscode",
         }),
       },
     );

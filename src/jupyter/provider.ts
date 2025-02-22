@@ -10,9 +10,21 @@ import { ColabClient } from "../colab/client";
 import { SERVERS } from "./servers";
 
 /**
- * Header key for the runtime proxy token.
+ * COLAB_RUNTIME_PROXY_TOKEN_HEADER is a header key for the Colab runtime proxy token.
  */
 const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
+
+/**
+ * COLAB_CLIENT_AGENT_HEADER is a header key for the Colab client agent.
+ */
+const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
+
+/**
+ * CLIENT_AGENT is an enum of possible client agents that the Colab client agent header will take.
+ */
+enum CLIENT_AGENT {
+  VSCODE = "vscode",
+}
 
 /**
  * Colab Jupyter server provider.
@@ -105,6 +117,10 @@ export class ColabJupyterServerProvider
               }
               const requestHeaders = new Headers(init.headers);
               requestHeaders.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
+              requestHeaders.append(
+                COLAB_CLIENT_AGENT_HEADER,
+                CLIENT_AGENT.VSCODE,
+              );
               init.headers = requestHeaders;
 
               return fetch(info, init);
