@@ -32,6 +32,7 @@ describe("Jupyter Extension", () => {
         exports: {
           kernels: {
             getKernel: sinon.stub(),
+            onDidStart: sinon.stub(),
           },
           createJupyterServerCollection: sinon.stub(),
         },
