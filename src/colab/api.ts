@@ -1,7 +1,7 @@
 /**
  * @fileoverview API types for interacting with Colab's backend.
  *
- * As mentioned throughout several of the relevant fields, a lot of the name 
+ * As mentioned throughout several of the relevant fields, a lot of the name
  * choices are due to historical reasons and are not ideal.
  */
 

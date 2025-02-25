@@ -278,7 +278,7 @@ const isStringArray = (value: unknown): value is readonly string[] => {
 };
 
 /**
- * Type guard to check if a value matches the 
+ * Type guard to check if a value matches the
  * AuthenticationSessionAccountInformation shape
  */
 const isAuthSessionAccountInfo = (
