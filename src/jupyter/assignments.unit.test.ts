@@ -23,7 +23,6 @@ import {
 import { ServerStorage } from "./storage";
 
 const defaultAssignmentDescriptor: ColabServerDescriptor = {
-  id: "gpu-a100",
   label: "Colab GPU A100",
   variant: Variant.GPU,
   accelerator: Accelerator.A100,
