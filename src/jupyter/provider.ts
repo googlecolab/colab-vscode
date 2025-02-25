@@ -1,6 +1,7 @@
 import {
   Jupyter,
   JupyterServer,
+  JupyterServerCollection,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
 import fetch, { Headers } from "node-fetch";
@@ -22,20 +23,22 @@ const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
 export class ColabJupyterServerProvider
   implements JupyterServerProvider, vscode.Disposable
 {
-  private readonly disposable: vscode.Disposable;
+  private readonly serverCollection: JupyterServerCollection;
 
   constructor(
     private readonly vs: typeof vscode,
     jupyter: Jupyter,
     private readonly client: ColabClient,
   ) {
-    this.disposable = this.vs.Disposable.from(
-      jupyter.createJupyterServerCollection("colab", "Colab", this),
+    this.serverCollection = jupyter.createJupyterServerCollection(
+      "colab",
+      "Colab",
+      this,
     );
   }
 
   dispose() {
-    this.disposable.dispose();
+    this.serverCollection.dispose();
   }
 
   /**

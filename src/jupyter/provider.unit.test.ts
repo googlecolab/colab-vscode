@@ -1,8 +1,14 @@
-import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
+import {
+  Jupyter,
+  JupyterServer,
+  JupyterServerCollection,
+  JupyterServerProvider,
+} from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
 import fetch, { Headers } from "node-fetch";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
+import { CancellationToken, CancellationTokenSource } from "vscode";
 import {
   Accelerator,
   Assignment,
@@ -12,37 +18,48 @@ import {
   Variant,
 } from "../colab/api";
 import { ColabClient } from "../colab/client";
-import {
-  DisposableStub,
-  TestCancellationTokenSource,
-  TestUri,
-  vscodeStub,
-} from "../test/helpers/vscode";
+import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { ColabJupyterServerProvider } from "./provider";
 import { ColabJupyterServer, SERVERS } from "./servers";
 
 describe("ColabJupyterServerProvider", () => {
-  const cancellationTokenSource = new TestCancellationTokenSource();
-  const cancellationToken = cancellationTokenSource.token;
+  let vsCodeStub: VsCodeStub;
+  let cancellationTokenSource: CancellationTokenSource;
+  let cancellationToken: CancellationToken;
+  let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
   let jupyterStub: SinonStubbedInstance<
     Pick<Jupyter, "createJupyterServerCollection">
   >;
   let colabClientStub: SinonStubbedInstance<
     Pick<ColabClient, "ccuInfo" | "assign">
   >;
-  let registrationDisposable: DisposableStub;
   let serverProvider: ColabJupyterServerProvider;
 
   beforeEach(() => {
+    vsCodeStub = newVsCodeStub();
+    cancellationTokenSource = new vsCodeStub.CancellationTokenSource();
+    cancellationToken = cancellationTokenSource.token;
+    serverCollectionDisposeStub = sinon.stub();
     jupyterStub = {
       createJupyterServerCollection: sinon.stub(),
     };
+    jupyterStub.createJupyterServerCollection.callsFake(
+      (
+        id: string,
+        label: string,
+        _serverProvider: JupyterServerProvider,
+      ): JupyterServerCollection => {
+        return {
+          id,
+          label,
+          dispose: serverCollectionDisposeStub,
+        };
+      },
+    );
     colabClientStub = sinon.createStubInstance(ColabClient);
-    registrationDisposable = new DisposableStub();
-    DisposableStub.from.returns(registrationDisposable);
 
     serverProvider = new ColabJupyterServerProvider(
-      vscodeStub,
+      vsCodeStub.asVsCode(),
       jupyterStub as Partial<Jupyter> as Jupyter,
       colabClientStub as Partial<ColabClient> as ColabClient,
     );
@@ -65,7 +82,7 @@ describe("ColabJupyterServerProvider", () => {
     it('disposes the "Colab" Jupyter server collection', () => {
       serverProvider.dispose();
 
-      sinon.assert.calledOnce(registrationDisposable.dispose);
+      sinon.assert.calledOnce(serverCollectionDisposeStub);
     });
   });
 
@@ -193,7 +210,7 @@ describe("ColabJupyterServerProvider", () => {
         id: server.id,
         label: server.label,
         connectionInformation: {
-          baseUrl: TestUri.parse(assignment.runtimeProxyInfo.url),
+          baseUrl: vsCodeStub.Uri.parse(assignment.runtimeProxyInfo.url),
           headers: {
             COLAB_RUNTIME_PROXY_TOKEN_HEADER: assignment.runtimeProxyInfo.token,
           },

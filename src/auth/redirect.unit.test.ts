@@ -1,23 +1,30 @@
 import { expect } from "chai";
 import { SinonFakeTimers } from "sinon";
 import * as sinon from "sinon";
-import { TestCancellationTokenSource, TestUri } from "../test/helpers/vscode";
+import { CancellationTokenSource, Uri } from "vscode";
+import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { RedirectUriCodeProvider } from "./redirect";
 
 describe("RedirectUriCodeProvider", () => {
+  let vsCodeStub: VsCodeStub;
   let clock: SinonFakeTimers;
-  let cancellationTokenSource: TestCancellationTokenSource;
+  let cancellationTokenSource: CancellationTokenSource;
   let provider: RedirectUriCodeProvider;
 
+  function uri(value: string): Uri {
+    return vsCodeStub.Uri.parse(encodeURI(value));
+  }
+
   beforeEach(() => {
+    vsCodeStub = newVsCodeStub();
     clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
-    cancellationTokenSource = new TestCancellationTokenSource();
+    cancellationTokenSource = new vsCodeStub.CancellationTokenSource();
     provider = new RedirectUriCodeProvider();
   });
 
   afterEach(() => {
     clock.restore();
-    sinon.reset();
+    sinon.restore();
   });
 
   it("throws when waiting for the same nonce", () => {
@@ -151,7 +158,3 @@ describe("RedirectUriCodeProvider", () => {
     await expect(gotSecondCode).to.eventually.equal(code);
   });
 });
-
-function uri(value: string): TestUri {
-  return TestUri.parse(encodeURI(value));
-}

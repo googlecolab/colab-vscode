@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { SinonStub } from "sinon";
 import sinon from "sinon";
 import vscode from "vscode";
-import { getExtensionStub, vscodeStub } from "../test/helpers/vscode";
+import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { getJupyterApi } from "./jupyter-extension";
 
 enum ExtensionStatus {
@@ -13,9 +13,11 @@ enum ExtensionStatus {
 
 describe("Jupyter Extension", () => {
   describe("getJupyterApi", () => {
+    let vsCodeStub: VsCodeStub;
     let activateStub: SinonStub<[], Thenable<Jupyter>>;
 
     beforeEach(() => {
+      vsCodeStub = newVsCodeStub();
       activateStub = sinon.stub();
     });
 
@@ -40,9 +42,9 @@ describe("Jupyter Extension", () => {
     }
 
     it("rejects if the Jupyter extension is not installed", async () => {
-      getExtensionStub.returns(undefined);
+      vsCodeStub.extensions.getExtension.returns(undefined);
 
-      await expect(getJupyterApi(vscodeStub)).to.be.rejectedWith(
+      await expect(getJupyterApi(vsCodeStub.asVsCode())).to.be.rejectedWith(
         "Jupyter Extension not installed",
       );
       sinon.assert.notCalled(activateStub);
@@ -50,9 +52,11 @@ describe("Jupyter Extension", () => {
 
     it("activates the extension if it is not active", async () => {
       const ext = getJupyterExtension(ExtensionStatus.Inactive);
-      getExtensionStub.returns(ext as vscode.Extension<Jupyter>);
+      vsCodeStub.extensions.getExtension.returns(
+        ext as vscode.Extension<Jupyter>,
+      );
 
-      const result = await getJupyterApi(vscodeStub);
+      const result = await getJupyterApi(vsCodeStub.asVsCode());
 
       sinon.assert.calledOnce(activateStub);
       expect(result).to.equal(ext.exports);
@@ -60,9 +64,11 @@ describe("Jupyter Extension", () => {
 
     it("returns the exports if the extension is already active", async () => {
       const ext = getJupyterExtension(ExtensionStatus.Active);
-      getExtensionStub.returns(ext as vscode.Extension<Jupyter>);
+      vsCodeStub.extensions.getExtension.returns(
+        ext as vscode.Extension<Jupyter>,
+      );
 
-      const result = await getJupyterApi(vscodeStub);
+      const result = await getJupyterApi(vsCodeStub.asVsCode());
 
       sinon.assert.notCalled(activateStub);
       expect(result).to.equal(ext.exports);
