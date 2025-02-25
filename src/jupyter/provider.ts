@@ -22,9 +22,7 @@ const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
 /**
  * CLIENT_AGENT is an enum of possible client agents that the Colab client agent header will take.
  */
-enum CLIENT_AGENT {
-  VSCODE = "vscode",
-}
+const VSCODE_CLIENT_AGENT = "vscode";
 
 /**
  * Colab Jupyter server provider.
@@ -119,7 +117,7 @@ export class ColabJupyterServerProvider
               requestHeaders.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
               requestHeaders.append(
                 COLAB_CLIENT_AGENT_HEADER,
-                CLIENT_AGENT.VSCODE,
+                VSCODE_CLIENT_AGENT,
               );
               init.headers = requestHeaders;
 
