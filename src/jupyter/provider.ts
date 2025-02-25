@@ -10,17 +10,17 @@ import { ColabClient } from "../colab/client";
 import { SERVERS } from "./servers";
 
 /**
- * COLAB_RUNTIME_PROXY_TOKEN_HEADER is a header key for the Colab runtime proxy token.
+ * A header key for the Colab runtime proxy token.
  */
 const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
 
 /**
- * COLAB_CLIENT_AGENT_HEADER is a header key for the Colab client agent.
+ * A header key for the Colab client agent.
  */
 const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
 
 /**
- * CLIENT_AGENT is an enum of possible client agents that the Colab client agent header will take.
+ * Const variable for the client agent value from VS Code.
  */
 const VSCODE_CLIENT_AGENT = "vscode";
 
