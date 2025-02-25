@@ -157,9 +157,9 @@ describe("GoogleAuthProvider", () => {
           }),
           sinon.match.any,
         )
-        .callsFake((_, task) => {
-          return task({ report: sinon.stub() }, cancellationStub);
-        });
+        .callsFake((_, task) =>
+          task({ report: sinon.stub() }, cancellationStub),
+        );
       redirectUriHandlerStub.waitForCode.throws(new Error("Barf"));
 
       await expect(authProvider.createSession(REQUIRED_SCOPES)).to.be.rejected;
@@ -184,9 +184,9 @@ describe("GoogleAuthProvider", () => {
           }),
           sinon.match.any,
         )
-        .callsFake((_, task) => {
-          return task({ report: sinon.stub() }, cancellationStub);
-        });
+        .callsFake((_, task) =>
+          task({ report: sinon.stub() }, cancellationStub),
+        );
       let nonce = "";
       redirectUriHandlerStub.waitForCode
         .withArgs(
