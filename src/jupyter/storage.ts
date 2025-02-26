@@ -14,7 +14,7 @@ const AssignedServers = z.array(
     accelerator: z.nativeEnum(Accelerator).optional(),
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),
-      token: z.string().nonempty().optional(),
+      token: z.string().nonempty(),
       headers: z
         .record(z.string().nonempty(), z.string().nonempty())
         .optional(),
@@ -23,7 +23,9 @@ const AssignedServers = z.array(
 );
 
 export type ColabAssignedServer = ColabJupyterServer & {
-  connectionInformation: JupyterServerConnectionInformation;
+  readonly connectionInformation: JupyterServerConnectionInformation & {
+    readonly token: string;
+  };
 };
 
 /**
