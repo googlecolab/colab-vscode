@@ -4,26 +4,25 @@ import { Response } from "node-fetch";
 import * as sinon from "sinon";
 import { SinonFakeTimers, SinonMatcher, SinonStub, useFakeTimers } from "sinon";
 import { AuthenticationSession } from "vscode";
-import { vscodeStub } from "../test/helpers/vscode";
-import { Accelerator, CCUInfo } from "./api";
-import { CCUInformation } from "./ccu-info";
+import { newVsCodeStub } from "../test/helpers/vscode";
+import { Accelerator, CcuInfo } from "./api";
+import { CcuInformation } from "./ccu-info";
 import { ColabClient } from "./client";
 
 const DOMAIN = "https://colab.example.com";
 const BEARER_TOKEN = "access-token";
 
-describe("CCUInformation", () => {
+describe("CcuInformation", () => {
   let fetchStub: SinonStub<
     [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
     Promise<Response>
   >;
   let sessionStub: SinonStub<[], Promise<AuthenticationSession>>;
-  let ccuInfo: CCUInformation;
-  let clock: SinonFakeTimers;
   let client: ColabClient;
+  let fakeClock: SinonFakeTimers;
+  let ccuInfo: CcuInformation;
 
   beforeEach(() => {
-    clock = useFakeTimers();
     fetchStub = sinon.stub(nodeFetch, "default");
     sessionStub = sinon.stub<[], Promise<AuthenticationSession>>().resolves({
       id: "mock-id",
@@ -35,17 +34,18 @@ describe("CCUInformation", () => {
       scopes: ["foo"],
     } as AuthenticationSession);
     client = new ColabClient(new URL(DOMAIN), sessionStub);
+    fakeClock = useFakeTimers();
   });
 
   afterEach(() => {
-    clock.restore();
     ccuInfo.dispose();
+    fakeClock.restore();
     sinon.restore();
   });
 
-  describe("getCCUInfo", () => {
-    it("successfully resolves CCU info", async () => {
-      const mockResponse: CCUInfo = {
+  describe('lifeycle', () => {
+    beforeEach(async() => {
+      const firstResponse: CcuInfo = {
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 3,
@@ -59,101 +59,74 @@ describe("CCUInformation", () => {
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
         .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+          new Response(withXSSI(JSON.stringify(firstResponse)), { status: 200 }),
         );
-      ccuInfo = await CCUInformation.initialize(vscodeStub, client);
-      expect(ccuInfo.ccuInfo).to.deep.equal(mockResponse);
+      const vscodeStub = newVsCodeStub()
+      ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
+    });
 
+    it('fetches ccuinfo on initialization', () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("rejects when error responses are returned", () => {
-      fetchStub.resolves(
-        new Response("Error", {
-          status: 500,
-          statusText: "Internal Server Error",
-        }),
-      );
+    it('clears timer on dispose', async () => {
+      const clearIntervalSpy = sinon.spy(fakeClock, 'clearInterval');
 
-      expect(
-        CCUInformation.initialize(vscodeStub, client),
-      ).to.eventually.be.rejectedWith(
-        `Failed to GET ${DOMAIN}/tun/m/ccu-info?authuser=0: Internal Server Error`,
-      );
+      ccuInfo.dispose();
+
+      sinon.assert.calledOnce(clearIntervalSpy);
     });
   });
 
-  describe("pollForInfoUpdate", () => {
-    it("successfully polls info", async () => {
-      const mockResponse: CCUInfo = {
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 3,
-        eligibleGpus: [Accelerator.T4],
-        ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      };
-      const mockResponseNoGpu: CCUInfo = {
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 3,
-        eligibleGpus: [],
-        ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      };
-      const mockResponseNoBalance: CCUInfo = {
-        currentBalance: 0,
-        consumptionRateHourly: 2,
-        assignmentsCount: 3,
-        eligibleGpus: [],
-        ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      };
+  it("successfully polls info", async () => {
+    const firstResponse: CcuInfo = {
+      currentBalance: 1,
+      consumptionRateHourly: 2,
+      assignmentsCount: 3,
+      eligibleGpus: [Accelerator.T4],
+      ineligibleGpus: [Accelerator.A100, Accelerator.L4],
+      freeCcuQuotaInfo: {
+        remainingTokens: 4,
+        nextRefillTimestampSec: 5,
+      },
+    };
+    const secondResponse: CcuInfo = {
+      ...firstResponse,
+      eligibleGpus: [],
+    };
+    const thirdResponse: CcuInfo = {
+      ...secondResponse,
+      currentBalance: 0,
+    };
+    function stubSuccesfulFetch(response: unknown) {
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
         .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+          new Response(withXSSI(JSON.stringify(response)), { status: 200 }),
         );
+    }
+    let updateCount = 0;
+    const expectedInfoUpdates = []
 
-      let updateCount = 0;
-      ccuInfo = await CCUInformation.initialize(vscodeStub, client);
-      ccuInfo.didChangeCCUInfo.event(() => {
-        updateCount++;
-      });
-      await clock.tickAsync(1000 * 60 * 2);
-
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponseNoBalance)), {
-            status: 200,
-          }),
-        );
-      await clock.nextAsync();
-
-      expect(ccuInfo.ccuInfo).to.deep.equal(mockResponseNoBalance);
-      expect(updateCount).to.equal(1);
-
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponseNoGpu)), {
-            status: 200,
-          }),
-        );
-      await clock.nextAsync();
-      expect(ccuInfo.ccuInfo).to.deep.equal(mockResponseNoGpu);
-      expect(updateCount).to.equal(2);
+    stubSuccesfulFetch(firstResponse);
+    const vscodeStub = newVsCodeStub()
+    ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
+    ccuInfo.onDidChangeCcuInfo.event(() => {
+      updateCount++;
     });
+    await fakeClock.tickAsync(1000);
+    expectedInfoUpdates.push(ccuInfo.ccuInfo);
+
+    stubSuccesfulFetch(secondResponse);
+    await fakeClock.nextAsync();
+    expectedInfoUpdates.push(ccuInfo.ccuInfo);
+
+    stubSuccesfulFetch(thirdResponse);
+    await fakeClock.nextAsync();
+    expectedInfoUpdates.push(ccuInfo.ccuInfo);
+
+    expect(expectedInfoUpdates).to.deep.equal([firstResponse, secondResponse, thirdResponse]);
+    expect(updateCount).to.equal(2);
   });
 });
 

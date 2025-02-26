@@ -6,7 +6,7 @@ import * as sinon from "sinon";
 import { AuthenticationSession } from "vscode";
 import {
   Accelerator,
-  CCUInfo,
+  CcuInfo,
   Assignment,
   Shape,
   SubscriptionState,
@@ -46,9 +46,9 @@ describe("ColabClient", () => {
     sinon.restore();
   });
 
-  describe("getCCUInfo", () => {
+  describe("getCcuInfo", () => {
     it("successfully resolves CCU info", async () => {
-      const mockResponse: CCUInfo = {
+      const mockResponse: CcuInfo = {
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 3,
@@ -173,7 +173,7 @@ describe("ColabClient", () => {
   });
 
   it("supports non-XSSI responses", async () => {
-    const mockResponse: CCUInfo = {
+    const mockResponse: CcuInfo = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,

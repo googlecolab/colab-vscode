@@ -20,7 +20,7 @@ export interface FreeCCUQuotaInfo {
 /**
  * Cloud compute unit (CCU) information.
  */
-export interface CCUInfo {
+export interface CcuInfo {
   /**
    * The current balance of the paid CCUs.
    *

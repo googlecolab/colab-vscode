@@ -1,24 +1,27 @@
 import vscode, { Disposable, EventEmitter } from "vscode";
 import { ColabClient } from "../colab/client";
-import { CCUInfo } from "./api";
+import { CcuInfo } from "./api";
+
+// Poll interval of 5 minutes.
+const POLL_INTERVAL_MS = 1000 * 60 * 5;
 
 /**
- * CCUInformation is responsible of maintaining the CCU Info and notifying the provider if a change has occurred.
+ * Periodically polls for CCU info changes and emits an event when one occurs.
  */
-export class CCUInformation implements Disposable {
-  didChangeCCUInfo: EventEmitter<void>;
-  ccuInfo: CCUInfo;
-  poller: NodeJS.Timer;
+export class CcuInformation implements Disposable {
+  onDidChangeCcuInfo: EventEmitter<void>;
+  private currentCcuInfo?: CcuInfo;
+  private poller: NodeJS.Timer;
+  private isFetching = false;
 
   constructor(
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
-    ccuInfo: CCUInfo,
+    ccuInfo?: CcuInfo,
   ) {
-    this.ccuInfo = ccuInfo;
-    this.didChangeCCUInfo = new this.vs.EventEmitter<void>();
-
-    this.poller = this.pollForInfoUpdate();
+    this.currentCcuInfo = ccuInfo;
+    this.onDidChangeCcuInfo = new this.vs.EventEmitter<void>();
+    this.poller = this.startInfoPolling();
   }
 
   dispose(): void {
@@ -26,23 +29,31 @@ export class CCUInformation implements Disposable {
   }
 
   /**
-   * pollForInfoUpdate regularly fetches the CCU Info and calls updates if there has been a change.
+   * Getter for the current CCU Information.
    */
-  private pollForInfoUpdate() {
-    // interval of 5 minutes.
-    const interval = 1000 * 60 * 5;
-    return setInterval(() => {
-      this.client
-        .ccuInfo()
-        .then((nextInfo: CCUInfo) => {
-          if (JSON.stringify(nextInfo) !== JSON.stringify(this.ccuInfo)) {
-            this.updateCCUInfo(nextInfo);
-          }
-        })
-        .catch((e: unknown) => {
+  get ccuInfo() {
+    return this.currentCcuInfo;
+  }
+
+  /**
+   * Regularly fetches the CCU Info and calls updates if there has been a change.
+   */
+  private startInfoPolling() {
+    return setInterval(async () => {
+      if (this.isFetching) {
+        return
+      }
+
+      try {
+        this.isFetching = true;
+        const nextInfo = await this.client.ccuInfo()
+        this.updateCcuInfo(nextInfo);
+      } catch (e: unknown) {
           throw new Error(`Failed to fetch CCU information`, { cause: e });
-        });
-    }, interval);
+      } finally {
+        this.isFetching = false;
+      }
+    }, POLL_INTERVAL_MS);
   }
 
   private stopInfoPolling() {
@@ -50,21 +61,25 @@ export class CCUInformation implements Disposable {
   }
 
   /**
-   * updateCCUInfo updates ccuInfo with new CCU info and emits that a change has occurred.
+   * Updates ccuInfo with new CCU info and emits that a change has occurred.
    */
-  private updateCCUInfo(nextCCUInfo: CCUInfo) {
-    this.ccuInfo = nextCCUInfo;
-    this.didChangeCCUInfo.fire();
+  private updateCcuInfo(nextCcuInfo: CcuInfo) {
+    if (JSON.stringify(nextCcuInfo) === JSON.stringify(this.ccuInfo)) {
+      return;
+    }
+
+    this.currentCcuInfo = nextCcuInfo;
+    this.onDidChangeCcuInfo.fire();
   }
 
   /**
-   * Initializes the CCUInformation class with the most recent ccuInfo fetched from the client.
+   * Initializes the CcuInformation class with the most recent ccuInfo fetched from the client.
    */
   static async initialize(
     vs: typeof vscode,
     client: ColabClient,
-  ): Promise<CCUInformation> {
+  ): Promise<CcuInformation> {
     const info = await client.ccuInfo();
-    return new CCUInformation(vs, client, info);
+    return new CcuInformation(vs, client, info);
   }
 }
