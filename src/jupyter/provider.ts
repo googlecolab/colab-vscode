@@ -1,13 +1,20 @@
 import {
   Jupyter,
   JupyterServer,
+  JupyterServerCollection,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
+import fetch, { Headers } from "node-fetch";
 import vscode, { CancellationToken, ProviderResult } from "vscode";
-import { Variant } from "../colab/api";
+import { CCUInfo, Variant } from "../colab/api";
 import { CCUInformation as CCUInfo } from "../colab/ccu-info";
 import { ColabClient } from "../colab/client";
 import { SERVERS } from "./servers";
+
+/**
+ * Header key for the runtime proxy token.
+ */
+const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
 
 /**
  * Colab Jupyter server provider.
@@ -18,8 +25,9 @@ export class ColabJupyterServerProvider
   implements JupyterServerProvider, vscode.Disposable
 {
   private readonly disposable: vscode.Disposable;
-  private onChangeServersEmitter: vscode.EventEmitter<void>;
+  private readonly serverCollection: JupyterServerCollection;
   private ccuInfo?: CCUInfo;
+  private onChangeServersEmitter: vscode.EventEmitter<void>;
   onDidChangeServers: vscode.Event<void>;
 
   constructor(
@@ -29,14 +37,17 @@ export class ColabJupyterServerProvider
   ) {
     this.onChangeServersEmitter = new vs.EventEmitter<void>();
     this.onDidChangeServers = this.onChangeServersEmitter.event;
-    this.disposable = this.vs.Disposable.from(
-      jupyter.createJupyterServerCollection("colab", "Colab", this),
+    this.serverCollection = jupyter.createJupyterServerCollection(
+      "colab",
+      "Colab",
+      this,
     );
   }
 
   dispose() {
     this.disposable.dispose();
     this.ccuInfo?.dispose();
+    this.serverCollection.dispose();
   }
 
   /**
@@ -113,7 +124,21 @@ export class ColabJupyterServerProvider
           ...server,
           connectionInformation: {
             baseUrl: this.vs.Uri.parse(url),
-            headers: { "X-Colab-Runtime-Proxy-Token": token },
+            headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
+            // Overwrite the fetch method so that we can add our own custom headers to all requests made by the Jupyter extension.
+            fetch: async (
+              info: fetch.RequestInfo,
+              init?: fetch.RequestInit,
+            ) => {
+              if (!init) {
+                init = {};
+              }
+              const requestHeaders = new Headers(init.headers);
+              requestHeaders.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
+              init.headers = requestHeaders;
+
+              return fetch(info, init);
+            },
           },
         };
       });

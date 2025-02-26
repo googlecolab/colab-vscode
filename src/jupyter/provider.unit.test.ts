@@ -1,7 +1,14 @@
-import { Jupyter, JupyterServer } from "@vscode/jupyter-extension";
+import {
+  Jupyter,
+  JupyterServer,
+  JupyterServerCollection,
+  JupyterServerProvider,
+} from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
-import * as sinon from "sinon";
+import fetch, { Headers } from "node-fetch";
 import { SinonStubbedInstance } from "sinon";
+import * as sinon from "sinon";
+import { CancellationToken, CancellationTokenSource } from "vscode";
 import {
   Accelerator,
   Assignment,
@@ -11,37 +18,48 @@ import {
   Variant,
 } from "../colab/api";
 import { ColabClient } from "../colab/client";
-import {
-  DisposableStub,
-  TestCancellationTokenSource,
-  TestUri,
-  vscodeStub,
-} from "../test/helpers/vscode";
+import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { ColabJupyterServerProvider } from "./provider";
 import { ColabJupyterServer, SERVERS } from "./servers";
 
 describe("ColabJupyterServerProvider", () => {
-  const cancellationTokenSource = new TestCancellationTokenSource();
-  const cancellationToken = cancellationTokenSource.token;
+  let vsCodeStub: VsCodeStub;
+  let cancellationTokenSource: CancellationTokenSource;
+  let cancellationToken: CancellationToken;
+  let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
   let jupyterStub: SinonStubbedInstance<
     Pick<Jupyter, "createJupyterServerCollection">
   >;
   let colabClientStub: SinonStubbedInstance<
     Pick<ColabClient, "assign" | "ccuInfo">
   >;
-  let registrationDisposable: DisposableStub;
   let serverProvider: ColabJupyterServerProvider;
 
   beforeEach(() => {
+    vsCodeStub = newVsCodeStub();
+    cancellationTokenSource = new vsCodeStub.CancellationTokenSource();
+    cancellationToken = cancellationTokenSource.token;
+    serverCollectionDisposeStub = sinon.stub();
     jupyterStub = {
       createJupyterServerCollection: sinon.stub(),
     };
+    jupyterStub.createJupyterServerCollection.callsFake(
+      (
+        id: string,
+        label: string,
+        _serverProvider: JupyterServerProvider,
+      ): JupyterServerCollection => {
+        return {
+          id,
+          label,
+          dispose: serverCollectionDisposeStub,
+        };
+      },
+    );
     colabClientStub = sinon.createStubInstance(ColabClient);
-    registrationDisposable = new DisposableStub();
-    DisposableStub.from.returns(registrationDisposable);
 
     serverProvider = new ColabJupyterServerProvider(
-      vscodeStub,
+      vsCodeStub.asVsCode(),
       jupyterStub as Partial<Jupyter> as Jupyter,
       colabClientStub as Partial<ColabClient> as ColabClient,
     );
@@ -65,7 +83,7 @@ describe("ColabJupyterServerProvider", () => {
     it('disposes the "Colab" Jupyter server collection', () => {
       serverProvider.dispose();
 
-      sinon.assert.calledOnce(registrationDisposable.dispose);
+      sinon.assert.calledOnce(serverCollectionDisposeStub);
     });
   });
 
@@ -172,6 +190,7 @@ describe("ColabJupyterServerProvider", () => {
     it("successfully", async () => {
       const server = SERVERS.get("gpu-a100");
       assert.isDefined(server);
+      const fetchStub = sinon.stub(fetch);
       const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
       const assignment: Assignment = {
         accelerator: Accelerator.A100,
@@ -187,26 +206,70 @@ describe("ColabJupyterServerProvider", () => {
         },
       };
       colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
+      assert.isDefined(assignment.runtimeProxyInfo);
+      const expectedResolvedServer: ColabJupyterServer = {
+        id: server.id,
+        label: server.label,
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse(assignment.runtimeProxyInfo.url),
+          headers: {
+            COLAB_RUNTIME_PROXY_TOKEN_HEADER: assignment.runtimeProxyInfo.token,
+          },
+          fetch: fetchStub,
+        },
+        variant: server.variant,
+        accelerator: server.accelerator,
+      };
 
       const resolvedServer = await serverProvider.resolveJupyterServer(
         server,
         cancellationToken,
       );
 
-      assert.isDefined(assignment.runtimeProxyInfo);
-      const expectedResolvedServer: ColabJupyterServer = {
-        id: server.id,
-        label: server.label,
-        connectionInformation: {
-          baseUrl: TestUri.parse(assignment.runtimeProxyInfo.url),
-          headers: {
-            "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
-          },
-        },
-        variant: server.variant,
-        accelerator: server.accelerator,
-      };
+      assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+      sinon.replace(resolvedServer.connectionInformation, "fetch", fetchStub);
       expect(resolvedServer).to.deep.equal(expectedResolvedServer);
     });
+  });
+
+  it("specifies the Colab runtime proxy token header on fetch requests", async () => {
+    const fetchStub = sinon.stub(fetch, "default");
+    const server = SERVERS.get("m");
+    assert.isDefined(server);
+    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
+    const assignment: Assignment = {
+      accelerator: Accelerator.NONE,
+      endpoint: "mock-endpoint",
+      sub: SubscriptionState.UNSUBSCRIBED,
+      subTier: SubscriptionTier.UNKNOWN_TIER,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      runtimeProxyInfo: {
+        token: "mock-token",
+        tokenExpiresInSeconds: 42,
+        url: "https://mock-url.com",
+      },
+    };
+    colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
+    assert.isDefined(assignment.runtimeProxyInfo);
+
+    const resolvedServer = await serverProvider.resolveJupyterServer(
+      server,
+      cancellationToken,
+    );
+
+    assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+    await resolvedServer.connectionInformation.fetch(
+      assignment.runtimeProxyInfo.url,
+    );
+    sinon.assert.calledOnceWithExactly(
+      fetchStub,
+      assignment.runtimeProxyInfo.url,
+      {
+        headers: new Headers({
+          "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+        }),
+      },
+    );
   });
 });

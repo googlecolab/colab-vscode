@@ -2,20 +2,20 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Unit Tests",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"],
-      "skipFiles": ["<node_internals>/**"]
-    },
-    {
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
       "outFiles": ["${workspaceFolder}/out/**/*.js"],
       "preLaunchTask": "npm: watch prod"
+    },
+    {
+      "name": "Debug Unit Tests",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"],
+      "skipFiles": ["<node_internals>/**"]
     },
     {
       "name": "Extension Integration Tests",

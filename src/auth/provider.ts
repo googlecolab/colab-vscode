@@ -20,7 +20,7 @@ export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
 {
   readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
-  private readonly disposable: vscode.Disposable;
+  private readonly authProvider: vscode.Disposable;
   private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
 
   /**
@@ -41,13 +41,11 @@ export class GoogleAuthProvider
       new vs.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
     this.onDidChangeSessions = this.emitter.event;
 
-    this.disposable = this.vs.Disposable.from(
-      this.vs.authentication.registerAuthenticationProvider(
-        PROVIDER_ID,
-        PROVIDER_LABEL,
-        this,
-        { supportsMultipleAccounts: false },
-      ),
+    this.authProvider = this.vs.authentication.registerAuthenticationProvider(
+      PROVIDER_ID,
+      PROVIDER_LABEL,
+      this,
+      { supportsMultipleAccounts: false },
     );
   }
 
@@ -74,7 +72,7 @@ export class GoogleAuthProvider
    * Disposes the provider and cleans up resources.
    */
   dispose() {
-    this.disposable.dispose();
+    this.authProvider.dispose();
   }
 
   /**
