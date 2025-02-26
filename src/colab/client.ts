@@ -39,7 +39,7 @@ export class ColabClient {
   private readonly httpsAgent?: https.Agent;
 
   constructor(
-    readonly domain: URL,
+    private readonly domain: URL,
     private session: () => Promise<AuthenticationSession>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
