@@ -19,7 +19,8 @@ const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
 /**
  * Colab Jupyter server provider.
  *
- * Provides a static list of Colab Jupyter servers and resolves the connection information using the provided config.
+ * Provides a static list of Colab Jupyter servers and resolves the connection
+ * information using the provided config.
  */
 export class ColabJupyterServerProvider
   implements JupyterServerProvider, vscode.Disposable
@@ -72,7 +73,8 @@ export class ColabJupyterServerProvider
           server.accelerator && eligibleGpus.has(server.accelerator);
         const ineligibleGpu =
           server.accelerator && ineligibleGpus.has(server.accelerator);
-        // TODO: Provide a ⚠️ warning for the servers which are ineligible for the user.
+        // TODO: Provide a ⚠️ warning for the servers which are ineligible for
+        // the user.
 
         return eligibleGpu && !ineligibleGpu;
       });
@@ -98,7 +100,8 @@ export class ColabJupyterServerProvider
   }
 
   /**
-   * Resolves the connection for the provided {@link JupyterServer Jupyter Server}.
+   * Resolves the connection for the provided
+   * {@link JupyterServer Jupyter Server}.
    */
   resolveJupyterServer(
     server: JupyterServer,
@@ -128,7 +131,8 @@ export class ColabJupyterServerProvider
           connectionInformation: {
             baseUrl: this.vs.Uri.parse(url),
             headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
-            // Overwrite the fetch method so that we can add our own custom headers to all requests made by the Jupyter extension.
+            // Overwrite the fetch method so that we can add our own custom
+            // headers to all requests made by the Jupyter extension.
             fetch: async (
               info: fetch.RequestInfo,
               init?: fetch.RequestInit,
