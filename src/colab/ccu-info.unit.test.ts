@@ -43,8 +43,8 @@ describe("CcuInformation", () => {
     sinon.restore();
   });
 
-  describe('lifecycle', () => {
-    beforeEach(async() => {
+  describe("lifecycle", () => {
+    beforeEach(async () => {
       const firstResponse: CcuInfo = {
         currentBalance: 1,
         consumptionRateHourly: 2,
@@ -59,18 +59,20 @@ describe("CcuInformation", () => {
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
         .resolves(
-          new Response(withXSSI(JSON.stringify(firstResponse)), { status: 200 }),
+          new Response(withXSSI(JSON.stringify(firstResponse)), {
+            status: 200,
+          }),
         );
-      const vscodeStub = newVsCodeStub()
+      const vscodeStub = newVsCodeStub();
       ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
     });
 
-    it('fetches CCU info on initialization', () => {
+    it("fetches CCU info on initialization", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it('clears timer on dispose', () => {
-      const clearIntervalSpy = sinon.spy(fakeClock, 'clearInterval');
+    it("clears timer on dispose", () => {
+      const clearIntervalSpy = sinon.spy(fakeClock, "clearInterval");
 
       ccuInfo.dispose();
 
@@ -106,10 +108,10 @@ describe("CcuInformation", () => {
         );
     }
     let updateCount = 0;
-    const expectedInfoUpdates = []
+    const expectedInfoUpdates = [];
 
     stubSuccessfulFetch(firstResponse);
-    const vscodeStub = newVsCodeStub()
+    const vscodeStub = newVsCodeStub();
     ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
     ccuInfo.onDidChangeCcuInfo.event(() => {
       updateCount++;
@@ -125,7 +127,11 @@ describe("CcuInformation", () => {
     await fakeClock.nextAsync();
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
-    expect(expectedInfoUpdates).to.deep.equal([firstResponse, secondResponse, thirdResponse]);
+    expect(expectedInfoUpdates).to.deep.equal([
+      firstResponse,
+      secondResponse,
+      thirdResponse,
+    ]);
     expect(updateCount).to.equal(2);
   });
 });
