@@ -43,7 +43,7 @@ describe("CcuInformation", () => {
     sinon.restore();
   });
 
-  describe('lifeycle', () => {
+  describe('lifecycle', () => {
     beforeEach(async() => {
       const firstResponse: CcuInfo = {
         currentBalance: 1,
@@ -65,11 +65,11 @@ describe("CcuInformation", () => {
       ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
     });
 
-    it('fetches ccuinfo on initialization', () => {
+    it('fetches CCU info on initialization', () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it('clears timer on dispose', async () => {
+    it('clears timer on dispose', () => {
       const clearIntervalSpy = sinon.spy(fakeClock, 'clearInterval');
 
       ccuInfo.dispose();
@@ -98,7 +98,7 @@ describe("CcuInformation", () => {
       ...secondResponse,
       currentBalance: 0,
     };
-    function stubSuccesfulFetch(response: unknown) {
+    function stubSuccessfulFetch(response: unknown) {
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
         .resolves(
@@ -108,7 +108,7 @@ describe("CcuInformation", () => {
     let updateCount = 0;
     const expectedInfoUpdates = []
 
-    stubSuccesfulFetch(firstResponse);
+    stubSuccessfulFetch(firstResponse);
     const vscodeStub = newVsCodeStub()
     ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
     ccuInfo.onDidChangeCcuInfo.event(() => {
@@ -117,11 +117,11 @@ describe("CcuInformation", () => {
     await fakeClock.tickAsync(1000);
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
-    stubSuccesfulFetch(secondResponse);
+    stubSuccessfulFetch(secondResponse);
     await fakeClock.nextAsync();
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
-    stubSuccesfulFetch(thirdResponse);
+    stubSuccessfulFetch(thirdResponse);
     await fakeClock.nextAsync();
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
