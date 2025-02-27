@@ -1,6 +1,8 @@
+import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request } from "node-fetch";
 import { AuthenticationSession } from "vscode";
+import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
   Assignment,
   CCUInfo,
@@ -63,7 +65,7 @@ export class ColabClient {
    * @returns The assignment which is assigned to the user.
    */
   async assign(
-    notebookHash: string,
+    notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
   ): Promise<Assignment> {
@@ -91,7 +93,7 @@ export class ColabClient {
   }
 
   private async getAssignment(
-    notebookHash: string,
+    notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
   ): Promise<AssignmentToken | AssignedAssignment> {
@@ -107,7 +109,7 @@ export class ColabClient {
   }
 
   private async postAssignment(
-    notebookHash: string,
+    notebookHash: UUID,
     xsrfToken: string,
     variant: Variant,
     accelerator?: Accelerator,
@@ -119,12 +121,12 @@ export class ColabClient {
   }
 
   private buildAssignUrl(
-    notebookHash: string,
+    notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
   ): URL {
     const url = new URL(ASSIGN_ENDPOINT, this.domain);
-    url.searchParams.append("nbh", notebookHash);
+    url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
     if (variant !== Variant.DEFAULT) {
       url.searchParams.append("variant", variant.toString());
     }

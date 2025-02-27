@@ -1,10 +1,12 @@
+import { randomUUID } from "crypto";
 import { assert, expect } from "chai";
 import sinon, { SinonStubbedInstance } from "sinon";
 import { SecretStorage } from "vscode";
 import { Variant } from "../colab/api";
 import { PROVIDER_ID } from "../config/constants";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { ColabAssignedServer, ServerStorage } from "./storage";
+import { ColabAssignedServer } from "./servers";
+import { ServerStorage } from "./storage";
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
 
@@ -45,7 +47,7 @@ describe("ServerStorage", () => {
     vsCodeStub = newVsCodeStub();
     secretsStub = new SecretStorageStub();
     defaultServer = {
-      id: "42",
+      id: randomUUID(),
       label: "foo",
       variant: Variant.DEFAULT,
       accelerator: undefined,
@@ -107,7 +109,7 @@ describe("ServerStorage", () => {
     });
 
     it("remove is a no-op", async () => {
-      await expect(serverStorage.remove("42")).to.eventually.be.false;
+      await expect(serverStorage.remove(randomUUID())).to.eventually.be.false;
 
       sinon.assert.notCalled(secretsStub.store);
     });
@@ -170,7 +172,7 @@ describe("ServerStorage", () => {
       it("stores a new server", async () => {
         const newServer = {
           ...defaultServer,
-          id: "1",
+          id: randomUUID(),
         };
 
         await expect(serverStorage.store(newServer)).to.eventually.be.fulfilled;
@@ -263,8 +265,10 @@ describe("ServerStorage", () => {
       });
 
       describe("for a server that does not exist", () => {
+        const nonExistentId = randomUUID();
+
         it("is a no-op", async () => {
-          await expect(serverStorage.remove("does-not-exist")).to.eventually.be
+          await expect(serverStorage.remove(nonExistentId)).to.eventually.be
             .false;
 
           sinon.assert.notCalled(secretsStub.store);
@@ -273,7 +277,7 @@ describe("ServerStorage", () => {
         it("does not clear the cache", async () => {
           await assert.isFulfilled(serverStorage.get());
 
-          await expect(serverStorage.remove("does-not-exist")).to.eventually.be
+          await expect(serverStorage.remove(nonExistentId)).to.eventually.be
             .false;
 
           secretsStub.get.resetHistory();
@@ -308,8 +312,8 @@ describe("ServerStorage", () => {
 
     beforeEach(async () => {
       servers = [
-        { ...defaultServer, id: "1" },
-        { ...defaultServer, id: "2" },
+        { ...defaultServer, id: randomUUID(), label: "first" },
+        { ...defaultServer, id: randomUUID(), label: "second" },
       ];
       for (const server of servers) {
         await assert.isFulfilled(serverStorage.store(server));
@@ -321,16 +325,22 @@ describe("ServerStorage", () => {
 
     describe("get", () => {
       it("returns the servers", async () => {
-        await expect(serverStorage.get()).to.eventually.deep.equal(servers);
+        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
+          servers,
+        );
 
         sinon.assert.calledOnce(secretsStub.get);
       });
 
       it("caches the returned servers", async () => {
-        await expect(serverStorage.get()).to.eventually.deep.equal(servers);
+        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
+          servers,
+        );
 
         // Calling the second time uses the cache.
-        await expect(serverStorage.get()).to.eventually.deep.equal(servers);
+        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
+          servers,
+        );
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -340,7 +350,7 @@ describe("ServerStorage", () => {
       it("stores a new server", async () => {
         const newServer = {
           ...defaultServer,
-          id: "3",
+          id: randomUUID(),
         };
 
         await expect(serverStorage.store(newServer)).to.eventually.be.fulfilled;
@@ -349,7 +359,7 @@ describe("ServerStorage", () => {
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.deep.equal([
+        expect(serverStorage.get()).to.eventually.have.same.deep.members([
           ...servers,
           newServer,
         ]);
@@ -368,7 +378,7 @@ describe("ServerStorage", () => {
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.deep.equal([
+        expect(serverStorage.get()).to.eventually.have.same.deep.members([
           updatedServer,
           servers[1],
         ]);
@@ -380,7 +390,9 @@ describe("ServerStorage", () => {
             .fulfilled;
 
           sinon.assert.notCalled(secretsStub.store);
-          expect(serverStorage.get()).to.eventually.deep.equal(servers);
+          expect(serverStorage.get()).to.eventually.have.same.deep.members(
+            servers,
+          );
         });
 
         it("does not clear cache", async () => {
@@ -436,8 +448,10 @@ describe("ServerStorage", () => {
       });
 
       describe("for a server that does not exist", () => {
+        const nonExistentId = randomUUID();
+
         it("is a no-op", async () => {
-          await expect(serverStorage.remove("does-not-exist")).to.eventually.be
+          await expect(serverStorage.remove(nonExistentId)).to.eventually.be
             .false;
 
           sinon.assert.notCalled(secretsStub.store);
@@ -446,7 +460,7 @@ describe("ServerStorage", () => {
         it("does not clear the cache", async () => {
           await assert.isFulfilled(serverStorage.get());
 
-          await expect(serverStorage.remove("does-not-exist")).to.eventually.be
+          await expect(serverStorage.remove(nonExistentId)).to.eventually.be
             .false;
 
           secretsStub.get.resetHistory();
