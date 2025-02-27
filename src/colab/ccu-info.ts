@@ -41,19 +41,21 @@ export class CcuInformation implements Disposable {
   private startInfoPolling() {
     return setInterval(() => {
       if (this.isFetching) {
-        return
+        return;
       }
 
-    this.isFetching = true;
-    this.client
-      .ccuInfo()
-      .then((nextInfo: CcuInfo) => {
-        this.updateCcuInfo(nextInfo);
-      }).catch((e: unknown) => {
-        throw new Error(`Failed to fetch CCU information`, { cause: e });
-      }).finally(() => {
-        this.isFetching = false;
-      });
+      this.isFetching = true;
+      this.client
+        .ccuInfo()
+        .then((nextInfo: CcuInfo) => {
+          this.updateCcuInfo(nextInfo);
+        })
+        .catch((e: unknown) => {
+          throw new Error(`Failed to fetch CCU information`, { cause: e });
+        })
+        .finally(() => {
+          this.isFetching = false;
+        });
     }, POLL_INTERVAL_MS);
   }
 
