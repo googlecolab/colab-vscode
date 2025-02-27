@@ -49,6 +49,12 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["**/*.unit.test.ts"],
+    rules: {
+      "@typescript-eslint/unbound-method": "off",
+    },
+  },
   // Intentionally last to override any conflicting rules.
   eslintConfigPrettier,
 );

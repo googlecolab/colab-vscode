@@ -101,7 +101,6 @@ describe("GoogleAuthProvider", () => {
     it('disposes the "Google" authentication provider', () => {
       authProvider.dispose();
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       sinon.assert.calledOnce(registrationDisposable.dispose);
     });
   });
