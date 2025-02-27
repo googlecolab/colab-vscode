@@ -42,7 +42,7 @@ export class ServerStorage {
   ) {}
 
   /**
-   *
+   * Get the assigned servers that have been stored.
    * @returns The assigned servers that have been stored.
    */
   async get(): Promise<ColabAssignedServer[]> {
@@ -53,19 +53,17 @@ export class ServerStorage {
     const servers = serversJson
       ? AssignedServers.parse(JSON.parse(serversJson))
       : [];
-    const res = servers.map((server) => {
-      return {
-        id: server.id,
-        label: server.label,
-        variant: server.variant,
-        accelerator: server.accelerator,
-        connectionInformation: {
-          baseUrl: this.vs.Uri.parse(server.connectionInformation.baseUrl),
-          token: server.connectionInformation.token,
-          headers: server.connectionInformation.headers,
-        },
-      };
-    });
+    const res = servers.map((server) => ({
+      id: server.id,
+      label: server.label,
+      variant: server.variant,
+      accelerator: server.accelerator,
+      connectionInformation: {
+        baseUrl: this.vs.Uri.parse(server.connectionInformation.baseUrl),
+        token: server.connectionInformation.token,
+        headers: server.connectionInformation.headers,
+      },
+    }));
     this.cache = res;
     return res;
   }
@@ -77,10 +75,7 @@ export class ServerStorage {
    */
   async store(server: ColabAssignedServer): Promise<void> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
-    const existingServers = existingServersJson
-      ? AssignedServers.parse(JSON.parse(existingServersJson))
-      : [];
-    const serversById = new Map(existingServers.map((s) => [s.id, s]));
+    const serversById = mapServersById(existingServersJson);
     serversById.set(server.id, {
       id: server.id,
       label: server.label,
@@ -106,10 +101,7 @@ export class ServerStorage {
    */
   async remove(serverId: string): Promise<boolean> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
-    const existingServers = existingServersJson
-      ? AssignedServers.parse(JSON.parse(existingServersJson))
-      : [];
-    const serversById = new Map(existingServers.map((s) => [s.id, s]));
+    const serversById = mapServersById(existingServersJson);
     if (!serversById.delete(serverId)) {
       return false;
     }
@@ -141,4 +133,9 @@ export class ServerStorage {
     await this.secrets.store(ASSIGNED_SERVERS_KEY, newServersJson);
     this.cache = undefined;
   }
+}
+
+function mapServersById(json: string | undefined) {
+  const servers = json ? AssignedServers.parse(JSON.parse(json)) : [];
+  return new Map(servers.map((s) => [s.id, s]));
 }
