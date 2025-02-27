@@ -97,7 +97,8 @@ export class ServerStorage {
    * Remove an assigned server.
    *
    * @param serverId The ID of the server to remove.
-   * @returns true if a server was stored and has been removed, or false if the server does not exist.
+   * @returns true if a server was stored and has been removed, or false if the
+   * server does not exist.
    */
   async remove(serverId: string): Promise<boolean> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
