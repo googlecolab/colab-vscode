@@ -36,7 +36,8 @@ export class CcuInformation implements Disposable {
   }
 
   /**
-   * Regularly fetches the CCU Info and calls updates if there has been a change.
+   * Regularly fetches the CCU Info and calls updates if there has been a
+   * change.
    */
   private startInfoPolling() {
     return setInterval(() => {
@@ -76,7 +77,8 @@ export class CcuInformation implements Disposable {
   }
 
   /**
-   * Initializes the CcuInformation class with the most recent ccuInfo fetched from the client.
+   * Initializes the CcuInformation class with the most recent ccuInfo fetched
+   * from the client.
    */
   static async initialize(
     vs: typeof vscode,
