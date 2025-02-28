@@ -20,7 +20,7 @@ const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
 const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
 
 /**
- * Const variable for the client agent value from VS Code.
+ * The client agent value for requests originating from VS Code.
  */
 const VSCODE_CLIENT_AGENT = "vscode";
 
