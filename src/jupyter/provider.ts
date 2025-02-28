@@ -110,7 +110,7 @@ export class ColabJupyterServerProvider
               // is considered enough of a problem to create an issue on. And
               // this is the expected workaround:
               // https://github.com/node-fetch/node-fetch/discussions/1598
-              if (typeof info !== "string" && !("href" in info)) {
+              if (isRequest(info)) {
                 info = new Request(info.url, info);
               }
 
@@ -120,4 +120,16 @@ export class ColabJupyterServerProvider
         };
       });
   }
+}
+
+// A workaround to a known issue with node-fetch.
+// https://github.com/node-fetch/node-fetch/discussions/1598
+//
+// Create a new node-fetch request with the correct symbols, so that
+// node-fetch will parse it correctly.
+//
+// Parsed urls turn into [Request objects] here:
+// https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
+function isRequest(info: RequestInfo): info is Request {
+  return typeof info !== "string" && !("href" in info);
 }
