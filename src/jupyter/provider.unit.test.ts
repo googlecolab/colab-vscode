@@ -184,6 +184,7 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
+<<<<<<< HEAD
   describe("commands", () => {
     describe("provideCommands", () => {
       it("returns commands to create a server, open Colab web and upgrade to pro", async () => {
@@ -191,6 +192,28 @@ describe("ColabJupyterServerProvider", () => {
           undefined,
           cancellationToken,
         );
+=======
+  it("specifies the Colab headers on fetch requests", async () => {
+    const fetchStub = sinon.stub(fetch, "default");
+    const server = SERVERS.get("m");
+    assert.isDefined(server);
+    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
+    const assignment: Assignment = {
+      accelerator: Accelerator.NONE,
+      endpoint: "mock-endpoint",
+      sub: SubscriptionState.UNSUBSCRIBED,
+      subTier: SubscriptionTier.UNKNOWN_TIER,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      runtimeProxyInfo: {
+        token: "mock-token",
+        tokenExpiresInSeconds: 42,
+        url: "https://mock-url.com",
+      },
+    };
+    colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
+    assert.isDefined(assignment.runtimeProxyInfo);
+>>>>>>> cb034d0 (chore: Add client agent headers to fetch requests (#28))
 
         assert.isDefined(commands);
         expect(commands).to.deep.equal([
@@ -210,6 +233,7 @@ describe("ColabJupyterServerProvider", () => {
       });
     });
 
+<<<<<<< HEAD
     describe("handleCommand", () => {
       it('opens a browser to the Colab web client for "Open Colab Web"', () => {
         vsCodeStub.env.openExternal.resolves(true);
@@ -285,6 +309,22 @@ describe("ColabJupyterServerProvider", () => {
         });
       });
     });
+=======
+    assert.isDefined(resolvedServer?.connectionInformation?.fetch);
+    await resolvedServer.connectionInformation.fetch(
+      assignment.runtimeProxyInfo.url,
+    );
+    sinon.assert.calledOnceWithExactly(
+      fetchStub,
+      assignment.runtimeProxyInfo.url,
+      {
+        headers: new Headers({
+          "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+          "X-Colab-Client-Agent": "vscode",
+        }),
+      },
+    );
+>>>>>>> cb034d0 (chore: Add client agent headers to fetch requests (#28))
   });
 });
 
