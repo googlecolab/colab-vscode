@@ -1,33 +1,22 @@
-import { randomUUID } from "crypto";
+import { randomUUID, UUID } from "crypto";
 import {
   Jupyter,
   JupyterServer,
   JupyterServerCollection,
+  JupyterServerCommand,
+  JupyterServerCommandProvider,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
-import vscode, { CancellationToken, ProviderResult } from "vscode";
-import { CCUInfo, Variant } from "../colab/api";
-import { ColabClient } from "../colab/client";
-import { COLAB_SERVERS } from "./servers";
+import { CancellationToken, ProviderResult } from "vscode";
+import vscode from "vscode";
+import { ServerPicker } from "../colab/server-picker";
+import { InputFlowAction } from "../common/multi-step-quickpick";
+import { isUUID } from "../utils/uuid";
+import { AssignmentManager } from "./assignments";
 
-/**
- * A header key for the Colab runtime proxy token.
- */
-const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
-
-// TODO: Derive NBH.
-const staticNbh = randomUUID();
-
-/**
- * A header key for the Colab client agent.
- */
-const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
-
-/**
- * The client agent value for requests originating from VS Code.
- */
-const VSCODE_CLIENT_AGENT = "vscode";
+const NEW_COLAB_SERVER_LABEL = "$(add) New Colab Server";
+const OPEN_COLAB_WEB_LABEL = "$(ports-open-browser-icon) Open Colab Web";
+const UPGRADE_TO_PRO_LABEL = "$(accounts-view-bar-icon) Upgrade to Pro";
 
 /**
  * Colab Jupyter server provider.
@@ -36,20 +25,29 @@ const VSCODE_CLIENT_AGENT = "vscode";
  * information using the provided config.
  */
 export class ColabJupyterServerProvider
-  implements JupyterServerProvider, vscode.Disposable
+  implements
+    JupyterServerProvider,
+    JupyterServerCommandProvider,
+    vscode.Disposable
 {
+  onDidChangeServers: vscode.Event<void>;
+
   private readonly serverCollection: JupyterServerCollection;
 
   constructor(
     private readonly vs: typeof vscode,
+    private readonly assignmentManager: AssignmentManager,
+    private readonly serverPicker: ServerPicker,
     jupyter: Jupyter,
-    private readonly client: ColabClient,
   ) {
+    this.onDidChangeServers = this.assignmentManager.onDidAssignmentsChange;
     this.serverCollection = jupyter.createJupyterServerCollection(
       "colab",
       "Colab",
       this,
     );
+    this.serverCollection.commandProvider = this;
+    // TODO: Set `this.serverCollection.documentation` once docs exist.
   }
 
   dispose() {
@@ -57,110 +55,112 @@ export class ColabJupyterServerProvider
   }
 
   /**
-   * Provides the list of {@link JupyterServer Jupyter Servers}.
+   * Provides the list of Colab {@link JupyterServer Jupyter Servers} which can
+   * be used.
    */
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return this.client.ccuInfo().then((ccuInfo: CCUInfo) => {
-      const eligibleGpus = new Set(ccuInfo.eligibleGpus);
-      const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
-      // TODO: TPUs are currently not supported by the CCU Info API.
-      return Array.from(COLAB_SERVERS).filter((server) => {
-        if (server.variant !== Variant.GPU) {
-          return true;
-        }
-        // Check both to make introducing new accelerators safer.
-        const eligibleGpu =
-          server.accelerator && eligibleGpus.has(server.accelerator);
-        const ineligibleGpu =
-          server.accelerator && ineligibleGpus.has(server.accelerator);
-        // TODO: Provide a ⚠️ warning for the servers which are ineligible for
-        // the user.
-
-        return eligibleGpu && !ineligibleGpu;
-      });
-    });
+    return this.assignmentManager.assignedServers();
   }
 
   /**
-   * Resolves the connection for the provided
-   * {@link JupyterServer Jupyter Server}.
+   * Resolves the connection for the provided Colab {@link JupyterServer}.
    */
   resolveJupyterServer(
     server: JupyterServer,
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
-    const colabServer = Array.from(COLAB_SERVERS).find(
-      (s) => s.id === server.id,
-    );
-    if (!colabServer) {
-      return Promise.reject(new Error(`Unknown server: ${server.id}`));
+    if (!isUUID(server.id)) {
+      throw new Error("Unexpected server ID format, expected UUID");
     }
-
-    return this.client
-      .assign(staticNbh, colabServer.variant, colabServer.accelerator)
-      .then((assignment): JupyterServer => {
-        const { url, token } = assignment.runtimeProxyInfo ?? {};
-
-        if (!url || !token) {
-          throw new Error(
-            "Unable to obtain connection information for server.",
-          );
-        }
-
-        return {
-          ...server,
-          id: staticNbh,
-          connectionInformation: {
-            baseUrl: this.vs.Uri.parse(url),
-            headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
-            // Overwrite the fetch method so that we can add our own custom
-            // headers to all requests made by the Jupyter extension.
-            fetch: async (info: RequestInfo, init?: RequestInit) => {
-              if (!init) {
-                init = {};
-              }
-              const requestHeaders = new Headers(init.headers);
-              requestHeaders.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
-              requestHeaders.append(
-                COLAB_CLIENT_AGENT_HEADER,
-                VSCODE_CLIENT_AGENT,
-              );
-              init.headers = requestHeaders;
-
-              // A workaround to a known issue with node-fetch.
-              // https://github.com/node-fetch/node-fetch/discussions/1598
-              //
-              // This issue presents itself in the form of fetch Request objects
-              // not matching node-fetch Request objects, and how node-fetch
-              // determines an object in an interesting fashion
-              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
-              // that does not recognize the regular Fetch API's Request object
-              // thus passing the entire object into the node fetch Request's
-              // url.
-              //
-              // Parsed urls turn into [Request objects] here:
-              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
-              //
-              // This issue is further confused by the type error not exactly
-              // being helpful to debugging the issue:
-              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/index.js#L54
-              //
-              // Create a new node-fetch request with the correct symbols, so
-              // that node-fetch will parse it correctly.
-              if (isRequest(info)) {
-                info = new Request(info.url, info);
-              }
-
-              return fetch(info, init);
-            },
-          },
-        };
-      });
+    return this.getServer(server.id);
   }
-}
 
-function isRequest(info: RequestInfo): info is Request {
-  return typeof info !== "string" && !("href" in info);
+  /**
+   * Returns a list of commands which are displayed in a section below
+   * resolved servers.
+   *
+   * This gets invoked every time the value (what the user has typed into the
+   * quick pick) changes. But we just return a static list which will be
+   * filtered down by the quick pick automatically.
+   */
+  provideCommands(
+    _value: string | undefined,
+    _token: CancellationToken,
+  ): ProviderResult<JupyterServerCommand[]> {
+    return [
+      {
+        label: NEW_COLAB_SERVER_LABEL,
+        description: "CPU, GPU or TPU.",
+      },
+      {
+        label: OPEN_COLAB_WEB_LABEL,
+        description: "Open Colab web.",
+      },
+      {
+        label: UPGRADE_TO_PRO_LABEL,
+        description: "More machines, more quota, more Colab!",
+      },
+    ];
+  }
+
+  /**
+   * Invoked when a command has been selected.
+   *
+   * @returns The newly assigned server or undefined if the command does not
+   * create a new server.
+   */
+  // TODO: Determine why throwing a vscode.CancellationError does not dismiss
+  // the kernel picker and instead just puts the Jupyter picker into a busy
+  // (loading) state. Filed a GitHub issue on the Jupyter extension repo:
+  // https://github.com/microsoft/vscode-jupyter/issues/16469
+  //
+  // TODO: Consider popping a notification if the `openExternal` call fails.
+  handleCommand(
+    command: JupyterServerCommand,
+    _token: CancellationToken,
+  ): ProviderResult<JupyterServer> {
+    switch (command.label) {
+      case NEW_COLAB_SERVER_LABEL:
+        return this.assignServer().catch((err: unknown) => {
+          // Returning `undefined` shows the previous UI (kernel picker).
+          if (err === InputFlowAction.back) {
+            return undefined;
+          }
+          throw err;
+        });
+      case OPEN_COLAB_WEB_LABEL:
+        this.vs.env.openExternal(
+          this.vs.Uri.parse("https://colab.research.google.com"),
+        );
+        return;
+      case UPGRADE_TO_PRO_LABEL:
+        this.vs.env.openExternal(
+          this.vs.Uri.parse("https://colab.research.google.com/signup"),
+        );
+        return;
+      default:
+        throw new Error("Unexpected command");
+    }
+  }
+
+  private async getServer(id: UUID): Promise<JupyterServer> {
+    const assignedServers = await this.assignmentManager.assignedServers();
+    const assignedServer = assignedServers.find((s) => s.id === id);
+    if (!assignedServer) {
+      throw new Error("Server not found");
+    }
+    return await this.assignmentManager.refreshConnection(assignedServer);
+  }
+
+  private async assignServer(): Promise<JupyterServer> {
+    const serverType = await this.serverPicker.prompt(
+      await this.assignmentManager.availableServers(),
+    );
+    if (!serverType) {
+      throw new this.vs.CancellationError();
+    }
+    return this.assignmentManager.assignServer(randomUUID(), serverType);
+  }
 }
