@@ -1,57 +1,8 @@
-import { SinonStub } from "sinon";
 import * as sinon from "sinon";
-import { Disposable } from "vscode";
 import vscode from "vscode";
 import { TestCancellationTokenSource } from "./cancellation";
 import { TestEventEmitter } from "./events";
 import { TestUri } from "./uri";
-
-class DisposableStub implements vscode.Disposable {
-  dispose = sinon.stub();
-  static from = sinon.stub();
-}
-
-const openExternalStub: SinonStub<
-  [target: vscode.Uri],
-  Thenable<boolean>
-> = sinon.stub();
-
-const asExternalUriStub: SinonStub<
-  [target: vscode.Uri],
-  Thenable<vscode.Uri>
-> = sinon.stub();
-
-const showInformationMessageStub: SinonStub<
-  [
-    message: string,
-    options: vscode.MessageOptions,
-    ...items: vscode.MessageItem[],
-  ],
-  Thenable<vscode.MessageItem | undefined>
-> = sinon.stub();
-
-const withProgressStub: SinonStub<
-  [
-    options: vscode.ProgressOptions,
-    task: (
-      progress: vscode.Progress<{
-        message?: string;
-        increment?: number;
-      }>,
-      token: vscode.CancellationToken,
-    ) => Thenable<string>,
-  ],
-  Thenable<string>
-> = sinon.stub();
-
-const showErrorMessageStub: SinonStub<
-  [
-    message: string,
-    options: vscode.MessageOptions,
-    ...items: vscode.MessageItem[],
-  ],
-  Thenable<vscode.MessageItem | undefined>
-> = sinon.stub();
 
 enum ProgressLocation {
   SourceControl = 1,
@@ -59,67 +10,93 @@ enum ProgressLocation {
   Notification = 15,
 }
 
-const getExtensionStub: SinonStub<
-  [extensionId: string],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  vscode.Extension<any> | undefined
-> = sinon.stub();
-
-const registerAuthenticationProviderStub: SinonStub<
-  [
-    id: string,
-    label: string,
-    provider: vscode.AuthenticationProvider,
-    options?: vscode.AuthenticationProviderOptions | undefined,
-  ],
-  Disposable
-> = sinon.stub();
-
-const vscodeStub: typeof vscode = {
-  Uri: TestUri,
-  EventEmitter: TestEventEmitter,
-  Disposable: DisposableStub,
+export interface VsCodeStub {
+  /**
+   * Returns a stub of the vscode module typed as vscode.
+   */
+  asVsCode: () => typeof vscode;
+  Uri: typeof TestUri;
+  CancellationTokenSource: typeof TestCancellationTokenSource;
+  EventEmitter: typeof TestEventEmitter;
   env: {
-    uriScheme: "vscode",
-    openExternal: openExternalStub,
-    asExternalUri: asExternalUriStub,
-  } as Partial<typeof vscode.env> as typeof vscode.env,
+    uriScheme: "vscode";
+    openExternal: sinon.SinonStubbedMember<typeof vscode.env.openExternal>;
+    asExternalUri: sinon.SinonStubbedMember<typeof vscode.env.asExternalUri>;
+  };
   window: {
-    withProgress: withProgressStub,
-    showInformationMessage: showInformationMessageStub,
-    showErrorMessage: showErrorMessageStub,
-  } as Partial<typeof vscode.window> as typeof vscode.window,
-  ProgressLocation: ProgressLocation,
+    withProgress: sinon.SinonStubbedMember<typeof vscode.window.withProgress>;
+    showInformationMessage: sinon.SinonStubbedMember<
+      typeof vscode.window.showInformationMessage
+    >;
+    showErrorMessage: sinon.SinonStubbedMember<
+      typeof vscode.window.showErrorMessage
+    >;
+  };
+  ProgressLocation: typeof ProgressLocation;
   extensions: {
-    getExtension: getExtensionStub,
-  } as Partial<typeof vscode.extensions> as typeof vscode.extensions,
+    getExtension: sinon.SinonStubbedMember<
+      typeof vscode.extensions.getExtension
+    >;
+  };
   authentication: {
-    registerAuthenticationProvider: registerAuthenticationProviderStub,
-  } as Partial<typeof vscode.authentication> as typeof vscode.authentication,
-} as Pick<
-  typeof vscode,
-  | "Uri"
-  | "EventEmitter"
-  | "Disposable"
-  | "env"
-  | "window"
-  | "ProgressLocation"
-  | "extensions"
-  | "authentication"
-> as typeof vscode;
+    registerAuthenticationProvider: sinon.SinonStubbedMember<
+      typeof vscode.authentication.registerAuthenticationProvider
+    >;
+  };
+}
 
-export {
-  TestUri,
-  TestEventEmitter,
-  TestCancellationTokenSource,
-  DisposableStub,
-  openExternalStub,
-  asExternalUriStub,
-  withProgressStub,
-  showInformationMessageStub,
-  showErrorMessageStub,
-  ProgressLocation,
-  getExtensionStub,
-  registerAuthenticationProviderStub,
-  vscodeStub,
-};
+/**
+ * Creates a new instance of a VsCodeStub.
+ *
+ * In most cases, tests should avoid re-using instances of this so the stubs
+ * don't interfere with each other.
+ */
+export function newVsCodeStub(): VsCodeStub {
+  return {
+    asVsCode: function (): typeof vscode {
+      return {
+        ...this,
+        env: { ...this.env } as Partial<typeof vscode.env> as typeof vscode.env,
+        window: { ...this.window } as Partial<
+          typeof vscode.window
+        > as typeof vscode.window,
+        extensions: { ...this.extensions } as Partial<
+          typeof vscode.extensions
+        > as typeof vscode.extensions,
+        authentication: { ...this.authentication } as Partial<
+          typeof vscode.authentication
+        > as typeof vscode.authentication,
+      } as Pick<
+        typeof vscode,
+        | "Uri"
+        | "CancellationTokenSource"
+        | "EventEmitter"
+        | "env"
+        | "window"
+        | "ProgressLocation"
+        | "extensions"
+        | "authentication"
+      > as typeof vscode;
+    },
+    Uri: TestUri,
+    CancellationTokenSource: TestCancellationTokenSource,
+    EventEmitter: TestEventEmitter,
+    env: {
+      uriScheme: "vscode",
+      openExternal: sinon.stub(),
+      asExternalUri: sinon.stub(),
+    },
+    window: {
+      withProgress: sinon.stub(),
+      showInformationMessage: sinon.stub(),
+      showErrorMessage: sinon.stub(),
+    },
+    ProgressLocation: ProgressLocation,
+    extensions: {
+      getExtension: sinon.stub(),
+    },
+    authentication: {
+      registerAuthenticationProvider: sinon.stub(),
+    },
+  };
+}
