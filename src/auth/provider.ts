@@ -20,7 +20,7 @@ export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
 {
   readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
-  private readonly disposable: vscode.Disposable;
+  private readonly authProvider: vscode.Disposable;
   private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
 
   /**
@@ -29,7 +29,8 @@ export class GoogleAuthProvider
    * @param vs - The VS Code API.
    * @param context - The extension context used for managing lifecycle.
    * @param oAuth2Client - The OAuth2 client for handling Google authentication.
-   * @param codeProvider - The provider responsible for generating authorization codes.
+   * @param codeProvider - The provider responsible for generating authorization
+   * codes.
    */
   constructor(
     private readonly vs: typeof vscode,
@@ -41,13 +42,11 @@ export class GoogleAuthProvider
       new vs.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
     this.onDidChangeSessions = this.emitter.event;
 
-    this.disposable = this.vs.Disposable.from(
-      this.vs.authentication.registerAuthenticationProvider(
-        PROVIDER_ID,
-        PROVIDER_LABEL,
-        this,
-        { supportsMultipleAccounts: false },
-      ),
+    this.authProvider = this.vs.authentication.registerAuthenticationProvider(
+      PROVIDER_ID,
+      PROVIDER_LABEL,
+      this,
+      { supportsMultipleAccounts: false },
     );
   }
 
@@ -74,7 +73,7 @@ export class GoogleAuthProvider
    * Disposes the provider and cleans up resources.
    */
   dispose() {
-    this.disposable.dispose();
+    this.authProvider.dispose();
   }
 
   /**
@@ -277,7 +276,8 @@ const isStringArray = (value: unknown): value is readonly string[] => {
 };
 
 /**
- * Type guard to check if a value matches the AuthenticationSessionAccountInformation shape
+ * Type guard to check if a value matches the
+ * AuthenticationSessionAccountInformation shape
  */
 const isAuthSessionAccountInfo = (
   value: unknown,
@@ -286,7 +286,11 @@ const isAuthSessionAccountInfo = (
     return false;
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  /* eslint-disable 
+     @typescript-eslint/no-explicit-any,
+     @typescript-eslint/no-unsafe-assignment,
+     @typescript-eslint/no-unsafe-member-access
+  */
 
   const account = value as any;
   return (
@@ -309,7 +313,11 @@ const isAuthenticationSession = (
     return false;
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  /* eslint-disable 
+     @typescript-eslint/no-explicit-any,
+     @typescript-eslint/no-unsafe-assignment,
+     @typescript-eslint/no-unsafe-member-access
+  */
   const session = value as any;
   return (
     "id" in session &&
@@ -324,7 +332,8 @@ const isAuthenticationSession = (
 };
 
 /**
- * Type guard to check if a value is an array of {@link vscode.AuthenticationSession} objects.
+ * Type guard to check if a value is an array of
+ * {@link vscode.AuthenticationSession} objects.
  */
 const areAuthenticationSessions = (
   value: unknown,
@@ -348,7 +357,11 @@ function isUserInfo(obj: unknown): obj is UserInfo {
     return false;
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access*/
+  /* eslint-disable 
+     @typescript-eslint/no-explicit-any,
+     @typescript-eslint/no-unsafe-assignment,
+     @typescript-eslint/no-unsafe-member-access
+  */
   const userInfo = obj as any;
   return (
     "name" in userInfo &&

@@ -7,19 +7,9 @@ import {
 import * as nodeFetch from "node-fetch";
 import { SinonStub, SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
-import vscode from "vscode";
-import {
-  asExternalUriStub,
-  DisposableStub,
-  openExternalStub,
-  ProgressLocation,
-  registerAuthenticationProviderStub,
-  showErrorMessageStub,
-  showInformationMessageStub,
-  TestUri,
-  vscodeStub,
-  withProgressStub,
-} from "../test/helpers/vscode";
+import vscode, { Disposable } from "vscode";
+import { PROVIDER_ID } from "../config/constants";
+import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { GoogleAuthProvider } from "./provider";
 import { CodeProvider } from "./redirect";
 
@@ -42,6 +32,7 @@ describe("GoogleAuthProvider", () => {
     "testClientSecret",
     "https://localhost:8888/vscode/redirect",
   );
+  let vsCodeStub: VsCodeStub;
   let fetchStub: SinonStub<
     [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
     Promise<nodeFetch.Response>
@@ -53,10 +44,11 @@ describe("GoogleAuthProvider", () => {
     Partial<vscode.ExtensionContext>
   >;
   let redirectUriHandlerStub: SinonStubbedInstance<CodeProvider>;
-  let registrationDisposable: DisposableStub;
+  let registrationDisposable: sinon.SinonStubbedInstance<Disposable>;
   let authProvider: GoogleAuthProvider;
 
   beforeEach(() => {
+    vsCodeStub = newVsCodeStub();
     fetchStub = sinon.stub(nodeFetch, "default");
     secretsStub = {
       get: sinon.stub(),
@@ -65,7 +57,7 @@ describe("GoogleAuthProvider", () => {
     extensionContextStub = {
       extension: {
         packageJSON: {
-          publisher: "google",
+          publisher: PROVIDER_ID,
           name: "colab",
         },
       } as vscode.Extension<never>,
@@ -75,11 +67,15 @@ describe("GoogleAuthProvider", () => {
     redirectUriHandlerStub = {
       waitForCode: sinon.stub(),
     };
-    registrationDisposable = new DisposableStub();
-    DisposableStub.from.returns(registrationDisposable);
+    registrationDisposable = {
+      dispose: sinon.stub(),
+    };
+    vsCodeStub.authentication.registerAuthenticationProvider.returns(
+      registrationDisposable,
+    );
 
     authProvider = new GoogleAuthProvider(
-      vscodeStub,
+      vsCodeStub.asVsCode(),
       extensionContextStub as vscode.ExtensionContext,
       oAuth2Client,
       redirectUriHandlerStub,
@@ -88,14 +84,14 @@ describe("GoogleAuthProvider", () => {
 
   afterEach(() => {
     fetchStub.restore();
-    sinon.reset();
+    sinon.restore();
   });
 
   describe("lifecycle", () => {
     it('registers the "Google" authentication provider', () => {
       sinon.assert.calledOnceWithExactly(
-        registerAuthenticationProviderStub,
-        "google",
+        vsCodeStub.authentication.registerAuthenticationProvider,
+        PROVIDER_ID,
         "Google",
         authProvider,
         { supportsMultipleAccounts: false },
@@ -105,6 +101,7 @@ describe("GoogleAuthProvider", () => {
     it('disposes the "Google" authentication provider', () => {
       authProvider.dispose();
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       sinon.assert.calledOnce(registrationDisposable.dispose);
     });
   });
@@ -151,35 +148,24 @@ describe("GoogleAuthProvider", () => {
         isCancellationRequested: false,
         onCancellationRequested: sinon.stub(),
       };
-      withProgressStub
+      vsCodeStub.window.withProgress
         .withArgs(
           sinon.match({
-            location: ProgressLocation.Notification,
+            location: vsCodeStub.ProgressLocation.Notification,
             title: sinon.match(/Signing in/),
             cancellable: true,
           }),
           sinon.match.any,
         )
-        .callsFake(
-          (
-            _,
-            task: (
-              progress: vscode.Progress<{
-                message?: string;
-                increment?: number;
-              }>,
-              token: vscode.CancellationToken,
-            ) => Thenable<string>,
-          ) => {
-            return task({ report: sinon.stub() }, cancellationStub);
-          },
+        .callsFake((_, task) =>
+          task({ report: sinon.stub() }, cancellationStub),
         );
       redirectUriHandlerStub.waitForCode.throws(new Error("Barf"));
 
       await expect(authProvider.createSession(REQUIRED_SCOPES)).to.be.rejected;
 
       sinon.assert.calledOnceWithMatch(
-        showErrorMessageStub,
+        vsCodeStub.window.showErrorMessage,
         sinon.match(/Sign in failed.+/),
       );
     });
@@ -189,28 +175,17 @@ describe("GoogleAuthProvider", () => {
         isCancellationRequested: false,
         onCancellationRequested: sinon.stub(),
       };
-      withProgressStub
+      vsCodeStub.window.withProgress
         .withArgs(
           sinon.match({
-            location: ProgressLocation.Notification,
+            location: vsCodeStub.ProgressLocation.Notification,
             title: sinon.match(/Signing in/),
             cancellable: true,
           }),
           sinon.match.any,
         )
-        .callsFake(
-          (
-            _,
-            task: (
-              progress: vscode.Progress<{
-                message?: string;
-                increment?: number;
-              }>,
-              token: vscode.CancellationToken,
-            ) => Thenable<string>,
-          ) => {
-            return task({ report: sinon.stub() }, cancellationStub);
-          },
+        .callsFake((_, task) =>
+          task({ report: sinon.stub() }, cancellationStub),
         );
       let nonce = "";
       redirectUriHandlerStub.waitForCode
@@ -231,7 +206,7 @@ describe("GoogleAuthProvider", () => {
           res: { status: 200 },
           tokens: { access_token: DEFAULT_SESSION.accessToken },
         } as GetTokenResponse);
-      asExternalUriStub
+      vsCodeStub.env.asExternalUri
         .withArgs(
           sinon.match((uri: vscode.Uri) => {
             return new RegExp(`vscode://google\\.colab\\?nonce=${nonce}`).test(
@@ -241,12 +216,12 @@ describe("GoogleAuthProvider", () => {
         )
         .callsFake((_uri) =>
           Promise.resolve(
-            TestUri.parse(
+            vsCodeStub.Uri.parse(
               `vscode://google.colab?nonce%3D${nonce}%26windowId%3D1`,
             ),
           ),
         );
-      openExternalStub
+      vsCodeStub.env.openExternal
         .withArgs(
           sinon.match((uri: vscode.Uri) =>
             uri
@@ -283,8 +258,8 @@ describe("GoogleAuthProvider", () => {
         ...DEFAULT_SESSION,
         id: undefined,
       });
-      sinon.assert.calledOnce(openExternalStub);
-      const [query] = openExternalStub.firstCall.args.map(
+      sinon.assert.calledOnce(vsCodeStub.env.openExternal);
+      const [query] = vsCodeStub.env.openExternal.firstCall.args.map(
         (arg) => new URLSearchParams(arg.query),
       );
       expect([...query.entries()]).to.deep.include.members([
@@ -300,7 +275,7 @@ describe("GoogleAuthProvider", () => {
       );
       expect(query.get("code_challenge")).to.match(/^[A-Za-z0-9_-]+$/);
       sinon.assert.calledOnceWithMatch(
-        showInformationMessageStub,
+        vsCodeStub.window.showInformationMessage,
         sinon.match(/Signed in/),
       );
     });
