@@ -114,8 +114,8 @@ export class ColabJupyterServerProvider
             // Overwrite the fetch method so that we can add our own custom
             // headers to all requests made by the Jupyter extension.
             fetch: async (
-              info: fetch.RequestInfo,
-              init?: fetch.RequestInit,
+              info: RequestInfo,
+              init?: RequestInit,
             ) => {
               if (!init) {
                 init = {};
