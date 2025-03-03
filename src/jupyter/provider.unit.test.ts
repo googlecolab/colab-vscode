@@ -283,9 +283,8 @@ describe("ColabJupyterServerProvider", () => {
 
   it("updates and utilizes a new node-fetch Request", async () => {
     const fetchStub = sinon.stub(fetch, "default");
-    const server = SERVERS.get("m");
+    const server = SERVERS.find((s) => s.id === "m");
     assert.isDefined(server);
-    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
     const assignment: Assignment = {
       accelerator: Accelerator.NONE,
       endpoint: "mock-endpoint",
@@ -299,7 +298,7 @@ describe("ColabJupyterServerProvider", () => {
         url: "https://mock-url.com",
       },
     };
-    colabClientStub.assign.withArgs(nbh, server.variant).resolves(assignment);
+    colabClientStub.assign.withArgs(sinon.match(isUUID), server.variant).resolves(assignment);
     assert.isDefined(assignment.runtimeProxyInfo);
 
     const resolvedServer = await serverProvider.resolveJupyterServer(
