@@ -30,7 +30,6 @@ export interface ColabJupyterServer
  * connection information.
  */
 export type ColabAssignedServer = ColabJupyterServer & {
-  readonly endpoint: string;
   readonly connectionInformation: JupyterServerConnectionInformation & {
     readonly token: string;
   };
