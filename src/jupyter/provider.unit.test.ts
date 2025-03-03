@@ -298,7 +298,9 @@ describe("ColabJupyterServerProvider", () => {
         url: "https://mock-url.com",
       },
     };
-    colabClientStub.assign.withArgs(sinon.match(isUUID), server.variant).resolves(assignment);
+    colabClientStub.assign
+      .withArgs(sinon.match(isUUID), server.variant)
+      .resolves(assignment);
     assert.isDefined(assignment.runtimeProxyInfo);
 
     const resolvedServer = await serverProvider.resolveJupyterServer(
