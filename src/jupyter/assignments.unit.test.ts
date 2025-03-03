@@ -63,6 +63,7 @@ describe("AssignmentManager", () => {
         headers: {
           "X-Colab-Runtime-Proxy-Token":
             defaultAssignment.runtimeProxyInfo.token,
+          "X-Colab-Client-Agent": "vscode",
         },
       },
     };
@@ -178,6 +179,7 @@ describe("AssignmentManager", () => {
         sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
           headers: new Headers({
             "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+            "X-Colab-Client-Agent": "vscode",
           }),
         });
       });
@@ -307,6 +309,7 @@ describe("AssignmentManager", () => {
           headers: new Headers({
             "X-Colab-Runtime-Proxy-Token":
               assignedServer.connectionInformation.token,
+            "X-Colab-Client-Agent": "vscode",
           }),
         });
       });
@@ -346,6 +349,7 @@ describe("AssignmentManager", () => {
           ...defaultServer.connectionInformation,
           headers: {
             "X-Colab-Runtime-Proxy-Token": newToken,
+            "X-Colab-Client-Agent": "vscode",
           },
           token: newToken,
         },
@@ -370,6 +374,7 @@ describe("AssignmentManager", () => {
         headers: new Headers({
           "X-Colab-Runtime-Proxy-Token":
             refreshedServer.connectionInformation.token,
+          "X-Colab-Client-Agent": "vscode",
         }),
       });
     });

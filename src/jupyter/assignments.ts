@@ -12,9 +12,19 @@ import {
 import { ServerStorage } from "./storage";
 
 /**
- * Header key for the runtime proxy token.
+ * The header key for the Colab runtime proxy token.
  */
 const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
+
+/**
+ * The header key for the Colab client agent.
+ */
+const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
+
+/**
+ * The client agent value for requests originating from VS Code.
+ */
+const VSCODE_CLIENT_AGENT = "vscode";
 
 export class AssignmentManager implements vscode.Disposable {
   /**
@@ -151,6 +161,7 @@ export class AssignmentManager implements vscode.Disposable {
     const headers: Record<string, string> =
       server.connectionInformation?.headers ?? {};
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER] = token;
+    headers[COLAB_CLIENT_AGENT_HEADER] = VSCODE_CLIENT_AGENT;
 
     return {
       id: server.id,
@@ -182,6 +193,7 @@ function colabProxyFetch(
     }
     const headers = new Headers(init.headers);
     headers.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
+    headers.append(COLAB_CLIENT_AGENT_HEADER, VSCODE_CLIENT_AGENT);
     init.headers = headers;
 
     return fetch(info, init);
