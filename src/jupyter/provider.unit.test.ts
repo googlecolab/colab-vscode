@@ -301,18 +301,16 @@ describe("ColabJupyterServerProvider", () => {
     );
 
     assert.isDefined(resolvedServer?.connectionInformation?.fetch);
-    await resolvedServer.connectionInformation.fetch(
-      new Request(assignment.runtimeProxyInfo.url, { method: "GET" }),
-    );
-    sinon.assert.calledOnceWithExactly(
-      fetchStub,
-      new nodeRequest(assignment.runtimeProxyInfo.url),
-      {
-        headers: new Headers({
-          "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
-        }),
-      },
-    );
+    const req = new Request(assignment.runtimeProxyInfo.url, { method: "GET" });
+    const nodeReq = new nodeRequest(assignment.runtimeProxyInfo.url);
+    await resolvedServer.connectionInformation.fetch(req);
+    sinon.assert.calledOnceWithExactly(fetchStub, nodeReq, {
+      headers: new Headers({
+        "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
+        "X-Colab-Client-Agent": "vscode",
+      }),
+    });
+    expect(req).to.not.deep.equal(nodeReq);
     fetchStub.restore();
   });
 });
