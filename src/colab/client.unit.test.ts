@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { expect } from "chai";
 import { Response } from "node-fetch";
 import * as nodeFetch from "node-fetch";
@@ -18,7 +19,7 @@ import { ColabClient } from "./client";
 
 const DOMAIN = "https://colab.example.com";
 const BEARER_TOKEN = "access-token";
-const NOTEBOOK_HASH = "notebook-hash";
+const NOTEBOOK_HASH = randomUUID();
 
 describe("ColabClient", () => {
   let fetchStub: SinonStub<
@@ -91,7 +92,7 @@ describe("ColabClient", () => {
         endpoint: "mock-endpoint",
         sub: SubscriptionState.UNSUBSCRIBED,
         subTier: SubscriptionTier.UNKNOWN_TIER,
-        variant: Variant.DEFAULT,
+        variant: Variant.GPU,
         machineShape: Shape.STANDARD,
         runtimeProxyInfo: {
           token: "mock-token",
@@ -133,7 +134,7 @@ describe("ColabClient", () => {
         endpoint: "mock-endpoint",
         sub: SubscriptionState.UNSUBSCRIBED,
         subTier: SubscriptionTier.UNKNOWN_TIER,
-        variant: Variant.DEFAULT,
+        variant: Variant.GPU,
         machineShape: Shape.STANDARD,
         runtimeProxyInfo: {
           token: "mock-token",

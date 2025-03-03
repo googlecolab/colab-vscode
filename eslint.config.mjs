@@ -36,7 +36,8 @@ export default tseslint.config(
           ignoreStrings: true,
           ignoreTemplateLiterals: true,
           ignoreUrls: true,
-          ignorePattern: "<.*>",
+          // Generics and regex literals are often long and can be hard to split.
+          ignorePattern: "(<.*>)|(\/.+\/)",
         },
       ],
       "@typescript-eslint/no-unused-vars": [
