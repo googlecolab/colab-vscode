@@ -65,6 +65,12 @@ export default tseslint.config(
       "@typescript-eslint/unbound-method": "off",
     },
   },
+  {
+    files: ["**/*.unit.test.ts"],
+    rules: {
+      "@typescript-eslint/unbound-method": "off",
+    },
+  },
   // Intentionally last to override any conflicting rules.
   eslintConfigPrettier,
 );
