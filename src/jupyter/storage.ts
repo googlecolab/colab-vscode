@@ -1,14 +1,15 @@
-import { JupyterServerConnectionInformation } from "@vscode/jupyter-extension";
+import { UUID } from "crypto";
 import vscode from "vscode";
 import { z } from "zod";
 import { Accelerator, Variant } from "../colab/api";
 import { PROVIDER_ID } from "../config/constants";
-import { ColabJupyterServer } from "./servers";
+import { isUUID } from "../utils/uuid";
+import { ColabAssignedServer } from "./servers";
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
 const AssignedServers = z.array(
   z.object({
-    id: z.string().nonempty(),
+    id: z.string().refine(isUUID, "String must be a valid UUID."),
     label: z.string().nonempty(),
     variant: z.nativeEnum(Variant),
     accelerator: z.nativeEnum(Accelerator).optional(),
@@ -21,12 +22,6 @@ const AssignedServers = z.array(
     }),
   }),
 );
-
-export type ColabAssignedServer = ColabJupyterServer & {
-  readonly connectionInformation: JupyterServerConnectionInformation & {
-    readonly token: string;
-  };
-};
 
 /**
  * Server storage for Colab Jupyter servers.
@@ -100,7 +95,7 @@ export class ServerStorage {
    * @returns true if a server was stored and has been removed, or false if the
    * server does not exist.
    */
-  async remove(serverId: string): Promise<boolean> {
+  async remove(serverId: UUID): Promise<boolean> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
     const serversById = mapServersById(existingServersJson);
     if (!serversById.delete(serverId)) {
