@@ -1,5 +1,11 @@
 import { UUID } from "crypto";
-import fetch, { Headers } from "node-fetch";
+import fetch, {
+  Headers,
+  Request,
+  RequestInfo,
+  RequestInit,
+  Response,
+} from "node-fetch";
 import vscode from "vscode";
 import { RuntimeProxyInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
@@ -180,17 +186,26 @@ export class AssignmentManager implements vscode.Disposable {
 
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
+ *
+ * Fixes an issue where `fetch` Request objects are not recognized by
+ * `node-fetch`, causing them to be treated as URLs instead. This happens
+ * because `node-fetch` checks for a specific internal symbol that standard
+ * Fetch API requests lack. See:
+ * https://github.com/node-fetch/node-fetch/discussions/1598.
+ *
+ * To work around this, we create a new `Request` instance to ensure
+ * compatibility.
  */
 function colabProxyFetch(
   token: string,
-): (
-  info: fetch.RequestInfo,
-  init?: fetch.RequestInit,
-) => Promise<fetch.Response> {
-  return async (info: fetch.RequestInfo, init?: fetch.RequestInit) => {
-    if (!init) {
-      init = {};
+): (info: RequestInfo, init?: RequestInit) => Promise<Response> {
+  return async (info: RequestInfo, init?: RequestInit) => {
+    if (isRequest(info)) {
+      // Ensure compatibility with `node-fetch`
+      info = new Request(info.url, info);
     }
+
+    init ??= {};
     const headers = new Headers(init.headers);
     headers.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
     headers.append(COLAB_CLIENT_AGENT_HEADER, VSCODE_CLIENT_AGENT);
@@ -198,4 +213,8 @@ function colabProxyFetch(
 
     return fetch(info, init);
   };
+}
+
+function isRequest(info: RequestInfo): info is Request {
+  return typeof info !== "string" && !("href" in info);
 }
