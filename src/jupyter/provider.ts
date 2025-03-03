@@ -5,7 +5,7 @@ import {
   JupyterServerCollection,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import fetch, { Headers } from "node-fetch";
+import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
 import vscode, { CancellationToken, ProviderResult } from "vscode";
 import { CCUInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
@@ -117,10 +117,7 @@ export class ColabJupyterServerProvider
             headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
             // Overwrite the fetch method so that we can add our own custom
             // headers to all requests made by the Jupyter extension.
-            fetch: async (
-              info: fetch.RequestInfo,
-              init?: fetch.RequestInit,
-            ) => {
+            fetch: async (info: RequestInfo, init?: RequestInit) => {
               if (!init) {
                 init = {};
               }
@@ -132,10 +129,38 @@ export class ColabJupyterServerProvider
               );
               init.headers = requestHeaders;
 
+              // A workaround to a known issue with node-fetch.
+              // https://github.com/node-fetch/node-fetch/discussions/1598
+              //
+              // This issue presents itself in the form of fetch Request objects
+              // not matching node-fetch Request objects, and how node-fetch
+              // determines an object in an interesting fashion
+              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
+              // that does not recognize the regular Fetch API's Request object
+              // thus passing the entire object into the node fetch Request's
+              // url.
+              //
+              // Parsed urls turn into [Request objects] here:
+              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
+              //
+              // This issue is further confused by the type error not exactly
+              // being helpful to debugging the issue:
+              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/index.js#L54
+              //
+              // Create a new node-fetch request with the correct symbols, so
+              // that node-fetch will parse it correctly.
+              if (isRequest(info)) {
+                info = new Request(info.url, info);
+              }
+
               return fetch(info, init);
             },
           },
         };
       });
   }
+}
+
+function isRequest(info: RequestInfo): info is Request {
+  return typeof info !== "string" && !("href" in info);
 }
