@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import {
   Jupyter,
   JupyterServer,
@@ -8,12 +9,15 @@ import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
 import vscode, { CancellationToken, ProviderResult } from "vscode";
 import { CCUInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
-import { SERVERS } from "./servers";
+import { COLAB_SERVERS } from "./servers";
 
 /**
  * A header key for the Colab runtime proxy token.
  */
 const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
+
+// TODO: Derive NBH.
+const staticNbh = randomUUID();
 
 /**
  * A header key for the Colab client agent.
@@ -62,7 +66,7 @@ export class ColabJupyterServerProvider
       const eligibleGpus = new Set(ccuInfo.eligibleGpus);
       const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
       // TODO: TPUs are currently not supported by the CCU Info API.
-      return Array.from(SERVERS.values()).filter((server) => {
+      return Array.from(COLAB_SERVERS).filter((server) => {
         if (server.variant !== Variant.GPU) {
           return true;
         }
@@ -87,16 +91,15 @@ export class ColabJupyterServerProvider
     server: JupyterServer,
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
-    // TODO: Derive NBH.
-    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
-
-    const colabServer = SERVERS.get(server.id);
+    const colabServer = Array.from(COLAB_SERVERS).find(
+      (s) => s.id === server.id,
+    );
     if (!colabServer) {
       return Promise.reject(new Error(`Unknown server: ${server.id}`));
     }
 
     return this.client
-      .assign(nbh, colabServer.variant, colabServer.accelerator)
+      .assign(staticNbh, colabServer.variant, colabServer.accelerator)
       .then((assignment): JupyterServer => {
         const { url, token } = assignment.runtimeProxyInfo ?? {};
 
@@ -108,6 +111,7 @@ export class ColabJupyterServerProvider
 
         return {
           ...server,
+          id: staticNbh,
           connectionInformation: {
             baseUrl: this.vs.Uri.parse(url),
             headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },

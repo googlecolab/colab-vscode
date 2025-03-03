@@ -36,7 +36,8 @@ export default tseslint.config(
           ignoreStrings: true,
           ignoreTemplateLiterals: true,
           ignoreUrls: true,
-          ignorePattern: "<.*>",
+          // Generics and regex literals are often long and can be hard to split.
+          ignorePattern: "(<.*>)|(\/.+\/)",
         },
       ],
       "@typescript-eslint/no-unused-vars": [
@@ -47,6 +48,12 @@ export default tseslint.config(
         "error",
         { accessibility: "no-public" },
       ],
+    },
+  },
+  {
+    files: ["**/*.unit.test.ts"],
+    rules: {
+      "@typescript-eslint/unbound-method": "off",
     },
   },
   // Intentionally last to override any conflicting rules.
