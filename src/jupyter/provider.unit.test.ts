@@ -33,11 +33,17 @@ describe("ColabJupyterServerProvider", () => {
   let jupyterStub: SinonStubbedInstance<
     Pick<Jupyter, "createJupyterServerCollection">
   >;
+<<<<<<< HEAD
   let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
   let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let serverPickerStub: SinonStubbedInstance<ServerPicker>;
   let defaultServer: ColabAssignedServer;
+=======
+  let colabClientStub: SinonStubbedInstance<
+    Pick<ColabClient, "ccuInfo" | "assign">
+  >;
+>>>>>>> 07a5ca4 (remove jupyter provider files from this PR)
   let serverProvider: ColabJupyterServerProvider;
 
   beforeEach(() => {
@@ -95,7 +101,11 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   afterEach(() => {
+<<<<<<< HEAD
     sinon.restore();
+=======
+    sinon.reset();
+>>>>>>> 07a5ca4 (remove jupyter provider files from this PR)
   });
 
   describe("lifecycle", () => {
