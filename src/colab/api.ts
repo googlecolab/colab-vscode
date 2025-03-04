@@ -5,7 +5,7 @@
  * choices are due to historical reasons and are not ideal.
  */
 
-export interface FreeCCUQuotaInfo {
+export interface FreeCcuQuotaInfo {
   /**
    * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
    * free usage allowance in milli-CCUs).
@@ -55,7 +55,7 @@ export interface CcuInfo {
    * Free CCU quota information if the user's paid CCU balance is zero with
    * non-zero assignments. Otherwise undefined.
    */
-  freeCcuQuotaInfo?: FreeCCUQuotaInfo;
+  freeCcuQuotaInfo?: FreeCcuQuotaInfo;
 }
 
 export enum SubscriptionState {

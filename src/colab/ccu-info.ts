@@ -11,7 +11,7 @@ const POLL_INTERVAL_MS = 1000 * 60 * 5;
 export class CcuInformation implements Disposable {
   onDidChangeCcuInfo: EventEmitter<void>;
   private currentCcuInfo?: CcuInfo;
-  private poller: NodeJS.Timer;
+  private poller: NodeJS.Timeout;
   private isFetching = false;
 
   constructor(
@@ -36,10 +36,10 @@ export class CcuInformation implements Disposable {
   }
 
   /**
-   * Regularly fetches the CCU Info and calls updates if there has been a
-   * change.
+   * Regularly fetches the CCU Info, maintaining a snapshot and notifying of
+   * changes.
    */
-  private startInfoPolling() {
+  private startInfoPolling(): NodeJS.Timeout {
     return setInterval(() => {
       if (this.isFetching) {
         return;
@@ -61,7 +61,7 @@ export class CcuInformation implements Disposable {
   }
 
   private stopInfoPolling() {
-    clearInterval(this.poller[Symbol.toPrimitive]());
+    clearInterval(this.poller);
   }
 
   /**
