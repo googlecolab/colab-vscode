@@ -1,6 +1,11 @@
 import { expect } from "chai";
 import * as sinon from "sinon";
-import { SinonFakeTimers, SinonStubbedInstance, useFakeTimers, createStubInstance } from "sinon";
+import {
+  SinonFakeTimers,
+  SinonStubbedInstance,
+  useFakeTimers,
+  createStubInstance,
+} from "sinon";
 import { newVsCodeStub } from "../test/helpers/vscode";
 import { Accelerator, CcuInfo } from "./api";
 import { CcuInformation } from "./ccu-info";
@@ -17,7 +22,7 @@ describe("CcuInformation", () => {
   });
 
   afterEach(() => {
-    ccuInfo?.dispose();
+    ccuInfo.dispose();
     fakeClock.restore();
     sinon.restore();
   });
@@ -37,7 +42,10 @@ describe("CcuInformation", () => {
       };
       clientStub.ccuInfo.resolves(firstResponse);
       const vscodeStub = newVsCodeStub();
-      ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), clientStub);
+      ccuInfo = await CcuInformation.initialize(
+        vscodeStub.asVsCode(),
+        clientStub,
+      );
     });
 
     it("fetches CCU info on initialization", () => {
@@ -54,7 +62,7 @@ describe("CcuInformation", () => {
   });
 
   it("successfully polls info", async () => {
-    const INTERVAL_IN_MS = 1000*60*5;
+    const INTERVAL_IN_MS = 1000 * 60 * 5;
     const firstResponse: CcuInfo = {
       currentBalance: 1,
       consumptionRateHourly: 2,
@@ -82,7 +90,10 @@ describe("CcuInformation", () => {
 
     stubSuccessfulFetch(firstResponse);
     const vscodeStub = newVsCodeStub();
-    ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), clientStub);
+    ccuInfo = await CcuInformation.initialize(
+      vscodeStub.asVsCode(),
+      clientStub,
+    );
     ccuInfo.onDidChangeCcuInfo.event(() => {
       updateCount++;
     });
