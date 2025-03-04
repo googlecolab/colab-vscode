@@ -35,7 +35,7 @@ describe("MultiStepQuickPick", () => {
       return sinon.stub();
     }
 
-    it("a single step", async () => {
+    it("runs a single step", async () => {
       const start = inputStepStub().returns(Promise.resolve(undefined));
 
       await expect(MultiStepInput.run(vsCodeStub.asVsCode(), start)).to
@@ -44,7 +44,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.calledOnce(start);
     });
 
-    it("multiple steps", async () => {
+    it("runs multiple steps", async () => {
       const second = inputStepStub().returns(Promise.resolve(undefined));
       const first = inputStepStub().returns(Promise.resolve(second));
 
@@ -56,7 +56,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.callOrder(first, second);
     });
 
-    it('throws "back" error when going back from the first step', async () => {
+    it('rejects with "back" error when going back from the first step', async () => {
       const first = inputStepStub().throws(InputFlowAction.back);
 
       await expect(
@@ -199,7 +199,6 @@ describe("MultiStepQuickPick", () => {
         title: "Select foo",
         step: 1,
         totalSteps: 1,
-        ignoreFocusOut: true,
         placeholder: "foo",
         items: [{ label: "foo" }],
         activeItem: { label: "foo" },
@@ -382,7 +381,6 @@ describe("MultiStepQuickPick", () => {
         totalSteps: 1,
         value: "",
         prompt: "Enter a value",
-        ignoreFocusOut: true,
         placeholder: "42",
         validate: () => undefined,
       };

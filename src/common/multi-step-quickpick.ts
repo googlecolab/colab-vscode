@@ -11,12 +11,17 @@ import vscode from "vscode";
  * Represents an action that can be taken during an input flow.
  */
 export class InputFlowAction extends Error {
+  /** Navigate back in the input flow. */
   static back = new InputFlowAction("back");
+  /** Cancel the input flow. */
   static cancel = new InputFlowAction("cancel");
 }
 
 /**
  * Represents a chainable step in the input flow.
+ *
+ * An {@link InputStep} can be returned to chain the next step in the input
+ * flow. If undefined is returned, the input flow is complete.
  */
 export type InputStep = (
   input: MultiStepInput,
@@ -24,12 +29,16 @@ export type InputStep = (
 
 /**
  * The base options for all quick-input types.
+ *
+ * @param title
  */
 export interface QuickInputOptions {
+  /** The title of the input. */
   title: string;
+  /** The current step count. */
   step: number;
+  /** The total step count. */
   totalSteps: number;
-  ignoreFocusOut?: boolean;
 }
 
 /**
@@ -37,8 +46,11 @@ export interface QuickInputOptions {
  */
 export interface QuickPickOptions<T extends QuickPickItem>
   extends QuickInputOptions {
+  /** Items to pick from. */
   items: T[];
+  /** The optional placeholder text shown when no value has been input. */
   placeholder?: string;
+  /** The actively picked item. */
   activeItem?: T;
 }
 
@@ -46,9 +58,15 @@ export interface QuickPickOptions<T extends QuickPickItem>
  * The options for an input box input.
  */
 export interface InputBoxOptions extends QuickInputOptions {
+  /** The current value of the input box. */
   value: string;
+  /** The prompt text providing some ask or explanation to the user. */
   prompt: string;
+  /** A function that validates the input value. If a string is returned, it is
+   * set as the validation message indicating a problem with the current input
+   * value. If undefined is returned, the validation message is cleared. */
   validate: (value: string) => string | undefined;
+  /** The optional placeholder text shown when no value has been input. */
   placeholder?: string;
 }
 
@@ -58,7 +76,7 @@ export interface InputBoxOptions extends QuickInputOptions {
 export class MultiStepInput {
   private constructor(private readonly vs: typeof vscode) {}
 
-  private steps: InputStep[] = [];
+  private readonly steps: InputStep[] = [];
   private current?: QuickInput;
 
   /**
@@ -128,7 +146,6 @@ export class MultiStepInput {
         input.title = opts.title;
         input.step = opts.step;
         input.totalSteps = opts.totalSteps;
-        input.ignoreFocusOut = opts.ignoreFocusOut ?? false;
         input.placeholder = opts.placeholder;
         input.items = opts.items;
         if (opts.activeItem) {
@@ -137,23 +154,23 @@ export class MultiStepInput {
         input.buttons = [this.vs.QuickInputButtons.Back];
 
         const nav = this.configureNavigation(input, reject);
-        disposables.push(nav.onDidHide, nav.onDidTriggerButton);
 
         disposables.push(
+          nav.onDidHide,
+          nav.onDidTriggerButton,
           input.onDidChangeSelection((selectedItems) => {
             resolve(selectedItems[0]);
           }),
         );
 
-        if (this.current) {
-          this.current.dispose();
-        }
+        this.current?.dispose();
         this.current = input;
         this.current.show();
       });
     } finally {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      disposables.forEach((d) => d.dispose());
+      for (const disposable of disposables) {
+        disposable.dispose();
+      }
     }
   }
 
@@ -174,43 +191,38 @@ export class MultiStepInput {
         input.totalSteps = opts.totalSteps;
         input.value = opts.value || "";
         input.prompt = opts.prompt;
-        input.ignoreFocusOut = opts.ignoreFocusOut ?? false;
         input.placeholder = opts.placeholder;
         input.buttons = [this.vs.QuickInputButtons.Back];
 
         const nav = this.configureNavigation(input, reject);
-        disposables.push(nav.onDidHide, nav.onDidTriggerButton);
 
-        // Handle value confirmation.
         disposables.push(
+          nav.onDidHide,
+          nav.onDidTriggerButton,
           input.onDidAccept(() => {
             const value = input.value;
             input.enabled = false;
             input.busy = true;
-            if (!opts.validate(value)) {
+            const validationMessage = opts.validate(value);
+            if (!validationMessage) {
               resolve(value);
             }
             input.enabled = true;
             input.busy = false;
           }),
-        );
-
-        // Input validation.
-        disposables.push(
           input.onDidChangeValue((text) => {
             input.validationMessage = opts.validate(text);
           }),
         );
 
-        if (this.current) {
-          this.current.dispose();
-        }
+        this.current?.dispose();
         this.current = input;
         this.current.show();
       });
     } finally {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      disposables.forEach((d) => d.dispose());
+      for (const disposable of disposables) {
+        disposable.dispose();
+      }
     }
   }
 

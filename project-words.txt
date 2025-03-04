@@ -4,6 +4,7 @@ Googlers
 highmem
 milli
 pkce
+quickpick
 toolsai
 veryhighmem
 xssi
