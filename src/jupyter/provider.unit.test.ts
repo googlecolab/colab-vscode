@@ -34,7 +34,7 @@ describe("ColabJupyterServerProvider", () => {
     Pick<Jupyter, "createJupyterServerCollection">
   >;
   let colabClientStub: SinonStubbedInstance<
-    Pick<ColabClient, "ccuInfo" | "assign">
+    Pick<ColabClient, "assign" | "ccuInfo">
   >;
   let serverProvider: ColabJupyterServerProvider;
 
@@ -69,6 +69,7 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   afterEach(() => {
+    serverProvider.dispose();
     sinon.reset();
   });
 

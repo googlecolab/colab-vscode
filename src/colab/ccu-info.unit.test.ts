@@ -22,7 +22,7 @@ describe("CcuInformation", () => {
   });
 
   afterEach(() => {
-    ccuInfo?.dispose();
+    ccuInfo.dispose();
     fakeClock.restore();
     sinon.restore();
   });
@@ -42,7 +42,10 @@ describe("CcuInformation", () => {
       };
       clientStub.ccuInfo.resolves(firstResponse);
       const vscodeStub = newVsCodeStub();
-      ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), clientStub);
+      ccuInfo = await CcuInformation.initialize(
+        vscodeStub.asVsCode(),
+        clientStub,
+      );
     });
 
     it("fetches CCU info on initialization", () => {
