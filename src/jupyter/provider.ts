@@ -7,8 +7,7 @@ import {
 } from "@vscode/jupyter-extension";
 import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
 import vscode, { CancellationToken, ProviderResult } from "vscode";
-import { Variant } from "../colab/api";
-import { CcuInformation as CcuInfo } from "../colab/ccu-info";
+import { CCUInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import { COLAB_SERVERS } from "./servers";
 
@@ -39,19 +38,13 @@ const VSCODE_CLIENT_AGENT = "vscode";
 export class ColabJupyterServerProvider
   implements JupyterServerProvider, vscode.Disposable
 {
-  private readonly disposable: vscode.Disposable;
   private readonly serverCollection: JupyterServerCollection;
-  private ccuInfo?: CcuInfo;
-  private onChangeServersEmitter: vscode.EventEmitter<void>;
-  onDidChangeServers: vscode.Event<void>;
 
   constructor(
     private readonly vs: typeof vscode,
     jupyter: Jupyter,
     private readonly client: ColabClient,
   ) {
-    this.onChangeServersEmitter = new vs.EventEmitter<void>();
-    this.onDidChangeServers = this.onChangeServersEmitter.event;
     this.serverCollection = jupyter.createJupyterServerCollection(
       "colab",
       "Colab",
@@ -60,7 +53,6 @@ export class ColabJupyterServerProvider
   }
 
   dispose() {
-    this.ccuInfo?.dispose();
     this.serverCollection.dispose();
   }
 
@@ -70,13 +62,9 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    const parseCcuInfo = (nextCcuInfo: CcuInfo) => {
-      let eligibleGpus = new Set();
-      let ineligibleGpus = new Set();
-      if (nextCcuInfo.ccuInfo) {
-        eligibleGpus = new Set(nextCcuInfo.ccuInfo.eligibleGpus);
-        ineligibleGpus = new Set(nextCcuInfo.ccuInfo.ineligibleGpus);
-      }
+    return this.client.ccuInfo().then((ccuInfo: CCUInfo) => {
+      const eligibleGpus = new Set(ccuInfo.eligibleGpus);
+      const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
       // TODO: TPUs are currently not supported by the CCU Info API.
       return Array.from(COLAB_SERVERS).filter((server) => {
         if (server.variant !== Variant.GPU) {
@@ -92,25 +80,7 @@ export class ColabJupyterServerProvider
 
         return eligibleGpu && !ineligibleGpu;
       });
-    };
-
-    if (!this.ccuInfo) {
-      return CcuInfo.initialize(this.vs, this.client).then(
-        (ccuInfo: CcuInfo) => {
-          this.ccuInfo = ccuInfo;
-          this.ccuInfo.onDidChangeCcuInfo.event(
-            () => {
-              this.onChangeServersEmitter.fire();
-            },
-            this,
-            [this.disposable],
-          );
-
-          return parseCcuInfo(this.ccuInfo);
-        },
-      );
-    }
-    return parseCcuInfo(this.ccuInfo);
+    });
   }
 
   /**
