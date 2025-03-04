@@ -1,44 +1,23 @@
 import { expect } from "chai";
-import * as nodeFetch from "node-fetch";
-import { Response } from "node-fetch";
 import * as sinon from "sinon";
-import { SinonFakeTimers, SinonMatcher, SinonStub, useFakeTimers } from "sinon";
-import { AuthenticationSession } from "vscode";
+import { SinonFakeTimers, SinonStubbedInstance, useFakeTimers, createStubInstance } from "sinon";
 import { newVsCodeStub } from "../test/helpers/vscode";
 import { Accelerator, CcuInfo } from "./api";
 import { CcuInformation } from "./ccu-info";
 import { ColabClient } from "./client";
 
-const DOMAIN = "https://colab.example.com";
-const BEARER_TOKEN = "access-token";
-
 describe("CcuInformation", () => {
-  let fetchStub: SinonStub<
-    [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
-    Promise<Response>
-  >;
-  let sessionStub: SinonStub<[], Promise<AuthenticationSession>>;
-  let client: ColabClient;
+  let clientStub: SinonStubbedInstance<ColabClient>;
   let fakeClock: SinonFakeTimers;
   let ccuInfo: CcuInformation;
 
   beforeEach(() => {
-    fetchStub = sinon.stub(nodeFetch, "default");
-    sessionStub = sinon.stub<[], Promise<AuthenticationSession>>().resolves({
-      id: "mock-id",
-      accessToken: BEARER_TOKEN,
-      account: {
-        id: "mock-account-id",
-        label: "mock-account-label",
-      },
-      scopes: ["foo"],
-    } as AuthenticationSession);
-    client = new ColabClient(new URL(DOMAIN), sessionStub);
+    clientStub = createStubInstance(ColabClient);
     fakeClock = useFakeTimers();
   });
 
   afterEach(() => {
-    ccuInfo.dispose();
+    ccuInfo?.dispose();
     fakeClock.restore();
     sinon.restore();
   });
@@ -56,19 +35,13 @@ describe("CcuInformation", () => {
           nextRefillTimestampSec: 5,
         },
       };
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(firstResponse)), {
-            status: 200,
-          }),
-        );
+      clientStub.ccuInfo.resolves(firstResponse);
       const vscodeStub = newVsCodeStub();
-      ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
+      ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), clientStub);
     });
 
     it("fetches CCU info on initialization", () => {
-      sinon.assert.calledOnce(fetchStub);
+      sinon.assert.calledOnce(clientStub.ccuInfo);
     });
 
     it("clears timer on dispose", () => {
@@ -81,6 +54,7 @@ describe("CcuInformation", () => {
   });
 
   it("successfully polls info", async () => {
+    const INTERVAL_IN_MS = 1000*60*5;
     const firstResponse: CcuInfo = {
       currentBalance: 1,
       consumptionRateHourly: 2,
@@ -100,19 +74,15 @@ describe("CcuInformation", () => {
       ...secondResponse,
       currentBalance: 0,
     };
-    function stubSuccessfulFetch(response: unknown) {
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(response)), { status: 200 }),
-        );
+    function stubSuccessfulFetch(response: CcuInfo) {
+      clientStub.ccuInfo.resolves(response);
     }
     let updateCount = 0;
     const expectedInfoUpdates = [];
 
     stubSuccessfulFetch(firstResponse);
     const vscodeStub = newVsCodeStub();
-    ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), client);
+    ccuInfo = await CcuInformation.initialize(vscodeStub.asVsCode(), clientStub);
     ccuInfo.onDidChangeCcuInfo.event(() => {
       updateCount++;
     });
@@ -120,11 +90,11 @@ describe("CcuInformation", () => {
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
     stubSuccessfulFetch(secondResponse);
-    await fakeClock.nextAsync();
+    await fakeClock.tickAsync(INTERVAL_IN_MS);
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
     stubSuccessfulFetch(thirdResponse);
-    await fakeClock.nextAsync();
+    await fakeClock.tickAsync(INTERVAL_IN_MS);
     expectedInfoUpdates.push(ccuInfo.ccuInfo);
 
     expect(expectedInfoUpdates).to.deep.equal([
@@ -135,22 +105,3 @@ describe("CcuInformation", () => {
     expect(updateCount).to.equal(2);
   });
 });
-
-function withXSSI(response: string): string {
-  return `)]}'\n${response}`;
-}
-
-function matchAuthorizedRequest(
-  endpoint: string,
-  method: "GET" | "POST",
-): SinonMatcher {
-  return sinon.match({
-    url: sinon.match(`${DOMAIN}/${endpoint}?authuser=0`),
-    method: sinon.match(method),
-    headers: sinon.match(
-      (headers: nodeFetch.Headers) =>
-        headers.get("Authorization") === `Bearer ${BEARER_TOKEN}` &&
-        headers.get("Accept") === "application/json",
-    ),
-  });
-}
