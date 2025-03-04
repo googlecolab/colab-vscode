@@ -7,7 +7,7 @@ import {
 } from "@vscode/jupyter-extension";
 import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
 import vscode, { CancellationToken, ProviderResult } from "vscode";
-import { CCUInfo, Variant } from "../colab/api";
+import { CcuInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import { COLAB_SERVERS } from "./servers";
 
@@ -62,7 +62,7 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return this.client.ccuInfo().then((ccuInfo: CCUInfo) => {
+    return this.client.ccuInfo().then((ccuInfo: CcuInfo) => {
       const eligibleGpus = new Set(ccuInfo.eligibleGpus);
       const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
       // TODO: TPUs are currently not supported by the CCU Info API.
