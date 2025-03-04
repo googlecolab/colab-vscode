@@ -1,20 +1,34 @@
+import { randomUUID } from "crypto";
 import {
   Jupyter,
   JupyterServer,
   JupyterServerCollection,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import fetch, { Headers } from "node-fetch";
+import fetch, { Headers, Request, RequestInfo, RequestInit } from "node-fetch";
 import vscode, { CancellationToken, ProviderResult } from "vscode";
 import { Variant } from "../colab/api";
 import { CcuInformation as CcuInfo } from "../colab/ccu-info";
 import { ColabClient } from "../colab/client";
-import { SERVERS } from "./servers";
+import { COLAB_SERVERS } from "./servers";
 
 /**
- * Header key for the runtime proxy token.
+ * A header key for the Colab runtime proxy token.
  */
 const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
+
+// TODO: Derive NBH.
+const staticNbh = randomUUID();
+
+/**
+ * A header key for the Colab client agent.
+ */
+const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
+
+/**
+ * The client agent value for requests originating from VS Code.
+ */
+const VSCODE_CLIENT_AGENT = "vscode";
 
 /**
  * Colab Jupyter server provider.
@@ -64,7 +78,7 @@ export class ColabJupyterServerProvider
         ineligibleGpus = new Set(nextCcuInfo.ccuInfo.ineligibleGpus);
       }
       // TODO: TPUs are currently not supported by the CCU Info API.
-      return Array.from(SERVERS.values()).filter((server) => {
+      return Array.from(COLAB_SERVERS).filter((server) => {
         if (server.variant !== Variant.GPU) {
           return true;
         }
@@ -107,16 +121,15 @@ export class ColabJupyterServerProvider
     server: JupyterServer,
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
-    // TODO: Derive NBH.
-    const nbh = "booooooooooooooooooooooooooooooooooooooooooo"; // cspell:disable-line
-
-    const colabServer = SERVERS.get(server.id);
+    const colabServer = Array.from(COLAB_SERVERS).find(
+      (s) => s.id === server.id,
+    );
     if (!colabServer) {
       return Promise.reject(new Error(`Unknown server: ${server.id}`));
     }
 
     return this.client
-      .assign(nbh, colabServer.variant, colabServer.accelerator)
+      .assign(staticNbh, colabServer.variant, colabServer.accelerator)
       .then((assignment): JupyterServer => {
         const { url, token } = assignment.runtimeProxyInfo ?? {};
 
@@ -128,21 +141,47 @@ export class ColabJupyterServerProvider
 
         return {
           ...server,
+          id: staticNbh,
           connectionInformation: {
             baseUrl: this.vs.Uri.parse(url),
             headers: { COLAB_RUNTIME_PROXY_TOKEN_HEADER: token },
             // Overwrite the fetch method so that we can add our own custom
             // headers to all requests made by the Jupyter extension.
-            fetch: async (
-              info: fetch.RequestInfo,
-              init?: fetch.RequestInit,
-            ) => {
+            fetch: async (info: RequestInfo, init?: RequestInit) => {
               if (!init) {
                 init = {};
               }
               const requestHeaders = new Headers(init.headers);
               requestHeaders.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
+              requestHeaders.append(
+                COLAB_CLIENT_AGENT_HEADER,
+                VSCODE_CLIENT_AGENT,
+              );
               init.headers = requestHeaders;
+
+              // A workaround to a known issue with node-fetch.
+              // https://github.com/node-fetch/node-fetch/discussions/1598
+              //
+              // This issue presents itself in the form of fetch Request objects
+              // not matching node-fetch Request objects, and how node-fetch
+              // determines an object in an interesting fashion
+              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
+              // that does not recognize the regular Fetch API's Request object
+              // thus passing the entire object into the node fetch Request's
+              // url.
+              //
+              // Parsed urls turn into [Request objects] here:
+              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/request.js#L52
+              //
+              // This issue is further confused by the type error not exactly
+              // being helpful to debugging the issue:
+              // https://github.com/node-fetch/node-fetch/blob/8b3320d2a7c07bce4afc6b2bf6c3bbddda85b01f/src/index.js#L54
+              //
+              // Create a new node-fetch request with the correct symbols, so
+              // that node-fetch will parse it correctly.
+              if (isRequest(info)) {
+                info = new Request(info.url, info);
+              }
 
               return fetch(info, init);
             },
@@ -150,4 +189,8 @@ export class ColabJupyterServerProvider
         };
       });
   }
+}
+
+function isRequest(info: RequestInfo): info is Request {
+  return typeof info !== "string" && !("href" in info);
 }
