@@ -1,7 +1,6 @@
 import { Jupyter } from "@vscode/jupyter-extension";
 import { expect } from "chai";
-import { SinonStub } from "sinon";
-import sinon from "sinon";
+import sinon, { SinonStub } from "sinon";
 import vscode from "vscode";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { getJupyterApi } from "./jupyter-extension";
