@@ -185,7 +185,7 @@ describe("ColabJupyterServerProvider", () => {
 
   describe("commands", () => {
     describe("provideCommands", () => {
-      it("returns list to create a server, open Colab web and upgrade to pro", async () => {
+      it("returns commands to create a server, open Colab web and upgrade to pro", async () => {
         const commands = await serverProvider.provideCommands(
           undefined,
           cancellationToken,
@@ -210,7 +210,7 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     describe("handleCommand", () => {
-      it("for open Colab web opens a browser with the Colab URL", () => {
+      it('opens a browser to the Colab web client for "Open Colab Web"', () => {
         vsCodeStub.env.openExternal.resolves(true);
 
         expect(
@@ -226,7 +226,7 @@ describe("ColabJupyterServerProvider", () => {
         );
       });
 
-      it("for upgrade to pro opens a browser with the Colab signup URL", () => {
+      it('opens a browser to the Colab signup page for "Upgrade to Pro"', () => {
         vsCodeStub.env.openExternal.resolves(true);
 
         expect(
@@ -243,7 +243,7 @@ describe("ColabJupyterServerProvider", () => {
       });
 
       describe("for new Colab server", () => {
-        it("when navigating back out of the flow returns undefined", async () => {
+        it("returns undefined when navigating back out of the flow", async () => {
           serverPickerStub.prompt.rejects(InputFlowAction.back);
 
           await expect(
