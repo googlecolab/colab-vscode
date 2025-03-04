@@ -161,11 +161,16 @@ async function promptForAlias(
       ? ` ${state.accelerator}`
       : "";
   const placeholder = `Colab ${variantToString(state.variant)}${acceleratorPart}`;
+  const step =
+    state.accelerator !== undefined && state.accelerator !== Accelerator.NONE
+      ? 3
+      : 2;
   const alias = await input.showInputBox({
     title: "Alias your server",
-    step: 3,
-    totalSteps: 3,
-    // TODO: Incrementally number the same variant/server machines. E.g. Colab CPU (1), Colab GPU A100 (2).
+    step,
+    totalSteps: step,
+    // TODO: Incrementally number the same variant/server machines. E.g. Colab
+    // CPU (1), Colab GPU A100 (2).
     value: state.alias ?? "",
     prompt: "Provide a local convenience alias to the server.",
     validate: (value) => {

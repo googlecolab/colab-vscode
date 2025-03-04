@@ -241,7 +241,55 @@ describe("ServerPicker", () => {
       );
       expect(pick).to.eventually.equal(undefined);
     });
+
+    it("sets the right step", async () => {
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+
+      void serverPicker.prompt(ALL_SERVERS);
+
+      await variantPickerShown;
+      expect(variantQuickPickStub.step).to.equal(1);
+      expect(variantQuickPickStub.totalSteps).to.equal(2);
+
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.DEFAULT, label: "CPU" },
+      ]);
+
+      await aliasInputShown;
+      expect(aliasInputBoxStub.step).to.equal(2);
+      expect(aliasInputBoxStub.totalSteps).to.equal(2);
+    });
+
+    it("sets the right step when accelerators are available", async () => {
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const acceleratorQuickPickStub = stubQuickPickForCall(1);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+
+      void serverPicker.prompt(ALL_SERVERS);
+
+      await variantPickerShown;
+      expect(variantQuickPickStub.step).to.equal(1);
+      expect(variantQuickPickStub.totalSteps).to.equal(2);
+
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.GPU, label: "GPU" },
+      ]);
+      await acceleratorPickerShown;
+      expect(acceleratorQuickPickStub.step).to.equal(2);
+      expect(acceleratorQuickPickStub.totalSteps).to.equal(3);
+
+      acceleratorQuickPickStub.onDidChangeSelection.yield([
+        { value: Accelerator.T4, label: "T4" },
+      ]);
+      await aliasInputShown;
+      expect(aliasInputBoxStub.step).to.equal(3);
+      expect(aliasInputBoxStub.totalSteps).to.equal(3);
+    });
   });
 });
-
-// TODO: Test that the right step (e.g. 1/3) is shown, as well as other title/prompt values.
