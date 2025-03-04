@@ -3,6 +3,9 @@ import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
 import { ColabServerDescriptor } from "../jupyter/servers";
 import { Accelerator, Variant } from "./api";
 
+/**
+ * Supports prompting the user to pick a Colab server to be created.
+ */
 export class ServerPicker {
   constructor(private readonly vs: typeof vscode) {}
 
@@ -10,7 +13,6 @@ export class ServerPicker {
    * Prompt the user through a multi-step series of inputs to pick a Colab
    * server type.
    *
-   * @param vs The vscode module.
    * @param availableServers The available servers to pick from.
    * @returns The selected server, or undefined if the user cancels.
    */
@@ -25,7 +27,7 @@ export class ServerPicker {
       variantToAccelerators.set(server.variant, accelerators);
     }
     if (variantToAccelerators.size === 0) {
-      return undefined;
+      return;
     }
 
     const state: Partial<Server> = {};
@@ -56,18 +58,18 @@ interface Server {
 /**
  * A partial of {@link Server} with all properties optional except for K.
  */
-type ServerWith<K extends keyof Server> = Partial<Server> &
+type PartialServerWith<K extends keyof Server> = Partial<Server> &
   Required<Pick<Server, K>>;
 
 function isVariantDefined(
   state: Partial<Server>,
-): state is ServerWith<"variant"> {
+): state is PartialServerWith<"variant"> {
   return state.variant !== undefined;
 }
 
 function isAcceleratorDefined(
   state: Partial<Server>,
-): state is ServerWith<"accelerator"> {
+): state is PartialServerWith<"accelerator"> {
   return state.accelerator !== undefined;
 }
 
@@ -125,7 +127,7 @@ async function promptForVariant(
 
 async function promptForAccelerator(
   input: MultiStepInput,
-  state: ServerWith<"variant">,
+  state: PartialServerWith<"variant">,
   acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
 ): Promise<InputStep | undefined> {
   const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
@@ -154,7 +156,7 @@ async function promptForAccelerator(
 
 async function promptForAlias(
   input: MultiStepInput,
-  state: ServerWith<"variant">,
+  state: PartialServerWith<"variant">,
 ): Promise<InputStep | undefined> {
   const acceleratorPart =
     state.accelerator && state.accelerator !== Accelerator.NONE
@@ -162,9 +164,7 @@ async function promptForAlias(
       : "";
   const placeholder = `Colab ${variantToString(state.variant)}${acceleratorPart}`;
   const step =
-    state.accelerator !== undefined && state.accelerator !== Accelerator.NONE
-      ? 3
-      : 2;
+    state.accelerator && state.accelerator !== Accelerator.NONE ? 3 : 2;
   const alias = await input.showInputBox({
     title: "Alias your server",
     step,
@@ -173,14 +173,10 @@ async function promptForAlias(
     // CPU (1), Colab GPU A100 (2).
     value: state.alias ?? "",
     prompt: "Provide a local convenience alias to the server.",
-    validate: (value) => {
-      if (value.length > 10) {
-        return "Name must be less than 10 characters.";
-      }
-      return undefined;
-    },
+    validate: (value) =>
+      value.length > 10 ? "Name must be less than 10 characters." : "",
     placeholder,
   });
-  state.alias = alias ? alias : placeholder;
+  state.alias = alias || placeholder;
   return;
 }

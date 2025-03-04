@@ -44,11 +44,11 @@ describe("ServerPicker", () => {
       return stub;
     }
 
-    it("with no available servers returns undefined", () => {
+    it("returns undefined when there are no available servers", () => {
       expect(serverPicker.prompt([])).to.eventually.equal(undefined);
     });
 
-    it("when selecting a variant is cancelled returns undefined", async () => {
+    it("returns undefined when selecting a variant is cancelled", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
@@ -59,7 +59,7 @@ describe("ServerPicker", () => {
       expect(prompt).to.eventually.equal(undefined);
     });
 
-    it("when selecting an accelerator is cancelled returns undefined", async () => {
+    it("returns undefined when selecting an accelerator is cancelled", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
 
@@ -76,7 +76,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.be.undefined;
     });
 
-    it("when selecting an alias is cancelled returns undefined", async () => {
+    it("returns undefined when selecting an alias is cancelled", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -99,7 +99,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.be.undefined;
     });
 
-    it("when there are no accelerators skips prompting to select one", async () => {
+    it("prompting for an accelerated is skipped when there are none", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -116,7 +116,7 @@ describe("ServerPicker", () => {
       sinon.assert.notCalled(acceleratorQuickPickStub.show);
     });
 
-    it("when all prompts are answered returns the server type", async () => {
+    it("returns the server type when all prompts are answered", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -145,7 +145,7 @@ describe("ServerPicker", () => {
       });
     });
 
-    it("when the alias is omitted returns the server type with the placeholder as the label", async () => {
+    it("returns the server type with the placeholder as the label when the alias is omitted", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -197,7 +197,7 @@ describe("ServerPicker", () => {
       expect(pick).to.eventually.equal(undefined);
     });
 
-    it("when navigating back sets the previously specified value", async () => {
+    it("sets the previously specified value when navigating back", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
