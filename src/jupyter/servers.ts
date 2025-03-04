@@ -10,8 +10,6 @@ import { Accelerator, Variant } from "../colab/api";
  * designations.
  */
 export interface ColabServerDescriptor {
-  // Note: id will be removed as part of the Jupyter server provider rework.
-  readonly id: string;
   readonly label: string;
   readonly variant: Variant;
   readonly accelerator?: Accelerator;
@@ -40,7 +38,12 @@ export type ColabAssignedServer = ColabJupyterServer & {
 /**
  * The mapping of all potentially available ID to Colab Jupyter servers.
  */
-export const COLAB_SERVERS = new Set<ColabServerDescriptor>([
+export const COLAB_SERVERS = new Set<
+  ColabServerDescriptor & {
+    // Note: id will be removed as part of the Jupyter server provider rework.
+    readonly id: string;
+  }
+>([
   // CPUs
   {
     id: "m",
