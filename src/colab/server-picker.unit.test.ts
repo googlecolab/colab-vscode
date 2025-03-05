@@ -160,16 +160,50 @@ describe("ServerPicker", () => {
       ]);
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
-
       acceleratorQuickPickStub.onDidChangeSelection.yield([
         { value: Accelerator.T4, label: "T4" },
       ]);
       await aliasInputShown;
-
       aliasInputBoxStub.value = "s".repeat(11);
       aliasInputBoxStub.onDidChangeValue.yield(aliasInputBoxStub.value);
+
       expect(aliasInputBoxStub.validationMessage).to.equal(errorMessage);
-      expect(prompt).to.eventually.throw;
+      expect(prompt).to.eventually.throw();
+    });
+
+    it("returns a validation error message if alias is not unique", async () => {
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const acceleratorQuickPickStub = stubQuickPickForCall(1);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantSelection = [{ value: Variant.GPU, label: "GPU" }];
+      const acceleratorSelection = [{ value: Accelerator.T4, label: "T4" }];
+      const aliasName = "s".repeat(5);
+      const errorMessage = "Name must be unique.";
+
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      // Create server list with already set alias.
+      const servers = [
+        ...ALL_SERVERS,
+        {
+          id: aliasName,
+          label: aliasName,
+          variant: Variant.GPU,
+          accelerator: Accelerator.T4,
+        },
+      ];
+      const prompt = serverPicker.prompt(servers);
+      await variantPickerShown;
+      const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
+      variantQuickPickStub.onDidChangeSelection.yield(variantSelection);
+      await acceleratorPickerShown;
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+      acceleratorQuickPickStub.onDidChangeSelection.yield(acceleratorSelection);
+      await aliasInputShown;
+      aliasInputBoxStub.value = aliasName;
+      aliasInputBoxStub.onDidChangeValue.yield(aliasInputBoxStub.value);
+
+      expect(aliasInputBoxStub.validationMessage).to.equal(errorMessage);
+      expect(prompt).to.eventually.throw();
     });
 
     it("returns the server type with the placeholder as the label when the alias is omitted", async () => {

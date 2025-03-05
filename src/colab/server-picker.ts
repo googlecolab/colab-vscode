@@ -20,11 +20,13 @@ export class ServerPicker {
     availableServers: ColabServerDescriptor[],
   ): Promise<ColabServerDescriptor | undefined> {
     const variantToAccelerators = new Map<Variant, Set<Accelerator>>();
+    const serverLabels: string[] = [];
     for (const server of availableServers) {
       const accelerators =
         variantToAccelerators.get(server.variant) ?? new Set();
       accelerators.add(server.accelerator ?? Accelerator.NONE);
       variantToAccelerators.set(server.variant, accelerators);
+      serverLabels.push(server.label);
     }
     if (variantToAccelerators.size === 0) {
       return;
@@ -32,7 +34,7 @@ export class ServerPicker {
 
     const state: Partial<Server> = {};
     await MultiStepInput.run(this.vs, (input) =>
-      promptForVariant(input, state, variantToAccelerators),
+      promptForVariant(input, state, variantToAccelerators, serverLabels),
     );
     if (
       state.variant === undefined ||
@@ -96,6 +98,7 @@ async function promptForVariant(
   input: MultiStepInput,
   state: Partial<Server>,
   acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
+  serverLabels: string[],
 ): Promise<InputStep | undefined> {
   const items: VariantPick[] = [];
   for (const variant of acceleratorsByVariant.keys()) {
@@ -119,16 +122,18 @@ async function promptForVariant(
   // Skip prompting for an accelerator for the default variant (CPU).
   if (state.variant === Variant.DEFAULT) {
     state.accelerator = Accelerator.NONE;
-    return (input: MultiStepInput) => promptForAlias(input, state);
+    return (input: MultiStepInput) =>
+      promptForAlias(input, state, serverLabels);
   }
   return (input: MultiStepInput) =>
-    promptForAccelerator(input, state, acceleratorsByVariant);
+    promptForAccelerator(input, state, acceleratorsByVariant, serverLabels);
 }
 
 async function promptForAccelerator(
   input: MultiStepInput,
   state: PartialServerWith<"variant">,
   acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
+  serverLabels: string[],
 ): Promise<InputStep | undefined> {
   const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
   const items: AcceleratorPick[] = [];
@@ -151,12 +156,13 @@ async function promptForAccelerator(
     return;
   }
 
-  return (input: MultiStepInput) => promptForAlias(input, state);
+  return (input: MultiStepInput) => promptForAlias(input, state, serverLabels);
 }
 
 async function promptForAlias(
   input: MultiStepInput,
   state: PartialServerWith<"variant">,
+  serverLabels: string[],
 ): Promise<InputStep | undefined> {
   const acceleratorPart =
     state.accelerator && state.accelerator !== Accelerator.NONE
@@ -173,10 +179,21 @@ async function promptForAlias(
     // CPU (1), Colab GPU A100 (2).
     value: state.alias ?? "",
     prompt: "Provide a local convenience alias to the server.",
-    validate: (value) =>
-      value.length > 10 ? "Name must be less than 10 characters." : "",
+    validate: validateAliasFn(serverLabels),
     placeholder,
   });
   state.alias = alias || placeholder;
   return;
+}
+
+function validateAliasFn(serverLabels: string[]): (name: string) => string {
+  return (name: string): string => {
+    if (serverLabels.includes(name)) {
+      return "Name must be unique.";
+    }
+    if (name.length > 10) {
+      return "Name must be less than 10 characters.";
+    }
+    return "";
+  };
 }
