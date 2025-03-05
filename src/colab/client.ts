@@ -2,6 +2,7 @@ import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request } from "node-fetch";
 import { AuthenticationSession } from "vscode";
+import { z } from "zod";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
   Assignment,
@@ -9,6 +10,9 @@ import {
   Variant,
   Accelerator,
   GetAssignmentResponse,
+  CCUInfoSchema,
+  AssignmentSchema,
+  GetAssignmentResponseSchema,
 } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
@@ -49,9 +53,10 @@ export class ColabClient {
    * @returns The current CCU information.
    */
   async ccuInfo(): Promise<CCUInfo> {
-    return this.issueRequest<CCUInfo>(
+    return this.issueRequest(
       new URL(CCU_INFO_ENDPOINT, this.domain),
       "GET",
+      CCUInfoSchema,
     );
   }
 
@@ -98,9 +103,11 @@ export class ColabClient {
     accelerator?: Accelerator,
   ): Promise<AssignmentToken | AssignedAssignment> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
-    const response = await this.issueRequest<
-      GetAssignmentResponse | Assignment
-    >(url, "GET");
+    const response = await this.issueRequest(
+      url,
+      "GET",
+      z.union([GetAssignmentResponseSchema, AssignmentSchema]),
+    );
     if ("token" in response) {
       return { ...response, kind: "to_assign" };
     } else {
@@ -115,7 +122,7 @@ export class ColabClient {
     accelerator?: Accelerator,
   ): Promise<Assignment> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
-    return this.issueRequest<Assignment>(url, "POST", [
+    return this.issueRequest(url, "POST", AssignmentSchema, [
       [XSRF_HEADER_KEY, xsrfToken],
     ]);
   }
@@ -136,11 +143,12 @@ export class ColabClient {
     return url;
   }
 
-  private async issueRequest<T>(
+  private async issueRequest<T extends z.ZodType<unknown>>(
     endpoint: URL,
     method: "GET" | "POST",
+    schema: T,
     headers?: fetch.HeadersInit,
-  ): Promise<T> {
+  ): Promise<z.infer<T>> {
     const authSession = await this.session();
     const requestHeaders = new fetch.Headers(headers);
     requestHeaders.set("Accept", "application/json");
@@ -157,9 +165,14 @@ export class ColabClient {
       );
     }
     const body = await response.text();
-    // TODO: Type-guard the response, likely with zod, explicit type guards or
-    // something else functionally equivalent.
-    return JSON.parse(stripXssiPrefix(body)) as T;
+    return schema
+      .parseAsync(JSON.parse(stripXssiPrefix(body)))
+      .catch((error: unknown) => {
+        if (error instanceof z.ZodError) {
+          throw new Error(`Unexpected response object: ${error.message}`);
+        }
+        throw error;
+      }) as Promise<z.infer<T>>;
   }
 }
 
