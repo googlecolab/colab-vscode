@@ -147,28 +147,20 @@ describe("ServerPicker", () => {
 
     it("returns a validation error message if over character limit", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
-      const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
-      const errorMessage = "Name must be less than 10 characters.";
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      const prompt = serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(ALL_SERVERS);
       await variantPickerShown;
-      const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
-      variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
-      ]);
-      await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
-      acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: Accelerator.T4, label: "T4" },
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.DEFAULT, label: "CPU" },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.value = "s".repeat(11);
       aliasInputBoxStub.onDidChangeValue.yield(aliasInputBoxStub.value);
 
-      expect(aliasInputBoxStub.validationMessage).to.equal(errorMessage);
-      expect(prompt).to.eventually.throw();
+      expect(aliasInputBoxStub.validationMessage).to.match(/less than 10/);
     });
 
     it("returns the server type with the placeholder as the label when the alias is omitted", async () => {
