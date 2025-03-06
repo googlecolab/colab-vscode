@@ -8,8 +8,8 @@ import fetch, {
 } from "node-fetch";
 import vscode from "vscode";
 import { RuntimeProxyInfo, Variant } from "../colab/api";
-import { ColabClient } from "../colab/client";
 import { CcuInformation as CcuInfo } from "../colab/ccu-info";
+import { ColabClient } from "../colab/client";
 import {
   COLAB_SERVERS,
   ColabAssignedServer,
@@ -41,7 +41,7 @@ export class AssignmentManager implements vscode.Disposable {
 
   private readonly assignmentsChange: vscode.EventEmitter<void>;
   private onChangeServersEmitter: vscode.EventEmitter<void>;
-  private ccuInfo: CcuInfo;
+  private ccuInfo?: CcuInfo;
 
   constructor(
     private readonly vs: typeof vscode,
@@ -64,14 +64,11 @@ export class AssignmentManager implements vscode.Disposable {
    */
   async availableServers(): Promise<ColabServerDescriptor[]> {
     if (!this.ccuInfo) {
-      const ccuInfo = await CcuInfo.initialize(this.vs, this.client)
+      const ccuInfo = await CcuInfo.initialize(this.vs, this.client);
       this.ccuInfo = ccuInfo;
-      this.ccuInfo.onDidChangeCcuInfo.event(
-        () => {
-          this.onChangeServersEmitter.fire();
-        },
-        this,
-      );
+      this.ccuInfo.onDidChangeCcuInfo.event(() => {
+        this.onChangeServersEmitter.fire();
+      }, this);
     }
 
     const eligibleGpus = new Set(this.ccuInfo.ccuInfo?.eligibleGpus ?? []);
