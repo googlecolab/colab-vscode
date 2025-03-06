@@ -1,4 +1,4 @@
-import { assert, expect } from "chai";
+import { expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
 import {
   CodeChallengeMethod,
@@ -9,13 +9,18 @@ import { SinonStub, SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import vscode, { Disposable } from "vscode";
 import { PROVIDER_ID } from "../config/constants";
+import { PackageInfo } from "../config/package_info";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { GoogleAuthProvider } from "./provider";
 import { CodeProvider } from "./redirect";
+import { AuthStorage } from "./storage";
 
+const PACKAGE_INFO: PackageInfo = {
+  publisher: PROVIDER_ID,
+  name: "colab",
+};
 const REQUIRED_SCOPES = ["profile", "email"];
 const CLIENT_ID = "testClientId";
-const SESSIONS_KEY = "google.sessions";
 const DEFAULT_SESSION: vscode.AuthenticationSession = {
   id: "1",
   accessToken: "123",
@@ -37,33 +42,18 @@ describe("GoogleAuthProvider", () => {
     [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
     Promise<nodeFetch.Response>
   >;
-  let secretsStub: SinonStubbedInstance<
-    Pick<vscode.SecretStorage, "get" | "store">
-  >;
-  let extensionContextStub: SinonStubbedInstance<
-    Partial<vscode.ExtensionContext>
-  >;
+  let storageStub: SinonStubbedInstance<AuthStorage>;
   let redirectUriHandlerStub: SinonStubbedInstance<CodeProvider>;
   let registrationDisposable: sinon.SinonStubbedInstance<Disposable>;
+  let onDidChangeSessionsStub: sinon.SinonStub<
+    [vscode.AuthenticationProviderAuthenticationSessionsChangeEvent]
+  >;
   let authProvider: GoogleAuthProvider;
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
     fetchStub = sinon.stub(nodeFetch, "default");
-    secretsStub = {
-      get: sinon.stub(),
-      store: sinon.stub(),
-    };
-    extensionContextStub = {
-      extension: {
-        packageJSON: {
-          publisher: PROVIDER_ID,
-          name: "colab",
-        },
-      } as vscode.Extension<never>,
-      secrets:
-        secretsStub as Partial<vscode.SecretStorage> as vscode.SecretStorage,
-    };
+    storageStub = sinon.createStubInstance(AuthStorage);
     redirectUriHandlerStub = {
       waitForCode: sinon.stub(),
     };
@@ -73,13 +63,16 @@ describe("GoogleAuthProvider", () => {
     vsCodeStub.authentication.registerAuthenticationProvider.returns(
       registrationDisposable,
     );
+    onDidChangeSessionsStub = sinon.stub();
 
     authProvider = new GoogleAuthProvider(
       vsCodeStub.asVsCode(),
-      extensionContextStub as vscode.ExtensionContext,
+      PACKAGE_INFO,
+      storageStub,
       oAuth2Client,
       redirectUriHandlerStub,
     );
+    authProvider.onDidChangeSessions(onDidChangeSessionsStub);
   });
 
   afterEach(() => {
@@ -106,38 +99,22 @@ describe("GoogleAuthProvider", () => {
   });
 
   describe("getSessions", () => {
-    it("returns an empty array when no sessions are stored", async () => {
-      secretsStub.get.withArgs(SESSIONS_KEY).resolves(undefined);
+    it("returns an empty array when no session is stored", async () => {
+      storageStub.getSession.resolves(undefined);
 
-      const sessions = await authProvider.getSessions(undefined, {});
+      const sessions = authProvider.getSessions(undefined, {});
 
-      assert.deepEqual(sessions, []);
+      await expect(sessions).to.eventually.deep.equal([]);
+      sinon.assert.calledOnce(storageStub.getSession);
     });
 
     it("returns a session when one is stored", async () => {
-      const mockSessions = [DEFAULT_SESSION];
-      secretsStub.get
-        .withArgs(SESSIONS_KEY)
-        .resolves(JSON.stringify(mockSessions));
+      storageStub.getSession.resolves(DEFAULT_SESSION);
 
-      const sessions = await authProvider.getSessions(undefined, {});
+      const sessions = authProvider.getSessions(undefined, {});
 
-      assert.deepEqual(sessions, mockSessions);
-    });
-
-    it("returns all sessions when multiple are stored", async () => {
-      const secondSession = {
-        ...DEFAULT_SESSION,
-        id: "2",
-      };
-      const mockSessions = [DEFAULT_SESSION, secondSession];
-      secretsStub.get
-        .withArgs(SESSIONS_KEY)
-        .resolves(JSON.stringify(mockSessions));
-
-      const sessions = await authProvider.getSessions(undefined, {});
-
-      assert.deepEqual(sessions, mockSessions);
+      await expect(sessions).to.eventually.deep.equal([DEFAULT_SESSION]);
+      sinon.assert.calledOnce(storageStub.getSession);
     });
   });
 
@@ -281,55 +258,36 @@ describe("GoogleAuthProvider", () => {
   });
 
   describe("removeSession", () => {
-    it("does nothing when no sessions exist", async () => {
-      secretsStub.get.withArgs(SESSIONS_KEY).resolves(JSON.stringify([]));
+    it("does nothing when session is not removed", async () => {
+      storageStub.removeSession
+        .withArgs(DEFAULT_SESSION.id)
+        .resolves(undefined);
 
       await authProvider.removeSession(DEFAULT_SESSION.id);
 
-      sinon.assert.notCalled(secretsStub.store);
+      sinon.assert.notCalled(onDidChangeSessionsStub);
     });
 
-    it("does nothing when provided session does not exist", async () => {
-      secretsStub.get
-        .withArgs(SESSIONS_KEY)
-        .resolves(JSON.stringify([DEFAULT_SESSION]));
+    describe("when session is removed", () => {
+      beforeEach(async () => {
+        storageStub.removeSession
+          .withArgs(DEFAULT_SESSION.id)
+          .resolves(DEFAULT_SESSION);
 
-      await authProvider.removeSession("does-not-exist");
+        await authProvider.removeSession(DEFAULT_SESSION.id);
+      });
 
-      sinon.assert.notCalled(secretsStub.store);
-    });
+      it("removes the session", () => {
+        sinon.assert.calledOnce(storageStub.removeSession);
+      });
 
-    it("removes when there is just the one sessions", async () => {
-      secretsStub.get
-        .withArgs(SESSIONS_KEY)
-        .resolves(JSON.stringify([DEFAULT_SESSION]));
-
-      await authProvider.removeSession(DEFAULT_SESSION.id);
-
-      sinon.assert.calledOnceWithExactly(
-        secretsStub.store,
-        SESSIONS_KEY,
-        JSON.stringify([]),
-      );
-    });
-
-    it("removes the provided session when there are many", async () => {
-      const secondSession = {
-        ...DEFAULT_SESSION,
-        id: "2",
-      };
-      const mockSessions = [DEFAULT_SESSION, secondSession];
-      secretsStub.get
-        .withArgs(SESSIONS_KEY)
-        .resolves(JSON.stringify(mockSessions));
-
-      await authProvider.removeSession(DEFAULT_SESSION.id);
-
-      sinon.assert.calledOnceWithExactly(
-        secretsStub.store,
-        SESSIONS_KEY,
-        JSON.stringify([secondSession]),
-      );
+      it("notifies of the removal", () => {
+        sinon.assert.calledOnceWithExactly(onDidChangeSessionsStub, {
+          added: [],
+          removed: [DEFAULT_SESSION],
+          changed: [],
+        });
+      });
     });
   });
 });
