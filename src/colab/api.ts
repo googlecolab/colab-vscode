@@ -57,6 +57,17 @@ export enum Accelerator {
   V5E1 = "V5E1",
 }
 
+function uppercaseEnum<T extends z.EnumLike>(
+  enumObj: T,
+): z.ZodEffects<z.ZodNativeEnum<T>, T[keyof T], unknown> {
+  return z.preprocess((val) => {
+    if (typeof val === "string") {
+      return val.toUpperCase();
+    }
+    return val;
+  }, z.nativeEnum(enumObj));
+}
+
 export const FreeCCUQuotaInfoSchema = z.object({
   /**
    * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
@@ -94,11 +105,11 @@ export const CCUInfoSchema = z.object({
   /**
    * The list of eligible GPU accelerators.
    */
-  eligibleGpus: z.array(z.nativeEnum(Accelerator)),
+  eligibleGpus: z.array(uppercaseEnum(Accelerator)),
   /**
    * The list of ineligible GPU accelerators.
    */
-  ineligibleGpus: z.array(z.nativeEnum(Accelerator)),
+  ineligibleGpus: z.array(uppercaseEnum(Accelerator)).optional(),
   /**
    * Free CCU quota information if applicable.
    */
@@ -108,15 +119,28 @@ export type CCUInfo = z.infer<typeof CCUInfoSchema>;
 
 export const GetAssignmentResponseSchema = z.object({
   /** The pool's {@link Accelerator}. */
-  acc: z.nativeEnum(Accelerator),
+  acc: uppercaseEnum(Accelerator),
   /** The notebook ID hash. */
   nbh: z.string(),
   /** Whether or not Recaptcha should prompt. */
   p: z.boolean(),
   /** XSRF token for assignment posting. */
   token: z.string(),
-  /** The string representation of the pool {@link Variant}. */
-  variant: z.nativeEnum(Variant),
+  /** The variant of the assignment. */
+  // On GET, this is a string so we must preprocess it to the enum.
+  variant: z.preprocess((val) => {
+    if (typeof val === "string") {
+      switch (val) {
+        case "DEFAULT":
+          return Variant.DEFAULT;
+        case "GPU":
+          return Variant.GPU;
+        case "TPU":
+          return Variant.TPU;
+      }
+    }
+    return val;
+  }, z.nativeEnum(Variant)),
 });
 export type GetAssignmentResponse = z.infer<typeof GetAssignmentResponseSchema>;
 
@@ -132,7 +156,7 @@ export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 
 export const AssignmentSchema = z.object({
   /** The assigned accelerator. */
-  accelerator: z.nativeEnum(Accelerator),
+  accelerator: uppercaseEnum(Accelerator),
   /** The endpoint URL. */
   endpoint: z.string(),
   /** Frontend idle timeout in seconds. */
