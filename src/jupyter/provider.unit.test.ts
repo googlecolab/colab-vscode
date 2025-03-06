@@ -1,41 +1,43 @@
+import { randomUUID } from "crypto";
 import {
   Jupyter,
   JupyterServer,
   JupyterServerCollection,
+  JupyterServerCommandProvider,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
-import fetch, { Headers, Request as nodeRequest } from "node-fetch";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import { CancellationToken, CancellationTokenSource } from "vscode";
+import { Accelerator, Variant } from "../colab/api";
+import { ServerPicker } from "../colab/server-picker";
+import { InputFlowAction } from "../common/multi-step-quickpick";
 import {
-  Accelerator,
-  Assignment,
-  Shape,
-  SubscriptionState,
-  SubscriptionTier,
-  Variant,
-} from "../colab/api";
-import { ColabClient } from "../colab/client";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
+  newVsCodeStub as newVsCodeStub,
+  VsCodeStub,
+} from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
+import { AssignmentManager } from "./assignments";
 import { ColabJupyterServerProvider } from "./provider";
-import { ColabJupyterServer, COLAB_SERVERS } from "./servers";
-
-const SERVERS = Array.from(COLAB_SERVERS);
+import {
+  COLAB_SERVERS,
+  ColabAssignedServer,
+  ColabServerDescriptor,
+} from "./servers";
 
 describe("ColabJupyterServerProvider", () => {
   let vsCodeStub: VsCodeStub;
   let cancellationTokenSource: CancellationTokenSource;
   let cancellationToken: CancellationToken;
-  let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
   let jupyterStub: SinonStubbedInstance<
     Pick<Jupyter, "createJupyterServerCollection">
   >;
-  let colabClientStub: SinonStubbedInstance<
-    Pick<ColabClient, "ccuInfo" | "assign">
-  >;
+  let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
+  let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
+  let assignmentStub: SinonStubbedInstance<AssignmentManager>;
+  let serverPickerStub: SinonStubbedInstance<ServerPicker>;
+  let defaultServer: ColabAssignedServer;
   let serverProvider: ColabJupyterServerProvider;
 
   beforeEach(() => {
@@ -50,26 +52,49 @@ describe("ColabJupyterServerProvider", () => {
       (
         id: string,
         label: string,
-        _serverProvider: JupyterServerProvider,
+        serverProvider: JupyterServerProvider,
       ): JupyterServerCollection => {
-        return {
+        if (!isJupyterServerCommandProvider(serverProvider)) {
+          throw new Error(
+            "Stub expects the `serverProvider` to also be the `JupyterServerCommandProvider`",
+          );
+        }
+        serverCollectionStub = {
           id,
           label,
+          commandProvider: serverProvider,
           dispose: serverCollectionDisposeStub,
         };
+        return serverCollectionStub;
       },
     );
-    colabClientStub = sinon.createStubInstance(ColabClient);
+    assignmentStub = sinon.createStubInstance(AssignmentManager);
+    serverPickerStub = sinon.createStubInstance(ServerPicker);
+    defaultServer = {
+      id: randomUUID(),
+      label: "Colab GPU A100",
+      variant: Variant.GPU,
+      accelerator: Accelerator.A100,
+      connectionInformation: {
+        baseUrl: vsCodeStub.Uri.parse("https://example.com"),
+        token: "123",
+        headers: {
+          "X-Colab-Runtime-Proxy-Token": "123",
+          "X-Colab-Client-Agent": "vscode",
+        },
+      },
+    };
 
     serverProvider = new ColabJupyterServerProvider(
       vsCodeStub.asVsCode(),
+      assignmentStub,
+      serverPickerStub,
       jupyterStub as Partial<Jupyter> as Jupyter,
-      colabClientStub as Partial<ColabClient> as ColabClient,
     );
   });
 
   afterEach(() => {
-    sinon.reset();
+    sinon.restore();
   });
 
   describe("lifecycle", () => {
@@ -90,235 +115,188 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   describe("provideJupyterServers", () => {
-    it("all servers eligible", async () => {
-      colabClientStub.ccuInfo.resolves({
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 0,
-        eligibleGpus: [Accelerator.T4, Accelerator.A100, Accelerator.L4],
-        ineligibleGpus: [],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      });
+    it("returns no servers when none are assigned", async () => {
+      assignmentStub.assignedServers.resolves([]);
 
-      const providedServers =
+      const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
 
-      expect(providedServers).to.deep.equal(SERVERS);
-      sinon.assert.calledOnce(colabClientStub.ccuInfo);
+      expect(servers).to.have.lengthOf(0);
     });
 
-    it("filters to only eligible GPU servers", async () => {
-      colabClientStub.ccuInfo.resolves({
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 0,
-        eligibleGpus: [Accelerator.T4, Accelerator.A100],
-        ineligibleGpus: [],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      });
+    it("returns a single server when one is assigned", async () => {
+      assignmentStub.assignedServers.resolves([defaultServer]);
 
-      const providedServers =
+      const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
 
-      const expectedServers = SERVERS.filter(
-        (server) => server.accelerator !== Accelerator.L4,
-      );
-      expect(providedServers).to.deep.equal(expectedServers);
-      sinon.assert.calledOnce(colabClientStub.ccuInfo);
+      expect(servers).to.deep.equal([defaultServer]);
     });
 
-    it("filters out ineligible GPU servers", async () => {
-      colabClientStub.ccuInfo.resolves({
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 0,
-        eligibleGpus: [Accelerator.T4, Accelerator.A100],
-        ineligibleGpus: [Accelerator.L4],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      });
+    it("returns multiple servers when they are assigned", async () => {
+      const assignedServers = [
+        defaultServer,
+        { ...defaultServer, id: randomUUID() },
+      ];
+      assignmentStub.assignedServers.resolves(assignedServers);
 
-      const providedServers =
+      const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
 
-      const expectedServers = SERVERS.filter(
-        (server) => server.accelerator !== Accelerator.L4,
-      );
-      expect(providedServers).to.deep.equal(expectedServers);
-      sinon.assert.calledOnce(colabClientStub.ccuInfo);
+      expect(servers).to.deep.equal(assignedServers);
     });
   });
 
   describe("resolveJupyterServer", () => {
-    it("rejects for unknown servers", async () => {
-      const unknownServer: JupyterServer = {
-        id: "unknown",
-        label: "Unknown",
-      };
+    it("throws when the server ID is not a UUID", () => {
+      const server = { ...defaultServer, id: "not-a-uuid" };
 
-      await expect(
-        serverProvider.resolveJupyterServer(unknownServer, cancellationToken),
-      ).to.eventually.be.rejectedWith(`Unknown server: ${unknownServer.id}`);
-    });
-
-    it("rejects for server assignments without connection information", async () => {
-      const server = SERVERS.find((s) => s.id === "gpu-a100");
-      assert.isDefined(server);
-      const assignment: Assignment = {
-        accelerator: Accelerator.A100,
-        endpoint: "mock-endpoint",
-        sub: SubscriptionState.UNSUBSCRIBED,
-        subTier: SubscriptionTier.UNKNOWN_TIER,
-        variant: Variant.GPU,
-        machineShape: Shape.STANDARD,
-        runtimeProxyInfo: undefined,
-      };
-      colabClientStub.assign
-        .withArgs(sinon.match(isUUID), server.variant)
-        .resolves(assignment);
-
-      await expect(
+      expect(() =>
         serverProvider.resolveJupyterServer(server, cancellationToken),
-      ).to.eventually.be.rejectedWith(/connection information/);
+      ).to.throw(/expected UUID/);
     });
 
-    it("successfully", async () => {
-      const server = SERVERS.find((s) => s.id === "gpu-a100");
-      assert.isDefined(server);
-      const fetchStub = sinon.stub(fetch);
-      const assignment: Assignment = {
-        accelerator: Accelerator.A100,
-        endpoint: "mock-endpoint",
-        sub: SubscriptionState.UNSUBSCRIBED,
-        subTier: SubscriptionTier.UNKNOWN_TIER,
-        variant: Variant.GPU,
-        machineShape: Shape.STANDARD,
-        runtimeProxyInfo: {
-          token: "mock-token",
-          tokenExpiresInSeconds: 42,
-          url: "https://mock-url.com",
-        },
-      };
-      colabClientStub.assign
-        .withArgs(sinon.match(isUUID), server.variant)
-        .resolves(assignment);
-      assert.isDefined(assignment.runtimeProxyInfo);
+    it("rejects if the server is not found", () => {
+      const server: JupyterServer = { id: randomUUID(), label: "foo" };
 
-      const resolvedServer = await serverProvider.resolveJupyterServer(
-        server,
-        cancellationToken,
-      );
+      expect(
+        serverProvider.resolveJupyterServer(server, cancellationToken),
+      ).to.eventually.be.rejectedWith(/not found/);
+    });
 
-      sinon.assert.calledOnce(colabClientStub.assign);
-      const expectedResolvedServer: ColabJupyterServer = {
-        id: colabClientStub.assign.firstCall.args[0],
-        label: server.label,
+    it("returns the assigned server with refreshed connection info", () => {
+      const refreshedServer: ColabAssignedServer = {
+        ...defaultServer,
         connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse(assignment.runtimeProxyInfo.url),
-          headers: {
-            COLAB_RUNTIME_PROXY_TOKEN_HEADER: assignment.runtimeProxyInfo.token,
-          },
-          fetch: fetchStub,
+          ...defaultServer.connectionInformation,
+          token: "456",
         },
-        variant: server.variant,
-        accelerator: server.accelerator,
       };
-      assert.isDefined(resolvedServer?.connectionInformation?.fetch);
-      sinon.replace(resolvedServer.connectionInformation, "fetch", fetchStub);
-      expect(resolvedServer).to.deep.equal(expectedResolvedServer);
+      assignmentStub.assignedServers.resolves([defaultServer]);
+      assignmentStub.refreshConnection
+        .withArgs(defaultServer)
+        .resolves(refreshedServer);
+
+      expect(
+        serverProvider.resolveJupyterServer(defaultServer, cancellationToken),
+      ).to.eventually.deep.equal(refreshedServer);
     });
   });
 
-  it("specifies the Colab headers on fetch requests", async () => {
-    const fetchStub = sinon.stub(fetch, "default");
-    const server = SERVERS.find((s) => s.id === "m");
-    assert.isDefined(server);
-    const assignment: Assignment = {
-      accelerator: Accelerator.NONE,
-      endpoint: "mock-endpoint",
-      sub: SubscriptionState.UNSUBSCRIBED,
-      subTier: SubscriptionTier.UNKNOWN_TIER,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      runtimeProxyInfo: {
-        token: "mock-token",
-        tokenExpiresInSeconds: 42,
-        url: "https://mock-url.com",
-      },
-    };
-    colabClientStub.assign
-      .withArgs(sinon.match(isUUID), server.variant)
-      .resolves(assignment);
-    assert.isDefined(assignment.runtimeProxyInfo);
+  describe("commands", () => {
+    describe("provideCommands", () => {
+      it("returns commands to create a server, open Colab web and upgrade to pro", async () => {
+        const commands = await serverProvider.provideCommands(
+          undefined,
+          cancellationToken,
+        );
 
-    const resolvedServer = await serverProvider.resolveJupyterServer(
-      server,
-      cancellationToken,
-    );
-
-    assert.isDefined(resolvedServer?.connectionInformation?.fetch);
-    await resolvedServer.connectionInformation.fetch(
-      assignment.runtimeProxyInfo.url,
-    );
-    sinon.assert.calledOnceWithExactly(
-      fetchStub,
-      assignment.runtimeProxyInfo.url,
-      {
-        headers: new Headers({
-          "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
-          "X-Colab-Client-Agent": "vscode",
-        }),
-      },
-    );
-    fetchStub.restore();
-  });
-
-  it("updates and utilizes a new node-fetch Request", async () => {
-    const fetchStub = sinon.stub(fetch, "default");
-    const server = SERVERS.find((s) => s.id === "m");
-    assert.isDefined(server);
-    const assignment: Assignment = {
-      accelerator: Accelerator.NONE,
-      endpoint: "mock-endpoint",
-      sub: SubscriptionState.UNSUBSCRIBED,
-      subTier: SubscriptionTier.UNKNOWN_TIER,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      runtimeProxyInfo: {
-        token: "mock-token",
-        tokenExpiresInSeconds: 42,
-        url: "https://mock-url.com",
-      },
-    };
-    colabClientStub.assign
-      .withArgs(sinon.match(isUUID), server.variant)
-      .resolves(assignment);
-    assert.isDefined(assignment.runtimeProxyInfo);
-
-    const resolvedServer = await serverProvider.resolveJupyterServer(
-      server,
-      cancellationToken,
-    );
-
-    assert.isDefined(resolvedServer?.connectionInformation?.fetch);
-    const req = new Request(assignment.runtimeProxyInfo.url, { method: "GET" });
-    const nodeReq = new nodeRequest(assignment.runtimeProxyInfo.url);
-    await resolvedServer.connectionInformation.fetch(req);
-    sinon.assert.calledOnceWithExactly(fetchStub, nodeReq, {
-      headers: new Headers({
-        "X-Colab-Runtime-Proxy-Token": assignment.runtimeProxyInfo.token,
-        "X-Colab-Client-Agent": "vscode",
-      }),
+        assert.isDefined(commands);
+        expect(commands).to.deep.equal([
+          {
+            label: "$(add) New Colab Server",
+            description: "CPU, GPU or TPU.",
+          },
+          {
+            label: "$(ports-open-browser-icon) Open Colab Web",
+            description: "Open Colab web.",
+          },
+          {
+            label: "$(accounts-view-bar-icon) Upgrade to Pro",
+            description: "More machines, more quota, more Colab!",
+          },
+        ]);
+      });
     });
-    expect(req).to.not.deep.equal(nodeReq);
-    fetchStub.restore();
+
+    describe("handleCommand", () => {
+      it('opens a browser to the Colab web client for "Open Colab Web"', () => {
+        vsCodeStub.env.openExternal.resolves(true);
+
+        expect(
+          serverProvider.handleCommand(
+            { label: "$(ports-open-browser-icon) Open Colab Web" },
+            cancellationToken,
+          ),
+        ).to.be.equal(undefined);
+
+        sinon.assert.calledOnceWithExactly(
+          vsCodeStub.env.openExternal,
+          vsCodeStub.Uri.parse("https://colab.research.google.com"),
+        );
+      });
+
+      it('opens a browser to the Colab signup page for "Upgrade to Pro"', () => {
+        vsCodeStub.env.openExternal.resolves(true);
+
+        expect(
+          serverProvider.handleCommand(
+            { label: "$(accounts-view-bar-icon) Upgrade to Pro" },
+            cancellationToken,
+          ),
+        ).to.be.equal(undefined);
+
+        sinon.assert.calledOnceWithExactly(
+          vsCodeStub.env.openExternal,
+          vsCodeStub.Uri.parse("https://colab.research.google.com/signup"),
+        );
+      });
+
+      describe("for new Colab server", () => {
+        it("returns undefined when navigating back out of the flow", async () => {
+          serverPickerStub.prompt.rejects(InputFlowAction.back);
+
+          await expect(
+            serverProvider.handleCommand(
+              { label: "$(add) New Colab Server" },
+              cancellationToken,
+            ),
+          ).to.eventually.be.equal(undefined);
+          sinon.assert.calledOnce(serverPickerStub.prompt);
+        });
+
+        it("completes assigning a server", async () => {
+          const availableServers = Array.from(COLAB_SERVERS);
+          assignmentStub.availableServers.resolves(availableServers);
+          const selectedServer: ColabServerDescriptor = {
+            label: "My new server",
+            variant: defaultServer.variant,
+            accelerator: defaultServer.accelerator,
+          };
+          serverPickerStub.prompt
+            .withArgs(availableServers)
+            .resolves(selectedServer);
+          assignmentStub.assignServer
+            .withArgs(sinon.match(isUUID), selectedServer)
+            .resolves(defaultServer);
+
+          await expect(
+            serverProvider.handleCommand(
+              { label: "$(add) New Colab Server" },
+              cancellationToken,
+            ),
+          ).to.eventually.deep.equal(defaultServer);
+
+          sinon.assert.calledOnce(serverPickerStub.prompt);
+          sinon.assert.calledOnce(assignmentStub.assignServer);
+        });
+      });
+    });
   });
 });
+
+// A quick and dirty sanity check to ensure we're dealing with a command
+// provider.
+function isJupyterServerCommandProvider(
+  obj: unknown,
+): obj is JupyterServerCommandProvider {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  return (
+    "provideCommands" in obj &&
+    "handleCommand" in obj &&
+    typeof obj.provideCommands === "function" &&
+    typeof obj.handleCommand === "function"
+  );
+}

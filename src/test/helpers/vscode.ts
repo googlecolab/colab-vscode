@@ -4,6 +4,15 @@ import { TestCancellationTokenSource } from "./cancellation";
 import { TestEventEmitter } from "./events";
 import { TestUri } from "./uri";
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+class TestQuickInputButtons implements vscode.QuickInputButtons {
+  static readonly Back: vscode.QuickInputButton = {
+    iconPath: {
+      id: "back",
+    },
+  };
+}
+
 enum ProgressLocation {
   SourceControl = 1,
   Window = 10,
@@ -31,8 +40,15 @@ export interface VsCodeStub {
     showErrorMessage: sinon.SinonStubbedMember<
       typeof vscode.window.showErrorMessage
     >;
+    createInputBox: sinon.SinonStubbedMember<
+      typeof vscode.window.createInputBox
+    >;
+    createQuickPick: sinon.SinonStubbedMember<
+      typeof vscode.window.createQuickPick
+    >;
   };
   ProgressLocation: typeof ProgressLocation;
+  QuickInputButtons: typeof TestQuickInputButtons;
   extensions: {
     getExtension: sinon.SinonStubbedMember<
       typeof vscode.extensions.getExtension
@@ -74,6 +90,7 @@ export function newVsCodeStub(): VsCodeStub {
         | "env"
         | "window"
         | "ProgressLocation"
+        | "QuickInputButtons"
         | "extensions"
         | "authentication"
       > as typeof vscode;
@@ -90,8 +107,11 @@ export function newVsCodeStub(): VsCodeStub {
       withProgress: sinon.stub(),
       showInformationMessage: sinon.stub(),
       showErrorMessage: sinon.stub(),
+      createInputBox: sinon.stub(),
+      createQuickPick: sinon.stub(),
     },
     ProgressLocation: ProgressLocation,
+    QuickInputButtons: TestQuickInputButtons,
     extensions: {
       getExtension: sinon.stub(),
     },

@@ -3,8 +3,11 @@ import vscode from "vscode";
 import { GoogleAuthProvider } from "./auth/provider";
 import { RedirectUriCodeProvider } from "./auth/redirect";
 import { ColabClient } from "./colab/client";
+import { ServerPicker } from "./colab/server-picker";
+import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
+import { ServerStorage } from "./jupyter/storage";
 
 /* cSpell:disable */
 const CLIENT_ID =
@@ -33,11 +36,24 @@ export async function activate(context: vscode.ExtensionContext) {
   const colabClient = new ColabClient(new URL("https://localhost:8888"), () =>
     GoogleAuthProvider.getSession(vscode),
   );
+  const serverStorage = new ServerStorage(vscode, context.secrets);
+  const assignmentManager = new AssignmentManager(
+    vscode,
+    colabClient,
+    serverStorage,
+  );
+  const serverPicker = new ServerPicker(vscode);
   const serverProvider = new ColabJupyterServerProvider(
     vscode,
+    assignmentManager,
+    serverPicker,
     jupyter,
-    colabClient,
   );
 
-  context.subscriptions.push(disposeUriHandler, authProvider, serverProvider);
+  context.subscriptions.push(
+    disposeUriHandler,
+    authProvider,
+    assignmentManager,
+    serverProvider,
+  );
 }
