@@ -197,9 +197,26 @@ describe("ColabClient", () => {
   it("rejects invalid JSON responses", () => {
     fetchStub
       .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-      .resolves(new Response(withXSSI("this ain't JSON"), { status: 200 }));
+      .resolves(new Response(withXSSI("not JSON eh?"), { status: 200 }));
 
-    expect(client.ccuInfo()).to.eventually.be.rejectedWith(/this ain't JSON/);
+    expect(client.ccuInfo()).to.eventually.be.rejectedWith(/not valid.+eh\?/);
+  });
+
+  it("rejects response schema mismatches", async () => {
+    const mockResponse: Partial<CCUInfo> = {
+      currentBalance: 1,
+      consumptionRateHourly: 2,
+      eligibleGpus: [Accelerator.T4],
+    };
+    fetchStub
+      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .resolves(
+        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+      );
+
+    await expect(client.ccuInfo()).to.eventually.be.rejectedWith(
+      /Unexpected response.+assignmentsCount.+Required/s,
+    );
   });
 });
 

@@ -5,58 +5,7 @@
  * choices are due to historical reasons and are not ideal.
  */
 
-export interface FreeCcuQuotaInfo {
-  /**
-   * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
-   * free usage allowance in milli-CCUs).
-   */
-  remainingTokens: number;
-  /**
-   * Next free quota refill timestamp (epoch) in seconds.
-   */
-  nextRefillTimestampSec: number;
-}
-
-/**
- * Cloud compute unit (CCU) information.
- */
-export interface CcuInfo {
-  /**
-   * The current balance of the paid CCUs.
-   *
-   * Naming is unfortunate due to historical reasons and free CCU quota
-   * balance is made available in a separate field for the same reasons.
-   */
-  currentBalance: number;
-  /**
-   * The current rate of consumption of the user's CCUs (paid or free) based on
-   * all assigned VMs. VMs consume paid CCUs if the user's paid CCU balance is
-   * positive and free CCU quota if the paid balance is zero.
-   */
-  consumptionRateHourly: number;
-  /**
-   * The number of runtimes currently assigned when the user's paid CCU balance
-   * is positive. This should match the number returned by the '/assignments'
-   * endpoint. This will be always zero if the paid CCU balance is zero and the
-   * /ccu-info request was made without the query param.
-   */
-  assignmentsCount: number;
-  /**
-   * The list of eligible GPU accelerators (w.r.t. their CCU balance and maybe
-   * their subscription status) in the priority order.
-   */
-  eligibleGpus: Accelerator[];
-  /**
-   * The list of ineligible GPU accelerators. This can be used to display the
-   * items as disabled and up-sell CCUs if non-empty.
-   */
-  ineligibleGpus: Accelerator[];
-  /**
-   * Free CCU quota information if the user's paid CCU balance is zero with
-   * non-zero assignments. Otherwise undefined.
-   */
-  freeCcuQuotaInfo?: FreeCcuQuotaInfo;
-}
+import { z } from "zod";
 
 export enum SubscriptionState {
   UNSUBSCRIBED = 1,
@@ -108,81 +57,123 @@ export enum Accelerator {
   V5E1 = "V5E1",
 }
 
-export interface GetAssignmentResponse {
+function uppercaseEnum<T extends z.EnumLike>(
+  enumObj: T,
+): z.ZodEffects<z.ZodNativeEnum<T>, T[keyof T], unknown> {
+  return z.preprocess((val) => {
+    if (typeof val === "string") {
+      return val.toUpperCase();
+    }
+    return val;
+  }, z.nativeEnum(enumObj));
+}
+
+export const FreeCcuQuotaInfoSchema = z.object({
+  /**
+   * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
+   * free usage allowance in milli-CCUs).
+   */
+  remainingTokens: z.number(),
+  /**
+   * Next free quota refill timestamp (epoch) in seconds.
+   */
+  nextRefillTimestampSec: z.number(),
+});
+export type FreeCcuQuotaInfo = z.infer<typeof FreeCcuQuotaInfoSchema>;
+
+/**
+ * Cloud compute unit (CCU) information.
+ */
+export const CcuInfoSchema = z.object({
+  /**
+   * The current balance of the paid CCUs.
+   *
+   * Naming is unfortunate due to historical reasons and free CCU quota
+   * balance is made available in a separate field for the same reasons.
+   */
+  currentBalance: z.number(),
+  /**
+   * The current rate of consumption of the user's CCUs (paid or free) based on
+   * all assigned VMs.
+   */
+  consumptionRateHourly: z.number(),
+  /**
+   * The number of runtimes currently assigned when the user's paid CCU balance
+   * is positive.
+   */
+  assignmentsCount: z.number(),
+  /**
+   * The list of eligible GPU accelerators.
+   */
+  eligibleGpus: z.array(uppercaseEnum(Accelerator)),
+  /**
+   * The list of ineligible GPU accelerators.
+   */
+  ineligibleGpus: z.array(uppercaseEnum(Accelerator)).optional(),
+  /**
+   * Free CCU quota information if applicable.
+   */
+  freeCcuQuotaInfo: FreeCcuQuotaInfoSchema.optional(),
+});
+export type CcuInfo = z.infer<typeof CcuInfoSchema>;
+
+export const GetAssignmentResponseSchema = z.object({
   /** The pool's {@link Accelerator}. */
-  acc: Accelerator;
-  /**
-   * The notebook ID hash. Same as the `nbh` query parameter from the request.
-   */
-  nbh: string;
-  /**
-   * Whether or not Recaptcha should prompt.
-   */
-  p: boolean;
-  /**
-   * XSRF token to be provided when posting an assignment.
-   */
-  token: string;
-  /**
-   * The string representation of the pool {@link Variant}.
-   */
-  variant: Variant;
-}
+  acc: uppercaseEnum(Accelerator),
+  /** The notebook ID hash. */
+  nbh: z.string(),
+  /** Whether or not Recaptcha should prompt. */
+  p: z.boolean(),
+  /** XSRF token for assignment posting. */
+  token: z.string(),
+  /** The variant of the assignment. */
+  // On GET, this is a string so we must preprocess it to the enum.
+  variant: z.preprocess((val) => {
+    if (typeof val === "string") {
+      switch (val) {
+        case "DEFAULT":
+          return Variant.DEFAULT;
+        case "GPU":
+          return Variant.GPU;
+        case "TPU":
+          return Variant.TPU;
+      }
+    }
+    return val;
+  }, z.nativeEnum(Variant)),
+});
+export type GetAssignmentResponse = z.infer<typeof GetAssignmentResponseSchema>;
 
-export interface RuntimeProxyInfo {
-  /**
-   * Token for the runtime proxy.
-   */
-  token: string;
-  /**
-   * Token expiration time in seconds.
-   */
-  tokenExpiresInSeconds: number;
-  /**
-   * URL of the runtime proxy.
-   */
-  url: string;
-}
+export const RuntimeProxyInfoSchema = z.object({
+  /** Token for the runtime proxy. */
+  token: z.string(),
+  /** Token expiration time in seconds. */
+  tokenExpiresInSeconds: z.number(),
+  /** URL of the runtime proxy. */
+  url: z.string(),
+});
+export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 
-export interface Assignment {
-  /**
-   * The assigned accelerator.
-   */
-  accelerator: Accelerator;
-  /**
-   * The endpoint URL.
-   */
-  endpoint: string;
-  /**
-   * Frontend idle timeout in seconds.
-   */
-  fit?: number;
-  /**
-   * Whether the backend is trusted.
-   */
-  allowedCredentials?: boolean;
-  /**
-   * The subscription state.
-   */
-  sub: SubscriptionState;
-  /**
-   * The subscription tier.
-   */
-  subTier: SubscriptionTier;
-  /**
-   * The outcome of the assignment.
-   */
-  outcome?: Outcome;
-  /**
-   * The variant of the assignment.
-   */
-  variant: Variant;
-  /**
-   * The machine shape.
-   */
-  machineShape: Shape;
-  /**
-   * Information about the runtime proxy.
-   */
-  runtimeProxyInfo?: RuntimeProxyInfo;
-}
+export const AssignmentSchema = z.object({
+  /** The assigned accelerator. */
+  accelerator: uppercaseEnum(Accelerator),
+  /** The endpoint URL. */
+  endpoint: z.string(),
+  /** Frontend idle timeout in seconds. */
+  fit: z.number().optional(),
+  /** Whether the backend is trusted. */
+  allowedCredentials: z.boolean().optional(),
+  /** The subscription state. */
+  sub: z.nativeEnum(SubscriptionState),
+  /** The subscription tier. */
+  subTier: z.nativeEnum(SubscriptionTier),
+  /** The outcome of the assignment. */
+  outcome: z.nativeEnum(Outcome).optional(),
+  /** The variant of the assignment. */
+  variant: z.nativeEnum(Variant),
+  /** The machine shape. */
+  machineShape: z.nativeEnum(Shape),
+  /** Information about the runtime proxy. */
+  runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
+});
+export type Assignment = z.infer<typeof AssignmentSchema>;
