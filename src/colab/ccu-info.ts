@@ -42,8 +42,8 @@ export class CcuInformation implements Disposable {
   private startInfoPolling(): NodeJS.Timeout {
     return setInterval(() => {
       // TODO: Implement a better way to handle this instead of a boolean flag.
-      // possible options: `Promise.race`, cancel stale request, explicit timeout 
-      // that is shorter than `POLL_INTERVAL_MS`.
+      // possible options: `Promise.race`, cancel stale request, explicit
+      // timeout that is shorter than `POLL_INTERVAL_MS`.
       if (this.isFetching) {
         return;
       }

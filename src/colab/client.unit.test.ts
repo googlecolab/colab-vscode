@@ -203,7 +203,7 @@ describe("ColabClient", () => {
   });
 
   it("rejects response schema mismatches", async () => {
-    const mockResponse: Partial<CCUInfo> = {
+    const mockResponse: Partial<CcuInfo> = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       eligibleGpus: [Accelerator.T4],
