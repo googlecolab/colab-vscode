@@ -88,12 +88,5 @@ function parseAuthenticationSessions(
 ): vscode.AuthenticationSession[] {
   const sessions: unknown = JSON.parse(sessionsJson);
 
-  try {
-    return AuthenticationSessionsSchema.parse(sessions);
-  } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Unexpected response object: ${error.message}`);
-    }
-    throw error;
-  }
+  return AuthenticationSessionsSchema.parse(sessions);
 }

@@ -56,7 +56,7 @@ describe("ServerStorage", () => {
       );
 
       await expect(authStorage.getSession()).to.eventually.be.rejectedWith(
-        /Unexpected response.+received string/s,
+        /received string/,
       );
     });
   });

@@ -16,12 +16,5 @@ const PackageInfoSchema = z.object({
 export type PackageInfo = z.infer<typeof PackageInfoSchema>;
 
 export function getPackageInfo(context: ExtensionContext): PackageInfo {
-  try {
-    return PackageInfoSchema.parse(context.extension.packageJSON);
-  } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Unexpected response object: ${error.message}`);
-    }
-    throw error;
-  }
+  return PackageInfoSchema.parse(context.extension.packageJSON);
 }

@@ -228,14 +228,7 @@ export class GoogleAuthProvider
       );
     }
     const json: unknown = await response.json();
-    try {
-      return UserInfoSchema.parse(json);
-    } catch (error: unknown) {
-      if (error instanceof z.ZodError) {
-        throw new Error(`Unexpected response object: ${error.message}`);
-      }
-      throw error;
-    }
+    return UserInfoSchema.parse(json);
   }
 }
 
