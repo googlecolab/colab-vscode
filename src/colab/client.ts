@@ -165,14 +165,8 @@ export class ColabClient {
       );
     }
     const body = await response.text();
-    return schema
-      .parseAsync(JSON.parse(stripXssiPrefix(body)))
-      .catch((error: unknown) => {
-        if (error instanceof z.ZodError) {
-          throw new Error(`Unexpected response object: ${error.message}`);
-        }
-        throw error;
-      }) as Promise<z.infer<T>>;
+
+    return schema.parse(JSON.parse(stripXssiPrefix(body)));
   }
 }
 

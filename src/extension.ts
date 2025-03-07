@@ -2,8 +2,10 @@ import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { GoogleAuthProvider } from "./auth/provider";
 import { RedirectUriCodeProvider } from "./auth/redirect";
+import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
 import { ServerPicker } from "./colab/server-picker";
+import { getPackageInfo } from "./config/package_info";
 import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
@@ -29,7 +31,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.registerUriHandler(redirectUriHandler);
   const authProvider = new GoogleAuthProvider(
     vscode,
-    context,
+    getPackageInfo(context),
+    new AuthStorage(context.secrets),
     AUTH_CLIENT,
     redirectUriHandler,
   );

@@ -4,36 +4,12 @@ import sinon, { SinonStubbedInstance } from "sinon";
 import { SecretStorage } from "vscode";
 import { Variant } from "../colab/api";
 import { PROVIDER_ID } from "../config/constants";
+import { SecretStorageFake } from "../test/helpers/secret-storage";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { ColabAssignedServer } from "./servers";
 import { ServerStorage } from "./storage";
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
-
-/**
- * A thin fake implementation backed by stubs of `SecretStorage` that stores
- * the last value so it can be retrieved on subsequent requests.
- */
-class SecretStorageStub
-  implements
-    SinonStubbedInstance<Pick<SecretStorage, "get" | "store" | "delete">>
-{
-  private lastStore?: string;
-
-  get = sinon
-    .stub<[key: string], Thenable<string | undefined>>()
-    .callsFake(() => Promise.resolve(this.lastStore));
-  store = sinon
-    .stub<[key: string, value: string], Thenable<void>>()
-    .callsFake((_, value: string) => {
-      this.lastStore = value;
-      return Promise.resolve();
-    });
-  delete = sinon.stub<[key: string], Thenable<void>>().callsFake(() => {
-    this.lastStore = undefined;
-    return Promise.resolve();
-  });
-}
 
 describe("ServerStorage", () => {
   let vsCodeStub: VsCodeStub;
@@ -45,7 +21,7 @@ describe("ServerStorage", () => {
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
-    secretsStub = new SecretStorageStub();
+    secretsStub = new SecretStorageFake();
     defaultServer = {
       id: randomUUID(),
       label: "foo",
