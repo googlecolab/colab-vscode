@@ -55,8 +55,8 @@ export class ColabJupyterServerProvider
   }
 
   /**
-   * Provides the list of Colab {@link JupyterServer Jupyter Servers} which can
-   * be used.
+   * Provides the list of Colab {@link JupyterServer | Jupyter Servers} which
+   * can be used.
    */
   provideJupyterServers(
     _token: CancellationToken,

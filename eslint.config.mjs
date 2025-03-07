@@ -2,6 +2,7 @@ import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import stylisticTs from "@stylistic/eslint-plugin-ts";
 import tseslint from "typescript-eslint";
+import tsDocPlugin from "eslint-plugin-tsdoc";
 import importPlugin from "eslint-plugin-import";
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
 
@@ -20,6 +21,7 @@ export default tseslint.config(
     },
     plugins: {
       "@stylistic/ts": stylisticTs,
+      tsdoc: tsDocPlugin,
       import: importPlugin,
     },
     rules: {
@@ -48,6 +50,7 @@ export default tseslint.config(
         "error",
         { accessibility: "no-public" },
       ],
+      "tsdoc/syntax": "warn",
     },
   },
   {
