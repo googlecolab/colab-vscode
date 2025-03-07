@@ -145,6 +145,24 @@ describe("ServerPicker", () => {
       });
     });
 
+    it("returns a validation error message if over character limit", async () => {
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      void serverPicker.prompt(ALL_SERVERS);
+      await variantPickerShown;
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.DEFAULT, label: "CPU" },
+      ]);
+      await aliasInputShown;
+      aliasInputBoxStub.value = "s".repeat(11);
+      aliasInputBoxStub.onDidChangeValue.yield(aliasInputBoxStub.value);
+
+      expect(aliasInputBoxStub.validationMessage).to.match(/less than 10/);
+    });
+
     it("returns the server type with the placeholder as the label when the alias is omitted", async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
