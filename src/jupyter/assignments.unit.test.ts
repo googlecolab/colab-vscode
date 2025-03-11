@@ -77,7 +77,7 @@ describe("AssignmentManager", () => {
     sinon.restore();
   });
 
-  describe("availableServers", () => {
+  describe("getAvailableServerDescriptors", () => {
     it("returns all colab servers when all are eligible", async () => {
       colabClientStub.ccuInfo.resolves({
         currentBalance: 1,
@@ -91,7 +91,7 @@ describe("AssignmentManager", () => {
         },
       });
 
-      const servers = await assignmentManager.availableServers();
+      const servers = await assignmentManager.getAvailableServerDescriptors();
 
       expect(servers).to.deep.equal(Array.from(COLAB_SERVERS));
       sinon.assert.calledOnce(colabClientStub.ccuInfo);
@@ -110,7 +110,7 @@ describe("AssignmentManager", () => {
         },
       });
 
-      const servers = await assignmentManager.availableServers();
+      const servers = await assignmentManager.getAvailableServerDescriptors();
 
       const expectedServers = Array.from(COLAB_SERVERS).filter(
         (server) => server.accelerator !== Accelerator.L4,
@@ -132,7 +132,7 @@ describe("AssignmentManager", () => {
         },
       });
 
-      const servers = await assignmentManager.availableServers();
+      const servers = await assignmentManager.getAvailableServerDescriptors();
 
       const expectedServers = Array.from(COLAB_SERVERS).filter(
         (server) => server.accelerator !== Accelerator.L4,
@@ -142,32 +142,32 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("assignedServers", () => {
+  describe("getAssignedServers", () => {
     it("returns an empty list when no servers are assigned", async () => {
-      storageStub.get.resolves([]);
+      storageStub.list.resolves([]);
 
-      const servers = await assignmentManager.assignedServers();
+      const servers = await assignmentManager.getAssignedServers();
 
       expect(servers).to.deep.equal([]);
-      sinon.assert.calledOnce(storageStub.get);
+      sinon.assert.calledOnce(storageStub.list);
     });
 
     describe("when a server is assigned", () => {
       beforeEach(() => {
-        storageStub.get.resolves([defaultServer]);
+        storageStub.list.resolves([defaultServer]);
       });
 
       it("returns the assigned server when there is one", async () => {
-        const servers = await assignmentManager.assignedServers();
+        const servers = await assignmentManager.getAssignedServers();
 
         assert.lengthOf(servers, 1);
         const server = servers[0];
         expect(serverWithoutFetch(server)).to.deep.equal(defaultServer);
-        sinon.assert.calledOnce(storageStub.get);
+        sinon.assert.calledOnce(storageStub.list);
       });
 
       it("includes a fetch implementation that attaches Colab connection info", async () => {
-        const servers = await assignmentManager.assignedServers();
+        const servers = await assignmentManager.getAssignedServers();
         assert.lengthOf(servers, 1);
         const server = servers[0];
         assert.isDefined(server.connectionInformation.fetch);
@@ -189,12 +189,12 @@ describe("AssignmentManager", () => {
         { ...defaultServer, id: randomUUID() },
         { ...defaultServer, id: randomUUID() },
       ];
-      storageStub.get.resolves(storedServers);
+      storageStub.list.resolves(storedServers);
 
-      const servers = await assignmentManager.assignedServers();
+      const servers = await assignmentManager.getAssignedServers();
 
       expect(servers.map(serverWithoutFetch)).to.deep.equal(storedServers);
-      sinon.assert.calledOnce(storageStub.get);
+      sinon.assert.calledOnce(storageStub.list);
     });
   });
 
@@ -284,13 +284,15 @@ describe("AssignmentManager", () => {
       });
 
       it("stores and returns the server", () => {
-        sinon.assert.calledOnceWithMatch(storageStub.store, {
-          ...defaultServer,
-          connectionInformation: {
-            ...defaultServer.connectionInformation,
-            fetch: sinon.match.func,
+        sinon.assert.calledOnceWithMatch(storageStub.store, [
+          {
+            ...defaultServer,
+            connectionInformation: {
+              ...defaultServer.connectionInformation,
+              fetch: sinon.match.func,
+            },
           },
-        });
+        ]);
         expect(serverWithoutFetch(assignedServer)).to.deep.equal(defaultServer);
       });
 
@@ -315,7 +317,7 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("refreshToken", () => {
+  describe("refreshConnection", () => {
     const newToken = "new-token";
     let refreshedServer: ColabAssignedServer;
     let listener: sinon.SinonStub<[]>;
@@ -353,13 +355,15 @@ describe("AssignmentManager", () => {
           token: newToken,
         },
       };
-      sinon.assert.calledOnceWithMatch(storageStub.store, {
-        ...expectedServer,
-        connectionInformation: {
-          ...expectedServer.connectionInformation,
-          fetch: sinon.match.func,
+      sinon.assert.calledOnceWithMatch(storageStub.store, [
+        {
+          ...expectedServer,
+          connectionInformation: {
+            ...expectedServer.connectionInformation,
+            fetch: sinon.match.func,
+          },
         },
-      });
+      ]);
       expect(serverWithoutFetch(refreshedServer)).to.deep.equal(expectedServer);
     });
 

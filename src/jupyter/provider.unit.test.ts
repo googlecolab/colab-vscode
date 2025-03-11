@@ -116,7 +116,7 @@ describe("ColabJupyterServerProvider", () => {
 
   describe("provideJupyterServers", () => {
     it("returns no servers when none are assigned", async () => {
-      assignmentStub.assignedServers.resolves([]);
+      assignmentStub.getAssignedServers.resolves([]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -125,7 +125,7 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     it("returns a single server when one is assigned", async () => {
-      assignmentStub.assignedServers.resolves([defaultServer]);
+      assignmentStub.getAssignedServers.resolves([defaultServer]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -138,7 +138,7 @@ describe("ColabJupyterServerProvider", () => {
         defaultServer,
         { ...defaultServer, id: randomUUID() },
       ];
-      assignmentStub.assignedServers.resolves(assignedServers);
+      assignmentStub.getAssignedServers.resolves(assignedServers);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -172,7 +172,7 @@ describe("ColabJupyterServerProvider", () => {
           token: "456",
         },
       };
-      assignmentStub.assignedServers.resolves([defaultServer]);
+      assignmentStub.getAssignedServers.resolves([defaultServer]);
       assignmentStub.refreshConnection
         .withArgs(defaultServer)
         .resolves(refreshedServer);
@@ -257,7 +257,9 @@ describe("ColabJupyterServerProvider", () => {
 
         it("completes assigning a server", async () => {
           const availableServers = Array.from(COLAB_SERVERS);
-          assignmentStub.availableServers.resolves(availableServers);
+          assignmentStub.getAvailableServerDescriptors.resolves(
+            availableServers,
+          );
           const selectedServer: ColabServerDescriptor = {
             label: "My new server",
             variant: defaultServer.variant,

@@ -44,9 +44,9 @@ describe("ServerStorage", () => {
   });
 
   describe("when no servers are stored", () => {
-    describe("get", () => {
+    describe("list", () => {
       beforeEach(async () => {
-        await expect(serverStorage.get()).to.eventually.deep.equal([]);
+        await expect(serverStorage.list()).to.eventually.deep.equal([]);
       });
 
       it("returns an empty array", () => {
@@ -55,7 +55,7 @@ describe("ServerStorage", () => {
 
       it("caches empty array", async () => {
         // Calling the second time uses the cache.
-        await expect(serverStorage.get()).to.eventually.deep.equal([]);
+        await expect(serverStorage.list()).to.eventually.deep.equal([]);
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -63,23 +63,25 @@ describe("ServerStorage", () => {
 
     describe("store", () => {
       beforeEach(async () => {
-        await expect(serverStorage.store(defaultServer)).to.eventually.be
+        await expect(serverStorage.store([defaultServer])).to.eventually.be
           .fulfilled;
       });
+
+      // TODO: Update tests now that we're accepting an array.
 
       it("stores the server", () => {
         sinon.assert.calledOnceWithMatch(
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.deep.equal([defaultServer]);
+        expect(serverStorage.list()).to.eventually.deep.equal([defaultServer]);
       });
 
       it("clears the cache", async () => {
         secretsStub.get.resetHistory();
-        await serverStorage.get();
+        await serverStorage.list();
         // Calling the second time uses the cache.
-        await serverStorage.get();
+        await serverStorage.list();
         sinon.assert.calledOnce(secretsStub.get);
       });
     });
@@ -103,9 +105,9 @@ describe("ServerStorage", () => {
       });
 
       it("clears the cache", async () => {
-        await serverStorage.get();
+        await serverStorage.list();
         // Calling the second time uses the cache.
-        await serverStorage.get();
+        await serverStorage.list();
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -114,16 +116,16 @@ describe("ServerStorage", () => {
 
   describe("when a single server is stored", () => {
     beforeEach(async () => {
-      await assert.isFulfilled(serverStorage.store(defaultServer));
+      await assert.isFulfilled(serverStorage.store([defaultServer]));
       sinon.assert.calledOnce(secretsStub.store);
       // Reset the history so tests can easily evaluate it.
       secretsStub.get.resetHistory();
       secretsStub.store.resetHistory();
     });
 
-    describe("get", () => {
+    describe("list", () => {
       it("returns the server", async () => {
-        await expect(serverStorage.get()).to.eventually.deep.equal([
+        await expect(serverStorage.list()).to.eventually.deep.equal([
           defaultServer,
         ]);
 
@@ -131,12 +133,12 @@ describe("ServerStorage", () => {
       });
 
       it("caches the returned server", async () => {
-        await expect(serverStorage.get()).to.eventually.deep.equal([
+        await expect(serverStorage.list()).to.eventually.deep.equal([
           defaultServer,
         ]);
 
         // Calling the second time uses the cache.
-        await expect(serverStorage.get()).to.eventually.deep.equal([
+        await expect(serverStorage.list()).to.eventually.deep.equal([
           defaultServer,
         ]);
 
@@ -151,13 +153,14 @@ describe("ServerStorage", () => {
           id: randomUUID(),
         };
 
-        await expect(serverStorage.store(newServer)).to.eventually.be.fulfilled;
+        await expect(serverStorage.store([newServer])).to.eventually.be
+          .fulfilled;
 
         sinon.assert.calledOnceWithMatch(
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.deep.equal([
+        expect(serverStorage.list()).to.eventually.deep.equal([
           defaultServer,
           newServer,
         ]);
@@ -169,35 +172,37 @@ describe("ServerStorage", () => {
           label: "bar",
         };
 
-        await expect(serverStorage.store(updatedServer)).to.eventually.be
+        await expect(serverStorage.store([updatedServer])).to.eventually.be
           .fulfilled;
 
         sinon.assert.calledOnceWithMatch(
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.deep.equal([updatedServer]);
+        expect(serverStorage.list()).to.eventually.deep.equal([updatedServer]);
       });
 
       describe("when storing is a no-op", () => {
         it("does not store", async () => {
-          await expect(serverStorage.store(defaultServer)).to.eventually.be
+          await expect(serverStorage.store([defaultServer])).to.eventually.be
             .fulfilled;
 
           sinon.assert.notCalled(secretsStub.store);
-          expect(serverStorage.get()).to.eventually.deep.equal([defaultServer]);
+          expect(serverStorage.list()).to.eventually.deep.equal([
+            defaultServer,
+          ]);
         });
 
         it("does not clear cache", async () => {
           // Populate the cache.
-          await assert.isFulfilled(serverStorage.get());
+          await assert.isFulfilled(serverStorage.list());
 
-          await expect(serverStorage.store(defaultServer)).to.be.eventually
+          await expect(serverStorage.store([defaultServer])).to.be.eventually
             .fulfilled;
 
           secretsStub.get.resetHistory();
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
           sinon.assert.notCalled(secretsStub.get);
         });
       });
@@ -208,7 +213,7 @@ describe("ServerStorage", () => {
           label: "bar",
         };
 
-        await expect(serverStorage.store(updatedServer)).to.eventually.be
+        await expect(serverStorage.store([updatedServer])).to.eventually.be
           .fulfilled;
 
         sinon.assert.calledOnceWithMatch(
@@ -216,7 +221,7 @@ describe("ServerStorage", () => {
           ASSIGNED_SERVERS_KEY,
         );
         secretsStub.get.resetHistory();
-        await expect(serverStorage.get()).to.be.eventually.fulfilled;
+        await expect(serverStorage.list()).to.be.eventually.fulfilled;
         sinon.assert.calledOnce(secretsStub.get);
       });
     });
@@ -231,11 +236,11 @@ describe("ServerStorage", () => {
 
         it("deletes it", () => {
           sinon.assert.calledOnce(secretsStub.store);
-          expect(serverStorage.get()).to.eventually.deep.equal([]);
+          expect(serverStorage.list()).to.eventually.deep.equal([]);
         });
 
         it("clears the cache", async () => {
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
           sinon.assert.calledOnce(secretsStub.get);
         });
       });
@@ -251,13 +256,13 @@ describe("ServerStorage", () => {
         });
 
         it("does not clear the cache", async () => {
-          await assert.isFulfilled(serverStorage.get());
+          await assert.isFulfilled(serverStorage.list());
 
           await expect(serverStorage.remove(nonExistentId)).to.eventually.be
             .false;
 
           secretsStub.get.resetHistory();
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
           sinon.assert.notCalled(secretsStub.get);
         });
       });
@@ -276,7 +281,7 @@ describe("ServerStorage", () => {
       });
 
       it("clears the cache", async () => {
-        await serverStorage.get();
+        await serverStorage.list();
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -292,16 +297,16 @@ describe("ServerStorage", () => {
         { ...defaultServer, id: randomUUID(), label: "second" },
       ];
       for (const server of servers) {
-        await assert.isFulfilled(serverStorage.store(server));
+        await assert.isFulfilled(serverStorage.store([server]));
       }
       // Reset the history so tests can easily evaluate it.
       secretsStub.get.resetHistory();
       secretsStub.store.resetHistory();
     });
 
-    describe("get", () => {
+    describe("list", () => {
       it("returns the servers", async () => {
-        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
+        await expect(serverStorage.list()).to.eventually.have.same.deep.members(
           servers,
         );
 
@@ -309,12 +314,12 @@ describe("ServerStorage", () => {
       });
 
       it("caches the returned servers", async () => {
-        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
+        await expect(serverStorage.list()).to.eventually.have.same.deep.members(
           servers,
         );
 
         // Calling the second time uses the cache.
-        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
+        await expect(serverStorage.list()).to.eventually.have.same.deep.members(
           servers,
         );
 
@@ -329,13 +334,14 @@ describe("ServerStorage", () => {
           id: randomUUID(),
         };
 
-        await expect(serverStorage.store(newServer)).to.eventually.be.fulfilled;
+        await expect(serverStorage.store([newServer])).to.eventually.be
+          .fulfilled;
 
         sinon.assert.calledOnceWithMatch(
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.have.same.deep.members([
+        expect(serverStorage.list()).to.eventually.have.same.deep.members([
           ...servers,
           newServer,
         ]);
@@ -347,14 +353,14 @@ describe("ServerStorage", () => {
           label: "bar",
         };
 
-        await expect(serverStorage.store(updatedServer)).to.eventually.be
+        await expect(serverStorage.store([updatedServer])).to.eventually.be
           .fulfilled;
 
         sinon.assert.calledOnceWithMatch(
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.get()).to.eventually.have.same.deep.members([
+        expect(serverStorage.list()).to.eventually.have.same.deep.members([
           updatedServer,
           servers[1],
         ]);
@@ -362,25 +368,25 @@ describe("ServerStorage", () => {
 
       describe("when storing is a no-op", () => {
         it("does not store", async () => {
-          await expect(serverStorage.store(servers[0])).to.eventually.be
+          await expect(serverStorage.store([servers[0]])).to.eventually.be
             .fulfilled;
 
           sinon.assert.notCalled(secretsStub.store);
-          expect(serverStorage.get()).to.eventually.have.same.deep.members(
+          expect(serverStorage.list()).to.eventually.have.same.deep.members(
             servers,
           );
         });
 
         it("does not clear cache", async () => {
           // Populate the cache.
-          await assert.isFulfilled(serverStorage.get());
+          await assert.isFulfilled(serverStorage.list());
 
-          await expect(serverStorage.store(servers[0])).to.be.eventually
+          await expect(serverStorage.store([servers[0]])).to.be.eventually
             .fulfilled;
 
           secretsStub.get.resetHistory();
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
           sinon.assert.notCalled(secretsStub.get);
         });
       });
@@ -391,7 +397,7 @@ describe("ServerStorage", () => {
           label: "bar",
         };
 
-        await expect(serverStorage.store(updatedServer)).to.eventually.be
+        await expect(serverStorage.store([updatedServer])).to.eventually.be
           .fulfilled;
 
         sinon.assert.calledOnceWithMatch(
@@ -399,7 +405,7 @@ describe("ServerStorage", () => {
           ASSIGNED_SERVERS_KEY,
         );
         secretsStub.get.resetHistory();
-        await expect(serverStorage.get()).to.be.eventually.fulfilled;
+        await expect(serverStorage.list()).to.be.eventually.fulfilled;
         sinon.assert.calledOnce(secretsStub.get);
       });
     });
@@ -414,11 +420,11 @@ describe("ServerStorage", () => {
 
         it("deletes it", () => {
           sinon.assert.calledOnce(secretsStub.store);
-          expect(serverStorage.get()).to.eventually.deep.equal([servers[1]]);
+          expect(serverStorage.list()).to.eventually.deep.equal([servers[1]]);
         });
 
         it("clears the cache", async () => {
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
           sinon.assert.calledOnce(secretsStub.get);
         });
       });
@@ -434,13 +440,13 @@ describe("ServerStorage", () => {
         });
 
         it("does not clear the cache", async () => {
-          await assert.isFulfilled(serverStorage.get());
+          await assert.isFulfilled(serverStorage.list());
 
           await expect(serverStorage.remove(nonExistentId)).to.eventually.be
             .false;
 
           secretsStub.get.resetHistory();
-          await expect(serverStorage.get()).to.be.eventually.fulfilled;
+          await expect(serverStorage.list()).to.be.eventually.fulfilled;
           sinon.assert.notCalled(secretsStub.get);
         });
       });
@@ -459,7 +465,7 @@ describe("ServerStorage", () => {
       });
 
       it("clears the cache", async () => {
-        await serverStorage.get();
+        await serverStorage.list();
 
         sinon.assert.calledOnce(secretsStub.get);
       });

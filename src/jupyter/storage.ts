@@ -37,10 +37,10 @@ export class ServerStorage {
   ) {}
 
   /**
-   * Get the assigned servers that have been stored.
+   * List the assigned servers that have been stored.
    * @returns The assigned servers that have been stored.
    */
-  async get(): Promise<ColabAssignedServer[]> {
+  async list(): Promise<ColabAssignedServer[]> {
     if (this.cache !== undefined) {
       return this.cache;
     }
@@ -64,24 +64,29 @@ export class ServerStorage {
   }
 
   /**
-   * Store an assigned server.
+   * Stores the provided assigned servers.
    *
-   * @param server The server to store.
+   * Servers are unique by their ID. If a server with the same ID is already
+   * stored, it will be replaced.
+   *
+   * @param servers The servers to store.
    */
-  async store(server: ColabAssignedServer): Promise<void> {
+  async store(servers: ColabAssignedServer[]): Promise<void> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
     const serversById = mapServersById(existingServersJson);
-    serversById.set(server.id, {
-      id: server.id,
-      label: server.label,
-      variant: server.variant,
-      accelerator: server.accelerator,
-      connectionInformation: {
-        baseUrl: server.connectionInformation.baseUrl.toString(),
-        token: server.connectionInformation.token,
-        headers: server.connectionInformation.headers,
-      },
-    });
+    for (const server of servers) {
+      serversById.set(server.id, {
+        id: server.id,
+        label: server.label,
+        variant: server.variant,
+        accelerator: server.accelerator,
+        connectionInformation: {
+          baseUrl: server.connectionInformation.baseUrl.toString(),
+          token: server.connectionInformation.token,
+          headers: server.connectionInformation.headers,
+        },
+      });
+    }
     return this.storeServers(
       Array.from(serversById.values()),
       existingServersJson,

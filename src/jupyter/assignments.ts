@@ -54,11 +54,11 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves a list of available servers that can be assigned.
+   * Retrieves a list of available server descriptors that can be assigned.
    *
-   * @returns A list of available servers.
+   * @returns A list of available server descriptors.
    */
-  async availableServers(): Promise<ColabServerDescriptor[]> {
+  async getAvailableServerDescriptors(): Promise<ColabServerDescriptor[]> {
     const ccuInfo = await this.client.ccuInfo();
     const eligibleGpus = new Set(ccuInfo.eligibleGpus);
     const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
@@ -84,8 +84,8 @@ export class AssignmentManager implements vscode.Disposable {
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
    */
-  async assignedServers(): Promise<ColabAssignedServer[]> {
-    return (await this.storage.get()).map((server) => ({
+  async getAssignedServers(): Promise<ColabAssignedServer[]> {
+    return (await this.storage.list()).map((server) => ({
       ...server,
       connectionInformation: {
         ...server.connectionInformation,
@@ -151,7 +151,7 @@ export class AssignmentManager implements vscode.Disposable {
       },
       assignment.runtimeProxyInfo,
     );
-    await this.storage.store(server);
+    await this.storage.store([server]);
     this.assignmentsChange.fire();
     return server;
   }

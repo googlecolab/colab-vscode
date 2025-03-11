@@ -61,7 +61,7 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return this.assignmentManager.assignedServers();
+    return this.assignmentManager.getAssignedServers();
   }
 
   /**
@@ -146,7 +146,7 @@ export class ColabJupyterServerProvider
   }
 
   private async getServer(id: UUID): Promise<JupyterServer> {
-    const assignedServers = await this.assignmentManager.assignedServers();
+    const assignedServers = await this.assignmentManager.getAssignedServers();
     const assignedServer = assignedServers.find((s) => s.id === id);
     if (!assignedServer) {
       throw new Error("Server not found");
@@ -156,7 +156,7 @@ export class ColabJupyterServerProvider
 
   private async assignServer(): Promise<JupyterServer> {
     const serverType = await this.serverPicker.prompt(
-      await this.assignmentManager.availableServers(),
+      await this.assignmentManager.getAvailableServerDescriptors(),
     );
     if (!serverType) {
       throw new this.vs.CancellationError();
