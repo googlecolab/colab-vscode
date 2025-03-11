@@ -6,19 +6,21 @@ import { z } from "zod";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
   Assignment,
-  CCUInfo,
+  CcuInfo,
   Variant,
   Accelerator,
   GetAssignmentResponse,
-  CCUInfoSchema,
+  CcuInfoSchema,
   AssignmentSchema,
   GetAssignmentResponseSchema,
+  AssignmentsSchema,
 } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
 const XSRF_HEADER_KEY = "X-Goog-Colab-Token";
-const CCU_INFO_ENDPOINT = "/tun/m/ccu-info?authuser=0";
-const ASSIGN_ENDPOINT = "/tun/m/assign?authuser=0";
+const CCU_INFO_ENDPOINT = "/tun/m/ccu-info";
+const ASSIGN_ENDPOINT = "/tun/m/assign";
+const ASSIGNMENTS_ENDPOINT = "/tun/m/assignments";
 
 // To discriminate the type of GET assignment responses.
 interface AssignmentToken extends GetAssignmentResponse {
@@ -52,11 +54,11 @@ export class ColabClient {
    *
    * @returns The current CCU information.
    */
-  async ccuInfo(): Promise<CCUInfo> {
+  async ccuInfo(): Promise<CcuInfo> {
     return this.issueRequest(
       new URL(CCU_INFO_ENDPOINT, this.domain),
       "GET",
-      CCUInfoSchema,
+      CcuInfoSchema,
     );
   }
 
@@ -95,6 +97,19 @@ export class ColabClient {
         );
       }
     }
+  }
+
+  /**
+   * Lists all assignments.
+   *
+   * @returns The list of assignments.
+   */
+  async listAssignments(): Promise<Assignment[]> {
+    return this.issueRequest(
+      new URL(ASSIGNMENTS_ENDPOINT, this.domain),
+      "GET",
+      AssignmentsSchema,
+    );
   }
 
   private async getAssignment(
@@ -150,6 +165,7 @@ export class ColabClient {
     headers?: fetch.HeadersInit,
   ): Promise<z.infer<T>> {
     const authSession = await this.session();
+    endpoint.searchParams.append("authuser", "0");
     const requestHeaders = new fetch.Headers(headers);
     requestHeaders.set("Accept", "application/json");
     requestHeaders.set("Authorization", `Bearer ${authSession.accessToken}`);

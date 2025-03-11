@@ -7,7 +7,7 @@ import * as sinon from "sinon";
 import { AuthenticationSession } from "vscode";
 import {
   Accelerator,
-  CCUInfo,
+  CcuInfo,
   Assignment,
   Shape,
   SubscriptionState,
@@ -20,6 +20,19 @@ import { ColabClient } from "./client";
 const DOMAIN = "https://colab.example.com";
 const BEARER_TOKEN = "access-token";
 const NOTEBOOK_HASH = randomUUID();
+const DEFAULT_ASSIGNMENT: Assignment = {
+  accelerator: Accelerator.A100,
+  endpoint: "mock-endpoint",
+  sub: SubscriptionState.UNSUBSCRIBED,
+  subTier: SubscriptionTier.UNKNOWN_TIER,
+  variant: Variant.GPU,
+  machineShape: Shape.STANDARD,
+  runtimeProxyInfo: {
+    token: "mock-token",
+    tokenExpiresInSeconds: 42,
+    url: "https://mock-url.com",
+  },
+};
 
 describe("ColabClient", () => {
   let fetchStub: SinonStub<
@@ -47,9 +60,9 @@ describe("ColabClient", () => {
     sinon.restore();
   });
 
-  describe("getCCUInfo", () => {
-    it("successfully resolves CCU info", async () => {
-      const mockResponse: CCUInfo = {
+  describe("ccuInfo", () => {
+    it("successfully resolves", async () => {
+      const mockResponse: CcuInfo = {
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 3,
@@ -71,44 +84,33 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("rejects when error responses are returned", () => {
-      fetchStub.resolves(
-        new Response("Error", {
-          status: 500,
-          statusText: "Internal Server Error",
-        }),
-      );
+    it("rejects when error responses are returned", async () => {
+      fetchStub
+        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+        .resolves(
+          new Response("Error", {
+            status: 500,
+            statusText: "Foo error",
+          }),
+        );
 
-      expect(client.ccuInfo()).to.eventually.be.rejectedWith(
-        `Failed to GET ${DOMAIN}/tun/m/ccu-info?authuser=0: Internal Server Error`,
-      );
+      await expect(client.ccuInfo()).to.eventually.be.rejectedWith(/Foo error/);
     });
   });
 
   describe("assignment", () => {
     it("resolves an existing assignment", async () => {
-      const mockResponse: Assignment = {
-        accelerator: Accelerator.A100,
-        endpoint: "mock-endpoint",
-        sub: SubscriptionState.UNSUBSCRIBED,
-        subTier: SubscriptionTier.UNKNOWN_TIER,
-        variant: Variant.GPU,
-        machineShape: Shape.STANDARD,
-        runtimeProxyInfo: {
-          token: "mock-token",
-          tokenExpiresInSeconds: 42,
-          url: "https://mock-url.com",
-        },
-      };
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/assign", "GET"))
         .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT)), {
+            status: 200,
+          }),
         );
 
       await expect(
         client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
-      ).to.eventually.deep.equal(mockResponse);
+      ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
 
       sinon.assert.calledOnce(fetchStub);
     });
@@ -128,53 +130,72 @@ describe("ColabClient", () => {
             status: 200,
           }),
         );
-
-      const mockPostResponse: Assignment = {
-        accelerator: Accelerator.A100,
-        endpoint: "mock-endpoint",
-        sub: SubscriptionState.UNSUBSCRIBED,
-        subTier: SubscriptionTier.UNKNOWN_TIER,
-        variant: Variant.GPU,
-        machineShape: Shape.STANDARD,
-        runtimeProxyInfo: {
-          token: "mock-token",
-          tokenExpiresInSeconds: 42,
-          url: "https://mock-url.com",
-        },
-      };
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/assign", "POST"))
         .resolves(
-          new Response(withXSSI(JSON.stringify(mockPostResponse)), {
+          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT)), {
             status: 200,
           }),
         );
 
       await expect(
         client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
-      ).to.eventually.deep.equal(mockPostResponse);
+      ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
 
       sinon.assert.calledTwice(fetchStub);
     });
 
-    it("rejects when error responses are returned", () => {
-      fetchStub.resolves(
-        new Response("Error", {
-          status: 500,
-          statusText: "Internal Server Error",
-        }),
-      );
+    it("rejects when error responses are returned", async () => {
+      fetchStub
+        .withArgs(matchAuthorizedRequest("tun/m/assign", "GET"))
+        .resolves(
+          new Response("Error", {
+            status: 500,
+            statusText: "Foo error",
+          }),
+        );
 
-      expect(
+      await expect(
         client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
-      ).to.eventually.be.rejectedWith(
-        `Failed to GET ${DOMAIN}/tun/m/assign?authuser=0&nbh=${NOTEBOOK_HASH}: Internal Server Error`,
+      ).to.eventually.be.rejectedWith(/Foo error/);
+    });
+  });
+
+  describe("listAssignments", () => {
+    it("successfully resolves", async () => {
+      fetchStub
+        .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
+        .resolves(
+          new Response(withXSSI(JSON.stringify([DEFAULT_ASSIGNMENT])), {
+            status: 200,
+          }),
+        );
+
+      await expect(client.listAssignments()).to.eventually.deep.equal([
+        DEFAULT_ASSIGNMENT,
+      ]);
+
+      sinon.assert.calledOnce(fetchStub);
+    });
+
+    it("rejects when error responses are returned", async () => {
+      fetchStub
+        .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
+        .resolves(
+          new Response("Error", {
+            status: 500,
+            statusText: "Foo error",
+          }),
+        );
+
+      await expect(client.listAssignments()).to.eventually.be.rejectedWith(
+        /Foo error/,
       );
     });
   });
 
   it("supports non-XSSI responses", async () => {
-    const mockResponse: CCUInfo = {
+    const mockResponse: CcuInfo = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
@@ -203,7 +224,7 @@ describe("ColabClient", () => {
   });
 
   it("rejects response schema mismatches", async () => {
-    const mockResponse: Partial<CCUInfo> = {
+    const mockResponse: Partial<CcuInfo> = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       eligibleGpus: [Accelerator.T4],
@@ -229,7 +250,7 @@ function matchAuthorizedRequest(
   method: "GET" | "POST",
 ): SinonMatcher {
   return sinon.match({
-    url: sinon.match(`${DOMAIN}/${endpoint}?authuser=0`),
+    url: sinon.match(new RegExp(`${DOMAIN}/${endpoint}?.*authuser=0`)),
     method: sinon.match(method),
     headers: sinon.match(
       (headers: nodeFetch.Headers) =>
