@@ -21,8 +21,8 @@ export default tseslint.config(
     },
     plugins: {
       "@stylistic/ts": stylisticTs,
-      import: importPlugin,
       "check-file": checkFile,
+      import: importPlugin,
     },
     rules: {
       "import/order": [
