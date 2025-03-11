@@ -7,7 +7,7 @@ import fetch, {
   Response,
 } from "node-fetch";
 import vscode from "vscode";
-import { RuntimeProxyInfo, Variant } from "../colab/api";
+import { Assignment, RuntimeProxyInfo, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
   COLAB_SERVERS,
@@ -76,6 +76,38 @@ export class AssignmentManager implements vscode.Disposable {
 
       return eligibleGpu && !ineligibleGpu;
     });
+  }
+
+  /**
+   * Reconciles the managed list of assigned servers with those that Colab knows
+   * about.
+   *
+   * Note that it's possible Colab has assignments which did not originate from
+   * VS Code. Naturally, those cannot be "reconciled". They are not added to the
+   * managed list of assigned servers. In other words, assignments originating
+   * from Colab-web will not show in VS Code.
+   */
+  async reconcileAssignedServers(): Promise<void> {
+    const serversToReconcile = await this.storage.list();
+    if (serversToReconcile.length === 0) {
+      return;
+    }
+    const assignments = await this.client.listAssignments();
+    const assignedAuthorities = new Set(
+      assignments
+        .filter(isAssignmentWithConnectionUrl)
+        .map((a) => this.vs.Uri.parse(a.runtimeProxyInfo.url).authority),
+    );
+    const reconciled = serversToReconcile.filter((s) =>
+      assignedAuthorities.has(s.connectionInformation.baseUrl.authority),
+    );
+    if (serversToReconcile.length === reconciled.length) {
+      return;
+    }
+
+    await this.storage.clear();
+    await this.storage.store(reconciled);
+    this.assignmentsChange.fire();
   }
 
   /**
@@ -217,4 +249,10 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
+}
+
+function isAssignmentWithConnectionUrl(
+  a: Assignment,
+): a is Assignment & { runtimeProxyInfo: RuntimeProxyInfo } {
+  return a.runtimeProxyInfo?.url !== undefined;
 }

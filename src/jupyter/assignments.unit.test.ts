@@ -142,6 +142,130 @@ describe("AssignmentManager", () => {
     });
   });
 
+  describe("reconcileAssignedServers", () => {
+    it("does nothing when there are no stored servers", async () => {
+      storageStub.list.resolves([]);
+
+      await assignmentManager.reconcileAssignedServers();
+
+      sinon.assert.notCalled(colabClientStub.listAssignments);
+      sinon.assert.notCalled(storageStub.clear);
+      sinon.assert.notCalled(storageStub.store);
+    });
+
+    it("does nothing when no servers need reconciling", async () => {
+      storageStub.list.resolves([defaultServer]);
+      colabClientStub.listAssignments.resolves([defaultAssignment]);
+
+      await assignmentManager.reconcileAssignedServers();
+
+      sinon.assert.calledOnce(colabClientStub.listAssignments);
+      sinon.assert.notCalled(storageStub.clear);
+      sinon.assert.notCalled(storageStub.store);
+    });
+
+    it("reconciles a single assigned server when it is the only one", async () => {
+      storageStub.list.resolves([defaultServer]);
+      colabClientStub.listAssignments.resolves([]);
+
+      await assignmentManager.reconcileAssignedServers();
+
+      sinon.assert.calledOnce(colabClientStub.listAssignments);
+      sinon.assert.calledOnce(storageStub.clear);
+      sinon.assert.calledOnceWithExactly(storageStub.store, []);
+    });
+
+    describe("with multiple servers", () => {
+      let servers: [ColabAssignedServer, ColabAssignedServer];
+      let assignments: [Assignment, Assignment];
+
+      beforeEach(() => {
+        servers = [
+          defaultServer,
+          {
+            ...defaultServer,
+            id: randomUUID(),
+            connectionInformation: {
+              ...defaultServer.connectionInformation,
+              baseUrl: vsCodeStub.Uri.parse("https://example2.com"),
+            },
+          },
+        ];
+        assignments = [
+          defaultAssignment,
+          {
+            ...defaultAssignment,
+            runtimeProxyInfo: {
+              ...defaultAssignment.runtimeProxyInfo,
+              url: servers[1].connectionInformation.baseUrl.toString(),
+            },
+          },
+        ];
+      });
+
+      it("reconciles a single assigned server when there are others", async () => {
+        storageStub.list.resolves(servers);
+        colabClientStub.listAssignments.resolves([assignments[0]]);
+
+        await assignmentManager.reconcileAssignedServers();
+
+        sinon.assert.calledOnce(colabClientStub.listAssignments);
+        sinon.assert.calledOnce(storageStub.clear);
+        sinon.assert.calledOnceWithExactly(storageStub.store, [servers[0]]);
+      });
+
+      it("reconciles multiple assigned servers when all need reconciling", async () => {
+        storageStub.list.resolves(servers);
+        colabClientStub.listAssignments.resolves([]);
+
+        await assignmentManager.reconcileAssignedServers();
+
+        sinon.assert.calledOnce(colabClientStub.listAssignments);
+        sinon.assert.calledOnce(storageStub.clear);
+        sinon.assert.calledOnceWithExactly(storageStub.store, []);
+      });
+
+      it("reconciles multiple assigned servers when some need reconciling", async () => {
+        const thirdServer: ColabAssignedServer = {
+          ...defaultServer,
+          id: randomUUID(),
+          connectionInformation: {
+            ...defaultServer.connectionInformation,
+            baseUrl: vsCodeStub.Uri.parse("https://example3.com"),
+          },
+        };
+        const twoServers = servers;
+        const threeServers = [...twoServers, thirdServer];
+        storageStub.list.resolves(threeServers);
+        colabClientStub.listAssignments.resolves(assignments);
+
+        await assignmentManager.reconcileAssignedServers();
+
+        sinon.assert.calledOnce(colabClientStub.listAssignments);
+        sinon.assert.calledOnce(storageStub.clear);
+        sinon.assert.calledOnceWithExactly(storageStub.store, twoServers);
+      });
+
+      it("reconciles ignoring assignments originating out of VS Code", async () => {
+        storageStub.list.resolves(servers);
+        const colabAssignment: Assignment = {
+          ...defaultAssignment,
+          runtimeProxyInfo: {
+            ...defaultAssignment.runtimeProxyInfo,
+            url: "https://not-from-vs-code.com",
+          },
+        };
+        colabClientStub.listAssignments.resolves([colabAssignment]);
+
+        await assignmentManager.reconcileAssignedServers();
+
+        sinon.assert.calledOnce(colabClientStub.listAssignments);
+        sinon.assert.calledOnce(storageStub.clear);
+        sinon.assert.calledOnceWithExactly(storageStub.store, []);
+      });
+    });
+  });
+
   describe("getAssignedServers", () => {
     it("returns an empty list when no servers are assigned", async () => {
       storageStub.list.resolves([]);
