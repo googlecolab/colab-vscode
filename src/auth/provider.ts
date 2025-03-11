@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
 import vscode from "vscode";
 import { z } from "zod";
-import { PackageInfo } from "../config/package_info";
+import { PackageInfo } from "../config/package-info";
 import { CodeProvider } from "./redirect";
 import { AuthStorage } from "./storage";
 
