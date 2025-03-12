@@ -18,6 +18,14 @@
     "onNotebook:jupyter-notebook",
     "onNotebook:interactive"
   ],
+  "contributes": {
+    "authentication": [
+      {
+        "label": "Google",
+        "id": "google"
+      }
+    ]
+  },
   "main": "./out/extension.js",
   "scripts": {
     "clean": "rm -rf out/*",
