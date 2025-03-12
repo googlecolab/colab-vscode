@@ -27,14 +27,14 @@ describe("RedirectUriCodeProvider", () => {
     sinon.restore();
   });
 
-  it("throws when waiting for the same nonce", () => {
+  it("throws when waiting for the same nonce", async () => {
     const nonce = "1";
 
     void provider.waitForCode(nonce, cancellationTokenSource.token);
 
-    expect(
+    await expect(
       provider.waitForCode(nonce, cancellationTokenSource.token),
-    ).to.eventually.throw(/waiting/);
+    ).to.be.rejectedWith(/waiting/);
   });
   it("throws when the URI does not include a code", async () => {
     const nonce = "1";

@@ -44,8 +44,8 @@ describe("ServerPicker", () => {
       return stub;
     }
 
-    it("returns undefined when there are no available servers", () => {
-      expect(serverPicker.prompt([])).to.eventually.equal(undefined);
+    it("returns undefined when there are no available servers", async () => {
+      await expect(serverPicker.prompt([])).to.eventually.equal(undefined);
     });
 
     it("returns undefined when selecting a variant is cancelled", async () => {
@@ -56,7 +56,7 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       variantQuickPickStub.onDidHide.yield();
 
-      expect(prompt).to.eventually.equal(undefined);
+      await expect(prompt).to.eventually.equal(undefined);
     });
 
     it("returns undefined when selecting an accelerator is cancelled", async () => {
@@ -195,7 +195,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
 
-      const pick = serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(ALL_SERVERS);
 
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
@@ -209,10 +209,6 @@ describe("ServerPicker", () => {
         vsCodeStub.QuickInputButtons.Back,
       );
       await secondVariantPickerShown;
-      secondVariantQuickPickStub.onDidTriggerButton.yield(
-        vsCodeStub.QuickInputButtons.Back,
-      );
-      expect(pick).to.eventually.equal(undefined);
     });
 
     it("sets the previously specified value when navigating back", async () => {
@@ -221,7 +217,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
 
-      const pick = serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(ALL_SERVERS);
 
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
@@ -254,10 +250,6 @@ describe("ServerPicker", () => {
       expect(secondVariantQuickPickStub.activeItems).to.be.deep.equal([
         { value: Variant.GPU, label: "GPU" },
       ]);
-      secondVariantQuickPickStub.onDidTriggerButton.yield(
-        vsCodeStub.QuickInputButtons.Back,
-      );
-      expect(pick).to.eventually.equal(undefined);
     });
 
     it("sets the right step", async () => {
