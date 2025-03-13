@@ -164,9 +164,9 @@ export const AssignmentSchema = z.object({
   /** Whether the backend is trusted. */
   allowedCredentials: z.boolean().optional(),
   /** The subscription state. */
-  sub: z.nativeEnum(SubscriptionState),
+  sub: z.nativeEnum(SubscriptionState).optional(),
   /** The subscription tier. */
-  subTier: z.nativeEnum(SubscriptionTier),
+  subTier: z.nativeEnum(SubscriptionTier).optional(),
   /** The outcome of the assignment. */
   outcome: z.nativeEnum(Outcome).optional(),
   /** The variant of the assignment. */
@@ -178,4 +178,6 @@ export const AssignmentSchema = z.object({
 });
 export type Assignment = z.infer<typeof AssignmentSchema>;
 
-export const AssignmentsSchema = z.array(AssignmentSchema);
+export const AssignmentsSchema = z.object({
+  assignments: z.array(AssignmentSchema),
+});

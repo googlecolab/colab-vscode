@@ -166,9 +166,12 @@ describe("ColabClient", () => {
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
         .resolves(
-          new Response(withXSSI(JSON.stringify([DEFAULT_ASSIGNMENT])), {
-            status: 200,
-          }),
+          new Response(
+            withXSSI(JSON.stringify({ assignments: [DEFAULT_ASSIGNMENT] })),
+            {
+              status: 200,
+            },
+          ),
         );
 
       await expect(client.listAssignments()).to.eventually.deep.equal([

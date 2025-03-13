@@ -30,7 +30,7 @@ const defaultAssignmentDescriptor: ColabServerDescriptor = {
 
 const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
   accelerator: Accelerator.A100,
-  endpoint: "mock-endpoint",
+  endpoint: "m-s-foo",
   sub: SubscriptionState.UNSUBSCRIBED,
   subTier: SubscriptionTier.UNKNOWN_TIER,
   variant: Variant.GPU,
@@ -56,6 +56,7 @@ describe("AssignmentManager", () => {
     defaultServer = {
       ...defaultAssignmentDescriptor,
       id: randomUUID(),
+      endpoint: defaultAssignment.endpoint,
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse(defaultAssignment.runtimeProxyInfo.url),
         token: defaultAssignment.runtimeProxyInfo.token,
@@ -185,6 +186,7 @@ describe("AssignmentManager", () => {
           {
             ...defaultServer,
             id: randomUUID(),
+            endpoint: "m-s-bar",
             connectionInformation: {
               ...defaultServer.connectionInformation,
               baseUrl: vsCodeStub.Uri.parse("https://example2.com"),
@@ -195,6 +197,7 @@ describe("AssignmentManager", () => {
           defaultAssignment,
           {
             ...defaultAssignment,
+            endpoint: "m-s-bar",
             runtimeProxyInfo: {
               ...defaultAssignment.runtimeProxyInfo,
               url: servers[1].connectionInformation.baseUrl.toString(),
@@ -229,6 +232,7 @@ describe("AssignmentManager", () => {
         const thirdServer: ColabAssignedServer = {
           ...defaultServer,
           id: randomUUID(),
+          endpoint: "m-s-baz",
           connectionInformation: {
             ...defaultServer.connectionInformation,
             baseUrl: vsCodeStub.Uri.parse("https://example3.com"),
@@ -250,6 +254,7 @@ describe("AssignmentManager", () => {
         storageStub.list.resolves(servers);
         const colabAssignment: Assignment = {
           ...defaultAssignment,
+          endpoint: "m-s-baz",
           runtimeProxyInfo: {
             ...defaultAssignment.runtimeProxyInfo,
             url: "https://not-from-vs-code.com",

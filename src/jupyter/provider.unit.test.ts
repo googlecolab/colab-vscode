@@ -75,6 +75,7 @@ describe("ColabJupyterServerProvider", () => {
       label: "Colab GPU A100",
       variant: Variant.GPU,
       accelerator: Accelerator.A100,
+      endpoint: "m-s-foo",
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),
         token: "123",

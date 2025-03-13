@@ -13,6 +13,7 @@ const AssignedServers = z.array(
     label: z.string().nonempty(),
     variant: z.nativeEnum(Variant),
     accelerator: z.nativeEnum(Accelerator).optional(),
+    endpoint: z.string().nonempty(),
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),
       token: z.string().nonempty(),
@@ -53,6 +54,7 @@ export class ServerStorage {
       label: server.label,
       variant: server.variant,
       accelerator: server.accelerator,
+      endpoint: server.endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(server.connectionInformation.baseUrl),
         token: server.connectionInformation.token,
@@ -80,6 +82,7 @@ export class ServerStorage {
         label: server.label,
         variant: server.variant,
         accelerator: server.accelerator,
+        endpoint: server.endpoint,
         connectionInformation: {
           baseUrl: server.connectionInformation.baseUrl.toString(),
           token: server.connectionInformation.token,

@@ -7,7 +7,7 @@ import fetch, {
   Response,
 } from "node-fetch";
 import vscode from "vscode";
-import { Assignment, RuntimeProxyInfo, Variant } from "../colab/api";
+import { Assignment, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
   COLAB_SERVERS,
@@ -88,20 +88,15 @@ export class AssignmentManager implements vscode.Disposable {
    * from Colab-web will not show in VS Code.
    */
   async reconcileAssignedServers(): Promise<void> {
-    const serversToReconcile = await this.storage.list();
-    if (serversToReconcile.length === 0) {
+    const stored = await this.storage.list();
+    if (stored.length === 0) {
       return;
     }
-    const assignments = await this.client.listAssignments();
-    const assignedAuthorities = new Set(
-      assignments
-        .filter(isAssignmentWithConnectionUrl)
-        .map((a) => this.vs.Uri.parse(a.runtimeProxyInfo.url).authority),
+    const live = new Set(
+      (await this.client.listAssignments()).map((a) => a.endpoint),
     );
-    const reconciled = serversToReconcile.filter((s) =>
-      assignedAuthorities.has(s.connectionInformation.baseUrl.authority),
-    );
-    if (serversToReconcile.length === reconciled.length) {
+    const reconciled = stored.filter((s) => live.has(s.endpoint));
+    if (stored.length === reconciled.length) {
       return;
     }
 
@@ -181,7 +176,7 @@ export class AssignmentManager implements vscode.Disposable {
         variant: assignment.variant,
         accelerator: assignment.accelerator,
       },
-      assignment.runtimeProxyInfo,
+      assignment,
     );
     await this.storage.store([server]);
     this.assignmentsChange.fire();
@@ -190,9 +185,9 @@ export class AssignmentManager implements vscode.Disposable {
 
   private serverWithConnectionInfo(
     server: ColabJupyterServer,
-    proxyInfo?: RuntimeProxyInfo,
+    assignment: Assignment,
   ): ColabAssignedServer {
-    const { url, token } = proxyInfo ?? {};
+    const { url, token } = assignment.runtimeProxyInfo ?? {};
     if (!url || !token) {
       throw new Error("Unable to obtain connection information for server.");
     }
@@ -206,6 +201,7 @@ export class AssignmentManager implements vscode.Disposable {
       label: server.label,
       variant: server.variant,
       accelerator: server.accelerator,
+      endpoint: assignment.endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
         token,
@@ -249,10 +245,4 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
-}
-
-function isAssignmentWithConnectionUrl(
-  a: Assignment,
-): a is Assignment & { runtimeProxyInfo: RuntimeProxyInfo } {
-  return a.runtimeProxyInfo?.url !== undefined;
 }

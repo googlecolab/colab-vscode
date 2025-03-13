@@ -27,6 +27,7 @@ describe("ServerStorage", () => {
       label: "foo",
       variant: Variant.DEFAULT,
       accelerator: undefined,
+      endpoint: "m-s-foo",
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),
         token: "123",

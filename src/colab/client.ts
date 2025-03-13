@@ -105,11 +105,12 @@ export class ColabClient {
    * @returns The list of assignments.
    */
   async listAssignments(): Promise<Assignment[]> {
-    return this.issueRequest(
+    const assignments = await this.issueRequest(
       new URL(ASSIGNMENTS_ENDPOINT, this.domain),
       "GET",
       AssignmentsSchema,
     );
+    return assignments.assignments;
   }
 
   private async getAssignment(
