@@ -5,7 +5,7 @@ import { RedirectUriCodeProvider } from "./auth/redirect";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
 import { ServerPicker } from "./colab/server-picker";
-import { getPackageInfo } from "./config/package_info";
+import { getPackageInfo } from "./config/package-info";
 import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
@@ -45,6 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
     colabClient,
     serverStorage,
   );
+  await assignmentManager.reconcileAssignedServers();
   const serverPicker = new ServerPicker(vscode);
   const serverProvider = new ColabJupyterServerProvider(
     vscode,

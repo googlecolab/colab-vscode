@@ -68,7 +68,7 @@ function uppercaseEnum<T extends z.EnumLike>(
   }, z.nativeEnum(enumObj));
 }
 
-export const FreeCCUQuotaInfoSchema = z.object({
+export const FreeCcuQuotaInfoSchema = z.object({
   /**
    * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
    * free usage allowance in milli-CCUs).
@@ -79,12 +79,12 @@ export const FreeCCUQuotaInfoSchema = z.object({
    */
   nextRefillTimestampSec: z.number(),
 });
-export type FreeCCUQuotaInfo = z.infer<typeof FreeCCUQuotaInfoSchema>;
+export type FreeCcuQuotaInfo = z.infer<typeof FreeCcuQuotaInfoSchema>;
 
 /**
  * Cloud compute unit (CCU) information.
  */
-export const CCUInfoSchema = z.object({
+export const CcuInfoSchema = z.object({
   /**
    * The current balance of the paid CCUs.
    *
@@ -113,9 +113,9 @@ export const CCUInfoSchema = z.object({
   /**
    * Free CCU quota information if applicable.
    */
-  freeCcuQuotaInfo: FreeCCUQuotaInfoSchema.optional(),
+  freeCcuQuotaInfo: FreeCcuQuotaInfoSchema.optional(),
 });
-export type CCUInfo = z.infer<typeof CCUInfoSchema>;
+export type CcuInfo = z.infer<typeof CcuInfoSchema>;
 
 export const GetAssignmentResponseSchema = z.object({
   /** The pool's {@link Accelerator}. */
@@ -164,9 +164,9 @@ export const AssignmentSchema = z.object({
   /** Whether the backend is trusted. */
   allowedCredentials: z.boolean().optional(),
   /** The subscription state. */
-  sub: z.nativeEnum(SubscriptionState),
+  sub: z.nativeEnum(SubscriptionState).optional(),
   /** The subscription tier. */
-  subTier: z.nativeEnum(SubscriptionTier),
+  subTier: z.nativeEnum(SubscriptionTier).optional(),
   /** The outcome of the assignment. */
   outcome: z.nativeEnum(Outcome).optional(),
   /** The variant of the assignment. */
@@ -177,3 +177,7 @@ export const AssignmentSchema = z.object({
   runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
 });
 export type Assignment = z.infer<typeof AssignmentSchema>;
+
+export const AssignmentsSchema = z.object({
+  assignments: z.array(AssignmentSchema),
+});

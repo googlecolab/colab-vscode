@@ -9,7 +9,7 @@ import { SinonStub, SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import vscode, { Disposable } from "vscode";
 import { PROVIDER_ID } from "../config/constants";
-import { PackageInfo } from "../config/package_info";
+import { PackageInfo } from "../config/package-info";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { GoogleAuthProvider } from "./provider";
 import { CodeProvider } from "./redirect";

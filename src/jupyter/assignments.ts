@@ -7,7 +7,7 @@ import fetch, {
   Response,
 } from "node-fetch";
 import vscode from "vscode";
-import { RuntimeProxyInfo, Variant } from "../colab/api";
+import { Assignment, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
   COLAB_SERVERS,
@@ -54,11 +54,11 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves a list of available servers that can be assigned.
+   * Retrieves a list of available server descriptors that can be assigned.
    *
-   * @returns A list of available servers.
+   * @returns A list of available server descriptors.
    */
-  async availableServers(): Promise<ColabServerDescriptor[]> {
+  async getAvailableServerDescriptors(): Promise<ColabServerDescriptor[]> {
     const ccuInfo = await this.client.ccuInfo();
     const eligibleGpus = new Set(ccuInfo.eligibleGpus);
     const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
@@ -79,13 +79,40 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
+   * Reconciles the managed list of assigned servers with those that Colab knows
+   * about.
+   *
+   * Note that it's possible Colab has assignments which did not originate from
+   * VS Code. Naturally, those cannot be "reconciled". They are not added to the
+   * managed list of assigned servers. In other words, assignments originating
+   * from Colab-web will not show in VS Code.
+   */
+  async reconcileAssignedServers(): Promise<void> {
+    const stored = await this.storage.list();
+    if (stored.length === 0) {
+      return;
+    }
+    const live = new Set(
+      (await this.client.listAssignments()).map((a) => a.endpoint),
+    );
+    const reconciled = stored.filter((s) => live.has(s.endpoint));
+    if (stored.length === reconciled.length) {
+      return;
+    }
+
+    await this.storage.clear();
+    await this.storage.store(reconciled);
+    this.assignmentsChange.fire();
+  }
+
+  /**
    * Retrieves the list of servers that have been assigned.
    *
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
    */
-  async assignedServers(): Promise<ColabAssignedServer[]> {
-    return (await this.storage.get()).map((server) => ({
+  async getAssignedServers(): Promise<ColabAssignedServer[]> {
+    return (await this.storage.list()).map((server) => ({
       ...server,
       connectionInformation: {
         ...server.connectionInformation,
@@ -149,18 +176,18 @@ export class AssignmentManager implements vscode.Disposable {
         variant: assignment.variant,
         accelerator: assignment.accelerator,
       },
-      assignment.runtimeProxyInfo,
+      assignment,
     );
-    await this.storage.store(server);
+    await this.storage.store([server]);
     this.assignmentsChange.fire();
     return server;
   }
 
   private serverWithConnectionInfo(
     server: ColabJupyterServer,
-    proxyInfo?: RuntimeProxyInfo,
+    assignment: Assignment,
   ): ColabAssignedServer {
-    const { url, token } = proxyInfo ?? {};
+    const { url, token } = assignment.runtimeProxyInfo ?? {};
     if (!url || !token) {
       throw new Error("Unable to obtain connection information for server.");
     }
@@ -174,6 +201,7 @@ export class AssignmentManager implements vscode.Disposable {
       label: server.label,
       variant: server.variant,
       accelerator: server.accelerator,
+      endpoint: assignment.endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
         token,

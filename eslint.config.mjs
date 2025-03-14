@@ -4,6 +4,7 @@ import stylisticTs from "@stylistic/eslint-plugin-ts";
 import tseslint from "typescript-eslint";
 import tsDocPlugin from "eslint-plugin-tsdoc";
 import importPlugin from "eslint-plugin-import";
+import checkFile from "eslint-plugin-check-file";
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
 
 export default tseslint.config(
@@ -21,8 +22,9 @@ export default tseslint.config(
     },
     plugins: {
       "@stylistic/ts": stylisticTs,
-      tsdoc: tsDocPlugin,
+      "check-file": checkFile,
       import: importPlugin,
+      tsdoc: tsDocPlugin,
     },
     rules: {
       "import/order": [
@@ -51,6 +53,13 @@ export default tseslint.config(
         { accessibility: "no-public" },
       ],
       "tsdoc/syntax": "warn",
+      "check-file/filename-naming-convention": [
+        "error",
+        {
+          "src/**/*.ts": "KEBAB_CASE",
+        },
+        { ignoreMiddleExtensions: true },
+      ],
     },
   },
   {
