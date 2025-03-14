@@ -2,6 +2,7 @@ import eslint from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import stylisticTs from "@stylistic/eslint-plugin-ts";
 import tseslint from "typescript-eslint";
+import tsDocPlugin from "eslint-plugin-tsdoc";
 import importPlugin from "eslint-plugin-import";
 import checkFile from "eslint-plugin-check-file";
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
@@ -23,6 +24,7 @@ export default tseslint.config(
       "@stylistic/ts": stylisticTs,
       "check-file": checkFile,
       import: importPlugin,
+      tsdoc: tsDocPlugin,
     },
     rules: {
       "import/order": [
@@ -50,6 +52,7 @@ export default tseslint.config(
         "error",
         { accessibility: "no-public" },
       ],
+      "tsdoc/syntax": "warn",
       "check-file/filename-naming-convention": [
         "error",
         {

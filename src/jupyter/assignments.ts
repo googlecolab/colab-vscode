@@ -124,8 +124,8 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Assigns a server.
    *
-   * @param id The ID of the server to assign.
-   * @param descriptor The server descriptor used as a template for the server
+   * @param id - The ID of the server to assign.
+   * @param descriptor - The server descriptor used as a template for the server
    * being assigned.
    * @returns The assigned server.
    */
@@ -144,7 +144,7 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Refreshes the connection information for a server.
    *
-   * @param server The server to refresh.
+   * @param server - The server to refresh.
    * @returns The server with updated connection information: its token and
    * fetch implementation.
    */
@@ -158,7 +158,7 @@ export class AssignmentManager implements vscode.Disposable {
    * Assigns a new server or refreshes the connection information for an
    * existing server.
    *
-   * @param toAssign The server to assign or refresh.
+   * @param toAssign - The server to assign or refresh.
    * @returns The assigned server.
    */
   private async assignOrRefresh(

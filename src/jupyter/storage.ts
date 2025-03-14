@@ -71,7 +71,7 @@ export class ServerStorage {
    * Servers are unique by their ID. If a server with the same ID is already
    * stored, it will be replaced.
    *
-   * @param servers The servers to store.
+   * @param servers - The servers to store.
    */
   async store(servers: ColabAssignedServer[]): Promise<void> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
@@ -99,7 +99,7 @@ export class ServerStorage {
   /**
    * Remove an assigned server.
    *
-   * @param serverId The ID of the server to remove.
+   * @param serverId - The ID of the server to remove.
    * @returns true if a server was stored and has been removed, or false if the
    * server does not exist.
    */

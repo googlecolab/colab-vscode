@@ -29,8 +29,6 @@ export type InputStep = (
 
 /**
  * The base options for all quick-input types.
- *
- * @param title
  */
 export interface QuickInputOptions {
   /** The title of the input. */
@@ -82,11 +80,12 @@ export class MultiStepInput {
   /**
    * Runs the input flow.
    *
-   * @param vs The vscode module.
-   * @param start The first step in the input flow.
+   * @param vs - The vscode module.
+   * @param start - The first step in the input flow.
    * @returns A promise that resolves when the input flow is complete.
-   * @throws {InputFlowAction.back} If the back button was clicked on the first
-   * step, giving callers the chance to navigate back to the previous input.
+   * @throws {@link InputFlowAction.back} If the back button was clicked on the
+   * first step, giving callers the chance to navigate back to the previous
+   * input.
    */
   static async run(vs: typeof vscode, start: InputStep): Promise<void> {
     const input = new MultiStepInput(vs);
@@ -132,7 +131,7 @@ export class MultiStepInput {
   /**
    * Creates and shows a quick pick input.
    *
-   * @param opts The options for the quick pick input.
+   * @param opts - The options for the quick pick input.
    * @returns The selected item.
    */
   async showQuickPick<T extends QuickPickItem>(
@@ -177,7 +176,7 @@ export class MultiStepInput {
   /**
    * Creates and shows an input box.
    *
-   * @param opts The options for the input box.
+   * @param opts - The options for the input box.
    * @returns The entered value.
    */
   async showInputBox(opts: InputBoxOptions): Promise<string> {
