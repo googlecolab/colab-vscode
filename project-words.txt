@@ -7,4 +7,5 @@ pkce
 quickpick
 toolsai
 veryhighmem
+vulnz
 xssi
