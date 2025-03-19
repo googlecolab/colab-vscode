@@ -26,7 +26,6 @@ const FIRST_RESPONSE: CcuInfo = {
 describe("CcuInformation", () => {
   let clientStub: SinonStubbedInstance<ColabClient>;
   let fakeClock: SinonFakeTimers;
-  // let ccuInfo: CcuInformation;
 
   beforeEach(() => {
     clientStub = createStubInstance(ColabClient);
