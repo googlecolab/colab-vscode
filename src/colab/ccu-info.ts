@@ -29,7 +29,7 @@ export class CcuInformation implements Disposable {
   }
 
   /**
-   * Getter for the current CCU Information.
+   * Getter for the current CCU information.
    */
   get ccuInfo() {
     return this.currentCcuInfo;
@@ -68,7 +68,7 @@ export class CcuInformation implements Disposable {
   }
 
   /**
-   * Updates ccuInfo with new CCU info and emits that a change has occurred.
+   * Updates with new CCU info and emits an event when there is a change.
    */
   private updateCcuInfo(nextCcuInfo: CcuInfo) {
     if (JSON.stringify(nextCcuInfo) === JSON.stringify(this.ccuInfo)) {
@@ -80,8 +80,8 @@ export class CcuInformation implements Disposable {
   }
 
   /**
-   * Initializes the CcuInformation class with the most recent ccuInfo fetched
-   * from the client.
+   * Initializes {@link CcuInformation} with the current value obtained by
+   * fetching it from the client.
    */
   static async initialize(
     vs: typeof vscode,
