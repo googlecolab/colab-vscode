@@ -11,31 +11,6 @@ import { ServerStorage } from "./storage";
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
 
-/**
- * A thin fake implementation backed by stubs of `SecretStorage` that stores
- * the last value so it can be retrieved on subsequent requests.
- */
-class SecretStorageStub
-  implements
-    SinonStubbedInstance<Pick<SecretStorage, "get" | "store" | "delete">>
-{
-  private lastStore?: string;
-
-  get = sinon
-    .stub<[key: string], Thenable<string | undefined>>()
-    .callsFake(() => Promise.resolve(this.lastStore));
-  store = sinon
-    .stub<[key: string, value: string], Thenable<void>>()
-    .callsFake((_, value: string) => {
-      this.lastStore = value;
-      return Promise.resolve();
-    });
-  delete = sinon.stub<[key: string], Thenable<void>>().callsFake(() => {
-    this.lastStore = undefined;
-    return Promise.resolve();
-  });
-}
-
 describe("ServerStorage", () => {
   let vsCodeStub: VsCodeStub;
   let secretsStub: SinonStubbedInstance<
@@ -46,12 +21,13 @@ describe("ServerStorage", () => {
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
-    secretsStub = new SecretStorageStub();
+    secretsStub = new SecretStorageFake();
     defaultServer = {
       id: randomUUID(),
       label: "foo",
       variant: Variant.DEFAULT,
       accelerator: undefined,
+      endpoint: "m-s-foo",
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),
         token: "123",
@@ -94,12 +70,14 @@ describe("ServerStorage", () => {
 
       // TODO: Update tests now that we're accepting an array.
 
-      it("stores the server", () => {
+      it("stores the server", async () => {
         sinon.assert.calledOnceWithMatch(
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.list()).to.eventually.deep.equal([defaultServer]);
+        await expect(serverStorage.list()).to.eventually.deep.equal([
+          defaultServer,
+        ]);
       });
 
       it("clears the cache", async () => {
@@ -173,9 +151,10 @@ describe("ServerStorage", () => {
 
     describe("store", () => {
       it("stores a new server", async () => {
-        const newServer = {
+        const newServer: ColabAssignedServer = {
           ...defaultServer,
           id: randomUUID(),
+          label: "bar",
         };
 
         await expect(serverStorage.store([newServer])).to.eventually.be
@@ -185,9 +164,10 @@ describe("ServerStorage", () => {
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.list()).to.eventually.deep.equal([
-          defaultServer,
-          newServer,
+        const serverLabels = (await serverStorage.list()).map((s) => s.label);
+        expect(serverLabels).to.have.same.deep.members([
+          defaultServer.label,
+          newServer.label,
         ]);
       });
 
@@ -204,7 +184,9 @@ describe("ServerStorage", () => {
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.list()).to.eventually.deep.equal([updatedServer]);
+        await expect(serverStorage.list()).to.eventually.deep.equal([
+          updatedServer,
+        ]);
       });
 
       describe("when storing is a no-op", () => {
@@ -213,7 +195,7 @@ describe("ServerStorage", () => {
             .fulfilled;
 
           sinon.assert.notCalled(secretsStub.store);
-          expect(serverStorage.list()).to.eventually.deep.equal([
+          await expect(serverStorage.list()).to.eventually.deep.equal([
             defaultServer,
           ]);
         });
@@ -259,9 +241,9 @@ describe("ServerStorage", () => {
           secretsStub.get.resetHistory();
         });
 
-        it("deletes it", () => {
+        it("deletes it", async () => {
           sinon.assert.calledOnce(secretsStub.store);
-          expect(serverStorage.list()).to.eventually.deep.equal([]);
+          await expect(serverStorage.list()).to.eventually.deep.equal([]);
         });
 
         it("clears the cache", async () => {
@@ -334,9 +316,6 @@ describe("ServerStorage", () => {
         await expect(serverStorage.list()).to.eventually.have.same.deep.members(
           servers,
         );
-        await expect(serverStorage.get()).to.eventually.have.same.deep.members(
-          servers,
-        );
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -369,10 +348,9 @@ describe("ServerStorage", () => {
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.list()).to.eventually.have.same.deep.members([
-          ...servers,
-          newServer,
-        ]);
+        await expect(serverStorage.list()).to.eventually.have.same.deep.members(
+          [...servers, newServer],
+        );
       });
 
       it("stores an updated server", async () => {
@@ -388,10 +366,9 @@ describe("ServerStorage", () => {
           secretsStub.store,
           ASSIGNED_SERVERS_KEY,
         );
-        expect(serverStorage.list()).to.eventually.have.same.deep.members([
-          updatedServer,
-          servers[1],
-        ]);
+        await expect(serverStorage.list()).to.eventually.have.same.deep.members(
+          [updatedServer, servers[1]],
+        );
       });
 
       describe("when storing is a no-op", () => {
@@ -400,9 +377,9 @@ describe("ServerStorage", () => {
             .fulfilled;
 
           sinon.assert.notCalled(secretsStub.store);
-          expect(serverStorage.list()).to.eventually.have.same.deep.members(
-            servers,
-          );
+          await expect(
+            serverStorage.list(),
+          ).to.eventually.have.same.deep.members(servers);
         });
 
         it("does not clear cache", async () => {
@@ -446,9 +423,11 @@ describe("ServerStorage", () => {
           secretsStub.get.resetHistory();
         });
 
-        it("deletes it", () => {
+        it("deletes it", async () => {
           sinon.assert.calledOnce(secretsStub.store);
-          expect(serverStorage.list()).to.eventually.deep.equal([servers[1]]);
+          await expect(serverStorage.list()).to.eventually.deep.equal([
+            servers[1],
+          ]);
         });
 
         it("clears the cache", async () => {

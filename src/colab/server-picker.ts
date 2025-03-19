@@ -13,7 +13,7 @@ export class ServerPicker {
    * Prompt the user through a multi-step series of inputs to pick a Colab
    * server type.
    *
-   * @param availableServers The available servers to pick from.
+   * @param availableServers - The available servers to pick from.
    * @returns The selected server, or undefined if the user cancels.
    */
   async prompt(

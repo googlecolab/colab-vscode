@@ -218,12 +218,14 @@ describe("ColabClient", () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it("rejects invalid JSON responses", () => {
+  it("rejects invalid JSON responses", async () => {
     fetchStub
       .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
       .resolves(new Response(withXSSI("not JSON eh?"), { status: 200 }));
 
-    expect(client.ccuInfo()).to.eventually.be.rejectedWith(/not valid.+eh\?/);
+    await expect(client.ccuInfo()).to.eventually.be.rejectedWith(
+      /not JSON.+eh\?/,
+    );
   });
 
   it("rejects response schema mismatches", async () => {

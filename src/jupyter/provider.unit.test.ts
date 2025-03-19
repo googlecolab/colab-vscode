@@ -33,17 +33,11 @@ describe("ColabJupyterServerProvider", () => {
   let jupyterStub: SinonStubbedInstance<
     Pick<Jupyter, "createJupyterServerCollection">
   >;
-<<<<<<< HEAD
   let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
   let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let serverPickerStub: SinonStubbedInstance<ServerPicker>;
   let defaultServer: ColabAssignedServer;
-=======
-  let colabClientStub: SinonStubbedInstance<
-    Pick<ColabClient, "ccuInfo" | "assign">
-  >;
->>>>>>> 07a5ca4 (remove jupyter provider files from this PR)
   let serverProvider: ColabJupyterServerProvider;
 
   beforeEach(() => {
@@ -101,11 +95,7 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   afterEach(() => {
-<<<<<<< HEAD
     sinon.restore();
-=======
-    sinon.reset();
->>>>>>> 07a5ca4 (remove jupyter provider files from this PR)
   });
 
   describe("lifecycle", () => {
@@ -167,15 +157,16 @@ describe("ColabJupyterServerProvider", () => {
       ).to.throw(/expected UUID/);
     });
 
-    it("rejects if the server is not found", () => {
+    it("rejects if the server is not found", async () => {
+      assignmentStub.getAssignedServers.resolves([defaultServer]);
       const server: JupyterServer = { id: randomUUID(), label: "foo" };
 
-      expect(
+      await expect(
         serverProvider.resolveJupyterServer(server, cancellationToken),
       ).to.eventually.be.rejectedWith(/not found/);
     });
 
-    it("returns the assigned server with refreshed connection info", () => {
+    it("returns the assigned server with refreshed connection info", async () => {
       const refreshedServer: ColabAssignedServer = {
         ...defaultServer,
         connectionInformation: {
@@ -188,7 +179,7 @@ describe("ColabJupyterServerProvider", () => {
         .withArgs(defaultServer)
         .resolves(refreshedServer);
 
-      expect(
+      await expect(
         serverProvider.resolveJupyterServer(defaultServer, cancellationToken),
       ).to.eventually.deep.equal(refreshedServer);
     });
