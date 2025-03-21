@@ -14,13 +14,13 @@ import {
   AssignmentSchema,
   GetAssignmentResponseSchema,
   AssignmentsSchema,
+  KernelSchema,
+  Kernel,
 } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
 const XSRF_HEADER_KEY = "X-Goog-Colab-Token";
-const CCU_INFO_ENDPOINT = "/tun/m/ccu-info";
-const ASSIGN_ENDPOINT = "/tun/m/assign";
-const ASSIGNMENTS_ENDPOINT = "/tun/m/assignments";
+const TUN_ENDPOINT = "/tun/m";
 
 // To discriminate the type of GET assignment responses.
 interface AssignmentToken extends GetAssignmentResponse {
@@ -56,7 +56,7 @@ export class ColabClient {
    */
   async ccuInfo(): Promise<CcuInfo> {
     return this.issueRequest(
-      new URL(CCU_INFO_ENDPOINT, this.domain),
+      new URL(`${TUN_ENDPOINT}/ccu-info`, this.domain),
       "GET",
       CcuInfoSchema,
     );
@@ -106,11 +106,37 @@ export class ColabClient {
    */
   async listAssignments(): Promise<Assignment[]> {
     const assignments = await this.issueRequest(
-      new URL(ASSIGNMENTS_ENDPOINT, this.domain),
+      new URL(`${TUN_ENDPOINT}/assignments`, this.domain),
       "GET",
       AssignmentsSchema,
     );
     return assignments.assignments;
+  }
+
+  /**
+   * Lists all kernels for a given endpoint.
+   *
+   * @param endpoint - The assigned endpoint to list kernels for.
+   * @returns The list of kernels.
+   */
+  async listKernels(endpoint: string): Promise<Kernel[]> {
+    return await this.issueRequest(
+      new URL(`${TUN_ENDPOINT}/${endpoint}/api/kernels`, this.domain),
+      "GET",
+      z.array(KernelSchema),
+    );
+  }
+
+  /**
+   * Sends a keep-alive ping to the given endpoint.
+   *
+   * @param endpoint - The assigned endpoint to keep alive.
+   */
+  async keepAlive(endpoint: string): Promise<void> {
+    await this.issueRequest(
+      new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.domain),
+      "GET",
+    );
   }
 
   private async getAssignment(
@@ -148,7 +174,7 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
   ): URL {
-    const url = new URL(ASSIGN_ENDPOINT, this.domain);
+    const url = new URL(`${TUN_ENDPOINT}/assign`, this.domain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
     if (variant !== Variant.DEFAULT) {
       url.searchParams.append("variant", variant.toString());
@@ -162,7 +188,7 @@ export class ColabClient {
   private async issueRequest<T extends z.ZodType<unknown>>(
     endpoint: URL,
     method: "GET" | "POST",
-    schema: T,
+    schema?: T,
     headers?: fetch.HeadersInit,
   ): Promise<z.infer<T>> {
     const authSession = await this.session();
@@ -181,6 +207,10 @@ export class ColabClient {
         `Failed to ${method} ${endpoint.toString()}: ${response.statusText}`,
       );
     }
+    if (!schema) {
+      return;
+    }
+
     const body = await response.text();
 
     return schema.parse(JSON.parse(stripXssiPrefix(body)));

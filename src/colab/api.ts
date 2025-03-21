@@ -181,3 +181,28 @@ export type Assignment = z.infer<typeof AssignmentSchema>;
 export const AssignmentsSchema = z.object({
   assignments: z.array(AssignmentSchema),
 });
+
+export const KernelSchema = z
+  .object({
+    /** The UUID of the kernel. */
+    id: z.string(),
+    /** The kernel spec name. */
+    name: z.string(),
+    /** The ISO 8601 timestamp for the last-seen activity on the kernel. */
+    last_activity: z.string().datetime(),
+    /** The current execution state of the kernel. */
+    execution_state: z.string(),
+    /** The number of active connections to the kernel. */
+    connections: z.number(),
+  })
+  .transform((k) => {
+    const { last_activity, execution_state, ...rest } = k;
+    return {
+      ...rest,
+      /** The ISO 8601 timestamp for the last-seen activity on the kernel. */
+      lastActivity: last_activity,
+      /** The current execution state of the kernel. */
+      executionState: execution_state,
+    };
+  });
+export type Kernel = z.infer<typeof KernelSchema>;

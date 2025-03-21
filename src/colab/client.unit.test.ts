@@ -14,6 +14,7 @@ import {
   SubscriptionTier,
   Variant,
   GetAssignmentResponse,
+  Kernel,
 } from "./api";
 import { ColabClient } from "./client";
 
@@ -60,42 +61,27 @@ describe("ColabClient", () => {
     sinon.restore();
   });
 
-  describe("ccuInfo", () => {
-    it("successfully resolves", async () => {
-      const mockResponse: CcuInfo = {
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 3,
-        eligibleGpus: [Accelerator.T4],
-        ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      };
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
-        );
+  it("successfully gets CCU info", async () => {
+    const mockResponse: CcuInfo = {
+      currentBalance: 1,
+      consumptionRateHourly: 2,
+      assignmentsCount: 3,
+      eligibleGpus: [Accelerator.T4],
+      ineligibleGpus: [Accelerator.A100, Accelerator.L4],
+      freeCcuQuotaInfo: {
+        remainingTokens: 4,
+        nextRefillTimestampSec: 5,
+      },
+    };
+    fetchStub
+      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .resolves(
+        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+      );
 
-      await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
+    await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
 
-      sinon.assert.calledOnce(fetchStub);
-    });
-
-    it("rejects when error responses are returned", async () => {
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
-        .resolves(
-          new Response("Error", {
-            status: 500,
-            statusText: "Foo error",
-          }),
-        );
-
-      await expect(client.ccuInfo()).to.eventually.be.rejectedWith(/Foo error/);
-    });
+    sinon.assert.calledOnce(fetchStub);
   });
 
   describe("assignment", () => {
@@ -144,57 +130,71 @@ describe("ColabClient", () => {
 
       sinon.assert.calledTwice(fetchStub);
     });
-
-    it("rejects when error responses are returned", async () => {
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/assign", "GET"))
-        .resolves(
-          new Response("Error", {
-            status: 500,
-            statusText: "Foo error",
-          }),
-        );
-
-      await expect(
-        client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
-      ).to.eventually.be.rejectedWith(/Foo error/);
-    });
   });
 
-  describe("listAssignments", () => {
-    it("successfully resolves", async () => {
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
-        .resolves(
-          new Response(
-            withXSSI(JSON.stringify({ assignments: [DEFAULT_ASSIGNMENT] })),
-            {
-              status: 200,
-            },
-          ),
-        );
-
-      await expect(client.listAssignments()).to.eventually.deep.equal([
-        DEFAULT_ASSIGNMENT,
-      ]);
-
-      sinon.assert.calledOnce(fetchStub);
-    });
-
-    it("rejects when error responses are returned", async () => {
-      fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
-        .resolves(
-          new Response("Error", {
-            status: 500,
-            statusText: "Foo error",
-          }),
-        );
-
-      await expect(client.listAssignments()).to.eventually.be.rejectedWith(
-        /Foo error/,
+  it("successfully lists assignments", async () => {
+    fetchStub
+      .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
+      .resolves(
+        new Response(
+          withXSSI(JSON.stringify({ assignments: [DEFAULT_ASSIGNMENT] })),
+          {
+            status: 200,
+          },
+        ),
       );
-    });
+
+    await expect(client.listAssignments()).to.eventually.deep.equal([
+      DEFAULT_ASSIGNMENT,
+    ]);
+
+    sinon.assert.calledOnce(fetchStub);
+  });
+
+  it("successfully lists kernels", async () => {
+    const lastActivity = new Date().toISOString();
+
+    fetchStub
+      .withArgs(matchAuthorizedRequest("tun/m/foo/api/kernels", "GET"))
+      .resolves(
+        new Response(
+          withXSSI(
+            JSON.stringify([
+              {
+                id: "mock-id",
+                name: "mock-name",
+                last_activity: lastActivity,
+                execution_state: "idle",
+                connections: 1,
+              },
+            ]),
+          ),
+          {
+            status: 200,
+          },
+        ),
+      );
+    const kernel: Kernel = {
+      id: "mock-id",
+      name: "mock-name",
+      lastActivity,
+      executionState: "idle",
+      connections: 1,
+    };
+
+    await expect(client.listKernels("foo")).to.eventually.deep.equal([kernel]);
+
+    sinon.assert.calledOnce(fetchStub);
+  });
+
+  it("successfully issues keep-alive pings", async () => {
+    fetchStub
+      .withArgs(matchAuthorizedRequest("tun/m/foo/keep-alive/", "GET"))
+      .resolves(new Response(undefined, { status: 200 }));
+
+    await expect(client.keepAlive("foo")).to.eventually.be.fulfilled;
+
+    sinon.assert.calledOnce(fetchStub);
   });
 
   it("supports non-XSSI responses", async () => {
@@ -216,6 +216,19 @@ describe("ColabClient", () => {
     await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
 
     sinon.assert.calledOnce(fetchStub);
+  });
+
+  it("rejects when error responses are returned", async () => {
+    fetchStub
+      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .resolves(
+        new Response("Error", {
+          status: 500,
+          statusText: "Foo error",
+        }),
+      );
+
+    await expect(client.ccuInfo()).to.eventually.be.rejectedWith(/Foo error/);
   });
 
   it("rejects invalid JSON responses", async () => {
