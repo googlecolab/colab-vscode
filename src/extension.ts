@@ -4,6 +4,7 @@ import { GoogleAuthProvider } from "./auth/provider";
 import { RedirectUriCodeProvider } from "./auth/redirect";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
+import { renameServerAlias } from "./colab/server-commands";
 import { ServerPicker } from "./colab/server-picker";
 import { getPackageInfo } from "./config/package-info";
 import { AssignmentManager } from "./jupyter/assignments";
@@ -59,5 +60,8 @@ export async function activate(context: vscode.ExtensionContext) {
     authProvider,
     assignmentManager,
     serverProvider,
+    vscode.commands.registerCommand("colab.renameServerAlias", () => {
+      void renameServerAlias(vscode, serverStorage);
+    }),
   );
 }

@@ -24,6 +24,13 @@
         "label": "Google",
         "id": "google"
       }
+    ],
+    "commands": [
+      {
+        "category": "Colab",
+        "command": "colab.renameServerAlias",
+        "title": "Rename Server Alias"
+      }
     ]
   },
   "main": "./out/extension.js",

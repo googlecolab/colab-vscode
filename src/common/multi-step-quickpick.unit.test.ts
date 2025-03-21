@@ -224,6 +224,19 @@ describe("MultiStepQuickPick", () => {
       await expect(input).to.eventually.be.fulfilled;
     });
 
+    it("renders the back button by default when the buttons option is undefined", () => {
+      const opts: QuickPickOptions<QuickPickItem> = {
+        ...ONLY_FOO,
+        buttons: undefined,
+      };
+      const step: InputStep = async (input: MultiStepInput) => {
+        await input.showQuickPick(opts);
+        return undefined;
+      };
+      void MultiStepInput.run(vsCodeStub.asVsCode(), step);
+      expect(quickPickStub.buttons).to.eql([vsCodeStub.QuickInputButtons.Back]);
+    });
+
     it("disposes the input and registered listeners", async () => {
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showQuickPick(ONLY_FOO);
@@ -402,6 +415,16 @@ describe("MultiStepQuickPick", () => {
       inputBoxStub.onDidAccept.yield();
 
       await expect(input).to.eventually.be.fulfilled;
+    });
+
+    it("renders the back button by default when the buttons option is undefined", () => {
+      const opts: InputBoxOptions = { ...ENTER_A_VALUE, buttons: undefined };
+      const step: InputStep = async (input: MultiStepInput) => {
+        await input.showInputBox(opts);
+        return undefined;
+      };
+      void MultiStepInput.run(vsCodeStub.asVsCode(), step);
+      expect(inputBoxStub.buttons).to.eql([vsCodeStub.QuickInputButtons.Back]);
     });
 
     it("disposes the input and registered listeners", async () => {
