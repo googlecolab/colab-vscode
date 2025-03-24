@@ -117,7 +117,11 @@ describe("ColabClient", () => {
           }),
         );
       fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/assign", "POST"))
+        .withArgs(
+          matchAuthorizedRequest("tun/m/assign", "POST", {
+            "X-Goog-Colab-Token": "mock-xsrf-token",
+          }),
+        )
         .resolves(
           new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT)), {
             status: 200,
@@ -257,6 +261,18 @@ describe("ColabClient", () => {
       /assignmentsCount.+Required/s,
     );
   });
+
+  it("initializes fetch with abort signal", async () => {
+    const abort = new AbortController();
+    fetchStub
+      .withArgs(sinon.match({ signal: abort.signal }))
+      .resolves(new Response(undefined, { status: 200 }));
+
+    await expect(client.keepAlive("foo", abort.signal)).to.eventually.be
+      .fulfilled;
+
+    sinon.assert.calledOnce(fetchStub);
+  });
 });
 
 function withXSSI(response: string): string {
@@ -266,6 +282,7 @@ function withXSSI(response: string): string {
 function matchAuthorizedRequest(
   endpoint: string,
   method: "GET" | "POST",
+  otherHeaders?: Record<string, string>,
 ): SinonMatcher {
   return sinon.match({
     url: sinon.match(new RegExp(`${DOMAIN}/${endpoint}?.*authuser=0`)),
@@ -273,7 +290,10 @@ function matchAuthorizedRequest(
     headers: sinon.match(
       (headers: nodeFetch.Headers) =>
         headers.get("Authorization") === `Bearer ${BEARER_TOKEN}` &&
-        headers.get("Accept") === "application/json",
+        headers.get("Accept") === "application/json" &&
+        Object.entries(otherHeaders ?? {}).every(
+          ([key, value]) => headers.get(key) === value,
+        ),
     ),
   });
 }

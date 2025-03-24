@@ -1,6 +1,6 @@
 import { UUID } from "crypto";
 import * as https from "https";
-import fetch, { Request } from "node-fetch";
+import fetch, { Request, RequestInit } from "node-fetch";
 import { AuthenticationSession } from "vscode";
 import { z } from "zod";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
@@ -54,10 +54,10 @@ export class ColabClient {
    *
    * @returns The current CCU information.
    */
-  async ccuInfo(): Promise<CcuInfo> {
+  async ccuInfo(signal?: AbortSignal): Promise<CcuInfo> {
     return this.issueRequest(
       new URL(`${TUN_ENDPOINT}/ccu-info`, this.domain),
-      "GET",
+      { method: "GET", signal },
       CcuInfoSchema,
     );
   }
@@ -75,11 +75,13 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
+    signal?: AbortSignal,
   ): Promise<Assignment> {
     const assignment = await this.getAssignment(
       notebookHash,
       variant,
       accelerator,
+      signal,
     );
     switch (assignment.kind) {
       case "assigned": {
@@ -94,6 +96,7 @@ export class ColabClient {
           assignment.token,
           variant,
           accelerator,
+          signal,
         );
       }
     }
@@ -104,10 +107,10 @@ export class ColabClient {
    *
    * @returns The list of assignments.
    */
-  async listAssignments(): Promise<Assignment[]> {
+  async listAssignments(signal?: AbortSignal): Promise<Assignment[]> {
     const assignments = await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/assignments`, this.domain),
-      "GET",
+      { method: "GET", signal },
       AssignmentsSchema,
     );
     return assignments.assignments;
@@ -119,10 +122,10 @@ export class ColabClient {
    * @param endpoint - The assigned endpoint to list kernels for.
    * @returns The list of kernels.
    */
-  async listKernels(endpoint: string): Promise<Kernel[]> {
+  async listKernels(endpoint: string, signal?: AbortSignal): Promise<Kernel[]> {
     return await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/${endpoint}/api/kernels`, this.domain),
-      "GET",
+      { method: "GET", signal },
       z.array(KernelSchema),
     );
   }
@@ -132,10 +135,10 @@ export class ColabClient {
    *
    * @param endpoint - The assigned endpoint to keep alive.
    */
-  async keepAlive(endpoint: string): Promise<void> {
+  async keepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
     await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.domain),
-      "GET",
+      { method: "GET", signal },
     );
   }
 
@@ -143,11 +146,12 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
+    signal?: AbortSignal,
   ): Promise<AssignmentToken | AssignedAssignment> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
     const response = await this.issueRequest(
       url,
-      "GET",
+      { method: "GET", signal },
       z.union([GetAssignmentResponseSchema, AssignmentSchema]),
     );
     if ("token" in response) {
@@ -162,11 +166,18 @@ export class ColabClient {
     xsrfToken: string,
     variant: Variant,
     accelerator?: Accelerator,
+    signal?: AbortSignal,
   ): Promise<Assignment> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
-    return this.issueRequest(url, "POST", AssignmentSchema, [
-      [XSRF_HEADER_KEY, xsrfToken],
-    ]);
+    return this.issueRequest(
+      url,
+      {
+        method: "POST",
+        headers: { [XSRF_HEADER_KEY]: xsrfToken },
+        signal,
+      },
+      AssignmentSchema,
+    );
   }
 
   private buildAssignUrl(
@@ -187,24 +198,23 @@ export class ColabClient {
 
   private async issueRequest<T extends z.ZodType<unknown>>(
     endpoint: URL,
-    method: "GET" | "POST",
+    init: RequestInit,
     schema?: T,
-    headers?: fetch.HeadersInit,
   ): Promise<z.infer<T>> {
     const authSession = await this.session();
     endpoint.searchParams.append("authuser", "0");
-    const requestHeaders = new fetch.Headers(headers);
+    const requestHeaders = new fetch.Headers(init.headers);
     requestHeaders.set("Accept", "application/json");
     requestHeaders.set("Authorization", `Bearer ${authSession.accessToken}`);
     const request = new Request(endpoint, {
-      method,
+      ...init,
       headers: requestHeaders,
       agent: this.httpsAgent,
     });
     const response = await fetch(request);
     if (!response.ok) {
       throw new Error(
-        `Failed to ${method} ${endpoint.toString()}: ${response.statusText}`,
+        `Failed to issue request to ${endpoint.toString()}: ${response.statusText}`,
       );
     }
     if (!schema) {
