@@ -182,7 +182,8 @@ export const AssignmentsSchema = z.object({
   assignments: z.array(AssignmentSchema),
 });
 
-// This can be obtained by querying the Jupyter REST API's /api/kernels.
+// This can be obtained by querying the Jupyter REST API's /api/spec.yaml
+// endpoint.
 export const KernelSchema = z
   .object({
     /** The UUID of the kernel. */
