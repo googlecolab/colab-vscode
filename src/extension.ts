@@ -4,6 +4,7 @@ import { GoogleAuthProvider } from "./auth/provider";
 import { RedirectUriCodeProvider } from "./auth/redirect";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
+import { ServerKeepAliveController } from "./colab/keep-alive";
 import { renameServerAlias } from "./colab/server-commands";
 import { ServerPicker } from "./colab/server-picker";
 import { getPackageInfo } from "./config/package-info";
@@ -47,11 +48,16 @@ export async function activate(context: vscode.ExtensionContext) {
     serverStorage,
   );
   await assignmentManager.reconcileAssignedServers();
-  const serverPicker = new ServerPicker(vscode);
+
+  const keepAlive = new ServerKeepAliveController(
+    vscode,
+    colabClient,
+    assignmentManager,
+  );
   const serverProvider = new ColabJupyterServerProvider(
     vscode,
     assignmentManager,
-    serverPicker,
+    new ServerPicker(vscode),
     jupyter,
   );
 
@@ -59,6 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
     disposeUriHandler,
     authProvider,
     assignmentManager,
+    keepAlive,
     serverProvider,
     vscode.commands.registerCommand(
       "colab.renameServerAlias",
