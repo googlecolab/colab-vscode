@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { expect } from "chai";
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabAssignedServer } from "../jupyter/servers";
@@ -80,7 +81,7 @@ describe("ServerKeepAliveController", () => {
   });
 
   describe("lifecycle", () => {
-    it("disposes the interval timeout", async () => {
+    it("disposes the runner", async () => {
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -131,10 +132,10 @@ describe("ServerKeepAliveController", () => {
       );
 
       await tickPast(CONFIG.keepAliveIntervalMs);
-      await tickPast(CONFIG.keepAliveIntervalMs);
-      await tickPast(CONFIG.keepAliveIntervalMs);
+      await tickPast(CONFIG.keepAliveIntervalMs * 0.99);
 
-      sinon.assert.calledThrice(colabClientStub.keepAlive);
+      sinon.assert.calledOnce(colabClientStub.keepAlive);
+      expect(colabClientStub.keepAlive.firstCall.args[1]?.aborted).to.be.true;
     });
   });
 

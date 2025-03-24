@@ -1,93 +1,68 @@
-import vscode, { Disposable, EventEmitter } from "vscode";
+import vscode, { Disposable } from "vscode";
 import { ColabClient } from "../colab/client";
+import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";
 import { CcuInfo } from "./api";
 
-// Poll interval of 5 minutes.
-const POLL_INTERVAL_MS = 1000 * 60 * 5;
+const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
+const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
 
 /**
  * Periodically polls for CCU info changes and emits an event when one occurs.
  */
-export class CcuInformation implements Disposable {
-  onDidChangeCcuInfo: EventEmitter<void>;
-  private currentCcuInfo?: CcuInfo;
-  private poller: NodeJS.Timeout;
-  private isFetching = false;
+export class CcuInformationManager implements Disposable {
+  readonly onDidChangeCcuInfo: vscode.Event<void>;
+  private emitter: vscode.EventEmitter<void>;
+  private _ccuInfo?: CcuInfo;
+  private runner: SequentialTaskRunner;
 
   constructor(
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
     ccuInfo?: CcuInfo,
   ) {
-    this.currentCcuInfo = ccuInfo;
-    this.onDidChangeCcuInfo = new this.vs.EventEmitter<void>();
-    this.poller = this.startInfoPolling();
+    this._ccuInfo = ccuInfo;
+    this.emitter = new this.vs.EventEmitter<void>();
+    this.onDidChangeCcuInfo = this.emitter.event;
+    this.runner = new SequentialTaskRunner(
+      { intervalTimeoutMs: POLL_INTERVAL_MS, taskTimeoutMs: TASK_TIMEOUT_MS },
+      (signal) => this.updateCcuInfo(signal),
+      OverrunPolicy.AllowToComplete,
+    );
   }
 
   dispose(): void {
-    this.stopInfoPolling();
+    this.runner.dispose();
   }
 
   /**
    * Getter for the current CCU information.
    */
   get ccuInfo() {
-    return this.currentCcuInfo;
-  }
-
-  /**
-   * Regularly fetches the CCU Info, maintaining a snapshot and notifying of
-   * changes.
-   */
-  private startInfoPolling(): NodeJS.Timeout {
-    return setInterval(() => {
-      // TODO: Implement a better way to handle this instead of a boolean flag.
-      // possible options: `Promise.race`, cancel stale request, explicit
-      // timeout that is shorter than `POLL_INTERVAL_MS`.
-      if (this.isFetching) {
-        return;
-      }
-
-      this.isFetching = true;
-      this.client
-        .ccuInfo()
-        .then((nextInfo: CcuInfo) => {
-          this.updateCcuInfo(nextInfo);
-        })
-        .catch((e: unknown) => {
-          throw new Error(`Failed to fetch CCU information`, { cause: e });
-        })
-        .finally(() => {
-          this.isFetching = false;
-        });
-    }, POLL_INTERVAL_MS);
-  }
-
-  private stopInfoPolling() {
-    clearInterval(this.poller);
+    return this._ccuInfo;
   }
 
   /**
    * Updates with new CCU info and emits an event when there is a change.
    */
-  private updateCcuInfo(nextCcuInfo: CcuInfo) {
-    if (JSON.stringify(nextCcuInfo) === JSON.stringify(this.ccuInfo)) {
+  private async updateCcuInfo(signal: AbortSignal): Promise<void> {
+    const ccuInfo = await this.client.ccuInfo(signal);
+    if (JSON.stringify(ccuInfo) === JSON.stringify(this.ccuInfo)) {
       return;
     }
 
-    this.currentCcuInfo = nextCcuInfo;
-    this.onDidChangeCcuInfo.fire();
+    this._ccuInfo = ccuInfo;
+    this.emitter.fire();
   }
 
   /**
-   * Initializes {@link CcuInformation} with the current value obtained by
-   * fetching it from the client.
+   * Initializes {@link CcuInformationManager} with the current value obtained
+   * by fetching it from the client.
    */
   static async initialize(
     vs: typeof vscode,
     client: ColabClient,
-  ): Promise<CcuInformation> {
+  ): Promise<CcuInformationManager> {
     const info = await client.ccuInfo();
-    return new CcuInformation(vs, client, info);
+    return new CcuInformationManager(vs, client, info);
   }
 }

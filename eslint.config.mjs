@@ -66,6 +66,7 @@ export default tseslint.config(
     files: ["**/*.unit.test.ts"],
     rules: {
       "@typescript-eslint/unbound-method": "off",
+      "@typescript-eslint/no-unused-expressions": "off",
     },
   },
   // Intentionally last to override any conflicting rules.

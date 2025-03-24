@@ -1,6 +1,7 @@
 import { UUID } from "crypto";
 import { Disposable } from "vscode";
 import vscode from "vscode";
+import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabAssignedServer } from "../jupyter/servers";
 import { Kernel } from "./api";
@@ -39,11 +40,9 @@ const DEFAULT_CONFIG: Config = {
  * explicitly extends their lifetime.
  */
 export class ServerKeepAliveController implements Disposable {
-  private inFlight?: Promise<void>;
-  private inFlightAbort?: AbortController;
-  private poller: NodeJS.Timeout;
-  private readonly extendedKeepAlive = new Map<UUID, Date>();
+  private extendedKeepAlive = new Map<UUID, Date>();
   private readonly tombstones = new Set<UUID>();
+  private readonly runner: SequentialTaskRunner;
 
   constructor(
     private readonly vs: typeof vscode,
@@ -51,48 +50,21 @@ export class ServerKeepAliveController implements Disposable {
     private readonly assignmentManager: AssignmentManager,
     private readonly config: Config = DEFAULT_CONFIG,
   ) {
-    this.poller = this.startEndpointPolling();
+    this.runner = new SequentialTaskRunner(
+      {
+        intervalTimeoutMs: config.keepAliveIntervalMs,
+        // The underlying calls to get the assigned servers and send the
+        // "keep-alive" signal are quick. Twice the prompt time should be
+        // plenty.
+        taskTimeoutMs: 2 * config.idleExtensionPromptTimeMs,
+      },
+      (signal) => this.keepServersAlive(signal),
+      OverrunPolicy.AllowToComplete,
+    );
   }
 
   dispose(): void {
-    this.stopEndpointPolling();
-    this.inFlightAbort?.abort();
-  }
-
-  private startEndpointPolling(): NodeJS.Timeout {
-    return setInterval(
-      () => void this.maybeKeepServersAlive(),
-      this.config.keepAliveIntervalMs,
-    );
-  }
-
-  private stopEndpointPolling() {
-    clearInterval(this.poller);
-  }
-
-  private async maybeKeepServersAlive(): Promise<void> {
-    if (this.inFlight) {
-      console.log("Keep alive already in flight. Skipping.");
-      return;
-    }
-
-    const abort = new AbortController();
-    this.inFlightAbort = abort;
-    const timeout = setTimeout(
-      () => {
-        abort.abort("Timed out while keeping servers alive");
-      },
-      // The underlying calls to get the assigned servers and send the
-      // "keep-alive" signal are quick. Twice the prompt time should be plenty.
-      2 * this.config.idleExtensionPromptTimeMs,
-    );
-    try {
-      this.inFlight = this.keepServersAlive(abort.signal);
-      await this.inFlight;
-    } finally {
-      clearTimeout(timeout);
-      this.inFlight = undefined;
-    }
+    this.runner.dispose();
   }
 
   private async keepServersAlive(signal: AbortSignal): Promise<void> {
