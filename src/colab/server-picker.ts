@@ -111,6 +111,7 @@ async function promptForVariant(
     totalSteps: 2,
     items,
     activeItem: items.find((item) => item.value === state.variant),
+    buttons: [input.vs.QuickInputButtons.Back],
   });
   state.variant = pick.value;
   if (!isVariantDefined(state)) {
@@ -145,6 +146,7 @@ async function promptForAccelerator(
     totalSteps: 3,
     items,
     activeItem: items.find((item) => item.value === state.accelerator),
+    buttons: [input.vs.QuickInputButtons.Back],
   });
   state.accelerator = pick.value;
   if (!isAcceleratorDefined(state)) {
@@ -176,6 +178,7 @@ async function promptForAlias(
     validate: (value) =>
       value.length > 10 ? "Name must be less than 10 characters." : "",
     placeholder,
+    buttons: [input.vs.QuickInputButtons.Back],
   });
   state.alias = alias || placeholder;
   return;

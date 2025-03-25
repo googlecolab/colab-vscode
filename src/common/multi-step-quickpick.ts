@@ -37,6 +37,8 @@ export interface QuickInputOptions {
   step: number;
   /** The total step count. */
   totalSteps: number;
+  /** Buttons for actions in the UI. */
+  buttons?: QuickInputButton[];
 }
 
 /**
@@ -72,7 +74,7 @@ export interface InputBoxOptions extends QuickInputOptions {
  * A chainable multi-step runner for quick-inputs.
  */
 export class MultiStepInput {
-  private constructor(private readonly vs: typeof vscode) {}
+  private constructor(readonly vs: typeof vscode) {}
 
   private readonly steps: InputStep[] = [];
   private current?: QuickInput;
@@ -150,7 +152,9 @@ export class MultiStepInput {
         if (opts.activeItem) {
           input.activeItems = [opts.activeItem];
         }
-        input.buttons = [this.vs.QuickInputButtons.Back];
+        if (opts.buttons) {
+          input.buttons = opts.buttons;
+        }
 
         const nav = this.configureNavigation(input, reject);
 
@@ -191,7 +195,9 @@ export class MultiStepInput {
         input.value = opts.value || "";
         input.prompt = opts.prompt;
         input.placeholder = opts.placeholder;
-        input.buttons = [this.vs.QuickInputButtons.Back];
+        if (opts.buttons) {
+          input.buttons = opts.buttons;
+        }
 
         const nav = this.configureNavigation(input, reject);
 
