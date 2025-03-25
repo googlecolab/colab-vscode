@@ -46,7 +46,7 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { varsIgnorePattern: "^_$", argsIgnorePattern: "^_" },
+        { varsIgnorePattern: "^_", argsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/explicit-member-accessibility": [
         "error",
