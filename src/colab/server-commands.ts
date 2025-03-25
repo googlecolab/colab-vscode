@@ -1,14 +1,17 @@
 import vscode from "vscode";
 import { MultiStepInput } from "../common/multi-step-quickpick";
-import { ColabAssignedServer } from "../jupyter/servers";
 import { ServerStorage } from "../jupyter/storage";
+import { PROMPT_SERVER_ALIAS, validateServerAlias } from "./server-picker";
 
-/** Prompt the user to select and rename the local alias used to identify an assigned Colab server. */
+/**
+ * Prompt the user to select and rename the local alias used to identify an
+ * assigned Colab server.
+ */
 export async function renameServerAlias(
   vs: typeof vscode,
   serverStorage: ServerStorage,
 ): Promise<void> {
-  const servers: ColabAssignedServer[] = await serverStorage.list();
+  const servers = await serverStorage.list();
   const totalSteps = 2;
 
   await MultiStepInput.run(vs, async (input) => {
@@ -26,15 +29,14 @@ export async function renameServerAlias(
     return async () => {
       const alias = await input.showInputBox({
         placeholder: selectedServer.label,
-        prompt: "Provide a local convenience alias to the server.",
+        prompt: PROMPT_SERVER_ALIAS,
         step: 2,
         title: "Update your Server Alias",
         totalSteps,
-        validate: (value) =>
-          value.length > 10 ? "Name must be less than 10 characters." : "",
+        validate: validateServerAlias,
         value: selectedServer.label,
       });
-      if (!alias) return undefined;
+      if (!alias || alias === selectedServer.label) return undefined;
 
       void serverStorage.store([{ ...selectedServer, label: alias }]);
     };

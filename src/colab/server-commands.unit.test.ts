@@ -70,54 +70,81 @@ describe("Server Commands", () => {
       ]);
     });
 
-    it("validates the input alias", async () => {
-      const serverStorageStub: SinonStubbedInstance<ServerStorage> =
-        sinon.createStubInstance(ServerStorage, {
-          list: Promise.resolve([defaultServer]),
-        });
-      void renameServerAlias(vsCodeStub.asVsCode(), serverStorageStub);
-      await quickPickStub.nextShow();
-      quickPickStub.onDidChangeSelection.yield([
-        { label: defaultServer.label, value: defaultServer },
-      ]);
+    describe("renaming the selected server", () => {
+      it("validates the input alias", async () => {
+        const serverStorageStub: SinonStubbedInstance<ServerStorage> =
+          sinon.createStubInstance(ServerStorage, {
+            list: Promise.resolve([defaultServer]),
+          });
+        void renameServerAlias(vsCodeStub.asVsCode(), serverStorageStub);
+        await quickPickStub.nextShow();
+        quickPickStub.onDidChangeSelection.yield([
+          { label: defaultServer.label, value: defaultServer },
+        ]);
 
-      await inputBoxStub.nextShow();
-      inputBoxStub.value = "s".repeat(11);
-      inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
-      expect(inputBoxStub.validationMessage).equal(
-        "Name must be less than 10 characters.",
-      );
+        await inputBoxStub.nextShow();
+        inputBoxStub.value = "s".repeat(11);
+        inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
+        expect(inputBoxStub.validationMessage).equal(
+          "Name must be less than 10 characters.",
+        );
 
-      inputBoxStub.value = "s".repeat(10);
-      inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
-      expect(inputBoxStub.validationMessage).equal("");
-    });
+        inputBoxStub.value = "s".repeat(10);
+        inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
+        expect(inputBoxStub.validationMessage).equal("");
+      });
 
-    it("updates the alias of the selected server", async () => {
-      const serverStorageStub: SinonStubbedInstance<ServerStorage> =
-        sinon.createStubInstance(ServerStorage, {
-          list: Promise.resolve([defaultServer]),
-          store: Promise.resolve(),
-        });
-      const rename = renameServerAlias(
-        vsCodeStub.asVsCode(),
-        serverStorageStub,
-      );
+      it("updates the server alias", async () => {
+        const serverStorageStub: SinonStubbedInstance<ServerStorage> =
+          sinon.createStubInstance(ServerStorage, {
+            list: Promise.resolve([defaultServer]),
+            store: Promise.resolve(),
+          });
+        const rename = renameServerAlias(
+          vsCodeStub.asVsCode(),
+          serverStorageStub,
+        );
 
-      await quickPickStub.nextShow();
-      quickPickStub.onDidChangeSelection.yield([
-        { label: defaultServer.label, value: defaultServer },
-      ]);
+        await quickPickStub.nextShow();
+        quickPickStub.onDidChangeSelection.yield([
+          { label: defaultServer.label, value: defaultServer },
+        ]);
 
-      await inputBoxStub.nextShow();
-      inputBoxStub.value = "new_alias";
-      inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
-      inputBoxStub.onDidAccept.yield();
+        await inputBoxStub.nextShow();
+        inputBoxStub.value = "new_alias";
+        inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
+        inputBoxStub.onDidAccept.yield();
 
-      await expect(rename).to.eventually.be.fulfilled;
-      sinon.assert.calledOnceWithExactly(serverStorageStub.store, [
-        { ...defaultServer, label: "new_alias" },
-      ]);
+        await expect(rename).to.eventually.be.fulfilled;
+        sinon.assert.calledOnceWithExactly(serverStorageStub.store, [
+          { ...defaultServer, label: "new_alias" },
+        ]);
+      });
+
+      it("does not update the server alias when it is unchanged", async () => {
+        const serverStorageStub: SinonStubbedInstance<ServerStorage> =
+          sinon.createStubInstance(ServerStorage, {
+            list: Promise.resolve([defaultServer]),
+            store: Promise.resolve(),
+          });
+        const rename = renameServerAlias(
+          vsCodeStub.asVsCode(),
+          serverStorageStub,
+        );
+
+        await quickPickStub.nextShow();
+        quickPickStub.onDidChangeSelection.yield([
+          { label: defaultServer.label, value: defaultServer },
+        ]);
+
+        await inputBoxStub.nextShow();
+        inputBoxStub.value = defaultServer.label;
+        inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
+        inputBoxStub.onDidAccept.yield();
+
+        await expect(rename).to.eventually.be.fulfilled;
+        sinon.assert.notCalled(serverStorageStub.store);
+      });
     });
   });
 });

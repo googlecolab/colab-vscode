@@ -60,8 +60,9 @@ export async function activate(context: vscode.ExtensionContext) {
     authProvider,
     assignmentManager,
     serverProvider,
-    vscode.commands.registerCommand("colab.renameServerAlias", () => {
-      void renameServerAlias(vscode, serverStorage);
-    }),
+    vscode.commands.registerCommand(
+      "colab.renameServerAlias",
+      () => void renameServerAlias(vscode, serverStorage),
+    ),
   );
 }

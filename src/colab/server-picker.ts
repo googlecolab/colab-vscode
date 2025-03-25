@@ -174,12 +174,19 @@ async function promptForAlias(
     // TODO: Incrementally number the same variant/server machines. E.g. Colab
     // CPU (1), Colab GPU A100 (2).
     value: state.alias ?? "",
-    prompt: "Provide a local convenience alias to the server.",
-    validate: (value) =>
-      value.length > 10 ? "Name must be less than 10 characters." : "",
+    prompt: PROMPT_SERVER_ALIAS,
+    validate: validateServerAlias,
     placeholder,
     buttons: [input.vs.QuickInputButtons.Back],
   });
   state.alias = alias || placeholder;
   return;
 }
+
+/** Provides an explanation to the user on updating the server alias. */
+export const PROMPT_SERVER_ALIAS =
+  "Provide a local convenience alias to the server.";
+
+/** Validates the server alias. */
+export const validateServerAlias = (value: string) =>
+  value.length > 10 ? "Name must be less than 10 characters." : "";
