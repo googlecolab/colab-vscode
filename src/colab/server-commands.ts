@@ -26,6 +26,7 @@ export async function renameServerAlias(
 
     return async () => {
       const alias = await input.showInputBox({
+        buttons: [vs.QuickInputButtons.Back],
         placeholder: selectedServer.label,
         prompt: PROMPT_SERVER_ALIAS,
         step: 2,
