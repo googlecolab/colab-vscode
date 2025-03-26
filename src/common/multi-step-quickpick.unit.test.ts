@@ -202,6 +202,7 @@ describe("MultiStepQuickPick", () => {
         placeholder: "foo",
         items: [{ label: "foo" }],
         activeItem: { label: "foo" },
+        buttons: [vsCodeStub.QuickInputButtons.Back],
       };
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showQuickPick(opts);
@@ -217,7 +218,6 @@ describe("MultiStepQuickPick", () => {
       expect(quickPickStub).to.deep.include({
         ...optsToCompare,
         activeItems: [activeItem],
-        // TODO: Back button.
       });
       quickPickStub.onDidChangeSelection.yield([{ label: "foo" }]);
 
@@ -383,6 +383,7 @@ describe("MultiStepQuickPick", () => {
         prompt: "Enter a value",
         placeholder: "42",
         validate: () => undefined,
+        buttons: [vsCodeStub.QuickInputButtons.Back],
       };
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showInputBox(opts);
@@ -395,7 +396,6 @@ describe("MultiStepQuickPick", () => {
       // were set then enter "foo".
       await inputShown;
       const { validate: _, ...optsToCompare } = opts;
-      // TODO: Back button
       expect(inputBoxStub).to.deep.include(optsToCompare);
       inputBoxStub.value = "foo";
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
