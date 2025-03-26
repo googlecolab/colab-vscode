@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: Config = {
  * explicitly extends their lifetime.
  */
 export class ServerKeepAliveController implements Disposable {
-  private extendedKeepAlive = new Map<UUID, Date>();
+  private readonly extendedKeepAlive = new Map<UUID, Date>();
   private readonly tombstones = new Set<UUID>();
   private readonly runner: SequentialTaskRunner;
 

@@ -34,7 +34,7 @@ export enum OverrunPolicy {
 export class SequentialTaskRunner implements Disposable {
   private inFlight?: Promise<void>;
   private inFlightAbort?: AbortController;
-  private timeout: NodeJS.Timeout;
+  private readonly timeout: NodeJS.Timeout;
 
   constructor(
     private readonly config: Config,

@@ -11,9 +11,9 @@ const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
  */
 export class CcuInformationManager implements Disposable {
   readonly onDidChangeCcuInfo: vscode.Event<void>;
-  private emitter: vscode.EventEmitter<void>;
+  private readonly emitter: vscode.EventEmitter<void>;
   private _ccuInfo?: CcuInfo;
-  private runner: SequentialTaskRunner;
+  private readonly runner: SequentialTaskRunner;
 
   constructor(
     private readonly vs: typeof vscode,
@@ -26,7 +26,7 @@ export class CcuInformationManager implements Disposable {
     this.runner = new SequentialTaskRunner(
       { intervalTimeoutMs: POLL_INTERVAL_MS, taskTimeoutMs: TASK_TIMEOUT_MS },
       (signal) => this.updateCcuInfo(signal),
-      OverrunPolicy.AllowToComplete,
+      OverrunPolicy.AbandonAndRun,
     );
   }
 
