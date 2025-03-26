@@ -42,8 +42,8 @@ export class ServerKeepAliveController implements Disposable {
   private inFlight?: Promise<void>;
   private inFlightAbort?: AbortController;
   private poller: NodeJS.Timeout;
-  private extendedKeepAlive = new Map<UUID, Date>();
-  private tombstones = new Set<UUID>();
+  private readonly extendedKeepAlive = new Map<UUID, Date>();
+  private readonly tombstones = new Set<UUID>();
 
   constructor(
     private readonly vs: typeof vscode,
@@ -127,10 +127,9 @@ export class ServerKeepAliveController implements Disposable {
    *
    * Returns true if:
    *
-   * - the server has been active
-   * - the server's lifetime has been extended by the user and is still within
-   *   the extension period
-   * - the user extends the server's lifetime
+   * - the server is active (used within the configured inactivity threshold)
+   * - the server is inactive but the user explicitly extends the lifetime
+   * - the server is inactive but within the aforementioned extension period
    *
    * Otherwise, the server will not be kept alive.
    *
