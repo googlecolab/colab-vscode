@@ -17,8 +17,6 @@ export async function renameServerAlias(
   await MultiStepInput.run(vs, async (input) => {
     const selectedServer = (
       await input.showQuickPick({
-        // Since there are no previous QuickInputs, don't show the back button.
-        buttons: [],
         items: servers.map((s) => ({ label: s.label, value: s })),
         step: 1,
         title: "Select a Server",
