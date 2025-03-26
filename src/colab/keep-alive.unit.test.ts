@@ -11,6 +11,15 @@ import { ServerKeepAliveController } from "./keep-alive";
 const NOW = new Date();
 const ONE_SECOND_MS = 1000;
 const ONE_MINUTE_MS = ONE_SECOND_MS * 60;
+const ABORTING_KEEP_ALIVE = async (
+  _: string,
+  signal?: AbortSignal,
+): Promise<void> =>
+  new Promise((_, reject) => {
+    signal?.addEventListener("abort", () => {
+      reject(new Error("Aborted"));
+    });
+  });
 
 const CONFIG = {
   inactivityThresholdMs: ONE_MINUTE_MS * 60, // 1 hour.
@@ -89,10 +98,7 @@ describe("ServerKeepAliveController", () => {
       colabClientStub.listKernels
         .withArgs(defaultServer.endpoint)
         .resolves([DEFAULT_KERNEL]);
-      colabClientStub.keepAlive.callsFake(
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        async () => new Promise(() => {}),
-      );
+      colabClientStub.keepAlive.callsFake(ABORTING_KEEP_ALIVE);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -116,10 +122,7 @@ describe("ServerKeepAliveController", () => {
       colabClientStub.listKernels
         .withArgs(defaultServer.endpoint)
         .resolves([DEFAULT_KERNEL]);
-      colabClientStub.keepAlive.onFirstCall().callsFake(
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        async () => new Promise(() => {}),
-      );
+      colabClientStub.keepAlive.onFirstCall().callsFake(ABORTING_KEEP_ALIVE);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,

@@ -81,7 +81,6 @@ export class ServerKeepAliveController implements Disposable {
     const timeout = setTimeout(
       () => {
         abort.abort("Timed out while keeping servers alive");
-        this.inFlight = undefined;
       },
       // The underlying calls to get the assigned servers and send the
       // "keep-alive" signal are quick. Twice the prompt time should be plenty.
