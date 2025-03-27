@@ -57,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const serverProvider = new ColabJupyterServerProvider(
     vscode,
     assignmentManager,
-    new ServerPicker(vscode),
+    new ServerPicker(vscode, assignmentManager),
     jupyter,
   );
 

@@ -1,7 +1,9 @@
+import { randomUUID } from "crypto";
 import { expect } from "chai";
 import * as sinon from "sinon";
 import { InputBox, QuickPick, QuickPickItem } from "vscode";
-import { COLAB_SERVERS } from "../jupyter/servers";
+import { AssignmentManager } from "../jupyter/assignments";
+import { COLAB_SERVERS, ColabAssignedServer } from "../jupyter/servers";
 import {
   buildInputBoxStub,
   buildQuickPickStub,
@@ -14,11 +16,31 @@ const ALL_SERVERS = Array.from(COLAB_SERVERS);
 
 describe("ServerPicker", () => {
   let vsCodeStub: VsCodeStub;
+  let defaultServer: ColabAssignedServer;
+  let assignmentStub: sinon.SinonStubbedInstance<AssignmentManager>;
   let serverPicker: ServerPicker;
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
-    serverPicker = new ServerPicker(vsCodeStub.asVsCode());
+    defaultServer = {
+      id: randomUUID(),
+      label: "Colab GPU T4",
+      variant: Variant.GPU,
+      accelerator: Accelerator.T4,
+      endpoint: "m-s-foo",
+      connectionInformation: {
+        baseUrl: vsCodeStub.Uri.parse("https://example.com"),
+        token: "123",
+        headers: {
+          "X-Colab-Runtime-Proxy-Token": "123",
+          "X-Colab-Client-Agent": "vscode",
+        },
+      },
+    };
+    assignmentStub = sinon.createStubInstance(AssignmentManager);
+    serverPicker = new ServerPicker(vsCodeStub.asVsCode(), assignmentStub);
+
+    assignmentStub.getAssignedServers.resolves([]);
   });
 
   afterEach(() => {
@@ -187,6 +209,116 @@ describe("ServerPicker", () => {
         label: "Colab GPU T4",
         variant: Variant.GPU,
         accelerator: Accelerator.T4,
+      });
+    });
+
+    describe("alias placeholder", () => {
+      async function progressToAliasInput() {
+        const variantQuickPickStub = stubQuickPickForCall(0);
+        const acceleratorQuickPickStub = stubQuickPickForCall(1);
+        const aliasInputBoxStub = stubInputBoxForCall(0);
+
+        const variantPickerShown = variantQuickPickStub.nextShow();
+        void serverPicker.prompt(ALL_SERVERS);
+        await variantPickerShown;
+        const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
+        variantQuickPickStub.onDidChangeSelection.yield([
+          { value: Variant.GPU, label: "GPU" },
+        ]);
+        await acceleratorPickerShown;
+        const aliasInputShown = aliasInputBoxStub.nextShow();
+        acceleratorQuickPickStub.onDidChangeSelection.yield([
+          { value: Accelerator.T4, label: "T4" },
+        ]);
+        await aliasInputShown;
+        return aliasInputBoxStub;
+      }
+
+      it("shows the simple variant-accelerator placeholder when there are no assigned servers", async () => {
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4");
+      });
+
+      it("uses the next sequential placeholder with one assigned servers", async () => {
+        assignmentStub.getAssignedServers.resolves([defaultServer]);
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4 (1)");
+      });
+
+      it("uses the next sequential placeholder with multiple assigned servers", async () => {
+        const servers = [
+          defaultServer,
+          {
+            ...defaultServer,
+            id: randomUUID(),
+            label: "Colab GPU T4 (1)",
+          },
+        ];
+        assignmentStub.getAssignedServers.resolves(servers);
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4 (2)");
+      });
+
+      it("only increments from matching variant-accelerator server pairs", async () => {
+        const servers = [
+          defaultServer,
+          {
+            ...defaultServer,
+            id: randomUUID(),
+            variant: Variant.DEFAULT,
+            accelerator: Accelerator.NONE,
+            label: "Colab CPU",
+          },
+          {
+            ...defaultServer,
+            id: randomUUID(),
+            accelerator: Accelerator.A100,
+            label: "Colab GPU A100",
+          },
+          {
+            ...defaultServer,
+            id: randomUUID(),
+            accelerator: Accelerator.A100,
+            label: "Colab GPU A100 (1)",
+          },
+        ];
+        assignmentStub.getAssignedServers.resolves(servers);
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4 (1)");
+      });
+
+      // To ensure a string sort isn't used, which would put "10" before "2".
+      it("uses the next sequential placeholder with many assigned servers", async () => {
+        const servers = Array.from({ length: 10 }, (_, i) => i + 1)
+          .map((i) => ({
+            ...defaultServer,
+            id: randomUUID(),
+            label: `Colab GPU T4 (${i.toString()})`,
+          }))
+          .concat(defaultServer);
+        assignmentStub.getAssignedServers.resolves(servers);
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4 (11)");
+      });
+
+      it("uses the next sequential placeholder when there's an assigned server gap", async () => {
+        const servers = [
+          defaultServer,
+          {
+            ...defaultServer,
+            id: randomUUID(),
+            label: "Colab GPU T4 (2)",
+          },
+        ];
+        assignmentStub.getAssignedServers.resolves(servers);
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4 (1)");
       });
     });
 

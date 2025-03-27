@@ -1,13 +1,25 @@
 import vscode, { QuickPickItem } from "vscode";
 import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
+import { AssignmentManager } from "../jupyter/assignments";
 import { ColabServerDescriptor } from "../jupyter/servers";
 import { Accelerator, Variant } from "./api";
+
+/** Provides an explanation to the user on updating the server alias. */
+export const PROMPT_SERVER_ALIAS =
+  "Provide a local convenience alias to the server.";
+
+/** Validates the server alias. */
+export const validateServerAlias = (value: string) =>
+  value.length > 10 ? "Name must be less than 10 characters." : "";
 
 /**
  * Supports prompting the user to pick a Colab server to be created.
  */
 export class ServerPicker {
-  constructor(private readonly vs: typeof vscode) {}
+  constructor(
+    private readonly vs: typeof vscode,
+    private readonly assignments: AssignmentManager,
+  ) {}
 
   /**
    * Prompt the user through a multi-step series of inputs to pick a Colab
@@ -32,7 +44,7 @@ export class ServerPicker {
 
     const state: Partial<Server> = {};
     await MultiStepInput.run(this.vs, (input) =>
-      promptForVariant(input, state, variantToAccelerators),
+      this.promptForVariant(input, state, variantToAccelerators),
     );
     if (
       state.variant === undefined ||
@@ -46,6 +58,123 @@ export class ServerPicker {
       variant: state.variant,
       accelerator: state.accelerator,
     };
+  }
+
+  private async promptForVariant(
+    input: MultiStepInput,
+    state: Partial<Server>,
+    acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
+  ): Promise<InputStep | undefined> {
+    const items: VariantPick[] = [];
+    for (const variant of acceleratorsByVariant.keys()) {
+      items.push({
+        value: variant,
+        label: variantToString(variant),
+        // TODO: Add a description for each variant?
+      });
+    }
+    const pick = await input.showQuickPick({
+      title: "Select a variant",
+      step: 1,
+      totalSteps: 2,
+      items,
+      activeItem: items.find((item) => item.value === state.variant),
+      buttons: [input.vs.QuickInputButtons.Back],
+    });
+    state.variant = pick.value;
+    if (!isVariantDefined(state)) {
+      return;
+    }
+    // Skip prompting for an accelerator for the default variant (CPU).
+    if (state.variant === Variant.DEFAULT) {
+      state.accelerator = Accelerator.NONE;
+      return (input: MultiStepInput) => this.promptForAlias(input, state);
+    }
+    return (input: MultiStepInput) =>
+      this.promptForAccelerator(input, state, acceleratorsByVariant);
+  }
+
+  private async promptForAccelerator(
+    input: MultiStepInput,
+    state: PartialServerWith<"variant">,
+    acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
+  ): Promise<InputStep | undefined> {
+    const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
+    const items: AcceleratorPick[] = [];
+    for (const accelerator of accelerators) {
+      items.push({
+        value: accelerator,
+        label: accelerator,
+      });
+    }
+    const pick = await input.showQuickPick({
+      title: "Select an accelerator",
+      step: 2,
+      // Since we have to pick an accelerator, we've added a step.
+      totalSteps: 3,
+      items,
+      activeItem: items.find((item) => item.value === state.accelerator),
+      buttons: [input.vs.QuickInputButtons.Back],
+    });
+    state.accelerator = pick.value;
+    if (!isAcceleratorDefined(state)) {
+      return;
+    }
+
+    return (input: MultiStepInput) => this.promptForAlias(input, state);
+  }
+
+  private async promptForAlias(
+    input: MultiStepInput,
+    state: PartialServerWith<"variant">,
+  ): Promise<InputStep | undefined> {
+    const placeholder = await this.getPlaceholder(
+      state.variant,
+      state.accelerator,
+    );
+    const step =
+      state.accelerator && state.accelerator !== Accelerator.NONE ? 3 : 2;
+    const alias = await input.showInputBox({
+      title: "Alias your server",
+      step,
+      totalSteps: step,
+      value: state.alias ?? "",
+      prompt: PROMPT_SERVER_ALIAS,
+      validate: validateServerAlias,
+      placeholder,
+      buttons: [input.vs.QuickInputButtons.Back],
+    });
+    state.alias = alias || placeholder;
+    return;
+  }
+
+  private async getPlaceholder(
+    variant: Variant,
+    accelerator?: Accelerator,
+  ): Promise<string> {
+    const servers = await this.assignments.getAssignedServers();
+    const relevantServers = servers.filter(
+      (s) => s.variant === variant && s.accelerator === accelerator,
+    );
+    const indices = new Set(
+      relevantServers.map(
+        (s) => +(PLACEHOLDER_DIGITS_REGEX.exec(s.label)?.[1] ?? 0),
+      ),
+    );
+    let placeholderIdx = 0;
+    // Find the first missing index. Follows standard file explorer "duplicate"
+    // file naming scheme.
+    while (indices.has(placeholderIdx)) {
+      placeholderIdx++;
+    }
+
+    const a =
+      accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
+    const v = variantToString(variant);
+    if (placeholderIdx === 0) {
+      return `Colab ${v}${a}`;
+    }
+    return `Colab ${v}${a} (${placeholderIdx.toString()})`;
   }
 }
 
@@ -92,101 +221,4 @@ interface AcceleratorPick extends QuickPickItem {
   value: Accelerator;
 }
 
-async function promptForVariant(
-  input: MultiStepInput,
-  state: Partial<Server>,
-  acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
-): Promise<InputStep | undefined> {
-  const items: VariantPick[] = [];
-  for (const variant of acceleratorsByVariant.keys()) {
-    items.push({
-      value: variant,
-      label: variantToString(variant),
-      // TODO: Add a description for each variant?
-    });
-  }
-  const pick = await input.showQuickPick({
-    title: "Select a variant",
-    step: 1,
-    totalSteps: 2,
-    items,
-    activeItem: items.find((item) => item.value === state.variant),
-    buttons: [input.vs.QuickInputButtons.Back],
-  });
-  state.variant = pick.value;
-  if (!isVariantDefined(state)) {
-    return;
-  }
-  // Skip prompting for an accelerator for the default variant (CPU).
-  if (state.variant === Variant.DEFAULT) {
-    state.accelerator = Accelerator.NONE;
-    return (input: MultiStepInput) => promptForAlias(input, state);
-  }
-  return (input: MultiStepInput) =>
-    promptForAccelerator(input, state, acceleratorsByVariant);
-}
-
-async function promptForAccelerator(
-  input: MultiStepInput,
-  state: PartialServerWith<"variant">,
-  acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
-): Promise<InputStep | undefined> {
-  const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
-  const items: AcceleratorPick[] = [];
-  for (const accelerator of accelerators) {
-    items.push({
-      value: accelerator,
-      label: accelerator,
-    });
-  }
-  const pick = await input.showQuickPick({
-    title: "Select an accelerator",
-    step: 2,
-    // Since we have to pick an accelerator, we've added a step.
-    totalSteps: 3,
-    items,
-    activeItem: items.find((item) => item.value === state.accelerator),
-    buttons: [input.vs.QuickInputButtons.Back],
-  });
-  state.accelerator = pick.value;
-  if (!isAcceleratorDefined(state)) {
-    return;
-  }
-
-  return (input: MultiStepInput) => promptForAlias(input, state);
-}
-
-async function promptForAlias(
-  input: MultiStepInput,
-  state: PartialServerWith<"variant">,
-): Promise<InputStep | undefined> {
-  const acceleratorPart =
-    state.accelerator && state.accelerator !== Accelerator.NONE
-      ? ` ${state.accelerator}`
-      : "";
-  const placeholder = `Colab ${variantToString(state.variant)}${acceleratorPart}`;
-  const step =
-    state.accelerator && state.accelerator !== Accelerator.NONE ? 3 : 2;
-  const alias = await input.showInputBox({
-    title: "Alias your server",
-    step,
-    totalSteps: step,
-    // TODO: Incrementally number the same variant/server machines. E.g. Colab
-    // CPU (1), Colab GPU A100 (2).
-    value: state.alias ?? "",
-    prompt: PROMPT_SERVER_ALIAS,
-    validate: validateServerAlias,
-    placeholder,
-    buttons: [input.vs.QuickInputButtons.Back],
-  });
-  state.alias = alias || placeholder;
-  return;
-}
-
-/** Provides an explanation to the user on updating the server alias. */
-export const PROMPT_SERVER_ALIAS =
-  "Provide a local convenience alias to the server.";
-
-/** Validates the server alias. */
-export const validateServerAlias = (value: string) =>
-  value.length > 10 ? "Name must be less than 10 characters." : "";
+const PLACEHOLDER_DIGITS_REGEX = /^.+\s\((\d+)\)$/;
