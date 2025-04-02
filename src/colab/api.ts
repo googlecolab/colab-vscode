@@ -45,16 +45,17 @@ export enum Shape {
 export enum Accelerator {
   NONE = "NONE",
   // GPU
-  K80 = "K80", // deprecated
-  P100 = "P100", // deprecated
-  P4 = "P4", // deprecated
+  // K80 is deprecated
+  // P100 is deprecated
+  // P4 is deprecated
   T4 = "T4",
-  V100 = "V100", // deprecated
+  // V100 is deprecated
   A100 = "A100",
   L4 = "L4",
   // TPU
   V28 = "V28",
   V5E1 = "V5E1",
+  V6E1 = "V6E1",
 }
 
 function uppercaseEnum<T extends z.EnumLike>(
@@ -110,6 +111,14 @@ export const CcuInfoSchema = z.object({
    * The list of ineligible GPU accelerators.
    */
   ineligibleGpus: z.array(uppercaseEnum(Accelerator)).optional(),
+  /**
+   * The list of eligible TPU accelerators.
+   */
+  eligibleTpus: z.array(uppercaseEnum(Accelerator)),
+  /**
+   * The list of ineligible TPU accelerators.
+   */
+  ineligibleTpus: z.array(uppercaseEnum(Accelerator)).optional(),
   /**
    * Free CCU quota information if applicable.
    */

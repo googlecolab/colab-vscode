@@ -72,4 +72,9 @@ export const COLAB_SERVERS = new Set<ColabServerDescriptor>([
     variant: Variant.TPU,
     accelerator: Accelerator.V5E1,
   },
+  {
+    label: "Colab TPU v6e-1",
+    variant: Variant.TPU,
+    accelerator: Accelerator.V6E1,
+  },
 ]);

@@ -7,6 +7,7 @@ pkce
 quickpick
 tombstoned
 toolsai
+tpus
 veryhighmem
 vulnz
 xssi

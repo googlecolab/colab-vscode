@@ -7,7 +7,7 @@ import fetch, {
   Response,
 } from "node-fetch";
 import vscode from "vscode";
-import { Assignment, Variant } from "../colab/api";
+import { Accelerator, Assignment, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
   COLAB_SERVERS,
@@ -62,19 +62,23 @@ export class AssignmentManager implements vscode.Disposable {
     const ccuInfo = await this.client.ccuInfo();
     const eligibleGpus = new Set(ccuInfo.eligibleGpus);
     const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
-    // TODO: TPUs are currently not supported by the CCU Info API.
+    const eligibleTpus = new Set(ccuInfo.eligibleTpus);
+    const ineligibleTpus = new Set(ccuInfo.ineligibleTpus);
     return Array.from(COLAB_SERVERS.values()).filter((server) => {
-      if (server.variant !== Variant.GPU) {
-        return true;
+      switch (server.variant) {
+        case Variant.DEFAULT:
+          return true;
+        case Variant.GPU:
+          return isAcceleratorAvailable(server.accelerator, {
+            eligible: eligibleGpus,
+            ineligible: ineligibleGpus,
+          });
+        case Variant.TPU:
+          return isAcceleratorAvailable(server.accelerator, {
+            eligible: eligibleTpus,
+            ineligible: ineligibleTpus,
+          });
       }
-      // Check both to make introducing new accelerators safer.
-      const eligibleGpu =
-        server.accelerator && eligibleGpus.has(server.accelerator);
-      const ineligibleGpu =
-        server.accelerator && ineligibleGpus.has(server.accelerator);
-      // TODO: Provide a ⚠️ warning for the servers which are ineligible.
-
-      return eligibleGpu && !ineligibleGpu;
     });
   }
 
@@ -245,4 +249,24 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
+}
+
+// TODO: Provide a ⚠️ warning for the servers which are ineligible.
+function isAcceleratorAvailable(
+  accelerator: Accelerator | undefined,
+  availability: {
+    eligible: Set<Accelerator>;
+    ineligible?: Set<Accelerator>;
+  },
+): boolean {
+  if (!accelerator) {
+    return false;
+  }
+  if (availability.ineligible?.has(accelerator)) {
+    return false;
+  }
+  if (availability.eligible.has(accelerator)) {
+    return true;
+  }
+  return false;
 }

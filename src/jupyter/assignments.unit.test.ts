@@ -86,6 +86,8 @@ describe("AssignmentManager", () => {
         assignmentsCount: 0,
         eligibleGpus: [Accelerator.T4, Accelerator.A100, Accelerator.L4],
         ineligibleGpus: [],
+        eligibleTpus: [Accelerator.V5E1, Accelerator.V6E1, Accelerator.V28],
+        ineligibleTpus: [],
         freeCcuQuotaInfo: {
           remainingTokens: 4,
           nextRefillTimestampSec: 5,
@@ -98,13 +100,15 @@ describe("AssignmentManager", () => {
       sinon.assert.calledOnce(colabClientStub.ccuInfo);
     });
 
-    it("filters to only eligible GPU servers", async () => {
+    it("filters to only eligible servers", async () => {
       colabClientStub.ccuInfo.resolves({
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 0,
         eligibleGpus: [Accelerator.T4, Accelerator.A100],
         ineligibleGpus: [],
+        eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
+        ineligibleTpus: [],
         freeCcuQuotaInfo: {
           remainingTokens: 4,
           nextRefillTimestampSec: 5,
@@ -114,19 +118,23 @@ describe("AssignmentManager", () => {
       const servers = await assignmentManager.getAvailableServerDescriptors();
 
       const expectedServers = Array.from(COLAB_SERVERS).filter(
-        (server) => server.accelerator !== Accelerator.L4,
+        (server) =>
+          server.accelerator !== Accelerator.L4 &&
+          server.accelerator !== Accelerator.V5E1,
       );
       expect(servers).to.deep.equal(expectedServers);
       sinon.assert.calledOnce(colabClientStub.ccuInfo);
     });
 
-    it("filters out ineligible GPU servers", async () => {
+    it("filters out ineligible servers", async () => {
       colabClientStub.ccuInfo.resolves({
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 0,
         eligibleGpus: [Accelerator.T4, Accelerator.A100],
         ineligibleGpus: [Accelerator.L4],
+        eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
+        ineligibleTpus: [Accelerator.V5E1],
         freeCcuQuotaInfo: {
           remainingTokens: 4,
           nextRefillTimestampSec: 5,
@@ -136,7 +144,9 @@ describe("AssignmentManager", () => {
       const servers = await assignmentManager.getAvailableServerDescriptors();
 
       const expectedServers = Array.from(COLAB_SERVERS).filter(
-        (server) => server.accelerator !== Accelerator.L4,
+        (server) =>
+          server.accelerator !== Accelerator.L4 &&
+          server.accelerator !== Accelerator.V5E1,
       );
       expect(servers).to.deep.equal(expectedServers);
       sinon.assert.calledOnce(colabClientStub.ccuInfo);

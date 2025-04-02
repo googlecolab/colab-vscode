@@ -68,6 +68,8 @@ describe("ColabClient", () => {
       assignmentsCount: 3,
       eligibleGpus: [Accelerator.T4],
       ineligibleGpus: [Accelerator.A100, Accelerator.L4],
+      eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
+      ineligibleTpus: [Accelerator.V5E1],
       freeCcuQuotaInfo: {
         remainingTokens: 4,
         nextRefillTimestampSec: 5,
@@ -208,6 +210,8 @@ describe("ColabClient", () => {
       assignmentsCount: 3,
       eligibleGpus: [Accelerator.T4],
       ineligibleGpus: [Accelerator.A100, Accelerator.L4],
+      eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
+      ineligibleTpus: [Accelerator.V5E1],
       freeCcuQuotaInfo: {
         remainingTokens: 4,
         nextRefillTimestampSec: 5,
