@@ -262,11 +262,8 @@ function isAcceleratorAvailable(
   if (!accelerator) {
     return false;
   }
-  if (availability.ineligible?.has(accelerator)) {
-    return false;
-  }
-  if (availability.eligible.has(accelerator)) {
-    return true;
-  }
-  return false;
+  return (
+    !availability.ineligible?.has(accelerator) &&
+    availability.eligible.has(accelerator)
+  );
 }
