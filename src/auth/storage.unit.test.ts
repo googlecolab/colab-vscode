@@ -1,14 +1,14 @@
 import { expect } from "chai";
 import sinon, { SinonStubbedInstance } from "sinon";
-import { AuthenticationSession, SecretStorage } from "vscode";
+import { SecretStorage } from "vscode";
 import { PROVIDER_ID } from "../config/constants";
 import { SecretStorageFake } from "../test/helpers/secret-storage";
-import { AuthStorage } from "./storage";
+import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
 const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
-const DEFAULT_SESSION: AuthenticationSession = {
+const DEFAULT_SESSION: RefreshableAuthenticationSession = {
   id: "1",
-  accessToken: "42",
+  refreshToken: "//42",
   account: { id: "foo", label: "bar" },
   scopes: ["baz"],
 };

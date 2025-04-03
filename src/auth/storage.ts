@@ -5,7 +5,7 @@ import { PROVIDER_ID } from "../config/constants";
 const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
 
 /**
- * Server storage for Authentication sessions.
+ * Server storage for authentication sessions.
  *
  * Implementation assumes full ownership over the backing secret storage file.
  *
@@ -18,18 +18,17 @@ export class AuthStorage {
   constructor(private readonly secrets: vscode.SecretStorage) {}
 
   /**
-   * Retrieve the authentication session, if it exists.
+   * Retrieve the refreshable authentication session.
    *
-   * @returns The authentication session, if it exists. Otherwise, `undefined`.
+   * @returns The refreshable authentication session, if it exists. Otherwise,
+   * `undefined`.
    */
-  async getSession(): Promise<vscode.AuthenticationSession | undefined> {
+  async getSession(): Promise<RefreshableAuthenticationSession | undefined> {
     const sessionJson = await this.secrets.get(SESSIONS_KEY);
     if (!sessionJson) {
       return undefined;
     }
     const sessions = parseAuthenticationSessions(sessionJson);
-    // This is guarded by the Zod schema, so it should always be a single
-    // session.
     if (sessions.length != 1) {
       throw new Error(
         `Unexpected number of sessions: ${sessions.length.toString()}`,
@@ -39,14 +38,14 @@ export class AuthStorage {
   }
 
   /**
-   * Stores the authentication session.
+   * Stores the refreshable authentication session.
    */
-  async storeSession(session: vscode.AuthenticationSession): Promise<void> {
+  async storeSession(session: RefreshableAuthenticationSession): Promise<void> {
     return this.secrets.store(SESSIONS_KEY, JSON.stringify([session]));
   }
 
   /**
-   * Removes a session by ID.
+   * Removes a refreshable authentication session by ID.
    *
    * @param sessionId - The session ID.
    * @returns The removed session, if it was found and removed. Otherwise,
@@ -54,7 +53,7 @@ export class AuthStorage {
    */
   async removeSession(
     sessionId: string,
-  ): Promise<vscode.AuthenticationSession | undefined> {
+  ): Promise<RefreshableAuthenticationSession | undefined> {
     const session = await this.getSession();
     if (!session) {
       return undefined;
@@ -67,26 +66,23 @@ export class AuthStorage {
   }
 }
 
-const AuthenticationSessionAccountInformationSchema = z.object({
+const RefreshableAuthenticationSessionSchema = z.object({
   id: z.string(),
-  label: z.string(),
+  refreshToken: z.string(),
+  account: z.object({
+    id: z.string(),
+    label: z.string(),
+  }),
+  scopes: z.array(z.string()),
 });
-
-const AuthenticationSessionsSchema = z
-  .array(
-    z.object({
-      id: z.string(),
-      accessToken: z.string(),
-      account: AuthenticationSessionAccountInformationSchema,
-      scopes: z.array(z.string()),
-    }),
-  )
-  .length(1);
+export type RefreshableAuthenticationSession = z.infer<
+  typeof RefreshableAuthenticationSessionSchema
+>;
 
 function parseAuthenticationSessions(
   sessionsJson: string,
-): vscode.AuthenticationSession[] {
+): RefreshableAuthenticationSession[] {
   const sessions: unknown = JSON.parse(sessionsJson);
 
-  return AuthenticationSessionsSchema.parse(sessions);
+  return z.array(RefreshableAuthenticationSessionSchema).parse(sessions);
 }

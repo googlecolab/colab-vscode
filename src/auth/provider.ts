@@ -1,21 +1,29 @@
-import { OAuth2Client, CodeChallengeMethod } from "google-auth-library";
+import {
+  OAuth2Client,
+  CodeChallengeMethod,
+  Credentials,
+} from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
-import vscode from "vscode";
+import vscode, { AuthenticationSession } from "vscode";
 import { z } from "zod";
 import { PackageInfo } from "../config/package-info";
 import { CodeProvider } from "./redirect";
-import { AuthStorage } from "./storage";
+import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
+export const REQUIRED_SCOPES = ["profile", "email"] as const;
 const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
-const REQUIRED_SCOPES = ["profile", "email"] as const;
+const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Provides authentication using Google OAuth2.
  *
- * Registers itself with the VS Code authentication API and emits events
- * when authentication sessions change.
+ * Registers itself with the VS Code authentication API and emits events when
+ * authentication sessions change.
+ *
+ * Access tokens for sessions are refreshed JIT when they are accessed when they
+ * are close to, or past, their expiry.
  */
 export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
@@ -23,6 +31,8 @@ export class GoogleAuthProvider
   readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
   private readonly authProvider: vscode.Disposable;
   private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
+  private session: AuthenticationSession | undefined;
+  private isInitialized = false;
 
   /**
    * Initializes the GoogleAuthProvider.
@@ -58,7 +68,7 @@ export class GoogleAuthProvider
    * @param vs - The VS Code API.
    * @returns The authentication session.
    */
-  static async getSession(
+  static async getOrCreateSession(
     vs: typeof vscode,
   ): Promise<vscode.AuthenticationSession> {
     const session = await vs.authentication.getSession(
@@ -72,6 +82,38 @@ export class GoogleAuthProvider
   }
 
   /**
+   * Initializes the provider by loading the session from storage, saturating
+   * and refreshing the OAuth2 client.
+   */
+  async initialize() {
+    if (this.isInitialized) {
+      return;
+    }
+    const session = await this.storage.getSession();
+    if (!session) {
+      this.isInitialized = true;
+      return;
+    }
+    this.oAuth2Client.setCredentials({
+      refresh_token: session.refreshToken,
+      token_type: "Bearer",
+      scope: session.scopes.join(" "),
+    });
+    await this.oAuth2Client.refreshAccessToken();
+    const accessToken = this.oAuth2Client.credentials.access_token;
+    if (!accessToken) {
+      throw new Error("Failed to refresh Google OAuth token.");
+    }
+    this.session = {
+      id: session.id,
+      accessToken,
+      account: session.account,
+      scopes: session.scopes,
+    };
+    this.isInitialized = true;
+  }
+
+  /**
    * Disposes the provider and cleans up resources.
    */
   dispose() {
@@ -79,56 +121,83 @@ export class GoogleAuthProvider
   }
 
   /**
-   * Get a list of sessions.
+   * Get the list of managed sessions.
    *
-   * @param _scopes - Currently unused.
-   * @param _options - Currently unused.
-   * @returns An array of stored authentication sessions.
+   * @param scopes - An optional array of scopes. If provided, the sessions
+   * returned will match these permissions. Otherwise, all sessions are
+   * returned.
+   * @param options - Additional options for getting sessions. If an account is
+   * passed in, sessions returned are limited to it.
+   * @returns An array of managed authentication sessions.
    */
   async getSessions(
-    _scopes: readonly string[] | undefined,
-    _options: vscode.AuthenticationProviderSessionOptions,
+    scopes: readonly string[] | undefined,
+    options: vscode.AuthenticationProviderSessionOptions,
   ): Promise<vscode.AuthenticationSession[]> {
-    const session = await this.storage.getSession();
-    return session ? [session] : [];
+    this.assertInitialized();
+    if (scopes && !matchesRequiredScopes(scopes)) {
+      return [];
+    }
+    await this.refreshSessionIfNeeded();
+    if (options.account && this.session?.account != options.account) {
+      return [];
+    }
+    return this.session ? [this.session] : [];
   }
 
   /**
    * Creates and stores an authentication session with the given scopes.
    *
-   * @param scopes - Scopes required for the session.
+   * @param scopes - Scopes required for the session. These must strictly be the
+   * collection of {@link REQUIRED_SCOPES}.
    * @returns The created session.
    * @throws An error if login fails.
    */
   async createSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
+    this.assertInitialized();
     try {
-      const scopeSet = new Set([...scopes, ...REQUIRED_SCOPES]);
-      const sortedScopes = Array.from(scopeSet).sort();
-      const token = await this.login(sortedScopes.join(" "));
-      if (!token) {
-        throw new Error("Google login failed");
+      const sortedScopes = scopes.sort();
+      if (!matchesRequiredScopes(sortedScopes)) {
+        throw new Error(
+          `Only supports the following scopes: ${sortedScopes.join(", ")}`,
+        );
       }
-
-      const user = await this.getUserInfo(token);
-      const session: vscode.AuthenticationSession = {
-        id: uuid(),
-        accessToken: token,
+      const tokenInfo = await this.login(sortedScopes.join(" "));
+      const user = await this.getUserInfo(tokenInfo.access_token);
+      const existingSession = await this.storage.getSession();
+      const newSession: RefreshableAuthenticationSession = {
+        id: existingSession ? existingSession.id : uuid(),
+        refreshToken: tokenInfo.refresh_token,
         account: {
-          label: user.name,
           id: user.email,
+          label: user.name,
         },
         scopes: sortedScopes,
       };
+      await this.storage.storeSession(newSession);
+      this.oAuth2Client.setCredentials(tokenInfo);
+      this.session = {
+        id: newSession.id,
+        accessToken: tokenInfo.access_token,
+        account: newSession.account,
+        scopes: sortedScopes,
+      };
 
-      await this.storage.storeSession(session);
+      if (existingSession) {
+        this.emitter.fire({
+          added: [],
+          removed: [],
+          changed: [this.session],
+        });
+      } else {
+        this.emitter.fire({
+          added: [this.session],
+          removed: [],
+          changed: [],
+        });
+      }
 
-      this.emitter.fire({
-        added: [session],
-        removed: [],
-        changed: [],
-      });
-
-      return session;
+      return this.session;
     } catch (err: unknown) {
       let reason = "unknown error";
       if (err instanceof Error) {
@@ -142,22 +211,54 @@ export class GoogleAuthProvider
   /**
    * Removes a session by ID.
    *
+   * This will revoke the credentials (if the matching session is managed) and
+   * remove the session from storage.
+   *
    * @param sessionId - The session ID.
    */
   async removeSession(sessionId: string): Promise<void> {
-    const removedSession = await this.storage.removeSession(sessionId);
-
-    if (removedSession) {
-      this.emitter.fire({
-        added: [],
-        removed: [removedSession],
-        changed: [],
-      });
+    this.assertInitialized();
+    if (!this.session || this.session.id !== sessionId) {
+      return;
     }
+    const removedSession = this.session;
+    this.session = undefined;
+    try {
+      await this.oAuth2Client.revokeCredentials();
+    } catch {
+      // It's possible the token is already expired or revoked. We can swallow
+      // errors since the user will be required to login again.
+    }
+    await this.storage.removeSession(sessionId);
+
+    this.emitter.fire({
+      added: [],
+      removed: [removedSession],
+      changed: [],
+    });
   }
 
-  private async login(scopes: string): Promise<string> {
-    const token = await this.vs.window.withProgress<string>(
+  private async refreshSessionIfNeeded(): Promise<void> {
+    if (!this.session) {
+      return;
+    }
+    const expiryDateMs = this.oAuth2Client.credentials.expiry_date;
+    if (expiryDateMs && expiryDateMs > Date.now() + REFRESH_MARGIN_MS) {
+      return;
+    }
+    await this.oAuth2Client.refreshAccessToken();
+    const accessToken = this.oAuth2Client.credentials.access_token;
+    if (!accessToken) {
+      throw new Error("Failed to refresh Google OAuth token.");
+    }
+    this.session = {
+      ...this.session,
+      accessToken,
+    };
+  }
+
+  private async login(scopes: string): Promise<DefinedCredentials> {
+    const res = await this.vs.window.withProgress<DefinedCredentials>(
       {
         location: this.vs.ProgressLocation.Notification,
         title: "Signing in to Google...",
@@ -170,10 +271,11 @@ export class GoogleAuthProvider
         const callbackUri = await this.getCallbackUri(nonce);
         const pkce = await this.oAuth2Client.generateCodeVerifierAsync();
         const authorizeUrl = this.oAuth2Client.generateAuthUrl({
+          access_type: "offline",
           response_type: "code",
           scope: scopes,
           state: callbackUri.toString(),
-          prompt: "login",
+          prompt: "consent",
           code_challenge_method: CodeChallengeMethod.S256,
           code_challenge: pkce.codeChallenge,
         });
@@ -186,20 +288,22 @@ export class GoogleAuthProvider
           code,
           codeVerifier: pkce.codeVerifier,
         });
-
-        if (
-          tokenResponse.res?.status !== 200 ||
-          !tokenResponse.tokens.access_token
-        ) {
-          throw new Error("No access token returned");
+        if (tokenResponse.res?.status !== 200) {
+          const details = tokenResponse.res
+            ? tokenResponse.res.statusText
+            : "unknown error";
+          throw new Error(`Failed to get token: ${details}`);
+        }
+        if (!isDefinedCredentials(tokenResponse.tokens)) {
+          throw new Error("Missing credential information");
         }
 
-        return tokenResponse.tokens.access_token;
+        return tokenResponse.tokens;
       },
     );
     this.vs.window.showInformationMessage("Signed in to Google!");
 
-    return token;
+    return res;
   }
 
   private async getCallbackUri(nonce: string): Promise<vscode.Uri> {
@@ -230,6 +334,41 @@ export class GoogleAuthProvider
     const json: unknown = await response.json();
     return UserInfoSchema.parse(json);
   }
+
+  private assertInitialized(): void {
+    if (!this.isInitialized) {
+      throw new Error(
+        `${this.constructor.name} has not been initialized. Call initialize() first.`,
+      );
+    }
+  }
+}
+
+function matchesRequiredScopes(scopes: readonly string[]): boolean {
+  return (
+    scopes.length === REQUIRED_SCOPES.length &&
+    REQUIRED_SCOPES.every((r) => scopes.includes(r))
+  );
+}
+
+type RequiredCredentials = Pick<
+  Credentials,
+  "refresh_token" | "access_token" | "expiry_date" | "scope"
+>;
+
+type DefinedCredentials = Credentials & {
+  [P in keyof RequiredCredentials]-?: NonNullable<RequiredCredentials[P]>;
+};
+
+function isDefinedCredentials(
+  credentials: Credentials,
+): credentials is DefinedCredentials {
+  return (
+    credentials.refresh_token != null &&
+    credentials.access_token != null &&
+    credentials.expiry_date != null &&
+    credentials.scope != null
+  );
 }
 
 /**

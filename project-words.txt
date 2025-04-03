@@ -5,6 +5,7 @@ highmem
 milli
 pkce
 quickpick
+refreshable
 tombstoned
 toolsai
 tpus

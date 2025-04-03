@@ -1,7 +1,6 @@
 import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request, RequestInit } from "node-fetch";
-import { AuthenticationSession } from "vscode";
 import { z } from "zod";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
@@ -40,7 +39,7 @@ export class ColabClient {
 
   constructor(
     private readonly domain: URL,
-    private session: () => Promise<AuthenticationSession>,
+    private accessToken: () => Promise<string>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
@@ -201,11 +200,11 @@ export class ColabClient {
     init: RequestInit,
     schema?: T,
   ): Promise<z.infer<T>> {
-    const authSession = await this.session();
     endpoint.searchParams.append("authuser", "0");
+    const token = await this.accessToken();
     const requestHeaders = new fetch.Headers(init.headers);
     requestHeaders.set("Accept", "application/json");
-    requestHeaders.set("Authorization", `Bearer ${authSession.accessToken}`);
+    requestHeaders.set("Authorization", `Bearer ${token}`);
     const request = new Request(endpoint, {
       ...init,
       headers: requestHeaders,

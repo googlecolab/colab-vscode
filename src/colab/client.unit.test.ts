@@ -4,7 +4,6 @@ import { Response } from "node-fetch";
 import * as nodeFetch from "node-fetch";
 import { SinonStub, SinonMatcher } from "sinon";
 import * as sinon from "sinon";
-import { AuthenticationSession } from "vscode";
 import {
   Accelerator,
   CcuInfo,
@@ -40,20 +39,12 @@ describe("ColabClient", () => {
     [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
     Promise<Response>
   >;
-  let sessionStub: SinonStub<[], Promise<AuthenticationSession>>;
+  let sessionStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
 
   beforeEach(() => {
     fetchStub = sinon.stub(nodeFetch, "default");
-    sessionStub = sinon.stub<[], Promise<AuthenticationSession>>().resolves({
-      id: "mock-id",
-      accessToken: BEARER_TOKEN,
-      account: {
-        id: "mock-account-id",
-        label: "mock-account-label",
-      },
-      scopes: ["foo"],
-    } as AuthenticationSession);
+    sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
     client = new ColabClient(new URL(DOMAIN), sessionStub);
   });
 

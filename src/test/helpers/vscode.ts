@@ -1,5 +1,6 @@
 import * as sinon from "sinon";
 import vscode from "vscode";
+import { FakeAuthenticationProviderManager } from "./authentication";
 import { TestCancellationTokenSource } from "./cancellation";
 import { TestEventEmitter } from "./events";
 import { TestUri } from "./uri";
@@ -55,9 +56,9 @@ export interface VsCodeStub {
     >;
   };
   authentication: {
-    registerAuthenticationProvider: sinon.SinonStubbedMember<
-      typeof vscode.authentication.registerAuthenticationProvider
-    >;
+    // eslint-disable-next-line @/max-len
+    registerAuthenticationProvider: typeof vscode.authentication.registerAuthenticationProvider;
+    getSession: typeof vscode.authentication.getSession;
   };
 }
 
@@ -68,6 +69,8 @@ export interface VsCodeStub {
  * don't interfere with each other.
  */
 export function newVsCodeStub(): VsCodeStub {
+  const fakeAuthentication = new FakeAuthenticationProviderManager();
+
   return {
     asVsCode: function (): typeof vscode {
       return {
@@ -116,7 +119,11 @@ export function newVsCodeStub(): VsCodeStub {
       getExtension: sinon.stub(),
     },
     authentication: {
-      registerAuthenticationProvider: sinon.stub(),
+      registerAuthenticationProvider:
+        fakeAuthentication.registerAuthenticationProvider.bind(
+          fakeAuthentication,
+        ),
+      getSession: fakeAuthentication.getSession.bind(fakeAuthentication),
     },
   };
 }
