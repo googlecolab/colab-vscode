@@ -457,6 +457,31 @@ describe("AssignmentManager", () => {
     });
   });
 
+  describe("unassignServer", () => {
+    it("unassigns the server", async () => {
+      colabClientStub.unassign.resolves();
+      await assignmentManager.unassignServer(defaultServer);
+      sinon.assert.calledOnceWithExactly(
+        colabClientStub.unassign,
+        defaultServer.endpoint,
+      );
+    });
+
+    it("removes the unassigned server from storage", async () => {
+      colabClientStub.unassign.resolves();
+      await assignmentManager.unassignServer(defaultServer);
+      sinon.assert.calledOnceWithExactly(storageStub.remove, defaultServer.id);
+    });
+
+    it("emits an assignment change event", async () => {
+      const listener = sinon.stub();
+      assignmentManager.onDidAssignmentsChange(listener);
+      colabClientStub.unassign.resolves();
+      await assignmentManager.unassignServer(defaultServer);
+      sinon.assert.calledOnce(listener);
+    });
+  });
+
   describe("refreshConnection", () => {
     const newToken = "new-token";
     let refreshedServer: ColabAssignedServer;

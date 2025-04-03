@@ -118,6 +118,28 @@ export class ColabClient {
   }
 
   /**
+   * Unassigns the specified machine assignment.
+   *
+   * @param endpoint - The endpoint to unassign.
+   */
+  async unassign(endpoint: string, signal?: AbortSignal): Promise<void> {
+    const url = new URL(`${TUN_ENDPOINT}/unassign/${endpoint}`, this.domain);
+    const { token } = await this.issueRequest(
+      url,
+      {
+        method: "GET",
+        signal,
+      },
+      z.object({ token: z.string() }),
+    );
+    await this.issueRequest(url, {
+      method: "POST",
+      headers: { [XSRF_HEADER_KEY]: token },
+      signal,
+    });
+  }
+
+  /**
    * Lists all assignments.
    *
    * @returns The list of assignments.

@@ -30,6 +30,11 @@
         "category": "Colab",
         "command": "colab.renameServerAlias",
         "title": "Rename Server Alias"
+      },
+      {
+        "category": "Colab",
+        "command": "colab.removeServer",
+        "title": "Remove Server"
       }
     ]
   },

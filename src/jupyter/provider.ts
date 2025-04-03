@@ -85,6 +85,7 @@ export class ColabJupyterServerProvider
    * quick pick) changes. But we just return a static list which will be
    * filtered down by the quick pick automatically.
    */
+  // TODO: Integrate rename server alias and remove server commands.
   provideCommands(
     _value: string | undefined,
     _token: CancellationToken,

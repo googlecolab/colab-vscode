@@ -5,7 +5,7 @@ import { RedirectUriCodeProvider } from "./auth/redirect";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
 import { ServerKeepAliveController } from "./colab/keep-alive";
-import { renameServerAlias } from "./colab/server-commands";
+import { renameServerAlias, removeServer } from "./colab/server-commands";
 import { ServerPicker } from "./colab/server-picker";
 import { getPackageInfo } from "./config/package-info";
 import { AssignmentManager } from "./jupyter/assignments";
@@ -78,6 +78,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
       "colab.renameServerAlias",
       () => void renameServerAlias(vscode, serverStorage),
+    ),
+    vscode.commands.registerCommand(
+      "colab.removeServer",
+      () => void removeServer(vscode, serverStorage, assignmentManager),
     ),
   );
 }

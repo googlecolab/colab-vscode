@@ -168,6 +168,26 @@ describe("ColabClient", () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
+  it("successfully unassigns the specified assignment", async () => {
+    const endpoint = "mock-endpoint";
+    const path = `tun/m/unassign/${endpoint}`;
+    const token = "mock-xsrf-token";
+    fetchStub
+      .withArgs(matchAuthorizedRequest(path, "GET"))
+      .resolves(
+        new Response(withXSSI(JSON.stringify({ token })), { status: 200 }),
+      );
+    fetchStub
+      .withArgs(
+        matchAuthorizedRequest(path, "POST", {
+          "X-Goog-Colab-Token": token,
+        }),
+      )
+      .resolves(new Response(undefined, { status: 200 }));
+    await expect(client.unassign(endpoint)).to.eventually.be.fulfilled;
+    sinon.assert.calledTwice(fetchStub);
+  });
+
   it("successfully lists kernels", async () => {
     const lastActivity = new Date().toISOString();
 

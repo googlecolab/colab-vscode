@@ -159,6 +159,17 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
+   * Unassigns the given server.
+   *
+   * @param server - The server to remove.
+   */
+  async unassignServer(server: ColabAssignedServer): Promise<void> {
+    await this.storage.remove(server.id);
+    this.assignmentsChange.fire();
+    await this.client.unassign(server.endpoint);
+  }
+
+  /**
    * Assigns a new server or refreshes the connection information for an
    * existing server.
    *
