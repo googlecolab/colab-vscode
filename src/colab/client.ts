@@ -2,6 +2,8 @@ import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request, RequestInit } from "node-fetch";
 import { z } from "zod";
+import { RecaptchaService } from "../recaptcha/recaptcha-v3";
+import { RecaptchaWebview } from "../recaptcha/recaptcha-webview" 
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
   Assignment,
@@ -40,17 +42,22 @@ interface AssignedAssignment extends Assignment {
  */
 export class ColabClient {
   private readonly httpsAgent?: https.Agent;
+  private readonly recaptchaService?: RecaptchaService;
+  private readonly recaptchaWebview?: RecaptchaWebview;
 
   constructor(
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
+    private readonly recaptchaWebView: RecaptchaWebview
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
     if (colabDomain.hostname === "localhost") {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
+    this.recaptchaService = new RecaptchaService();
+    this.recaptchaWebview = recaptchaWebView;
   }
 
   /**
@@ -109,13 +116,35 @@ export class ColabClient {
         return rest;
       }
       case "to_assign": {
-        return await this.postAssignment(
-          notebookHash,
+        console.log("????????????????????????", this.recaptchaService)
+        if (!this.recaptchaService) {
+          throw new Error("?????????????????")
+        }
+        // prob need to await on this?
+        const promise = new Promise(() => {
+          this.recaptchaWebView.show()
+        }).catch((error: unknown) => {
+          console.error("ERJASLKDFJALSKD ", error)
+        })
+        return await promise.then(() => this.postAssignment(
+           notebookHash,
           assignment.xsrfToken,
           variant,
           accelerator,
           signal,
-        );
+          this.recaptchaWebView.recaptchaToken()
+        ))
+//        //const recaptchaResponse = await
+//        //this.recaptchaService.evaluate('colab-assignment');
+//        return await this.postAssignment(
+//          notebookHash,
+//          assignment.token,
+//          variant,
+//          accelerator,
+//          signal,
+//          this.recaptchaWebView.recaptchaToken()
+//         // recaptchaResponse
+//        );
       }
     }
   }
@@ -244,8 +273,11 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
     signal?: AbortSignal,
+    recaptchaResponse?: string,
   ): Promise<Assignment> {
-    const url = this.buildAssignUrl(notebookHash, variant, accelerator);
+    console.log("???????????????????????? in post assignment and ok")
+    const url = this.buildAssignUrl(notebookHash, variant, accelerator,
+    recaptchaResponse);
     return this.issueRequest(
       url,
       {
@@ -261,6 +293,7 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
+    recaptchaResponse?: string
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
@@ -270,6 +303,9 @@ export class ColabClient {
     if (accelerator) {
       url.searchParams.append("accelerator", accelerator.toString());
     }
+    if (recaptchaResponse) {
+      url.searchParams.append("recaptcha_v3_response", recaptchaResponse);
+    }
     return url;
   }
 
@@ -278,6 +314,7 @@ export class ColabClient {
     init: RequestInit,
     schema?: T,
   ): Promise<z.infer<T>> {
+    console.log("in issueRequest", endpoint)
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
       endpoint.searchParams.append("authuser", "0");
