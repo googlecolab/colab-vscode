@@ -16,6 +16,9 @@ import * as vscode from 'vscode';
 const V3SiteKey = "6LfQPtEUAAAAAHBpAdFng54jyuB1V5w5dofknpip"
 
 export class RecaptchaService extends EventTarget {
+  sendRequestAndWaitForResponse(arg0: string) {
+    throw new Error("Method not implemented.");
+  }
     //private readonly loadPromises: Promise<void>[] = [];
     constructor() {
         super();

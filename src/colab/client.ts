@@ -2,7 +2,6 @@ import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request, RequestInit } from "node-fetch";
 import { z } from "zod";
-import { RecaptchaService } from "../recaptcha/recaptcha-v3";
 import { RecaptchaWebview } from "../recaptcha/recaptcha-webview" 
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
@@ -42,22 +41,28 @@ interface AssignedAssignment extends Assignment {
  */
 export class ColabClient {
   private readonly httpsAgent?: https.Agent;
-  private readonly recaptchaService?: RecaptchaService;
   private readonly recaptchaWebview?: RecaptchaWebview;
 
+
   constructor(
+<<<<<<< HEAD
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
     private readonly recaptchaWebView: RecaptchaWebview
+=======
+    private readonly domain: URL,
+    private session: () => Promise<AuthenticationSession>,
+    recaptchaWebview?: RecaptchaWebview
+>>>>>>> e2aa279 (sends the token to the backend??)
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
     if (colabDomain.hostname === "localhost") {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
-    this.recaptchaService = new RecaptchaService();
-    this.recaptchaWebview = recaptchaWebView;
+    this.recaptchaWebview = recaptchaWebview;
+
   }
 
   /**
@@ -116,35 +121,21 @@ export class ColabClient {
         return rest;
       }
       case "to_assign": {
-        console.log("????????????????????????", this.recaptchaService)
-        if (!this.recaptchaService) {
-          throw new Error("?????????????????")
+        if (!this.recaptchaWebview) {
+          throw new Error("missing recaptcha webview")
         }
-        // prob need to await on this?
-        const promise = new Promise(() => {
-          this.recaptchaWebView.show()
-        }).catch((error: unknown) => {
-          console.error("ERJASLKDFJALSKD ", error)
-        })
-        return await promise.then(() => this.postAssignment(
+        this.recaptchaWebview.show();
+        
+        const token = await this.recaptchaWebview.sendRequestAndWaitForResponse('requestRecaptcha')
+        console.log("AAAAAAAAAA AWAIGED", token)
+        return this.postAssignment(
            notebookHash,
           assignment.xsrfToken,
           variant,
           accelerator,
           signal,
-          this.recaptchaWebView.recaptchaToken()
-        ))
-//        //const recaptchaResponse = await
-//        //this.recaptchaService.evaluate('colab-assignment');
-//        return await this.postAssignment(
-//          notebookHash,
-//          assignment.token,
-//          variant,
-//          accelerator,
-//          signal,
-//          this.recaptchaWebView.recaptchaToken()
-//         // recaptchaResponse
-//        );
+          token
+        )
       }
     }
   }

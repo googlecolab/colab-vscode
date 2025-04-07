@@ -12,7 +12,7 @@ import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
 import { ServerStorage } from "./jupyter/storage";
-import { RecaptchaWebview } from "./recaptcha/recaptcha-webview" 
+import { RecaptchaWebview } from "./recaptcha/recaptcha-webview";
 
 // TODO: Configure this per environment once it works beyond localhost.
 const COLAB_DOMAIN = "https://colab.sandbox.google.com";
@@ -44,9 +44,8 @@ export async function activate(context: vscode.ExtensionContext) {
   await authProvider.initialize();
   // TODO: Align these URLs with the environment. Mismatch is no big deal during
   // development.
-  
-  const webview = new RecaptchaWebview(context);
-  
+ 
+  const recaptchaWebview = new RecaptchaWebview(context);
   const colabClient = new ColabClient(
     new URL(COLAB_DOMAIN),
     new URL(COLAB_GAPI_DOMAIN),
@@ -54,7 +53,7 @@ export async function activate(context: vscode.ExtensionContext) {
       GoogleAuthProvider.getOrCreateSession(vscode).then(
         (session) => session.accessToken,
       ),
-    webview
+  recaptchaWebview
   );
 
   const serverStorage = new ServerStorage(vscode, context.secrets);
@@ -80,10 +79,6 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
 
-  const command = vscode.commands.registerCommand('recaptcha.showWebView', () => {
-    webview.show();
-  });
-
   context.subscriptions.push(
     disposeUriHandler,
     authProvider,
@@ -98,6 +93,5 @@ export async function activate(context: vscode.ExtensionContext) {
       "colab.removeServer",
       () => void removeServer(vscode, assignmentManager),
     ),
-    command
   );
 }
