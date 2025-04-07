@@ -11,7 +11,13 @@ import { PackageInfo } from "../config/package-info";
 import { CodeProvider } from "./redirect";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
-export const REQUIRED_SCOPES = ["profile", "email"] as const;
+export const REQUIRED_SCOPES = [
+  "profile",
+  "email",
+  // This scope is temporary. It's temporarily needed to integrate with the
+  // Colab GAPI used to query for user-info.
+  "https://www.googleapis.com/auth/drive.readonly",
+] as const;
 const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes

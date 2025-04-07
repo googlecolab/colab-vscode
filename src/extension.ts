@@ -39,10 +39,15 @@ export async function activate(context: vscode.ExtensionContext) {
     redirectUriHandler,
   );
   await authProvider.initialize();
-  const colabClient = new ColabClient(new URL("https://localhost:8888"), () =>
-    GoogleAuthProvider.getOrCreateSession(vscode).then(
-      (session) => session.accessToken,
-    ),
+  // TODO: Align these URLs with the environment. Mismatch is no big deal during
+  // development.
+  const colabClient = new ColabClient(
+    new URL("https://localhost:8888"),
+    new URL("https://staging-colab.sandbox.googleapis.com"),
+    () =>
+      GoogleAuthProvider.getOrCreateSession(vscode).then(
+        (session) => session.accessToken,
+      ),
   );
   const serverStorage = new ServerStorage(vscode, context.secrets);
   const assignmentManager = new AssignmentManager(

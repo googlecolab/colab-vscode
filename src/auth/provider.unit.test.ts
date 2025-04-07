@@ -431,7 +431,7 @@ describe("GoogleAuthProvider", () => {
         expect(Array.from(query.entries())).to.deep.include.members([
           ["access_type", "offline"],
           ["response_type", "code"],
-          ["scope", "email profile"],
+          ["scope", SCOPES.join(" ")],
           ["prompt", "consent"],
           ["code_challenge_method", CodeChallengeMethod.S256],
           ["client_id", CLIENT_ID],

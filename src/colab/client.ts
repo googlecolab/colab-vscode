@@ -15,6 +15,8 @@ import {
   AssignmentsSchema,
   KernelSchema,
   Kernel,
+  UserInfo,
+  UserInfoSchema,
 } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
@@ -39,6 +41,7 @@ export class ColabClient {
 
   constructor(
     private readonly colabDomain: URL,
+    private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
@@ -46,6 +49,19 @@ export class ColabClient {
     if (colabDomain.hostname === "localhost") {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
+  }
+
+  /**
+   * Gets the user's usage information.
+   *
+   * @returns The user's current usage information.
+   */
+  async getUserInfo(): Promise<UserInfo> {
+    return this.issueRequest(
+      new URL("v1/user-info", this.colabGapiDomain),
+      { method: "GET" },
+      UserInfoSchema,
+    );
   }
 
   /**
@@ -200,7 +216,10 @@ export class ColabClient {
     init: RequestInit,
     schema?: T,
   ): Promise<z.infer<T>> {
-    endpoint.searchParams.append("authuser", "0");
+    // The Colab API requires the authuser parameter to be set.
+    if (endpoint.hostname === this.colabDomain.hostname) {
+      endpoint.searchParams.append("authuser", "0");
+    }
     const token = await this.getAccessToken();
     const requestHeaders = new fetch.Headers(init.headers);
     requestHeaders.set("Accept", "application/json");

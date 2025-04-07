@@ -17,6 +17,7 @@ import {
 import { ColabClient } from "./client";
 
 const COLAB_DOMAIN = "https://colab.example.com";
+const GOOGLE_APIS_DOMAIN = "https://colab.example.googleapis.com";
 const BEARER_TOKEN = "access-token";
 const NOTEBOOK_HASH = randomUUID();
 const DEFAULT_ASSIGNMENT_RESPONSE = {
@@ -24,7 +25,7 @@ const DEFAULT_ASSIGNMENT_RESPONSE = {
   endpoint: "mock-endpoint",
   fit: 30,
   sub: SubscriptionState.UNSUBSCRIBED,
-  subTier: SubscriptionTier.UNKNOWN_TIER,
+  subTier: SubscriptionTier.NONE,
   variant: Variant.GPU,
   machineShape: Shape.STANDARD,
   runtimeProxyInfo: {
@@ -58,7 +59,11 @@ describe("ColabClient", () => {
   beforeEach(() => {
     fetchStub = sinon.stub(nodeFetch, "default");
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
-    client = new ColabClient(new URL(COLAB_DOMAIN), sessionStub);
+    client = new ColabClient(
+      new URL(COLAB_DOMAIN),
+      new URL(GOOGLE_APIS_DOMAIN),
+      sessionStub,
+    );
   });
 
   afterEach(() => {

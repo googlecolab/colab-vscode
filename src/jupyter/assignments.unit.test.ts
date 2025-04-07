@@ -33,7 +33,7 @@ const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
   endpoint: "m-s-foo",
   idleTimeoutSec: 30,
   subscriptionState: SubscriptionState.UNSUBSCRIBED,
-  subscriptionTier: SubscriptionTier.UNKNOWN_TIER,
+  subscriptionTier: SubscriptionTier.NONE,
   variant: Variant.GPU,
   machineShape: Shape.STANDARD,
   runtimeProxyInfo: {

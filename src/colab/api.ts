@@ -1,5 +1,5 @@
 /**
- * API types for interacting with Colab's backend.
+ * API types for interacting with Colab's backends.
  *
  * This file not only defines the entire Colab API surface area, but also tries
  * to compartmentalize a lot of the funky intricacies:
@@ -28,9 +28,22 @@ export enum SubscriptionState {
 }
 
 export enum SubscriptionTier {
-  UNKNOWN_TIER = 0,
+  NONE = 0,
+  PRO = 1,
+  PRO_PLUS = 2,
+}
+
+enum ColabSubscriptionTier {
+  UNKNOWN = 0,
   PRO = 1,
   VERY_PRO = 2,
+}
+
+enum ColabGapiSubscriptionTier {
+  UNSPECIFIED = "SUBSCRIPTION_TIER_UNSPECIFIED",
+  NONE = "SUBSCRIPTION_TIER_NONE",
+  PRO = "SUBSCRIPTION_TIER_PRO",
+  PRO_PLUS = "SUBSCRIPTION_TIER_PRO_PLUS",
 }
 
 export enum Outcome {
@@ -46,6 +59,12 @@ export enum Variant {
   DEFAULT = 0,
   GPU = 1,
   TPU = 2,
+}
+
+enum ColabGapiVariant {
+  UNSPECIFIED = "VARIANT_UNSPECIFIED",
+  GPU = "VARIANT_GPU",
+  TPU = "VARIANT_TPU",
 }
 
 export enum Shape {
@@ -86,6 +105,72 @@ function uppercaseEnum<T extends z.EnumLike>(
     return val;
   }, z.nativeEnum(enumObj));
 }
+
+/**
+ * Normalize the similar but different representations of subscription tiers
+ *
+ * @param tier - either the Colab backend or Colab Google API subscription tier.
+ * @returns the normalized subscription tier.
+ */
+function normalizeSubTier(
+  tier: ColabSubscriptionTier | ColabGapiSubscriptionTier,
+): SubscriptionTier {
+  switch (tier) {
+    case ColabSubscriptionTier.PRO:
+    case ColabGapiSubscriptionTier.PRO:
+      return SubscriptionTier.PRO;
+    case ColabSubscriptionTier.VERY_PRO:
+    case ColabGapiSubscriptionTier.PRO_PLUS:
+      return SubscriptionTier.PRO_PLUS;
+    default:
+      return SubscriptionTier.NONE;
+  }
+}
+
+/**
+ * Normalize the similar but different GAPI representation for the variant.
+ *
+ * @param variant - the Colab Google API variant.
+ * @returns the normalized variant.
+ */
+function normalizeVariant(variant: ColabGapiVariant): Variant {
+  switch (variant) {
+    case ColabGapiVariant.GPU:
+      return Variant.GPU;
+    case ColabGapiVariant.TPU:
+      return Variant.TPU;
+    case ColabGapiVariant.UNSPECIFIED:
+      return Variant.DEFAULT;
+  }
+}
+
+/**
+ * The schema for top level information about a user's tier, usage and
+ * availability in Colab.
+ */
+export const UserInfoSchema = z.object({
+  /** The subscription tier. */
+  subscriptionTier: z
+    .nativeEnum(ColabGapiSubscriptionTier)
+    .transform(normalizeSubTier),
+  /** The paid Colab Compute Units balance. */
+  paidComputeUnitsBalance: z.number().optional(),
+  /** The eligible machine accelerators. */
+  eligibleAccelerators: z
+    .array(
+      z.object({
+        /** The variant of the assignment. */
+        variant: z.nativeEnum(ColabGapiVariant).transform(normalizeVariant),
+        /** The assigned accelerator. */
+        models: z.array(z.nativeEnum(Accelerator)),
+      }),
+    )
+    .optional(),
+});
+/**
+ * Top level information about a user's tier, usage and availability in Colab.
+ */
+export type UserInfo = z.infer<typeof UserInfoSchema>;
 
 /** The schema of Colab Compute Units (CCU) information. */
 export const CcuInfoSchema = z.object({
@@ -205,7 +290,10 @@ export const AssignmentSchema = z
     /** The subscription state. */
     sub: z.nativeEnum(SubscriptionState).optional(),
     /** The subscription tier. */
-    subTier: z.nativeEnum(SubscriptionTier).optional(),
+    subTier: z
+      .nativeEnum(ColabSubscriptionTier)
+      .transform(normalizeSubTier)
+      .optional(),
     /** The outcome of the assignment. */
     outcome: z.nativeEnum(Outcome).optional(),
     /** The variant of the assignment. */
