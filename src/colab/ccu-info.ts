@@ -45,7 +45,7 @@ export class CcuInformationManager implements Disposable {
    * Updates with new CCU info and emits an event when there is a change.
    */
   private async updateCcuInfo(signal: AbortSignal): Promise<void> {
-    const ccuInfo = await this.client.ccuInfo(signal);
+    const ccuInfo = await this.client.getCcuInfo(signal);
     if (JSON.stringify(ccuInfo) === JSON.stringify(this.ccuInfo)) {
       return;
     }
@@ -62,7 +62,7 @@ export class CcuInformationManager implements Disposable {
     vs: typeof vscode,
     client: ColabClient,
   ): Promise<CcuInformationManager> {
-    const info = await client.ccuInfo();
+    const info = await client.getCcuInfo();
     return new CcuInformationManager(vs, client, info);
   }
 }

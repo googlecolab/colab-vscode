@@ -32,30 +32,30 @@ interface AssignedAssignment extends Assignment {
 }
 
 /**
- * A client for interacting with the Colab backend.
+ * A client for interacting with the Colab APIs.
  */
 export class ColabClient {
   private readonly httpsAgent?: https.Agent;
 
   constructor(
-    private readonly domain: URL,
-    private readonly getAccessToken: () => Promise<string>,
+    private readonly colabDomain: URL,
+    private getAccessToken: () => Promise<string>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
-    if (domain.hostname === "localhost") {
+    if (colabDomain.hostname === "localhost") {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
   }
 
   /**
-   * Fetches the current Cloud Compute Units (CCU) information.
+   * Gets the current Colab Compute Units (CCU) information.
    *
    * @returns The current CCU information.
    */
-  async ccuInfo(signal?: AbortSignal): Promise<CcuInfo> {
+  async getCcuInfo(signal?: AbortSignal): Promise<CcuInfo> {
     return this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/ccu-info`, this.domain),
+      new URL(`${TUN_ENDPOINT}/ccu-info`, this.colabDomain),
       { method: "GET", signal },
       CcuInfoSchema,
     );
@@ -92,7 +92,7 @@ export class ColabClient {
       case "to_assign": {
         return await this.postAssignment(
           notebookHash,
-          assignment.token,
+          assignment.xsrfToken,
           variant,
           accelerator,
           signal,
@@ -108,7 +108,7 @@ export class ColabClient {
    */
   async listAssignments(signal?: AbortSignal): Promise<Assignment[]> {
     const assignments = await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/assignments`, this.domain),
+      new URL(`${TUN_ENDPOINT}/assignments`, this.colabDomain),
       { method: "GET", signal },
       AssignmentsSchema,
     );
@@ -123,7 +123,7 @@ export class ColabClient {
    */
   async listKernels(endpoint: string, signal?: AbortSignal): Promise<Kernel[]> {
     return await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/${endpoint}/api/kernels`, this.domain),
+      new URL(`${TUN_ENDPOINT}/${endpoint}/api/kernels`, this.colabDomain),
       { method: "GET", signal },
       z.array(KernelSchema),
     );
@@ -134,9 +134,9 @@ export class ColabClient {
    *
    * @param endpoint - The assigned endpoint to keep alive.
    */
-  async keepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
+  async sendKeepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
     await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.domain),
+      new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.colabDomain),
       { method: "GET", signal },
     );
   }
@@ -153,7 +153,7 @@ export class ColabClient {
       { method: "GET", signal },
       z.union([GetAssignmentResponseSchema, AssignmentSchema]),
     );
-    if ("token" in response) {
+    if ("xsrfToken" in response) {
       return { ...response, kind: "to_assign" };
     } else {
       return { ...response, kind: "assigned" };
@@ -184,7 +184,7 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
   ): URL {
-    const url = new URL(`${TUN_ENDPOINT}/assign`, this.domain);
+    const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
     if (variant !== Variant.DEFAULT) {
       url.searchParams.append("variant", variant.toString());

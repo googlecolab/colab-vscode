@@ -89,7 +89,7 @@ export class ServerKeepAliveController implements Disposable {
       signal,
     );
     if (await this.shouldKeepAlive(assignment, kernels)) {
-      await this.colabClient.keepAlive(assignment.endpoint, signal);
+      await this.colabClient.sendKeepAlive(assignment.endpoint, signal);
     }
   }
 

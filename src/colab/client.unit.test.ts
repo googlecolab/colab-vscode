@@ -12,17 +12,17 @@ import {
   SubscriptionState,
   SubscriptionTier,
   Variant,
-  GetAssignmentResponse,
   Kernel,
 } from "./api";
 import { ColabClient } from "./client";
 
-const DOMAIN = "https://colab.example.com";
+const COLAB_DOMAIN = "https://colab.example.com";
 const BEARER_TOKEN = "access-token";
 const NOTEBOOK_HASH = randomUUID();
-const DEFAULT_ASSIGNMENT: Assignment = {
+const DEFAULT_ASSIGNMENT_RESPONSE = {
   accelerator: Accelerator.A100,
   endpoint: "mock-endpoint",
+  fit: 30,
   sub: SubscriptionState.UNSUBSCRIBED,
   subTier: SubscriptionTier.UNKNOWN_TIER,
   variant: Variant.GPU,
@@ -31,6 +31,19 @@ const DEFAULT_ASSIGNMENT: Assignment = {
     token: "mock-token",
     tokenExpiresInSeconds: 42,
     url: "https://mock-url.com",
+  },
+};
+const { fit, runtimeProxyInfo, sub, subTier, ...rest } =
+  DEFAULT_ASSIGNMENT_RESPONSE;
+const { tokenExpiresInSeconds, ...rpRest } = runtimeProxyInfo;
+const DEFAULT_ASSIGNMENT: Assignment = {
+  ...rest,
+  idleTimeoutSec: fit,
+  subscriptionState: sub,
+  subscriptionTier: subTier,
+  runtimeProxyInfo: {
+    ...rpRest,
+    expirySec: tokenExpiresInSeconds,
   },
 };
 
@@ -45,7 +58,7 @@ describe("ColabClient", () => {
   beforeEach(() => {
     fetchStub = sinon.stub(nodeFetch, "default");
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
-    client = new ColabClient(new URL(DOMAIN), sessionStub);
+    client = new ColabClient(new URL(COLAB_DOMAIN), sessionStub);
   });
 
   afterEach(() => {
@@ -72,7 +85,7 @@ describe("ColabClient", () => {
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
-    await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
+    await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
 
     sinon.assert.calledOnce(fetchStub);
   });
@@ -82,7 +95,7 @@ describe("ColabClient", () => {
       fetchStub
         .withArgs(matchAuthorizedRequest("tun/m/assign", "GET"))
         .resolves(
-          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT)), {
+          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
             status: 200,
           }),
         );
@@ -95,7 +108,7 @@ describe("ColabClient", () => {
     });
 
     it("creates and resolves a new assignment when an existing one does not exist", async () => {
-      const mockGetResponse: GetAssignmentResponse = {
+      const mockGetResponse = {
         acc: Accelerator.A100,
         nbh: NOTEBOOK_HASH,
         p: false,
@@ -116,7 +129,7 @@ describe("ColabClient", () => {
           }),
         )
         .resolves(
-          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT)), {
+          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
             status: 200,
           }),
         );
@@ -134,7 +147,9 @@ describe("ColabClient", () => {
       .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
       .resolves(
         new Response(
-          withXSSI(JSON.stringify({ assignments: [DEFAULT_ASSIGNMENT] })),
+          withXSSI(
+            JSON.stringify({ assignments: [DEFAULT_ASSIGNMENT_RESPONSE] }),
+          ),
           {
             status: 200,
           },
@@ -189,7 +204,7 @@ describe("ColabClient", () => {
       .withArgs(matchAuthorizedRequest("tun/m/foo/keep-alive/", "GET"))
       .resolves(new Response(undefined, { status: 200 }));
 
-    await expect(client.keepAlive("foo")).to.eventually.be.fulfilled;
+    await expect(client.sendKeepAlive("foo")).to.eventually.be.fulfilled;
 
     sinon.assert.calledOnce(fetchStub);
   });
@@ -212,7 +227,7 @@ describe("ColabClient", () => {
       .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
       .resolves(new Response(JSON.stringify(mockResponse), { status: 200 }));
 
-    await expect(client.ccuInfo()).to.eventually.deep.equal(mockResponse);
+    await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
 
     sinon.assert.calledOnce(fetchStub);
   });
@@ -227,7 +242,9 @@ describe("ColabClient", () => {
         }),
       );
 
-    await expect(client.ccuInfo()).to.eventually.be.rejectedWith(/Foo error/);
+    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+      /Foo error/,
+    );
   });
 
   it("rejects invalid JSON responses", async () => {
@@ -235,7 +252,7 @@ describe("ColabClient", () => {
       .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
       .resolves(new Response(withXSSI("not JSON eh?"), { status: 200 }));
 
-    await expect(client.ccuInfo()).to.eventually.be.rejectedWith(
+    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
       /not JSON.+eh\?/,
     );
   });
@@ -252,7 +269,7 @@ describe("ColabClient", () => {
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
-    await expect(client.ccuInfo()).to.eventually.be.rejectedWith(
+    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
       /assignmentsCount.+Required/s,
     );
   });
@@ -263,7 +280,7 @@ describe("ColabClient", () => {
       .withArgs(sinon.match({ signal: abort.signal }))
       .resolves(new Response(undefined, { status: 200 }));
 
-    await expect(client.keepAlive("foo", abort.signal)).to.eventually.be
+    await expect(client.sendKeepAlive("foo", abort.signal)).to.eventually.be
       .fulfilled;
 
     sinon.assert.calledOnce(fetchStub);
@@ -280,7 +297,7 @@ function matchAuthorizedRequest(
   otherHeaders?: Record<string, string>,
 ): SinonMatcher {
   return sinon.match({
-    url: sinon.match(new RegExp(`${DOMAIN}/${endpoint}?.*authuser=0`)),
+    url: sinon.match(new RegExp(`${COLAB_DOMAIN}/${endpoint}?.*authuser=0`)),
     method: sinon.match(method),
     headers: sinon.match(
       (headers: nodeFetch.Headers) =>

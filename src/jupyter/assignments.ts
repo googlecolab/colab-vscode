@@ -59,7 +59,7 @@ export class AssignmentManager implements vscode.Disposable {
    * @returns A list of available server descriptors.
    */
   async getAvailableServerDescriptors(): Promise<ColabServerDescriptor[]> {
-    const ccuInfo = await this.client.ccuInfo();
+    const ccuInfo = await this.client.getCcuInfo();
     const eligibleGpus = new Set(ccuInfo.eligibleGpus);
     const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
     const eligibleTpus = new Set(ccuInfo.eligibleTpus);

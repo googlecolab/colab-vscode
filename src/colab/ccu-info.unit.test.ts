@@ -48,7 +48,7 @@ describe("CcuInformation", () => {
     let ccuInfo: CcuInformationManager;
 
     beforeEach(async () => {
-      clientStub.ccuInfo.resolves(DEFAULT_CCU_INFO);
+      clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
       ccuInfo = await CcuInformationManager.initialize(
         vsCodeStub.asVsCode(),
         clientStub,
@@ -60,24 +60,24 @@ describe("CcuInformation", () => {
     });
 
     it("fetches CCU info on initialization", async () => {
-      sinon.assert.calledOnce(clientStub.ccuInfo);
-      await expect(clientStub.ccuInfo()).to.eventually.deep.equal(
+      sinon.assert.calledOnce(clientStub.getCcuInfo);
+      await expect(clientStub.getCcuInfo()).to.eventually.deep.equal(
         DEFAULT_CCU_INFO,
       );
     });
 
     it("disposes the runner", async () => {
-      clientStub.ccuInfo.resetHistory();
+      clientStub.getCcuInfo.resetHistory();
 
       ccuInfo.dispose();
 
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
-      sinon.assert.notCalled(clientStub.ccuInfo);
+      sinon.assert.notCalled(clientStub.getCcuInfo);
     });
 
     it("aborts slow calls to get CCU info", async () => {
-      clientStub.ccuInfo.resetHistory();
-      clientStub.ccuInfo.onFirstCall().callsFake(
+      clientStub.getCcuInfo.resetHistory();
+      clientStub.getCcuInfo.onFirstCall().callsFake(
         // eslint-disable-next-line @typescript-eslint/no-empty-function
         async () => new Promise(() => {}),
       );
@@ -85,8 +85,8 @@ describe("CcuInformation", () => {
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
       await fakeClock.tickAsync(TASK_TIMEOUT_MS + 1);
 
-      sinon.assert.calledOnce(clientStub.ccuInfo);
-      expect(clientStub.ccuInfo.firstCall.args[0]?.aborted).to.be.true;
+      sinon.assert.calledOnce(clientStub.getCcuInfo);
+      expect(clientStub.getCcuInfo.firstCall.args[0]?.aborted).to.be.true;
     });
   });
 
@@ -95,20 +95,20 @@ describe("CcuInformation", () => {
     let onDidChangeCcuInfo: sinon.SinonStub<[]>;
 
     beforeEach(async () => {
-      clientStub.ccuInfo.resolves(DEFAULT_CCU_INFO);
+      clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
       ccuInfo = await CcuInformationManager.initialize(
         vsCodeStub.asVsCode(),
         clientStub,
       );
       onDidChangeCcuInfo = sinon.stub();
       ccuInfo.onDidChangeCcuInfo(onDidChangeCcuInfo);
-      clientStub.ccuInfo.resetHistory();
+      clientStub.getCcuInfo.resetHistory();
     });
 
     it("does not emit an event", async () => {
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
-      sinon.assert.calledOnce(clientStub.ccuInfo);
+      sinon.assert.calledOnce(clientStub.getCcuInfo);
       sinon.assert.notCalled(onDidChangeCcuInfo);
     });
 
@@ -131,22 +131,22 @@ describe("CcuInformation", () => {
     let onDidChangeCcuInfo: sinon.SinonStub<[]>;
 
     beforeEach(async () => {
-      clientStub.ccuInfo.onFirstCall().resolves(DEFAULT_CCU_INFO);
+      clientStub.getCcuInfo.onFirstCall().resolves(DEFAULT_CCU_INFO);
       ccuInfo = await CcuInformationManager.initialize(
         vsCodeStub.asVsCode(),
         clientStub,
       );
       onDidChangeCcuInfo = sinon.stub();
       ccuInfo.onDidChangeCcuInfo(onDidChangeCcuInfo);
-      clientStub.ccuInfo.resetHistory();
-      clientStub.ccuInfo.onFirstCall().resolves(newCcuInfo);
+      clientStub.getCcuInfo.resetHistory();
+      clientStub.getCcuInfo.onFirstCall().resolves(newCcuInfo);
     });
 
     it("emits an event", async () => {
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
       sinon.assert.calledOnce(onDidChangeCcuInfo);
-      sinon.assert.calledOnce(clientStub.ccuInfo);
+      sinon.assert.calledOnce(clientStub.getCcuInfo);
     });
 
     it("gets the CCU info", async () => {

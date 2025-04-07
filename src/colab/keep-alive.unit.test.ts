@@ -91,7 +91,7 @@ describe("ServerKeepAliveController", () => {
       serverKeepAliveController.dispose();
 
       await tickPast(CONFIG.keepAliveIntervalMs);
-      sinon.assert.notCalled(colabClientStub.keepAlive);
+      sinon.assert.notCalled(colabClientStub.sendKeepAlive);
     });
 
     it("skips when a keep-alive is already in flight", async () => {
@@ -99,7 +99,7 @@ describe("ServerKeepAliveController", () => {
       colabClientStub.listKernels
         .withArgs(defaultServer.endpoint)
         .resolves([DEFAULT_KERNEL]);
-      colabClientStub.keepAlive.callsFake(ABORTING_KEEP_ALIVE);
+      colabClientStub.sendKeepAlive.callsFake(ABORTING_KEEP_ALIVE);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -115,7 +115,7 @@ describe("ServerKeepAliveController", () => {
       await tickPast(CONFIG.keepAliveIntervalMs);
       await tickPast(CONFIG.keepAliveIntervalMs);
 
-      sinon.assert.calledOnce(colabClientStub.keepAlive);
+      sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
     });
 
     it("aborts slow keep-alive attempts", async () => {
@@ -123,7 +123,9 @@ describe("ServerKeepAliveController", () => {
       colabClientStub.listKernels
         .withArgs(defaultServer.endpoint)
         .resolves([DEFAULT_KERNEL]);
-      colabClientStub.keepAlive.onFirstCall().callsFake(ABORTING_KEEP_ALIVE);
+      colabClientStub.sendKeepAlive
+        .onFirstCall()
+        .callsFake(ABORTING_KEEP_ALIVE);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -134,8 +136,9 @@ describe("ServerKeepAliveController", () => {
       await tickPast(CONFIG.keepAliveIntervalMs);
       await tickPast(CONFIG.keepAliveIntervalMs * 0.99);
 
-      sinon.assert.calledOnce(colabClientStub.keepAlive);
-      expect(colabClientStub.keepAlive.firstCall.args[1]?.aborted).to.be.true;
+      sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
+      expect(colabClientStub.sendKeepAlive.firstCall.args[1]?.aborted).to.be
+        .true;
     });
   });
 
@@ -153,7 +156,7 @@ describe("ServerKeepAliveController", () => {
 
       sinon.assert.calledOnce(assignmentStub.getAssignedServers);
       sinon.assert.notCalled(colabClientStub.listKernels);
-      sinon.assert.notCalled(colabClientStub.keepAlive);
+      sinon.assert.notCalled(colabClientStub.sendKeepAlive);
     });
   });
 
@@ -174,9 +177,9 @@ describe("ServerKeepAliveController", () => {
     it("sends a keep-alive request", async () => {
       await tickPast(CONFIG.keepAliveIntervalMs);
 
-      sinon.assert.calledOnce(colabClientStub.keepAlive);
+      sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
       sinon.assert.calledWith(
-        colabClientStub.keepAlive,
+        colabClientStub.sendKeepAlive,
         defaultServer.endpoint,
       );
     });
@@ -264,7 +267,7 @@ describe("ServerKeepAliveController", () => {
       });
 
       it("does not send keep-alive requests", () => {
-        sinon.assert.notCalled(colabClientStub.keepAlive);
+        sinon.assert.notCalled(colabClientStub.sendKeepAlive);
       });
 
       it("does not prompt for extension again", async () => {
@@ -275,11 +278,11 @@ describe("ServerKeepAliveController", () => {
         await tickPast(CONFIG.idleExtensionMs);
 
         sinon.assert.notCalled(vsCodeStub.window.withProgress);
-        sinon.assert.notCalled(colabClientStub.keepAlive);
+        sinon.assert.notCalled(colabClientStub.sendKeepAlive);
       });
 
       it("starts sending keep-alive requests when used again", async () => {
-        sinon.assert.notCalled(colabClientStub.keepAlive);
+        sinon.assert.notCalled(colabClientStub.sendKeepAlive);
         const activeKernel: Kernel = {
           ...idleKernel,
           lastActivity: NOW.toString(),
@@ -290,7 +293,7 @@ describe("ServerKeepAliveController", () => {
 
         await tickPast(CONFIG.keepAliveIntervalMs);
 
-        sinon.assert.calledOnce(colabClientStub.keepAlive);
+        sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
       });
     });
 
@@ -305,7 +308,7 @@ describe("ServerKeepAliveController", () => {
 
       it("sends a keep-alive request", () => {
         // Once before the extension prompt, and once after.
-        sinon.assert.calledTwice(colabClientStub.keepAlive);
+        sinon.assert.calledTwice(colabClientStub.sendKeepAlive);
       });
 
       describe("and then uses", () => {
@@ -323,7 +326,7 @@ describe("ServerKeepAliveController", () => {
         it("sends a keep-alive request", () => {
           // Once before the extension prompt, once after and again after using
           // the kernel.
-          sinon.assert.calledThrice(colabClientStub.keepAlive);
+          sinon.assert.calledThrice(colabClientStub.sendKeepAlive);
         });
 
         it("does not prompt to keep it running", () => {
@@ -432,22 +435,25 @@ describe("ServerKeepAliveController", () => {
       // The prompt is cancelled on the third call (after 3 seconds).
       await tickPast(ONE_SECOND_MS * 3);
 
-      sinon.assert.calledThrice(colabClientStub.keepAlive);
+      sinon.assert.calledThrice(colabClientStub.sendKeepAlive);
       sinon.assert.calledWith(
-        colabClientStub.keepAlive,
+        colabClientStub.sendKeepAlive,
         active1.server.endpoint,
       );
       sinon.assert.calledWith(
-        colabClientStub.keepAlive,
+        colabClientStub.sendKeepAlive,
         active2.server.endpoint,
       );
-      sinon.assert.calledWith(colabClientStub.keepAlive, idle1.server.endpoint);
+      sinon.assert.calledWith(
+        colabClientStub.sendKeepAlive,
+        idle1.server.endpoint,
+      );
     });
 
     // This is important to validate that keep-alive requests continue to get
     // sent to all servers, even if one is failing.
     it("swallows keep-alive failures", async () => {
-      colabClientStub.keepAlive.withArgs(active1.server.endpoint).rejects();
+      colabClientStub.sendKeepAlive.withArgs(active1.server.endpoint).rejects();
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -456,13 +462,13 @@ describe("ServerKeepAliveController", () => {
       );
       await tickPast(CONFIG.keepAliveIntervalMs);
 
-      sinon.assert.calledTwice(colabClientStub.keepAlive);
+      sinon.assert.calledTwice(colabClientStub.sendKeepAlive);
       sinon.assert.calledWith(
-        colabClientStub.keepAlive,
+        colabClientStub.sendKeepAlive,
         active1.server.endpoint,
       );
       sinon.assert.calledWith(
-        colabClientStub.keepAlive,
+        colabClientStub.sendKeepAlive,
         active2.server.endpoint,
       );
     });
@@ -491,9 +497,9 @@ describe("ServerKeepAliveController", () => {
       );
       await tickPast(CONFIG.keepAliveIntervalMs);
 
-      sinon.assert.calledOnce(colabClientStub.keepAlive);
+      sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
       sinon.assert.calledWith(
-        colabClientStub.keepAlive,
+        colabClientStub.sendKeepAlive,
         defaultServer.endpoint,
       );
     });
@@ -523,7 +529,7 @@ describe("ServerKeepAliveController", () => {
       );
       await tickPast(CONFIG.keepAliveIntervalMs);
 
-      sinon.assert.notCalled(colabClientStub.keepAlive);
+      sinon.assert.notCalled(colabClientStub.sendKeepAlive);
     });
   });
 });

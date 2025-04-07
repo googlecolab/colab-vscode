@@ -31,13 +31,14 @@ const defaultAssignmentDescriptor: ColabServerDescriptor = {
 const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
   accelerator: Accelerator.A100,
   endpoint: "m-s-foo",
-  sub: SubscriptionState.UNSUBSCRIBED,
-  subTier: SubscriptionTier.UNKNOWN_TIER,
+  idleTimeoutSec: 30,
+  subscriptionState: SubscriptionState.UNSUBSCRIBED,
+  subscriptionTier: SubscriptionTier.UNKNOWN_TIER,
   variant: Variant.GPU,
   machineShape: Shape.STANDARD,
   runtimeProxyInfo: {
     token: "mock-token",
-    tokenExpiresInSeconds: 42,
+    expirySec: 42,
     url: "https://example.com",
   },
 };
@@ -80,7 +81,7 @@ describe("AssignmentManager", () => {
 
   describe("getAvailableServerDescriptors", () => {
     it("returns all colab servers when all are eligible", async () => {
-      colabClientStub.ccuInfo.resolves({
+      colabClientStub.getCcuInfo.resolves({
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 0,
@@ -97,11 +98,11 @@ describe("AssignmentManager", () => {
       const servers = await assignmentManager.getAvailableServerDescriptors();
 
       expect(servers).to.deep.equal(Array.from(COLAB_SERVERS));
-      sinon.assert.calledOnce(colabClientStub.ccuInfo);
+      sinon.assert.calledOnce(colabClientStub.getCcuInfo);
     });
 
     it("filters to only eligible servers", async () => {
-      colabClientStub.ccuInfo.resolves({
+      colabClientStub.getCcuInfo.resolves({
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 0,
@@ -123,11 +124,11 @@ describe("AssignmentManager", () => {
           server.accelerator !== Accelerator.V5E1,
       );
       expect(servers).to.deep.equal(expectedServers);
-      sinon.assert.calledOnce(colabClientStub.ccuInfo);
+      sinon.assert.calledOnce(colabClientStub.getCcuInfo);
     });
 
     it("filters out ineligible servers", async () => {
-      colabClientStub.ccuInfo.resolves({
+      colabClientStub.getCcuInfo.resolves({
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 0,
@@ -149,7 +150,7 @@ describe("AssignmentManager", () => {
           server.accelerator !== Accelerator.V5E1,
       );
       expect(servers).to.deep.equal(expectedServers);
-      sinon.assert.calledOnce(colabClientStub.ccuInfo);
+      sinon.assert.calledOnce(colabClientStub.getCcuInfo);
     });
   });
 
