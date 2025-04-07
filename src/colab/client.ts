@@ -39,7 +39,7 @@ export class ColabClient {
 
   constructor(
     private readonly domain: URL,
-    private accessToken: () => Promise<string>,
+    private readonly getAccessToken: () => Promise<string>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
@@ -201,7 +201,7 @@ export class ColabClient {
     schema?: T,
   ): Promise<z.infer<T>> {
     endpoint.searchParams.append("authuser", "0");
-    const token = await this.accessToken();
+    const token = await this.getAccessToken();
     const requestHeaders = new fetch.Headers(init.headers);
     requestHeaders.set("Accept", "application/json");
     requestHeaders.set("Authorization", `Bearer ${token}`);

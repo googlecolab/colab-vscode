@@ -22,8 +22,8 @@ const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
  * Registers itself with the VS Code authentication API and emits events when
  * authentication sessions change.
  *
- * Access tokens for sessions are refreshed JIT when they are accessed when they
- * are close to, or past, their expiry.
+ * Session access tokens are refreshed JIT upon access if they are near or past
+ * their expiry.
  */
 export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
@@ -31,7 +31,7 @@ export class GoogleAuthProvider
   readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
   private readonly authProvider: vscode.Disposable;
   private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
-  private session: AuthenticationSession | undefined;
+  private session?: Readonly<AuthenticationSession>;
   private isInitialized = false;
 
   /**
@@ -122,6 +122,8 @@ export class GoogleAuthProvider
 
   /**
    * Get the list of managed sessions.
+   *
+   * The session's access token is refreshed if it is near or past its expiry.
    *
    * @param scopes - An optional array of scopes. If provided, the sessions
    * returned will match these permissions. Otherwise, all sessions are
@@ -337,9 +339,7 @@ export class GoogleAuthProvider
 
   private assertInitialized(): void {
     if (!this.isInitialized) {
-      throw new Error(
-        `${this.constructor.name} has not been initialized. Call initialize() first.`,
-      );
+      throw new Error(`Must call initialize() first.`);
     }
   }
 }

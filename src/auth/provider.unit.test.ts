@@ -117,6 +117,9 @@ describe("GoogleAuthProvider", () => {
   describe("lifecycle", () => {
     it('registers the "Google" authentication provider', async () => {
       await authProvider.initialize();
+      // Expect the provider-specific rejection surrounding the scopes not
+      // matching the required set. This validates that the provider was
+      // registered and is being used.
       await expect(
         vsCodeStub.authentication.getSession(PROVIDER_ID, [
           "make",
@@ -137,13 +140,13 @@ describe("GoogleAuthProvider", () => {
     it("is not functional until initialized", async () => {
       await expect(
         authProvider.getSessions(undefined, {}),
-      ).to.eventually.be.rejectedWith(/Call initialize/);
+      ).to.eventually.be.rejectedWith(/call initialize/);
       await expect(
         authProvider.createSession([]),
-      ).to.eventually.be.rejectedWith(/Call initialize/);
+      ).to.eventually.be.rejectedWith(/call initialize/);
       await expect(
         authProvider.removeSession(""),
-      ).to.eventually.be.rejectedWith(/Call initialize/);
+      ).to.eventually.be.rejectedWith(/call initialize/);
     });
 
     describe("initialize", () => {
@@ -340,9 +343,7 @@ describe("GoogleAuthProvider", () => {
           const externalCallbackUri = `vscode://google.colab?nonce%3D${nonce}%26windowId%3D1`;
           vsCodeStub.env.asExternalUri
             .withArgs(matchUri(callbackUri))
-            .callsFake((_uri) =>
-              Promise.resolve(vsCodeStub.Uri.parse(externalCallbackUri)),
-            );
+            .resolves(vsCodeStub.Uri.parse(externalCallbackUri));
           return Promise.resolve(code);
         });
     });
@@ -384,9 +385,7 @@ describe("GoogleAuthProvider", () => {
     });
 
     function matchUri(regExp: RegExp) {
-      return sinon.match((uri: vscode.Uri) => {
-        return regExp.test(uri.toString());
-      });
+      return sinon.match((uri: vscode.Uri) => regExp.test(uri.toString()));
     }
 
     describe("with a successful login", () => {
