@@ -345,3 +345,18 @@ export const KernelSchema = z
   }));
 /** A Colab Jupyter kernel. */
 export type Kernel = z.infer<typeof KernelSchema>;
+
+/** A session to a Colab Jupyter kernel returned from the Colab API. */
+export const SessionSchema = z.object({
+  /** The UUID of the session. */
+  id: z.string(),
+  /** The kernel associated with the session. */
+  kernel: KernelSchema,
+  /** The name of the session. */
+  name: z.string(),
+  /** The path to the session. */
+  path: z.string(),
+  /** The session type. */
+  type: z.string(),
+});
+export type Session = z.infer<typeof SessionSchema>;

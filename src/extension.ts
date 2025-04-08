@@ -81,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
     vscode.commands.registerCommand(
       "colab.removeServer",
-      () => void removeServer(vscode, serverStorage, assignmentManager),
+      () => void removeServer(vscode, assignmentManager),
     ),
   );
 }

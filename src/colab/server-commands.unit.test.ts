@@ -152,15 +152,14 @@ describe("Server Commands", () => {
   describe("removeServer", () => {
     it("lists assigned servers for selection", async () => {
       const additionalServer = { ...defaultServer, label: "bar" };
-      const serverStorageStub: SinonStubbedInstance<ServerStorage> =
-        sinon.createStubInstance(ServerStorage, {
-          list: Promise.resolve([defaultServer, additionalServer]),
+      const assignmentManagerStub: SinonStubbedInstance<AssignmentManager> =
+        sinon.createStubInstance(AssignmentManager, {
+          getAssignedServers: Promise.resolve([
+            defaultServer,
+            additionalServer,
+          ]),
         });
-      void removeServer(
-        vsCodeStub.asVsCode(),
-        serverStorageStub,
-        sinon.createStubInstance(AssignmentManager),
-      );
+      void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
       await quickPickStub.nextShow();
       expect(quickPickStub.items).to.eql([
         { label: defaultServer.label, value: defaultServer },
@@ -169,20 +168,13 @@ describe("Server Commands", () => {
     });
 
     it("unassigns the selected server", async () => {
-      const serverStorageStub: SinonStubbedInstance<ServerStorage> =
-        sinon.createStubInstance(ServerStorage, {
-          list: Promise.resolve([defaultServer]),
-        });
       const assignmentManagerStub: SinonStubbedInstance<AssignmentManager> =
         sinon.createStubInstance(AssignmentManager, {
+          getAssignedServers: Promise.resolve([defaultServer]),
           unassignServer: Promise.resolve(),
         });
 
-      const remove = removeServer(
-        vsCodeStub.asVsCode(),
-        serverStorageStub,
-        assignmentManagerStub,
-      );
+      const remove = removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
       await quickPickStub.nextShow();
       quickPickStub.onDidChangeSelection.yield([
         { label: defaultServer.label, value: defaultServer },
