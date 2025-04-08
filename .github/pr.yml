@@ -3,11 +3,6 @@
 name: Pull Request Pre-Merge Checks
 
 on:
-  check_run:
-    types: [requested_action]
-  push:
-    branches:
-      - main
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches:
