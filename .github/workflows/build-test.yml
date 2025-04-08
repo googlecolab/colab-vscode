@@ -1,6 +1,8 @@
 # Modular build and test workflow
 
-on: workflow_call
+on:
+  - workflow_call
+  - workflow_dispatch
 
 env:
   # See supported Node.js release schedule at https://nodejs.org/en/about/releases
