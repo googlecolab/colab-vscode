@@ -71,7 +71,7 @@ describe("ColabClient", () => {
   });
 
   it("successfully gets CCU info", async () => {
-    // expect(false).to.be.true;
+    expect(false).to.be.true;
     const mockResponse: CcuInfo = {
       currentBalance: 1,
       consumptionRateHourly: 2,
