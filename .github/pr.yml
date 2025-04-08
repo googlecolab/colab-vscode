@@ -1,0 +1,19 @@
+# For PRs.
+
+name: Pull Request Pre-Merge Checks
+
+on:
+  check_run:
+    types: [requested_action]
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches:
+      - main
+
+jobs:
+  call_build_and_test:
+    name: Build and Test
+    uses: ./.github/workflows/build-test.yml
