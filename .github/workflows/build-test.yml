@@ -1,8 +1,13 @@
 # Modular build and test workflow
 
 on:
-  - workflow_call
-  - workflow_dispatch
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches:
+      - main
 
 env:
   # See supported Node.js release schedule at https://nodejs.org/en/about/releases
