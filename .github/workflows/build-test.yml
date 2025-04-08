@@ -1,6 +1,9 @@
-# Modular build and test workflow
+# For PRs.
 
-on: workflow_call
+name: Build and Test
+
+on:
+  workflow_call:
 
 env:
   # See supported Node.js release schedule at https://nodejs.org/en/about/releases

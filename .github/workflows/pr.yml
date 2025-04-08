@@ -1,8 +1,9 @@
-# For PRs.
-
-name: Pull Request Pre-Merge Checks
+name: PR Pre-Merge Checks
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     types: [opened, synchronize, reopened, edited]
     branches:
