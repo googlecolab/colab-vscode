@@ -1,7 +1,5 @@
 # Modular build and test workflow
 
-name: Build and Test
-
 on: workflow_call
 
 env:
