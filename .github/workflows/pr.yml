@@ -1,0 +1,23 @@
+# For PRs.
+
+name: Pull Request Pre-Merge Checks
+
+on:
+  check_run:
+    types: [requested_action]
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches:
+      - main
+
+jobs:
+  call_build_and_test:
+    name: Build and Test
+    # The "edited" event is noisy (e.g. triggered when the PR title changes).
+    # For these events, we only want to kick off the workflow if the base ref
+    # was changed.
+    if: github.event.action != 'edited' || github.event.changes.base.ref
+    uses: ./.github/workflows/build-test.yml

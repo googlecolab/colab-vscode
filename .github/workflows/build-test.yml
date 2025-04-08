@@ -1,15 +1,6 @@
-# For PRs.
+# Modular build and test workflow
 
-name: Build and Test
-
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened, edited]
-    branches:
-      - main
+on: workflow_call
 
 env:
   # See supported Node.js release schedule at https://nodejs.org/en/about/releases
@@ -18,7 +9,6 @@ env:
 jobs:
   lint:
     name: Lint
-    if: github.event.action != 'edited' || github.event.changes.base.ref
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +28,6 @@ jobs:
 
   unitTests:
     name: Unit Tests
-    if: github.event.action != 'edited' || github.event.changes.base.ref
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +41,6 @@ jobs:
 
   vsCodeTests:
     name: VS Code Integration Tests
-    if: github.event.action != 'edited' || github.event.changes.base.ref
     strategy:
       matrix:
         # macos-latest and windows-latest can be added as we work towards a release.
