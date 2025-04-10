@@ -185,7 +185,9 @@ describe("ColabClient", () => {
         }),
       )
       .resolves(new Response(undefined, { status: 200 }));
+
     await expect(client.unassign(endpoint)).to.eventually.be.fulfilled;
+
     sinon.assert.calledTwice(fetchStub);
   });
 
@@ -265,9 +267,11 @@ describe("ColabClient", () => {
       path: "mock-path",
       type: "notebook",
     };
+
     await expect(client.listSessions(endpoint)).to.eventually.deep.equal([
       session,
     ]);
+
     sinon.assert.calledOnce(fetchStub);
   });
 
@@ -282,8 +286,10 @@ describe("ColabClient", () => {
         ),
       )
       .resolves(new Response(undefined, { status: 200 }));
+
     await expect(client.deleteSession(endpoint, sessionId)).to.eventually.be
       .fulfilled;
+
     sinon.assert.calledOnce(fetchStub);
   });
 

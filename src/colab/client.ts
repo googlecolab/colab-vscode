@@ -189,13 +189,17 @@ export class ColabClient {
    * @param endpoint - The endpoint to delete the session from.
    * @param sessionId - The ID of the session to delete.
    */
-  async deleteSession(endpoint: string, sessionId: string) {
+  async deleteSession(
+    endpoint: string,
+    sessionId: string,
+    signal?: AbortSignal,
+  ) {
     return await this.issueRequest(
       new URL(
         `${TUN_ENDPOINT}/${endpoint}/api/sessions/${sessionId}`,
         this.domain,
       ),
-      { method: "DELETE" },
+      { method: "DELETE", signal },
     );
   }
 

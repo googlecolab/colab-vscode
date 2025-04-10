@@ -470,34 +470,29 @@ describe("AssignmentManager", () => {
 
       it("does not list sessions", async () => {
         await assignmentManager.unassignServer(defaultServer);
+
         sinon.assert.notCalled(colabClientStub.listSessions);
       });
 
       it("does not unassign the server", async () => {
         await assignmentManager.unassignServer(defaultServer);
+
         sinon.assert.notCalled(colabClientStub.unassign);
       });
 
       it("does not emit an assignment change event", async () => {
         const listener = sinon.stub();
         assignmentManager.onDidAssignmentsChange(listener);
+
         await assignmentManager.unassignServer(defaultServer);
-        sinon.assert.notCalled(colabClientStub.unassign);
+
+        sinon.assert.notCalled(listener);
       });
     });
 
     describe("when the server does exist", () => {
       beforeEach(() => {
         storageStub.remove.resolves(true);
-      });
-
-      it("lists sessions", async () => {
-        colabClientStub.listSessions.resolves([]);
-        await assignmentManager.unassignServer(defaultServer);
-        sinon.assert.calledOnceWithExactly(
-          colabClientStub.listSessions,
-          defaultServer.endpoint,
-        );
       });
 
       it("deletes sessions", async () => {
@@ -519,7 +514,9 @@ describe("AssignmentManager", () => {
           id: "mock-session-id-2",
         };
         colabClientStub.listSessions.resolves([session1, session2]);
+
         await assignmentManager.unassignServer(defaultServer);
+
         sinon.assert.calledTwice(colabClientStub.deleteSession);
         sinon.assert.calledWith(
           colabClientStub.deleteSession,
@@ -535,13 +532,17 @@ describe("AssignmentManager", () => {
 
       it("does not delete sessions when there are none", async () => {
         colabClientStub.listSessions.resolves([]);
+
         await assignmentManager.unassignServer(defaultServer);
+
         sinon.assert.notCalled(colabClientStub.deleteSession);
       });
 
       it("unassigns the server", async () => {
         colabClientStub.listSessions.resolves([]);
+
         await assignmentManager.unassignServer(defaultServer);
+
         sinon.assert.calledOnceWithExactly(
           colabClientStub.unassign,
           defaultServer.endpoint,
@@ -553,7 +554,9 @@ describe("AssignmentManager", () => {
         const listener = sinon.stub();
         assignmentManager.onDidAssignmentsChange(listener);
         colabClientStub.unassign.resolves();
+
         await assignmentManager.unassignServer(defaultServer);
+
         sinon.assert.calledOnce(listener);
       });
     });
