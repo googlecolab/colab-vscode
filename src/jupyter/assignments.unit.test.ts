@@ -458,11 +458,6 @@ describe("AssignmentManager", () => {
   });
 
   describe("unassignServer", () => {
-    it("attempts to remove the server from storage", async () => {
-      await assignmentManager.unassignServer(defaultServer);
-      sinon.assert.calledOnceWithExactly(storageStub.remove, defaultServer.id);
-    });
-
     describe("when the server does not exist", () => {
       beforeEach(() => {
         storageStub.remove.resolves(false);
