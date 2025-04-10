@@ -125,7 +125,10 @@ export class ColabClient {
    * @param endpoint - The endpoint to unassign.
    */
   async unassign(endpoint: string, signal?: AbortSignal): Promise<void> {
-    const url = new URL(`${TUN_ENDPOINT}/unassign/${endpoint}`, this.domain);
+    const url = new URL(
+      `${TUN_ENDPOINT}/unassign/${endpoint}`,
+      this.colabDomain,
+    );
     const { token } = await this.issueRequest(
       url,
       { method: "GET", signal },
@@ -177,7 +180,7 @@ export class ColabClient {
     signal?: AbortSignal,
   ): Promise<Session[]> {
     return await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/${endpoint}/api/sessions`, this.domain),
+      new URL(`${TUN_ENDPOINT}/${endpoint}/api/sessions`, this.colabDomain),
       { method: "GET", signal },
       z.array(SessionSchema),
     );
@@ -197,7 +200,7 @@ export class ColabClient {
     return await this.issueRequest(
       new URL(
         `${TUN_ENDPOINT}/${endpoint}/api/sessions/${sessionId}`,
-        this.domain,
+        this.colabDomain,
       ),
       { method: "DELETE", signal },
     );
