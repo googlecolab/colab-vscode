@@ -36,7 +36,19 @@
         "command": "colab.removeServer",
         "title": "Remove Server"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "colab.renameServerAlias",
+          "when": "colab.hasAssignedServer"
+        },
+        {
+          "command": "colab.removeServer",
+          "when": "colab.hasAssignedServer"
+        }
+      ]
+    }
   },
   "main": "./out/extension.js",
   "scripts": {

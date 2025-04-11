@@ -9,7 +9,6 @@ import { PROMPT_SERVER_ALIAS, validateServerAlias } from "./server-picker";
  * assigned Colab server.
  */
 // TODO: Consider adding a notification that the rename was successful.
-// TODO: Add constraint for when there are no servers assigned.
 export async function renameServerAlias(
   vs: typeof vscode,
   serverStorage: ServerStorage,
@@ -53,7 +52,6 @@ export async function renameServerAlias(
 // removed, a fallback kernel is selected but does not connect.
 // TODO: Consider adding a notification that the server was removed.
 // TODO: Update MultiStepInput to handle a single-step case.
-// TODO: Add constraint for when there are no servers assigned.
 export async function removeServer(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,

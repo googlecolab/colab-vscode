@@ -626,6 +626,48 @@ describe("AssignmentManager", () => {
       sinon.assert.calledOnce(listener);
     });
   });
+
+  describe("onDidAssignmentsChange", () => {
+    it("sets context when servers are assigned", async () => {
+      colabClientStub.listAssignments.resolves([defaultAssignment]);
+      const removedServer = { ...defaultServer, endpoint: "m-s-bar" };
+      storageStub.list
+        .onFirstCall()
+        .resolves([defaultServer, removedServer])
+        .onSecondCall()
+        .resolves([defaultServer]);
+
+      await assignmentManager.reconcileAssignedServers();
+
+      storageStub.store.calledOnceWithExactly([defaultServer]);
+      sinon.assert.calledOnceWithExactly(
+        vsCodeStub.commands.executeCommand,
+        "setContext",
+        "colab.hasAssignedServer",
+        true,
+      );
+    });
+
+    it("sets context when no servers are assigned", async () => {
+      colabClientStub.listAssignments.resolves([]);
+      const removedServer = defaultServer;
+      storageStub.list
+        .onFirstCall()
+        .resolves([removedServer])
+        .onSecondCall()
+        .resolves([]);
+
+      await assignmentManager.reconcileAssignedServers();
+
+      storageStub.store.calledOnceWithExactly([]);
+      sinon.assert.calledOnceWithExactly(
+        vsCodeStub.commands.executeCommand,
+        "setContext",
+        "colab.hasAssignedServer",
+        false,
+      );
+    });
+  });
 });
 
 function serverWithoutFetch(server: ColabAssignedServer): ColabAssignedServer {

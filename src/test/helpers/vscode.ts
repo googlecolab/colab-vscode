@@ -28,6 +28,11 @@ export interface VsCodeStub {
   Uri: typeof TestUri;
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
+  commands: {
+    executeCommand: sinon.SinonStubbedMember<
+      typeof vscode.commands.executeCommand
+    >;
+  };
   env: {
     uriScheme: "vscode";
     openExternal: sinon.SinonStubbedMember<typeof vscode.env.openExternal>;
@@ -75,6 +80,9 @@ export function newVsCodeStub(): VsCodeStub {
     asVsCode: function (): typeof vscode {
       return {
         ...this,
+        commands: { ...this.commands } as Partial<
+          typeof vscode.commands
+        > as typeof vscode.commands,
         env: { ...this.env } as Partial<typeof vscode.env> as typeof vscode.env,
         window: { ...this.window } as Partial<
           typeof vscode.window
@@ -101,6 +109,9 @@ export function newVsCodeStub(): VsCodeStub {
     Uri: TestUri,
     CancellationTokenSource: TestCancellationTokenSource,
     EventEmitter: TestEventEmitter,
+    commands: {
+      executeCommand: sinon.stub(),
+    },
     env: {
       uriScheme: "vscode",
       openExternal: sinon.stub(),

@@ -56,6 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
     serverStorage,
   );
   await assignmentManager.reconcileAssignedServers();
+  await assignmentManager.setHasAssignedServerContext();
 
   const keepAlive = new ServerKeepAliveController(
     vscode,

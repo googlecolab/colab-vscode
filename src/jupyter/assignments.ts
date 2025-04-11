@@ -39,6 +39,7 @@ export class AssignmentManager implements vscode.Disposable {
   onDidAssignmentsChange: vscode.Event<void>;
 
   private readonly assignmentsChange: vscode.EventEmitter<void>;
+  private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
     private readonly vs: typeof vscode,
@@ -46,11 +47,19 @@ export class AssignmentManager implements vscode.Disposable {
     private readonly storage: ServerStorage,
   ) {
     this.assignmentsChange = new vs.EventEmitter<void>();
+    this.disposables.push(this.assignmentsChange);
     this.onDidAssignmentsChange = this.assignmentsChange.event;
+    this.onDidAssignmentsChange(
+      () => this.setHasAssignedServerContext(),
+      this,
+      this.disposables,
+    );
   }
 
   dispose() {
-    this.assignmentsChange.dispose();
+    for (const disposable of this.disposables) {
+      disposable.dispose();
+    }
   }
 
   /**
@@ -156,6 +165,18 @@ export class AssignmentManager implements vscode.Disposable {
     server: ColabJupyterServer,
   ): Promise<ColabAssignedServer> {
     return this.assignOrRefresh(server);
+  }
+
+  /**
+   * Sets a context key indicating whether or not the user has at least one
+   * assigned server originating from VS Code.
+   */
+  async setHasAssignedServerContext(): Promise<void> {
+    this.vs.commands.executeCommand(
+      "setContext",
+      "colab.hasAssignedServer",
+      (await this.storage.list()).length > 0,
+    );
   }
 
   /**
