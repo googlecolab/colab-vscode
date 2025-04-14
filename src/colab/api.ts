@@ -167,10 +167,6 @@ export const UserInfoSchema = z.object({
     )
     .optional(),
 });
-/**
- * Top level information about a user's tier, usage and availability in Colab.
- */
-export type UserInfo = z.infer<typeof UserInfoSchema>;
 
 /** The schema of Colab Compute Units (CCU) information. */
 export const CcuInfoSchema = z.object({

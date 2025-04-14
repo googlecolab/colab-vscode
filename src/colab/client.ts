@@ -17,8 +17,8 @@ import {
   Kernel,
   SessionSchema,
   Session,
-  UserInfo,
   UserInfoSchema,
+  SubscriptionTier,
 } from "./api";
 
 const XSSI_PREFIX = ")]}'\n";
@@ -54,16 +54,17 @@ export class ColabClient {
   }
 
   /**
-   * Gets the user's usage information.
+   * Gets the user's subscription tier.
    *
-   * @returns The user's current usage information.
+   * @returns The user's subscription tier.
    */
-  async getUserInfo(): Promise<UserInfo> {
-    return this.issueRequest(
+  async getSubscriptionTier(signal?: AbortSignal): Promise<SubscriptionTier> {
+    const userInfo = await this.issueRequest(
       new URL("v1/user-info", this.colabGapiDomain),
-      { method: "GET" },
+      { method: "GET", signal },
       UserInfoSchema,
     );
+    return userInfo.subscriptionTier;
   }
 
   /**

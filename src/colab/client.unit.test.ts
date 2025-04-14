@@ -71,6 +71,34 @@ describe("ColabClient", () => {
     sinon.restore();
   });
 
+  it("successfully gets the subscription tier", async () => {
+    const mockResponse = {
+      subscriptionTier: "SUBSCRIPTION_TIER_NONE",
+      paidComputeUnitsBalance: 0,
+      eligibleAccelerators: [
+        { variant: "VARIANT_GPU", models: [Accelerator.T4] },
+      ],
+    };
+    fetchStub
+      .withArgs(
+        matchAuthorizedRequest(
+          `${GOOGLE_APIS_DOMAIN}/v1/user-info`,
+          "GET",
+          undefined,
+          false,
+        ),
+      )
+      .resolves(
+        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+      );
+
+    await expect(client.getSubscriptionTier()).to.eventually.deep.equal(
+      SubscriptionTier.NONE,
+    );
+
+    sinon.assert.calledOnce(fetchStub);
+  });
+
   it("successfully gets CCU info", async () => {
     const mockResponse: CcuInfo = {
       currentBalance: 1,
@@ -86,7 +114,7 @@ describe("ColabClient", () => {
       },
     };
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
@@ -99,7 +127,7 @@ describe("ColabClient", () => {
   describe("assignment", () => {
     it("resolves an existing assignment", async () => {
       fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/assign", "GET"))
+        .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
         .resolves(
           new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
             status: 200,
@@ -122,7 +150,7 @@ describe("ColabClient", () => {
         variant: Variant.DEFAULT,
       };
       fetchStub
-        .withArgs(matchAuthorizedRequest("tun/m/assign", "GET"))
+        .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
         .resolves(
           new Response(withXSSI(JSON.stringify(mockGetResponse)), {
             status: 200,
@@ -130,7 +158,7 @@ describe("ColabClient", () => {
         );
       fetchStub
         .withArgs(
-          matchAuthorizedRequest("tun/m/assign", "POST", {
+          matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "POST", {
             "X-Goog-Colab-Token": "mock-xsrf-token",
           }),
         )
@@ -150,7 +178,9 @@ describe("ColabClient", () => {
 
   it("successfully lists assignments", async () => {
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/assignments", "GET"))
+      .withArgs(
+        matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assignments`, "GET"),
+      )
       .resolves(
         new Response(
           withXSSI(
@@ -195,7 +225,9 @@ describe("ColabClient", () => {
     const lastActivity = new Date().toISOString();
 
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/foo/api/kernels", "GET"))
+      .withArgs(
+        matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/foo/api/kernels`, "GET"),
+      )
       .resolves(
         new Response(
           withXSSI(
@@ -295,7 +327,9 @@ describe("ColabClient", () => {
 
   it("successfully issues keep-alive pings", async () => {
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/foo/keep-alive/", "GET"))
+      .withArgs(
+        matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/foo/keep-alive/`, "GET"),
+      )
       .resolves(new Response(undefined, { status: 200 }));
 
     await expect(client.sendKeepAlive("foo")).to.eventually.be.fulfilled;
@@ -318,7 +352,7 @@ describe("ColabClient", () => {
       },
     };
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
       .resolves(new Response(JSON.stringify(mockResponse), { status: 200 }));
 
     await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
@@ -328,7 +362,7 @@ describe("ColabClient", () => {
 
   it("rejects when error responses are returned", async () => {
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
       .resolves(
         new Response("Error", {
           status: 500,
@@ -343,7 +377,7 @@ describe("ColabClient", () => {
 
   it("rejects invalid JSON responses", async () => {
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
       .resolves(new Response(withXSSI("not JSON eh?"), { status: 200 }));
 
     await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
@@ -358,7 +392,7 @@ describe("ColabClient", () => {
       eligibleGpus: [Accelerator.T4],
     };
     fetchStub
-      .withArgs(matchAuthorizedRequest("tun/m/ccu-info", "GET"))
+      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
@@ -389,9 +423,11 @@ function matchAuthorizedRequest(
   endpoint: string,
   method: "DELETE" | "GET" | "POST",
   otherHeaders?: Record<string, string>,
+  withAuthUser = true,
 ): SinonMatcher {
+  const authuser = withAuthUser ? "authuser=0" : "";
   return sinon.match({
-    url: sinon.match(new RegExp(`${COLAB_DOMAIN}/${endpoint}?.*authuser=0`)),
+    url: sinon.match(new RegExp(`${endpoint}?.*${authuser}`)),
     method: sinon.match(method),
     headers: sinon.match(
       (headers: nodeFetch.Headers) =>
