@@ -9,6 +9,8 @@ import {
 } from "@vscode/jupyter-extension";
 import { CancellationToken, ProviderResult } from "vscode";
 import vscode from "vscode";
+import { SubscriptionTier } from "../colab/api";
+import { ColabClient } from "../colab/client";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import { isUUID } from "../utils/uuid";
@@ -37,6 +39,7 @@ export class ColabJupyterServerProvider
   constructor(
     private readonly vs: typeof vscode,
     private readonly assignmentManager: AssignmentManager,
+    private readonly client: ColabClient,
     private readonly serverPicker: ServerPicker,
     jupyter: Jupyter,
   ) {
@@ -90,7 +93,7 @@ export class ColabJupyterServerProvider
     _value: string | undefined,
     _token: CancellationToken,
   ): ProviderResult<JupyterServerCommand[]> {
-    return [
+    const commands = [
       {
         label: NEW_COLAB_SERVER_LABEL,
         description: "CPU, GPU or TPU.",
@@ -99,11 +102,23 @@ export class ColabJupyterServerProvider
         label: OPEN_COLAB_WEB_LABEL,
         description: "Open Colab web.",
       },
-      {
-        label: UPGRADE_TO_PRO_LABEL,
-        description: "More machines, more quota, more Colab!",
-      },
     ];
+    return (
+      this.client
+        .getSubscriptionTier()
+        .then((tier) => {
+          if (tier === SubscriptionTier.NONE) {
+            commands.push({
+              label: UPGRADE_TO_PRO_LABEL,
+              description: "More machines, more quota, more Colab!",
+            });
+          }
+          return commands;
+        })
+        // Including the command to upgrade to pro is non-critical. If it fails,
+        // just return the commands without it.
+        .catch(() => commands)
+    );
   }
 
   /**

@@ -6,11 +6,13 @@ import {
   JupyterServerCommandProvider,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
+import { JupyterServerCommand } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import { CancellationToken, CancellationTokenSource } from "vscode";
-import { Accelerator, Variant } from "../colab/api";
+import { Accelerator, SubscriptionTier, Variant } from "../colab/api";
+import { ColabClient } from "../colab/client";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import {
@@ -36,6 +38,7 @@ describe("ColabJupyterServerProvider", () => {
   let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
   let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
+  let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverPickerStub: SinonStubbedInstance<ServerPicker>;
   let defaultServer: ColabAssignedServer;
   let serverProvider: ColabJupyterServerProvider;
@@ -69,6 +72,7 @@ describe("ColabJupyterServerProvider", () => {
       },
     );
     assignmentStub = sinon.createStubInstance(AssignmentManager);
+    colabClientStub = sinon.createStubInstance(ColabClient);
     serverPickerStub = sinon.createStubInstance(ServerPicker);
     defaultServer = {
       id: randomUUID(),
@@ -89,6 +93,7 @@ describe("ColabJupyterServerProvider", () => {
     serverProvider = new ColabJupyterServerProvider(
       vsCodeStub.asVsCode(),
       assignmentStub,
+      colabClientStub,
       serverPickerStub,
       jupyterStub as Partial<Jupyter> as Jupyter,
     );
@@ -186,8 +191,59 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   describe("commands", () => {
+    const newServerCommand: JupyterServerCommand = {
+      label: "$(add) New Colab Server",
+      description: "CPU, GPU or TPU.",
+    };
+    const openWebCommand: JupyterServerCommand = {
+      label: "$(ports-open-browser-icon) Open Colab Web",
+      description: "Open Colab web.",
+    };
+    const upgradeToProCommand: JupyterServerCommand = {
+      label: "$(accounts-view-bar-icon) Upgrade to Pro",
+      description: "More machines, more quota, more Colab!",
+    };
+
     describe("provideCommands", () => {
-      it("returns commands to create a server, open Colab web and upgrade to pro", async () => {
+      it("excludes upgrade to pro command when getting the subscription tier fails", async () => {
+        colabClientStub.getSubscriptionTier.rejects(new Error("foo"));
+
+        const commands = await serverProvider.provideCommands(
+          undefined,
+          cancellationToken,
+        );
+
+        assert.isDefined(commands);
+        expect(commands).to.deep.equal([newServerCommand, openWebCommand]);
+      });
+
+      it("excludes upgrade to pro command for users with pro", async () => {
+        colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
+
+        const commands = await serverProvider.provideCommands(
+          undefined,
+          cancellationToken,
+        );
+
+        assert.isDefined(commands);
+        expect(commands).to.deep.equal([newServerCommand, openWebCommand]);
+      });
+
+      it("excludes upgrade to pro command for users with pro-plus", async () => {
+        colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO_PLUS);
+
+        const commands = await serverProvider.provideCommands(
+          undefined,
+          cancellationToken,
+        );
+
+        assert.isDefined(commands);
+        expect(commands).to.deep.equal([newServerCommand, openWebCommand]);
+      });
+
+      it("returns commands to create a server, open Colab web and upgrade to pro for free users", async () => {
+        colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.NONE);
+
         const commands = await serverProvider.provideCommands(
           undefined,
           cancellationToken,
@@ -195,18 +251,9 @@ describe("ColabJupyterServerProvider", () => {
 
         assert.isDefined(commands);
         expect(commands).to.deep.equal([
-          {
-            label: "$(add) New Colab Server",
-            description: "CPU, GPU or TPU.",
-          },
-          {
-            label: "$(ports-open-browser-icon) Open Colab Web",
-            description: "Open Colab web.",
-          },
-          {
-            label: "$(accounts-view-bar-icon) Upgrade to Pro",
-            description: "More machines, more quota, more Colab!",
-          },
+          newServerCommand,
+          openWebCommand,
+          upgradeToProCommand,
         ]);
       });
     });
