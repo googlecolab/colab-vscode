@@ -62,23 +62,24 @@ describe("Server Commands", () => {
       serverStorageStub = sinon.createStubInstance(ServerStorage);
     });
 
-    it("when no servers are assigned renders an empty Quick Pick", async () => {
+    it("when no servers are assigned the QuickPick is not rendered", async () => {
       serverStorageStub.list.resolves([]);
 
-      void renameServerAlias(vsCodeStub.asVsCode(), serverStorageStub);
-      await quickPickStub.nextShow();
+      await renameServerAlias(vsCodeStub.asVsCode(), serverStorageStub);
 
-      expect(quickPickStub.items).to.eql([]);
+      sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
     });
 
     describe("when servers are assigned", () => {
       it("lists assigned servers for selection", async () => {
         const additionalServer = { ...defaultServer, label: "bar" };
         serverStorageStub.list.resolves([defaultServer, additionalServer]);
+
         void renameServerAlias(vsCodeStub.asVsCode(), serverStorageStub);
         sinon.assert.calledOnce(serverStorageStub.list);
+
         await quickPickStub.nextShow();
-        expect(quickPickStub.items).to.eql([
+        expect(quickPickStub.items).to.deep.equal([
           { label: defaultServer.label, value: defaultServer },
           { label: additionalServer.label, value: additionalServer },
         ]);
@@ -161,13 +162,12 @@ describe("Server Commands", () => {
       assignmentManagerStub = sinon.createStubInstance(AssignmentManager);
     });
 
-    it("when no servers are assigned renders an empty Quick Pick", async () => {
+    it("when no servers are assigned the QuickPick is not rendered", async () => {
       assignmentManagerStub.getAssignedServers.resolves([]);
 
-      void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
-      await quickPickStub.nextShow();
+      await removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
 
-      expect(quickPickStub.items).to.eql([]);
+      sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
     });
 
     describe("when servers are assigned", () => {
@@ -181,7 +181,7 @@ describe("Server Commands", () => {
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
         await quickPickStub.nextShow();
 
-        expect(quickPickStub.items).to.eql([
+        expect(quickPickStub.items).to.deep.equal([
           { label: defaultServer.label, value: defaultServer },
           { label: additionalServer.label, value: additionalServer },
         ]);

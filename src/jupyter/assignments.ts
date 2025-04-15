@@ -49,10 +49,8 @@ export class AssignmentManager implements vscode.Disposable {
     this.assignmentsChange = new vs.EventEmitter<void>();
     this.disposables.push(this.assignmentsChange);
     this.onDidAssignmentsChange = this.assignmentsChange.event;
-    this.onDidAssignmentsChange(
-      () => this.setHasAssignedServerContext(),
-      this,
-      this.disposables,
+    this.disposables.push(
+      this.onDidAssignmentsChange(() => this.setHasAssignedServerContext()),
     );
   }
 

@@ -14,6 +14,10 @@ export async function renameServerAlias(
   serverStorage: ServerStorage,
 ): Promise<void> {
   const servers = await serverStorage.list();
+  if (servers.length === 0) {
+    return;
+  }
+
   const totalSteps = 2;
 
   await MultiStepInput.run(vs, async (input) => {
@@ -57,6 +61,10 @@ export async function removeServer(
   assignmentManager: AssignmentManager,
 ) {
   const servers = await assignmentManager.getAssignedServers();
+  if (servers.length === 0) {
+    return;
+  }
+
   await MultiStepInput.run(vs, async (input) => {
     const selectedServer = (
       await input.showQuickPick({
