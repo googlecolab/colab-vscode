@@ -5,9 +5,12 @@
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--verbose",
+      ],
       "outFiles": ["${workspaceFolder}/out/**/*.js"],
-      "preLaunchTask": "npm: watch prod"
+      "preLaunchTask": "npm: watch prod",
     },
     {
       "name": "Debug Unit Tests",
@@ -16,6 +19,15 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"],
       "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug UI Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/extest",
+      "args": ["setup-and-run", "./out/test/**/*.e2e.test.js", "--mocha_config", "${workspaceFolder}/src/test/.mocharc.js"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     },
     {
       "name": "Extension Integration Tests",

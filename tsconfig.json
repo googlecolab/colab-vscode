@@ -1,11 +1,11 @@
 {
-  "include": ["src/**/*", "eslint.config.mjs"],
+  "include": ["src/**/*", "eslint.config.mjs", "src/test/.mocharc.js"],
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2022",
     "rootDir": "src",
     "outDir": "out",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
