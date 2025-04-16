@@ -93,32 +93,7 @@ export class ColabJupyterServerProvider
     _value: string | undefined,
     _token: CancellationToken,
   ): ProviderResult<JupyterServerCommand[]> {
-    const commands = [
-      {
-        label: NEW_COLAB_SERVER_LABEL,
-        description: "CPU, GPU or TPU.",
-      },
-      {
-        label: OPEN_COLAB_WEB_LABEL,
-        description: "Open Colab web.",
-      },
-    ];
-    return (
-      this.client
-        .getSubscriptionTier()
-        .then((tier) => {
-          if (tier === SubscriptionTier.NONE) {
-            commands.push({
-              label: UPGRADE_TO_PRO_LABEL,
-              description: "More machines, more quota, more Colab!",
-            });
-          }
-          return commands;
-        })
-        // Including the command to upgrade to pro is non-critical. If it fails,
-        // just return the commands without it.
-        .catch(() => commands)
-    );
+    return this.provideRelevantCommands();
   }
 
   /**
@@ -159,6 +134,32 @@ export class ColabJupyterServerProvider
       default:
         throw new Error("Unexpected command");
     }
+  }
+
+  private async provideRelevantCommands(): Promise<JupyterServerCommand[]> {
+    const commands = [
+      {
+        label: NEW_COLAB_SERVER_LABEL,
+        description: "CPU, GPU or TPU.",
+      },
+      {
+        label: OPEN_COLAB_WEB_LABEL,
+        description: "Open Colab web.",
+      },
+    ];
+    try {
+      const tier = await this.client.getSubscriptionTier();
+      if (tier === SubscriptionTier.NONE) {
+        commands.push({
+          label: UPGRADE_TO_PRO_LABEL,
+          description: "More machines, more quota, more Colab!",
+        });
+      }
+    } catch (_) {
+      // Including the command to upgrade to pro is non-critical. If it fails,
+      // just return the commands without it.
+    }
+    return commands;
   }
 
   private async getServer(id: UUID): Promise<JupyterServer> {
