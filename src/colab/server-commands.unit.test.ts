@@ -62,7 +62,7 @@ describe("Server Commands", () => {
       serverStorageStub = sinon.createStubInstance(ServerStorage);
     });
 
-    it("when no servers are assigned the QuickPick is not rendered", async () => {
+    it("does not open the Quick Pick when no servers are assigned", async () => {
       serverStorageStub.list.resolves([]);
 
       await renameServerAlias(vsCodeStub.asVsCode(), serverStorageStub);
@@ -108,7 +108,6 @@ describe("Server Commands", () => {
 
         it("updates the server alias", async () => {
           serverStorageStub.list.resolves([defaultServer]);
-          serverStorageStub.store.resolves();
           const rename = renameServerAlias(
             vsCodeStub.asVsCode(),
             serverStorageStub,
@@ -132,7 +131,6 @@ describe("Server Commands", () => {
 
         it("does not update the server alias when it is unchanged", async () => {
           serverStorageStub.list.resolves([defaultServer]);
-          serverStorageStub.store.resolves();
           const rename = renameServerAlias(
             vsCodeStub.asVsCode(),
             serverStorageStub,
@@ -162,7 +160,7 @@ describe("Server Commands", () => {
       assignmentManagerStub = sinon.createStubInstance(AssignmentManager);
     });
 
-    it("when no servers are assigned the QuickPick is not rendered", async () => {
+    it("does not open the Quick Pick when no servers are assigned", async () => {
       assignmentManagerStub.getAssignedServers.resolves([]);
 
       await removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
