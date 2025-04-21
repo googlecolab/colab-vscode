@@ -7,15 +7,14 @@
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
       "outFiles": ["${workspaceFolder}/out/**/*.js"],
-      "preLaunchTask": "npm: watch prod"
+      "preLaunchTask": "Watch Extension"
     },
     {
       "name": "Debug Unit Tests",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"],
-      "skipFiles": ["<node_internals>/**"]
+      "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"]
     },
     {
       "name": "Extension Integration Tests",

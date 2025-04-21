@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import { expect } from "chai";
-import { Response } from "node-fetch";
-import * as nodeFetch from "node-fetch";
+import fetch, { Response, RequestInfo, RequestInit } from "node-fetch";
 import { SinonStub, SinonMatcher } from "sinon";
 import * as sinon from "sinon";
 import {
@@ -51,14 +50,14 @@ const DEFAULT_ASSIGNMENT: Assignment = {
 
 describe("ColabClient", () => {
   let fetchStub: SinonStub<
-    [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
+    [url: RequestInfo, init?: RequestInit | undefined],
     Promise<Response>
   >;
   let sessionStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
 
   beforeEach(() => {
-    fetchStub = sinon.stub(nodeFetch, "default");
+    fetchStub = sinon.stub(fetch, "default");
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
     client = new ColabClient(
       new URL(COLAB_DOMAIN),
@@ -435,7 +434,7 @@ function matchAuthorizedRequest(
     url: sinon.match(new RegExp(`${endpoint}?.*${authuser}`)),
     method: sinon.match(method),
     headers: sinon.match(
-      (headers: nodeFetch.Headers) =>
+      (headers: Headers) =>
         headers.get("Authorization") === `Bearer ${BEARER_TOKEN}` &&
         headers.get("Accept") === "application/json" &&
         Object.entries(otherHeaders ?? {}).every(

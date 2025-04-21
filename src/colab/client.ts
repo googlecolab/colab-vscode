@@ -1,6 +1,6 @@
 import { UUID } from "crypto";
 import * as https from "https";
-import fetch, { Request, RequestInit } from "node-fetch";
+import fetch, { Request, RequestInit, Headers } from "node-fetch";
 import { z } from "zod";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
@@ -283,7 +283,7 @@ export class ColabClient {
       endpoint.searchParams.append("authuser", "0");
     }
     const token = await this.getAccessToken();
-    const requestHeaders = new fetch.Headers(init.headers);
+    const requestHeaders = new Headers(init.headers);
     requestHeaders.set("Accept", "application/json");
     requestHeaders.set("Authorization", `Bearer ${token}`);
     const request = new Request(endpoint, {

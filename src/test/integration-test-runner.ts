@@ -39,9 +39,9 @@ function installExtension(
 
 async function main() {
   try {
-    const extensionDevelopmentPath = path.resolve(__dirname, "../../");
+    const extensionDevelopmentPath = path.resolve(__dirname, "../../../");
 
-    const extensionTestsPath = path.resolve(__dirname, "./suite/index");
+    const extensionTestsPath = path.resolve(__dirname, "../suite/index");
     const vscodeExecutablePath = await downloadAndUnzipVSCode("insiders");
     const cliPath =
       resolveCliPathFromVSCodeExecutablePath(vscodeExecutablePath);

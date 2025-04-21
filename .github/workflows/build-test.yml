@@ -59,10 +59,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
-      - run: npm run compile
-      - name: npm test (Linux)
+      - name: npm run test:integration:headless (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: npm run test:xvfb
-      - name: npm test
+        run: npm run test:integration:headless
+      - name: npm run test:integration
         if: matrix.os != 'ubuntu-latest'
-        run: npm test
+        run: npm run test:integration
