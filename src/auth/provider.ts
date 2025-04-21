@@ -16,7 +16,7 @@ export const REQUIRED_SCOPES = [
   "email",
   // This scope is temporary. It's temporarily needed to integrate with the
   // Colab GAPI used to query for user-info.
-  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive",
 ] as const;
 const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";

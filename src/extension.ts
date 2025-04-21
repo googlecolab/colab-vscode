@@ -13,6 +13,9 @@ import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
 import { ServerStorage } from "./jupyter/storage";
 
+// TODO: Configure this per environment once it works beyond localhost.
+const COLAB_DOMAIN = "https://colab.sandbox.google.com";
+const COLAB_GAPI_DOMAIN = "https://staging-colab.sandbox.googleapis.com";
 /* cSpell:disable */
 const CLIENT_ID =
   "1014160490159-8bdmhbrghjfch5sb8ltuofo1mk1totmr.apps.googleusercontent.com";
@@ -21,8 +24,7 @@ const CLIENT_NOT_SO_SECRET = "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";
 const AUTH_CLIENT = new OAuth2Client(
   CLIENT_ID,
   CLIENT_NOT_SO_SECRET,
-  // TODO: Configure this per environment once it works beyond localhost.
-  "https://localhost:8888/vscode/redirect",
+  `"{COLAB_DOMAIN}/vscode/redirect`,
 );
 
 // Called when the extension is activated.
@@ -42,8 +44,8 @@ export async function activate(context: vscode.ExtensionContext) {
   // TODO: Align these URLs with the environment. Mismatch is no big deal during
   // development.
   const colabClient = new ColabClient(
-    new URL("https://localhost:8888"),
-    new URL("https://staging-colab.sandbox.googleapis.com"),
+    new URL(COLAB_DOMAIN),
+    new URL(COLAB_GAPI_DOMAIN),
     () =>
       GoogleAuthProvider.getOrCreateSession(vscode).then(
         (session) => session.accessToken,
