@@ -206,7 +206,24 @@ export const CcuInfoSchema = z.object({
        * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
        * free usage allowance in milli-CCUs).
        */
-      remainingTokens: z.number(),
+      // The API is defined in Protobuf and the field is an Int64. The ProtoJSON
+      // format (https://protobuf.dev/programming-guides/json) returns Int64 as
+      // a string so the value needs to be converted to a number. It's not
+      // expected we'll ever fail the `isSafeInteger` check since in practice
+      // the value is << 2^53 - 1 (the max value a number type can safely
+      // represent).
+      remainingTokens: z
+        .string()
+        .refine(
+          (val) => {
+            const num = Number(val);
+            return Number.isSafeInteger(num);
+          },
+          {
+            message: "Value too large to be a safe integer for JavaScript",
+          },
+        )
+        .transform((val) => Number(val)),
       /** Next free quota refill timestamp (epoch) in seconds. */
       nextRefillTimestampSec: z.number(),
     })
