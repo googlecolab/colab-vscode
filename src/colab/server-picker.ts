@@ -153,13 +153,24 @@ export class ServerPicker {
     accelerator?: Accelerator,
   ): Promise<string> {
     const servers = await this.assignments.getAssignedServers();
-    const relevantServers = servers.filter(
-      (s) => s.variant === variant && s.accelerator === accelerator,
-    );
+    const a =
+      accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
+    const v = variantToString(variant);
+    const labelBase = `Colab ${v}${a}`;
+    const labelRegex = new RegExp(`^${labelBase}(?:\\s\\((\\d+)\\))?$`);
     const indices = new Set(
-      relevantServers.map(
-        (s) => +(PLACEHOLDER_DIGITS_REGEX.exec(s.label)?.[1] ?? 0),
-      ),
+      servers
+        .map((s) => {
+          const match = labelRegex.exec(s.label);
+          if (!match) {
+            return null;
+          }
+          if (!match[1]) {
+            return 0;
+          }
+          return +match[1];
+        })
+        .filter((i) => i !== null),
     );
     let placeholderIdx = 0;
     // Find the first missing index. Follows standard file explorer "duplicate"
@@ -167,14 +178,10 @@ export class ServerPicker {
     while (indices.has(placeholderIdx)) {
       placeholderIdx++;
     }
-
-    const a =
-      accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
-    const v = variantToString(variant);
     if (placeholderIdx === 0) {
-      return `Colab ${v}${a}`;
+      return labelBase;
     }
-    return `Colab ${v}${a} (${placeholderIdx.toString()})`;
+    return `${labelBase} (${placeholderIdx.toString()})`;
   }
 }
 
@@ -220,5 +227,3 @@ interface VariantPick extends QuickPickItem {
 interface AcceleratorPick extends QuickPickItem {
   value: Accelerator;
 }
-
-const PLACEHOLDER_DIGITS_REGEX = /^.+\s\((\d+)\)$/;

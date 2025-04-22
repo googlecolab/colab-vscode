@@ -240,7 +240,15 @@ describe("ServerPicker", () => {
         expect(input.placeholder).to.equal("Colab GPU T4");
       });
 
-      it("uses the next sequential placeholder with one assigned servers", async () => {
+      it("shows the simple variant-accelerator placeholder when there are only custom aliased servers", async () => {
+        const s = { ...defaultServer, label: "foo" };
+        assignmentStub.getAssignedServers.resolves([s]);
+        const input = await progressToAliasInput();
+
+        expect(input.placeholder).to.equal("Colab GPU T4");
+      });
+
+      it("uses the next sequential placeholder with one assigned server", async () => {
         assignmentStub.getAssignedServers.resolves([defaultServer]);
         const input = await progressToAliasInput();
 
