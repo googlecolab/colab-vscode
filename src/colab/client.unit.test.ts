@@ -100,7 +100,7 @@ describe("ColabClient", () => {
   });
 
   it("successfully gets CCU info", async () => {
-    const mockResponse: CcuInfo = {
+    const mockResponse = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
@@ -109,7 +109,7 @@ describe("ColabClient", () => {
       eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
       ineligibleTpus: [Accelerator.V5E1],
       freeCcuQuotaInfo: {
-        remainingTokens: 4,
+        remainingTokens: "4",
         nextRefillTimestampSec: 5,
       },
     };
@@ -119,7 +119,16 @@ describe("ColabClient", () => {
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
-    await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
+    const expectedResponse: CcuInfo = {
+      ...mockResponse,
+      freeCcuQuotaInfo: {
+        ...mockResponse.freeCcuQuotaInfo,
+        remainingTokens: Number(mockResponse.freeCcuQuotaInfo.remainingTokens),
+      },
+    };
+    await expect(client.getCcuInfo()).to.eventually.deep.equal(
+      expectedResponse,
+    );
 
     sinon.assert.calledOnce(fetchStub);
   });
@@ -338,7 +347,7 @@ describe("ColabClient", () => {
   });
 
   it("supports non-XSSI responses", async () => {
-    const mockResponse: CcuInfo = {
+    const mockResponse = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
@@ -346,10 +355,6 @@ describe("ColabClient", () => {
       ineligibleGpus: [Accelerator.A100, Accelerator.L4],
       eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
       ineligibleTpus: [Accelerator.V5E1],
-      freeCcuQuotaInfo: {
-        remainingTokens: 4,
-        nextRefillTimestampSec: 5,
-      },
     };
     fetchStub
       .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
