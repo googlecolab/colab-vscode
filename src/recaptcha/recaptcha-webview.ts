@@ -13,48 +13,15 @@ import * as vscode from 'vscode';
 
 const V3SiteKey = "6LfQPtEUAAAAAHBpAdFng54jyuB1V5w5dofknpip"
 
-// something something
-// 1. dispatch a message in the webview when the recaptcha button is clicked.
-//    Can/should be added in  the getWebViewContents function?
-// 2. Add an event listener in the client that once the message from the
-//    recaptcha is caught, closes the webview and also calls postAssignment with
-//    the recaptcha token.
-// 3. Check in backend if we need to 
 export class RecaptchaWebview {
   private panel: vscode.WebviewPanel | undefined;
   private context: vscode.ExtensionContext;
-  private readonly loadPromises: Array<Promise<void>> = [];
-  private evaluatingV2 = false;
-  private tokenResult = '';
-  private recaptchaTokenListeners: ((newValue: string) => unknown)[] = [];
   private nextResponseId = 0; // I think theres an equivalent to this when they're doing generateUniqueCallback
   private responsePromises: Record<string, (data: any) => void> = {};
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     //this.loadPromises.push(this.load())
-  }
-
-  showjslkfj() {
-    console.log("ajslkfjalskjf ")
-  }
-
-  recaptchaToken(): string  {
-    return this.tokenResult
-  }
-
-  onTokenChange(listener: (newValue: string) => unknown) {
-    this.recaptchaTokenListeners.push(listener)
-  }
-  
-  updateToken(newValue: string) {
-    this.tokenResult = newValue
-    console.log("UPDATED TOKENA ND NOW SHOOTING OFF THE LISTENERS...")
-    this.recaptchaTokenListeners.forEach(listener => { listener(this.tokenResult); })
-  }
-
-  deleteListeners() {
-    this.recaptchaTokenListeners = []
   }
 
   sendRequestAndWaitForResponse(
@@ -152,7 +119,7 @@ export class RecaptchaWebview {
                     });
                   }
                 }
-});
+              });
           </script>
       </body>
       </html>`;

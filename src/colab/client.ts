@@ -284,6 +284,7 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     recaptchaResponse?: string
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
