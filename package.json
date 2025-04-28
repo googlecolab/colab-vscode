@@ -19,13 +19,6 @@
     "onNotebook:interactive"
   ],
   "contributes": {
-    "commands": [
-      {
-        "command": "recaptcha.showWebView",
-        "title": "Google Recaptcha",
-        "category": "Cat Coding"
-      }
-    ],
     "authentication": [
       {
         "label": "Google",

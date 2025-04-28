@@ -25,7 +25,7 @@ const CLIENT_NOT_SO_SECRET = "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";
 const AUTH_CLIENT = new OAuth2Client(
   CLIENT_ID,
   CLIENT_NOT_SO_SECRET,
-  `"{COLAB_DOMAIN}/vscode/redirect`,
+  `${COLAB_DOMAIN}/vscode/redirect`,
 );
 
 // Called when the extension is activated.
@@ -45,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // TODO: Align these URLs with the environment. Mismatch is no big deal during
   // development.
  
-  const recaptchaWebview = new RecaptchaWebview(context);
+  const recaptcha = new RecaptchaWebview(context);
   const colabClient = new ColabClient(
     new URL(COLAB_DOMAIN),
     new URL(COLAB_GAPI_DOMAIN),
@@ -53,7 +53,10 @@ export async function activate(context: vscode.ExtensionContext) {
       GoogleAuthProvider.getOrCreateSession(vscode).then(
         (session) => session.accessToken,
       ),
-  recaptchaWebview
+    () => {
+      recaptcha.show()
+      return recaptcha.sendRequestAndWaitForResponse('requestRecaptcha');
+    },
   );
 
   const serverStorage = new ServerStorage(vscode, context.secrets);

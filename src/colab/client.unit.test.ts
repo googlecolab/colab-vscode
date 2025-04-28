@@ -20,6 +20,7 @@ import { ColabClient } from "./client";
 const COLAB_DOMAIN = "https://colab.example.com";
 const GOOGLE_APIS_DOMAIN = "https://colab.example.googleapis.com";
 const BEARER_TOKEN = "access-token";
+const RECAPTCHA_TOKEN = "recaptcha-token";
 const NOTEBOOK_HASH = randomUUID();
 const DEFAULT_ASSIGNMENT_RESPONSE = {
   accelerator: Accelerator.A100,
@@ -55,15 +56,18 @@ describe("ColabClient", () => {
     Promise<Response>
   >;
   let sessionStub: SinonStub<[], Promise<string>>;
+  let recaptchaStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
 
   beforeEach(() => {
     fetchStub = sinon.stub(nodeFetch, "default");
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
+    recaptchaStub= sinon.stub<[], Promise<string>>().resolves(RECAPTCHA_TOKEN);
     client = new ColabClient(
       new URL(COLAB_DOMAIN),
       new URL(GOOGLE_APIS_DOMAIN),
       sessionStub,
+      recaptchaStub
     );
   });
 
@@ -185,6 +189,40 @@ describe("ColabClient", () => {
     });
   });
 
+  it ("calls for recaptcha if its required when getting a new assignment", async () => {
+    const mockGetResponse = {
+        acc: Accelerator.A100,
+        nbh: NOTEBOOK_HASH,
+        p: true,
+        token: "mock-xsrf-token",
+        variant: Variant.DEFAULT,
+    };
+    fetchStub
+        .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
+        .resolves(
+          new Response(withXSSI(JSON.stringify(mockGetResponse)), {
+            status: 200,
+          }),
+        );
+   const path = `${COLAB_DOMAIN}/tun/m/assign?recaptcha_v3_response=${RECAPTCHA_TOKEN}`;
+   fetchStub
+        .withArgs(
+          matchAuthorizedRequest(path, "POST", {
+            "X-Goog-Colab-Token": "mock-xsrf-token",
+          }),
+        )
+        .resolves(
+          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
+            status: 200,
+          }),
+        );
+
+      await expect(
+        client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
+      ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
+
+      sinon.assert.calledTwice(fetchStub);
+  });
   it("successfully lists assignments", async () => {
     fetchStub
       .withArgs(

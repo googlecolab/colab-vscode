@@ -1,13 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
-/* eslint-disable @/max-len */
-/* eslint-disable @typescript-eslint/array-type */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-//import {trustedResourceUrl} from 'safevalues'
-//import {setScriptSrc} from 'safevalues/dom'
 import * as vscode from 'vscode';
 
 
@@ -15,24 +5,19 @@ const V3SiteKey = "6LfQPtEUAAAAAHBpAdFng54jyuB1V5w5dofknpip"
 
 export class RecaptchaWebview {
   private panel: vscode.WebviewPanel | undefined;
-  private context: vscode.ExtensionContext;
   private nextResponseId = 0; // I think theres an equivalent to this when they're doing generateUniqueCallback
-  private responsePromises: Record<string, (data: any) => void> = {};
+  private responsePromises: Record<string, (resolve: string) => void> = {};
 
-  constructor(context: vscode.ExtensionContext) {
-    this.context = context;
-    //this.loadPromises.push(this.load())
+  constructor(private context: vscode.ExtensionContext) {
   }
 
   sendRequestAndWaitForResponse(
     command: string,
-    data?: any
   ): Promise<string> {
-    console.log("IN REQUEST ASJKLDFALKSDJ ", command)
     return new Promise((resolve) => {
       const responseId = String(this.nextResponseId++);
       this.responsePromises[responseId] = resolve;
-      this.panel?.webview.postMessage({command, ...data, responseId})
+      this.panel?.webview.postMessage({command, responseId})
     })
   }
 
@@ -49,7 +34,7 @@ export class RecaptchaWebview {
         // Otherwise, create a new panel
         this.panel= vscode.window.createWebviewPanel(
           'recaptcha',
-          'Cat Coding',
+          'Colab Recaptcha',
           columnToShowIn ?? vscode.ViewColumn.One,
           {
             enableScripts: true
@@ -58,17 +43,16 @@ export class RecaptchaWebview {
         this.panel.webview.html = this.getWebviewContent();
         this.panel.webview.onDidReceiveMessage(
         (message) => {
-          console.log('AAAAAAAAAAAA got a message', message)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            if (message.responseId && message.responseId in this.responsePromises) {
-              console.log('Received reCAPTCHA token from id:', message.token, message.responseId);
-              this.responsePromises[message.responseId](message.token);
-              //delete this.responsePromises[message.responseId];
+            /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+            if (message.responseId && message.responseId in
+                this.responsePromises) {
+              // Resolve the recaptcha promise.
+              this.responsePromises[message.responseId](String(message.token));
               // Close panel
               this.panel?.dispose();
               }
           },
-        undefined,
+        this,
         this.context.subscriptions);
 
         // Reset when the current panel is closed
@@ -88,7 +72,6 @@ export class RecaptchaWebview {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <script src="https://www.google.com/recaptcha/api.js?render=${V3SiteKey}" async defer></script>
-          <title>Button Webview</title>
           <style>
               button {
                   padding: 10px 20px;
@@ -107,13 +90,14 @@ export class RecaptchaWebview {
                   const messageResponseId = message.responseId;
                   if (button) {
                     button.addEventListener('click', () => {
-                      console.log("grecaptcha?? ", grecaptcha)
                       grecaptcha.ready(function() {
                         grecaptcha.execute('${V3SiteKey}', { action: 'submit' }).then(function(token) {
                           vscode.postMessage({
                             responseId: messageResponseId,
                             token: token
                           });
+                        }).catch(e => {
+                          console.log("grecaptcha errored with ", e);
                         });
                       });
                     });
