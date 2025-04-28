@@ -47,7 +47,6 @@ export class ColabClient {
     private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
     private getRecaptchaToken: () => Promise<string>
-    //private readonly recaptcha: RecaptchaWebview
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
