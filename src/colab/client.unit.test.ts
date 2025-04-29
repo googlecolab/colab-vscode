@@ -204,12 +204,11 @@ describe("ColabClient", () => {
             status: 200,
           }),
         );
-   const path = `${COLAB_DOMAIN}/tun/m/assign?recaptcha_v3_response=${RECAPTCHA_TOKEN}`;
    fetchStub
         .withArgs(
-          matchAuthorizedRequest(path, "POST", {
+          matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "POST", {
             "X-Goog-Colab-Token": "mock-xsrf-token",
-          }),
+          }, false, true),
         )
         .resolves(
           new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
@@ -222,6 +221,7 @@ describe("ColabClient", () => {
       ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
 
       sinon.assert.calledTwice(fetchStub);
+      sinon.assert.calledOnce(recaptchaStub);
   });
   it("successfully lists assignments", async () => {
     fetchStub
@@ -467,10 +467,12 @@ function matchAuthorizedRequest(
   method: "DELETE" | "GET" | "POST",
   otherHeaders?: Record<string, string>,
   withAuthUser = true,
+  withRecaptcha = false,
 ): SinonMatcher {
   const authuser = withAuthUser ? "authuser=0" : "";
+  const recaptcha = withRecaptcha ? "recaptcha_v3_response=recaptcha-token" : "";
   return sinon.match({
-    url: sinon.match(new RegExp(`${endpoint}?.*${authuser}`)),
+    url: sinon.match(new RegExp(`${endpoint}?.*${authuser}?.*${recaptcha}`)),
     method: sinon.match(method),
     headers: sinon.match(
       (headers: nodeFetch.Headers) =>
@@ -480,5 +482,6 @@ function matchAuthorizedRequest(
           ([key, value]) => headers.get(key) === value,
         ),
     ),
+
   });
 }
