@@ -52,6 +52,9 @@ export interface VsCodeStub {
     createQuickPick: sinon.SinonStubbedMember<
       typeof vscode.window.createQuickPick
     >;
+    createWebviewPanel: sinon.SinonStubbedMember<
+      typeof vscode.window.createWebviewPanel
+    >;
   };
   ProgressLocation: typeof ProgressLocation;
   QuickInputButtons: typeof TestQuickInputButtons;
@@ -123,6 +126,7 @@ export function newVsCodeStub(): VsCodeStub {
       showErrorMessage: sinon.stub(),
       createInputBox: sinon.stub(),
       createQuickPick: sinon.stub(),
+      createWebviewPanel: sinon.stub(),
     },
     ProgressLocation: ProgressLocation,
     QuickInputButtons: TestQuickInputButtons,

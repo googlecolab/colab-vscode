@@ -90,6 +90,7 @@
     "google-auth-library": "^9.15.0",
     "node-fetch": "^2.6.7",
     "recaptcha-v3": "^1.11.3",
+    "uuid": "^11.0.3",
     "zod": "^3.24.2"
   }
 }
