@@ -20,6 +20,20 @@ enum ProgressLocation {
   Notification = 15,
 }
 
+enum ViewColumn {
+  Active = -1,
+  Beside = -2,
+  One = 1,
+  Two = 2,
+  Three = 3,
+  Four = 4,
+  Five = 5,
+  Six = 6,
+  Seven = 7,
+  Eight = 8,
+  Nine = 9,
+}
+
 export interface VsCodeStub {
   /**
    * Returns a stub of the vscode module typed as vscode.
@@ -28,6 +42,7 @@ export interface VsCodeStub {
   Uri: typeof TestUri;
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
+  ViewColumn: typeof ViewColumn;
   commands: {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
@@ -112,6 +127,7 @@ export function newVsCodeStub(): VsCodeStub {
     Uri: TestUri,
     CancellationTokenSource: TestCancellationTokenSource,
     EventEmitter: TestEventEmitter,
+    ViewColumn: ViewColumn,
     commands: {
       executeCommand: sinon.stub(),
     },

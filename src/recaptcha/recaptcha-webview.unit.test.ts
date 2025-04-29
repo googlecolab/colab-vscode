@@ -23,17 +23,19 @@ describe("RecaptchaWebview", () => {
     webview = {
       html: "",
       postMessage: sinon.stub(),
-      onDidReceiveMessage: { event: () => ({ dispose: () => {} }) } as any,
+      onDidReceiveMessage: sinon.stub(),
       asWebviewUri: (uri: vscode.Uri) => uri,
       cspSource: "",
     };
     webviewPanel = {
       webview: webview as vscode.Webview,
+      onDidDispose: sinon.stub(),
     };
     vsCodeStub.window.createWebviewPanel.returns(
       webviewPanel as vscode.WebviewPanel,
     );
     recaptchaWebview = new RecaptchaWebview(
+      vsCodeStub.asVsCode(),
       mockContext as vscode.ExtensionContext,
     );
   });
@@ -46,7 +48,7 @@ describe("RecaptchaWebview", () => {
     recaptchaWebview.show();
     sinon.assert.calledOnce(vsCodeStub.window.createWebviewPanel);
     expect(vsCodeStub.window.createWebviewPanel.firstCall.args[1]).to.equal(
-      "myWebview",
-    ); // Replace with your actual view type
+      "Colab Recaptcha",
+    );
   });
 });

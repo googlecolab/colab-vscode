@@ -252,7 +252,6 @@ export class ColabClient {
     if (shouldPromptRecaptcha) {
       recaptchaToken = await this.getRecaptchaToken();
     }
-    //recaptchaToken = await this.getRecaptchaToken();
     const url = this.buildAssignUrl(
       notebookHash,
       variant,

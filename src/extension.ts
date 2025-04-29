@@ -45,7 +45,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // TODO: Align these URLs with the environment. Mismatch is no big deal during
   // development.
 
-  const recaptcha = new RecaptchaWebview(context);
+  const recaptcha = new RecaptchaWebview(vscode, context);
   const colabClient = new ColabClient(
     new URL(COLAB_DOMAIN),
     new URL(COLAB_GAPI_DOMAIN),

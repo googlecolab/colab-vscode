@@ -1,4 +1,5 @@
-import * as vscode from "vscode";
+//import * as vscode from "vscode";
+import vscode from "vscode";
 
 const V3SiteKey = "6LfQPtEUAAAAAHBpAdFng54jyuB1V5w5dofknpip";
 
@@ -7,7 +8,10 @@ export class RecaptchaWebview {
   private nextResponseId = 0; // I think theres an equivalent to this when they're doing generateUniqueCallback
   private responsePromises: Record<string, (resolve: string) => void> = {};
 
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(
+    private readonly vs: typeof vscode,
+    private context: vscode.ExtensionContext,
+  ) {}
 
   sendRequestAndWaitForResponse(command: string): Promise<string> {
     return new Promise((resolve) => {
@@ -19,8 +23,8 @@ export class RecaptchaWebview {
 
   show() {
     // Track the current panel with a webview
-    const columnToShowIn = vscode.window.activeTextEditor
-      ? vscode.window.activeTextEditor.viewColumn
+    const columnToShowIn = this.vs.window.activeTextEditor
+      ? this.vs.window.activeTextEditor.viewColumn
       : undefined;
 
     if (this.panel) {
@@ -28,10 +32,10 @@ export class RecaptchaWebview {
       this.panel.reveal(columnToShowIn);
     } else {
       // Otherwise, create a new panel
-      this.panel = vscode.window.createWebviewPanel(
+      this.panel = this.vs.window.createWebviewPanel(
         "recaptcha",
         "Colab Recaptcha",
-        columnToShowIn ?? vscode.ViewColumn.One,
+        columnToShowIn ?? this.vs.ViewColumn.One,
         {
           enableScripts: true,
         },
