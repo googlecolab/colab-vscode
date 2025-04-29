@@ -110,7 +110,7 @@ export class ColabClient {
         return rest;
       }
       case "to_assign": {
-        return this.postAssignment(
+        return await this.postAssignment(
           notebookHash,
           assignment.xsrfToken,
           variant,

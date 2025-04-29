@@ -68,8 +68,6 @@
     "@types/sinon": "^17.0.3",
     "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.93.1",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "chai": "^4.5.0",
@@ -92,8 +90,6 @@
     "google-auth-library": "^9.15.0",
     "node-fetch": "^2.6.7",
     "recaptcha-v3": "^1.11.3",
-    "safevalues": "^1.2.0",
-    "uuid": "^11.1.0",
     "zod": "^3.24.2"
   }
 }
