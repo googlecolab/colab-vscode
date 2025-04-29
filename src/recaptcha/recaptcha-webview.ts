@@ -51,9 +51,12 @@ export class RecaptchaWebview {
           ) {
             // Resolve the recaptcha promise.
             this.responsePromises[message.responseId](String(message.token));
-            // Close panel
-            this.panel?.dispose();
+          } else {
+            for (const key in this.responsePromises) {
+              this.responsePromises[key]("failed to receive recaptcha token");
+            }
           }
+          this.panel?.dispose();
         },
         this,
         this.context.subscriptions,

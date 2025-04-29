@@ -5,7 +5,6 @@ import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { RecaptchaWebview } from "./recaptcha-webview";
 
 describe("RecaptchaWebview", () => {
-  //let postMessageStub: sinon.SinonStub;
   let mockContext: Partial<vscode.ExtensionContext>; // Use Partial to allow mocking only necessary properties
   let webview: Partial<vscode.Webview>;
   let webviewPanel: Partial<vscode.WebviewPanel>;
