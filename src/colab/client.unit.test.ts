@@ -62,12 +62,12 @@ describe("ColabClient", () => {
   beforeEach(() => {
     fetchStub = sinon.stub(nodeFetch, "default");
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
-    recaptchaStub= sinon.stub<[], Promise<string>>().resolves(RECAPTCHA_TOKEN);
+    recaptchaStub = sinon.stub<[], Promise<string>>().resolves(RECAPTCHA_TOKEN);
     client = new ColabClient(
       new URL(COLAB_DOMAIN),
       new URL(GOOGLE_APIS_DOMAIN),
       sessionStub,
-      recaptchaStub
+      recaptchaStub,
     );
   });
 
@@ -189,39 +189,45 @@ describe("ColabClient", () => {
     });
   });
 
-  it ("calls for recaptcha if its required when getting a new assignment", async () => {
+  it("calls for recaptcha if its required when getting a new assignment", async () => {
     const mockGetResponse = {
-        acc: Accelerator.A100,
-        nbh: NOTEBOOK_HASH,
-        p: true,
-        token: "mock-xsrf-token",
-        variant: Variant.DEFAULT,
+      acc: Accelerator.A100,
+      nbh: NOTEBOOK_HASH,
+      p: true,
+      token: "mock-xsrf-token",
+      variant: Variant.DEFAULT,
     };
     fetchStub
-        .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockGetResponse)), {
-            status: 200,
-          }),
-        );
-   fetchStub
-        .withArgs(
-          matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "POST", {
+      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
+      .resolves(
+        new Response(withXSSI(JSON.stringify(mockGetResponse)), {
+          status: 200,
+        }),
+      );
+    fetchStub
+      .withArgs(
+        matchAuthorizedRequest(
+          `${COLAB_DOMAIN}/tun/m/assign`,
+          "POST",
+          {
             "X-Goog-Colab-Token": "mock-xsrf-token",
-          }, false, true),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
-            status: 200,
-          }),
-        );
+          },
+          false,
+          true,
+        ),
+      )
+      .resolves(
+        new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
+          status: 200,
+        }),
+      );
 
-      await expect(
-        client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
-      ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
+    await expect(
+      client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
+    ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
 
-      sinon.assert.calledTwice(fetchStub);
-      sinon.assert.calledOnce(recaptchaStub);
+    sinon.assert.calledTwice(fetchStub);
+    sinon.assert.calledOnce(recaptchaStub);
   });
   it("successfully lists assignments", async () => {
     fetchStub
@@ -470,7 +476,9 @@ function matchAuthorizedRequest(
   withRecaptcha = false,
 ): SinonMatcher {
   const authuser = withAuthUser ? "authuser=0" : "";
-  const recaptcha = withRecaptcha ? "recaptcha_v3_response=recaptcha-token" : "";
+  const recaptcha = withRecaptcha
+    ? "recaptcha_v3_response=recaptcha-token"
+    : "";
   return sinon.match({
     url: sinon.match(new RegExp(`${endpoint}?.*${authuser}?.*${recaptcha}`)),
     method: sinon.match(method),
@@ -482,6 +490,5 @@ function matchAuthorizedRequest(
           ([key, value]) => headers.get(key) === value,
         ),
     ),
-
   });
 }

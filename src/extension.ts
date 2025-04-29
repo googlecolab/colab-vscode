@@ -44,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
   await authProvider.initialize();
   // TODO: Align these URLs with the environment. Mismatch is no big deal during
   // development.
- 
+
   const recaptcha = new RecaptchaWebview(context);
   const colabClient = new ColabClient(
     new URL(COLAB_DOMAIN),
@@ -54,8 +54,8 @@ export async function activate(context: vscode.ExtensionContext) {
         (session) => session.accessToken,
       ),
     () => {
-      recaptcha.show()
-      return recaptcha.sendRequestAndWaitForResponse('requestRecaptcha');
+      recaptcha.show();
+      return recaptcha.sendRequestAndWaitForResponse("requestRecaptcha");
     },
   );
 
@@ -80,7 +80,6 @@ export async function activate(context: vscode.ExtensionContext) {
     new ServerPicker(vscode, assignmentManager),
     jupyter,
   );
-
 
   context.subscriptions.push(
     disposeUriHandler,

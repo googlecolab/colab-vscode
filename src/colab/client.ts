@@ -41,12 +41,11 @@ interface AssignedAssignment extends Assignment {
 export class ColabClient {
   private readonly httpsAgent?: https.Agent;
 
-
   constructor(
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
-    private getRecaptchaToken: () => Promise<string>
+    private getRecaptchaToken: () => Promise<string>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
@@ -112,13 +111,13 @@ export class ColabClient {
       }
       case "to_assign": {
         return this.postAssignment(
-           notebookHash,
+          notebookHash,
           assignment.xsrfToken,
           variant,
           accelerator,
           signal,
-          assignment.shouldPromptRecaptcha
-        )
+          assignment.shouldPromptRecaptcha,
+        );
       }
     }
   }
@@ -247,14 +246,18 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
     signal?: AbortSignal,
-    shouldPromptRecaptcha?: boolean
+    shouldPromptRecaptcha?: boolean,
   ): Promise<Assignment> {
-    let recaptchaToken = '';
+    let recaptchaToken = "";
     if (shouldPromptRecaptcha) {
-      recaptchaToken = await this.getRecaptchaToken()
+      recaptchaToken = await this.getRecaptchaToken();
     }
-    const url = this.buildAssignUrl(notebookHash, variant, accelerator,
-    recaptchaToken);
+    const url = this.buildAssignUrl(
+      notebookHash,
+      variant,
+      accelerator,
+      recaptchaToken,
+    );
     return this.issueRequest(
       url,
       {
@@ -270,7 +273,7 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: Accelerator,
-    recaptchaResponse?: string
+    recaptchaResponse?: string,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
