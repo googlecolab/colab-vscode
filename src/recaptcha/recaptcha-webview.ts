@@ -1,3 +1,4 @@
+/* eslint-disable @cspell/spellchecker */
 //import * as vscode from "vscode";
 import vscode from "vscode";
 
