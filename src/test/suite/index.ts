@@ -10,7 +10,7 @@ export function run(): Promise<void> {
   const testsRoot = path.resolve(__dirname, "..");
 
   return new Promise((c, e) => {
-    const files = new Glob("**/**.test.js", { cwd: testsRoot });
+    const files = new Glob("**/**vscode.test.js", { cwd: testsRoot });
 
     for (const file of files) {
       mocha.addFile(path.resolve(testsRoot, file));

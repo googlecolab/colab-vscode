@@ -2,48 +2,24 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "npm: compile",
-      "type": "npm",
-      "script": "compile",
-      "problemMatcher": []
-    },
-    {
-      "label": "npm: watch prod",
+      "label": "Watch Extension",
       "type": "npm",
       "script": "watch:prod",
-      "problemMatcher": "$tsc-watch",
       "isBackground": true,
-      "presentation": {
-        "reveal": "never"
+      "problemMatcher": {
+        "owner": "background-watch",
+        "pattern": {
+          "regexp": ""
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "watch:prod",
+          "endsPattern": "✅"
+        }
       },
       "group": {
-        "kind": "build"
-      }
-    },
-    {
-      "label": "npm: watch",
-      "type": "npm",
-      "script": "watch",
-      "problemMatcher": "$tsc-watch",
-      "isBackground": true,
-      "presentation": {
-        "reveal": "never"
-      },
-      "group": {
-        "kind": "build"
-      }
-    },
-    {
-      "label": "npm: test",
-      "type": "npm",
-      "script": "test",
-      "group": {
-        "kind": "test",
+        "kind": "build",
         "isDefault": true
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always"
       }
     }
   ]

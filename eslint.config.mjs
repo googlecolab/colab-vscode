@@ -16,7 +16,7 @@ export default tseslint.config(
     ignores: ["eslint.config.mjs"],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: "./tsconfig.json",
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -75,6 +75,14 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/unbound-method": "off",
       "@typescript-eslint/no-unused-expressions": "off",
+    },
+  },
+  {
+    files: ["**/*.mjs"],
+    languageOptions: {
+      env: {
+        node: true,
+      },
     },
   },
   // Intentionally last to override any conflicting rules.

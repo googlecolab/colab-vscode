@@ -4,7 +4,7 @@ import {
   CodeChallengeMethod,
   GetTokenResponse,
 } from "google-auth-library/build/src/auth/oauth2client";
-import * as nodeFetch from "node-fetch";
+import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from "sinon";
 import * as sinon from "sinon";
 import vscode from "vscode";
@@ -62,8 +62,8 @@ describe("GoogleAuthProvider", () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let fetchStub: SinonStub<
-    [url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit | undefined],
-    Promise<nodeFetch.Response>
+    [url: RequestInfo, init?: RequestInit | undefined],
+    Promise<Response>
   >;
   let storageStub: SinonStubbedInstance<AuthStorage>;
   /**
@@ -86,7 +86,7 @@ describe("GoogleAuthProvider", () => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     fakeClock.setSystemTime(NOW);
     vsCodeStub = newVsCodeStub();
-    fetchStub = sinon.stub(nodeFetch, "default");
+    fetchStub = sinon.stub(fetch, "default");
     storageStub = sinon.createStubInstance(AuthStorage);
     oauth2Client = new OAuth2Client(
       CLIENT_ID,
@@ -409,7 +409,7 @@ describe("GoogleAuthProvider", () => {
             headers: { Authorization: `Bearer ${DEFAULT_ACCESS_TOKEN}` },
           })
           .resolves(
-            new nodeFetch.Response(JSON.stringify(DEFAULT_USER_INFO), {
+            new Response(JSON.stringify(DEFAULT_USER_INFO), {
               status: 200,
               headers: { "Content-Type": "application/json" },
             }),
