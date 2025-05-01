@@ -1,4 +1,3 @@
-/* eslint-disable @cspell/spellchecker */
 //import * as vscode from "vscode";
 import vscode from "vscode";
 
@@ -53,7 +52,9 @@ export class RecaptchaWebview {
             this.responsePromises[message.responseId](String(message.token));
           } else {
             for (const key in this.responsePromises) {
-              this.responsePromises[key]("failed to receive recaptcha token");
+              this.responsePromises[key](
+                `failed to receive recaptcha token for ${key}`,
+              );
             }
           }
           this.panel?.dispose();
