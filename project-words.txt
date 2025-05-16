@@ -1,10 +1,13 @@
 authuser
 colab
+extest
 gapi
 gaxios
+googlecolab
 googlers
 grayscale
 highmem
+ipykernel
 milli
 pkce
 quickpick

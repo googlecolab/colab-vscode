@@ -2,4 +2,5 @@
 .vscode-test/
 node_modules/
 out/
+colab-0.0.1.vsix
 src/colab-config.ts

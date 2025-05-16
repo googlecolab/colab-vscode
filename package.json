@@ -4,6 +4,7 @@
   "displayName": "Colab",
   "description": "Connect to Colab runtimes.",
   "version": "0.0.1",
+  "repository": "googlecolab/colab-vscode",
   "type": "commonjs",
   "engines": {
     "vscode": "^1.100.2"
@@ -83,9 +84,11 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "pretest": "npm run build && npm run lint",
+    "pretest:e2e": "npm run build",
     "test:unit": "npm run build:tests && mocha --enable-source-maps --require ./out/test/test/unit-test-setup.js './out/test/**/*.unit.test.js'",
     "test:integration": "npm run build && node ./out/test/test/integration-test-runner.js",
     "test:integration:headless": "xvfb-run -s '-screen 0 1024x768x24' npm run test:integration",
+    "test:e2e": "extest setup-and-run ./out/test/**/*.e2e.test.js",
     "vscode:prepublish": "npm run package",
     "package": "concurrently \"npm:typecheck:prod\" \"npm:build:extension -- --production\" --prefixColors=auto"
   },
@@ -105,6 +108,7 @@
     "@vscode/test-electron": "^2.4.1",
     "chai": "^4.5.0",
     "chai-as-promised": "^7.1.2",
+    "clipboardy": "^4.0.0",
     "concurrently": "^9.1.2",
     "cspell": "^8.17.3",
     "dotenv": "^16.5.0",
@@ -120,7 +124,8 @@
     "sinon": "^19.0.2",
     "tsx": "^4.19.4",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.15.0"
+    "typescript-eslint": "^8.15.0",
+    "vscode-extension-tester": "^8.14.1"
   },
   "dependencies": {
     "@vscode/jupyter-extension": "1.0.93",
