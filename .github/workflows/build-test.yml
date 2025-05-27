@@ -11,9 +11,13 @@ env:
   NODE_VERSION: 20.x
 
 jobs:
-  lint:
-    name: Lint
+  generateConfig:
+    name: Generate Config
     runs-on: ubuntu-latest
+    env:
+      COLAB_EXTENSION_ENVIRONMENT: ${{ vars.COLAB_EXTENSION_ENVIRONMENT }}
+      COLAB_EXTENSION_CLIENT_ID: ${{ secrets.COLAB_EXTENSION_CLIENT_ID }}
+      COLAB_EXTENSION_CLIENT_NOT_SO_SECRET: ${{ secrets.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ env.NODE_VERSION }}
@@ -22,6 +26,31 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
+      - run: npm run generate:config
+      - name: Upload generated config
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-config
+          path: src/colab-config.ts
+          if-no-files-found: error
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: generateConfig
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
+      - name: Download generated config
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-config
+          path: src
       - run: npm run lint
       - run: npm run format:check
       # While spell check runs in lint, here we run it as a separate step to
@@ -33,6 +62,7 @@ jobs:
   unitTests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    needs: generateConfig
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ env.NODE_VERSION }}
@@ -41,6 +71,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
+      - name: Download generated config
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-config
+          path: src
       - run: npm run test:unit
 
   vsCodeTests:
@@ -51,6 +86,7 @@ jobs:
         # For now, there's no sense acruing the cost of the runners.
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    needs: generateConfig
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ env.NODE_VERSION }}
@@ -59,6 +95,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
+      - name: Download generated config
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-config
+          path: src
       - name: npm run test:integration:headless (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: npm run test:integration:headless

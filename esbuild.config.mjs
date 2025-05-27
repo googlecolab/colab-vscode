@@ -68,6 +68,16 @@ const extensionOptions = {
   metafile: !isWatch,
 };
 
+function ensureConfigExists() {
+  if (existsSync("./src/colab-config.ts")) {
+    return;
+  }
+  console.error(
+    "📣 Required source configuration file not found. Run `npm run generate:config`.",
+  );
+  throw new Error(`Configuration file not found: ${config}`);
+}
+
 function testOptions(name, entrypointGlobPattern) {
   return {
     ...baseOptions,
@@ -90,6 +100,7 @@ function testSetupOptions(name, entrypoint, outfile) {
 
 async function main() {
   try {
+    ensureConfigExists();
     const options = isTestBuild
       ? [
           testSetupOptions(

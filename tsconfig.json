@@ -1,10 +1,14 @@
 {
-  "include": ["src/**/*", "esbuild.config.mjs", "eslint.config.mjs"],
+  "include": [
+    "src/**/*",
+    "scripts/**/*",
+    "esbuild.config.mjs",
+    "eslint.config.mjs"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "rootDir": "src",
     "outDir": "out",
     "lib": ["ES2022"],
     "esModuleInterop": true,

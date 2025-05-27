@@ -43,6 +43,7 @@
   "main": "./out/extension.js",
   "scripts": {
     "clean": "rm -rf out/*",
+    "generate:config": "tsx ./scripts/generate-config.mts",
     "build": "concurrently \"npm:build:extension\" \"npm:build:tests\" \"npm:typecheck\" --prefixColors=auto",
     "build:extension": "node esbuild.config.mjs",
     "build:tests": "node esbuild.config.mjs --tests",
@@ -83,6 +84,7 @@
     "chai-as-promised": "^7.1.2",
     "concurrently": "^9.1.2",
     "cspell": "^8.17.3",
+    "dotenv": "^16.5.0",
     "esbuild": "^0.25.2",
     "esbuild-node-externals": "^1.18.0",
     "eslint": "^9.15.0",
@@ -93,6 +95,7 @@
     "mocha": "^10.8.2",
     "prettier": "3.4.2",
     "sinon": "^19.0.2",
+    "tsx": "^4.19.4",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.15.0"
   },
