@@ -233,14 +233,20 @@ export class MultiStepInput {
 
   /**
    * Configure the input for back navigation and hide events.
+   *
+   * This enables callers waiting on the provided input to handle it navigating
+   * back by throwing a {@link InputFlowAction.back} or hiding by throwing a
+   * {@link InputFlowAction.cancel}.
    */
   private configureNavigation(
     input: QuickInput & { onDidTriggerButton: Event<QuickInputButton> },
     reject: (reason?: unknown) => void,
   ): { onDidTriggerButton: Disposable; onDidHide: Disposable } {
     return {
-      onDidTriggerButton: input.onDidTriggerButton(() => {
-        reject(InputFlowAction.back);
+      onDidTriggerButton: input.onDidTriggerButton((e) => {
+        if (e === this.vs.QuickInputButtons.Back) {
+          reject(InputFlowAction.back);
+        }
       }),
       onDidHide: input.onDidHide(() => {
         reject(InputFlowAction.cancel);

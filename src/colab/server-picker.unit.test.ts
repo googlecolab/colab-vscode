@@ -385,7 +385,9 @@ describe("ServerPicker", () => {
         { value: Accelerator.T4, label: "T4" },
       ]);
       const secondVariantPickerShown = secondVariantQuickPickStub.nextShow();
-      secondAcceleratorQuickPickStub.onDidTriggerButton.yield();
+      secondAcceleratorQuickPickStub.onDidTriggerButton.yield(
+        vsCodeStub.QuickInputButtons.Back,
+      );
       await secondVariantPickerShown;
       expect(secondVariantQuickPickStub.activeItems).to.be.deep.equal([
         { value: Variant.GPU, label: "GPU" },

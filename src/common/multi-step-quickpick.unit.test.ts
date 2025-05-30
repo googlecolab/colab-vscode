@@ -152,7 +152,7 @@ describe("MultiStepQuickPick", () => {
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
       // Once the quick pick has been shown, trigger the back button.
       await inputShown;
-      quickPickStub.onDidTriggerButton.yield();
+      quickPickStub.onDidTriggerButton.yield(vsCodeStub.QuickInputButtons.Back);
 
       await expect(input).to.eventually.be.rejectedWith(InputFlowAction.back);
       sinon.assert.calledOnce(quickPickStub.dispose);
@@ -298,7 +298,7 @@ describe("MultiStepQuickPick", () => {
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
       // Once the input box has been shown, trigger the back button.
       await inputShown;
-      inputBoxStub.onDidTriggerButton.yield();
+      inputBoxStub.onDidTriggerButton.yield(vsCodeStub.QuickInputButtons.Back);
 
       await expect(input).to.eventually.be.rejectedWith(InputFlowAction.back);
       sinon.assert.calledOnce(inputBoxStub.dispose);
