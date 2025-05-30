@@ -4,7 +4,12 @@ import { GoogleAuthProvider } from "./auth/provider";
 import { RedirectUriCodeProvider } from "./auth/redirect";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
-import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./colab/commands/constants";
+import {
+  COLAB_TOOLBAR,
+  REMOVE_SERVER,
+  RENAME_SERVER_ALIAS,
+} from "./colab/commands/constants";
+import { notebookToolbar } from "./colab/commands/notebook";
 import { renameServerAlias, removeServer } from "./colab/commands/server";
 import { ServerKeepAliveController } from "./colab/keep-alive";
 import { ServerPicker } from "./colab/server-picker";
@@ -84,5 +89,8 @@ export async function activate(context: vscode.ExtensionContext) {
         await removeServer(vscode, assignmentManager, withBackButton);
       },
     ),
+    vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
+      await notebookToolbar(vscode, assignmentManager);
+    }),
   );
 }

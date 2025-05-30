@@ -37,8 +37,31 @@
         "command": "colab.removeServer",
         "enablement": "colab.hasAssignedServer",
         "title": "Remove Server"
+      },
+      {
+        "command": "colab.toolbarCommand",
+        "category": "Colab",
+        "title": "Colab",
+        "icon": {
+          "light": "resources/colab_grayscale_light.svg",
+          "dark": "resources/colab_grayscale_dark.svg"
+        }
       }
-    ]
+    ],
+    "menus": {
+      "notebook/toolbar": [
+        {
+          "command": "colab.toolbarCommand",
+          "group": "navigation/control"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "colab.toolbarCommand",
+          "when": "false"
+        }
+      ]
+    }
   },
   "main": "./out/extension.js",
   "scripts": {

@@ -20,6 +20,11 @@ enum ProgressLocation {
   Notification = 15,
 }
 
+enum QuickPickItemKind {
+  Separator = -1,
+  Default = 0,
+}
+
 export interface VsCodeStub {
   /**
    * Returns a stub of the vscode module typed as vscode.
@@ -28,6 +33,7 @@ export interface VsCodeStub {
   Uri: typeof TestUri;
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
+  QuickPickItemKind: typeof QuickPickItemKind;
   commands: {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
@@ -46,6 +52,7 @@ export interface VsCodeStub {
     showErrorMessage: sinon.SinonStubbedMember<
       typeof vscode.window.showErrorMessage
     >;
+    showQuickPick: sinon.SinonStubbedMember<typeof vscode.window.showQuickPick>;
     createInputBox: sinon.SinonStubbedMember<
       typeof vscode.window.createInputBox
     >;
@@ -80,35 +87,28 @@ export function newVsCodeStub(): VsCodeStub {
     asVsCode: function (): typeof vscode {
       return {
         ...this,
+        env: { ...this.env } as Partial<typeof vscode.env> as typeof vscode.env,
+        window: {
+          ...this.window,
+          // The unknown cast is necessary due to the complex overloading.
+          showQuickPick: this.window
+            .showQuickPick as unknown as typeof vscode.window.showQuickPick,
+        } as Partial<typeof vscode.window> as typeof vscode.window,
         commands: { ...this.commands } as Partial<
           typeof vscode.commands
         > as typeof vscode.commands,
-        env: { ...this.env } as Partial<typeof vscode.env> as typeof vscode.env,
-        window: { ...this.window } as Partial<
-          typeof vscode.window
-        > as typeof vscode.window,
         extensions: { ...this.extensions } as Partial<
           typeof vscode.extensions
         > as typeof vscode.extensions,
         authentication: { ...this.authentication } as Partial<
           typeof vscode.authentication
         > as typeof vscode.authentication,
-      } as Pick<
-        typeof vscode,
-        | "Uri"
-        | "CancellationTokenSource"
-        | "EventEmitter"
-        | "env"
-        | "window"
-        | "ProgressLocation"
-        | "QuickInputButtons"
-        | "extensions"
-        | "authentication"
-      > as typeof vscode;
+      } as Partial<typeof vscode> as typeof vscode;
     },
     Uri: TestUri,
     CancellationTokenSource: TestCancellationTokenSource,
     EventEmitter: TestEventEmitter,
+    QuickPickItemKind: QuickPickItemKind,
     commands: {
       executeCommand: sinon.stub(),
     },
@@ -121,6 +121,7 @@ export function newVsCodeStub(): VsCodeStub {
       withProgress: sinon.stub(),
       showInformationMessage: sinon.stub(),
       showErrorMessage: sinon.stub(),
+      showQuickPick: sinon.stub(),
       createInputBox: sinon.stub(),
       createQuickPick: sinon.stub(),
     },
