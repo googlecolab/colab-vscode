@@ -11,14 +11,16 @@ import { CancellationToken, ProviderResult } from "vscode";
 import vscode from "vscode";
 import { SubscriptionTier } from "../colab/api";
 import { ColabClient } from "../colab/client";
+import {
+  NEW_SERVER,
+  OPEN_COLAB_WEB,
+  UPGRADE_TO_PRO,
+} from "../colab/commands/constants";
+import { openColabSignup, openColabWeb } from "../colab/commands/external";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import { isUUID } from "../utils/uuid";
 import { AssignmentManager } from "./assignments";
-
-const NEW_COLAB_SERVER_LABEL = "$(add) New Colab Server";
-const OPEN_COLAB_WEB_LABEL = "$(ports-open-browser-icon) Open Colab Web";
-const UPGRADE_TO_PRO_LABEL = "$(accounts-view-bar-icon) Upgrade to Pro";
 
 /**
  * Colab Jupyter server provider.
@@ -113,7 +115,7 @@ export class ColabJupyterServerProvider
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
     switch (command.label) {
-      case NEW_COLAB_SERVER_LABEL:
+      case NEW_SERVER.label:
         return this.assignServer().catch((err: unknown) => {
           // Returning `undefined` shows the previous UI (kernel picker).
           if (err === InputFlowAction.back) {
@@ -121,15 +123,11 @@ export class ColabJupyterServerProvider
           }
           throw err;
         });
-      case OPEN_COLAB_WEB_LABEL:
-        this.vs.env.openExternal(
-          this.vs.Uri.parse("https://colab.research.google.com"),
-        );
+      case OPEN_COLAB_WEB.label:
+        openColabWeb(this.vs);
         return;
-      case UPGRADE_TO_PRO_LABEL:
-        this.vs.env.openExternal(
-          this.vs.Uri.parse("https://colab.research.google.com/signup"),
-        );
+      case UPGRADE_TO_PRO.label:
+        openColabSignup(this.vs);
         return;
       default:
         throw new Error("Unexpected command");
@@ -137,23 +135,11 @@ export class ColabJupyterServerProvider
   }
 
   private async provideRelevantCommands(): Promise<JupyterServerCommand[]> {
-    const commands = [
-      {
-        label: NEW_COLAB_SERVER_LABEL,
-        description: "CPU, GPU or TPU.",
-      },
-      {
-        label: OPEN_COLAB_WEB_LABEL,
-        description: "Open Colab web.",
-      },
-    ];
+    const commands = [NEW_SERVER, OPEN_COLAB_WEB];
     try {
       const tier = await this.client.getSubscriptionTier();
       if (tier === SubscriptionTier.NONE) {
-        commands.push({
-          label: UPGRADE_TO_PRO_LABEL,
-          description: "More machines, more quota, more Colab!",
-        });
+        commands.push(UPGRADE_TO_PRO);
       }
     } catch (_) {
       // Including the command to upgrade to pro is non-critical. If it fails,

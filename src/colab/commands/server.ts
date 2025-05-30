@@ -1,8 +1,9 @@
 import vscode from "vscode";
-import { MultiStepInput } from "../common/multi-step-quickpick";
-import { AssignmentManager } from "../jupyter/assignments";
-import { ServerStorage } from "../jupyter/storage";
-import { PROMPT_SERVER_ALIAS, validateServerAlias } from "./server-picker";
+import { MultiStepInput } from "../../common/multi-step-quickpick";
+import { AssignmentManager } from "../../jupyter/assignments";
+import { ServerStorage } from "../../jupyter/storage";
+import { PROMPT_SERVER_ALIAS, validateServerAlias } from "../server-picker";
+import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./constants";
 
 /**
  * Prompt the user to select and rename the local alias used to identify an
@@ -12,6 +13,7 @@ import { PROMPT_SERVER_ALIAS, validateServerAlias } from "./server-picker";
 export async function renameServerAlias(
   vs: typeof vscode,
   serverStorage: ServerStorage,
+  withBackButton?: boolean,
 ): Promise<void> {
   const servers = await serverStorage.list();
   if (servers.length === 0) {
@@ -23,27 +25,28 @@ export async function renameServerAlias(
   await MultiStepInput.run(vs, async (input) => {
     const selectedServer = (
       await input.showQuickPick({
+        title: "Select a Server",
+        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
         items: servers.map((s) => ({ label: s.label, value: s })),
         step: 1,
-        title: "Select a Server",
         totalSteps,
       })
     ).value;
 
     return async () => {
       const alias = await input.showInputBox({
+        title: RENAME_SERVER_ALIAS.label,
         buttons: [vs.QuickInputButtons.Back],
         placeholder: selectedServer.label,
         prompt: PROMPT_SERVER_ALIAS,
         step: 2,
-        title: "Update your Server Alias",
         totalSteps,
         validate: validateServerAlias,
         value: selectedServer.label,
       });
       if (!alias || alias === selectedServer.label) return undefined;
 
-      void serverStorage.store([{ ...selectedServer, label: alias }]);
+      await serverStorage.store([{ ...selectedServer, label: alias }]);
     };
   });
 }
@@ -59,6 +62,7 @@ export async function renameServerAlias(
 export async function removeServer(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
+  withBackButton?: boolean,
 ) {
   const servers = await assignmentManager.getAssignedServers();
   if (servers.length === 0) {
@@ -68,10 +72,9 @@ export async function removeServer(
   await MultiStepInput.run(vs, async (input) => {
     const selectedServer = (
       await input.showQuickPick({
+        title: REMOVE_SERVER.label,
+        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
         items: servers.map((s) => ({ label: s.label, value: s })),
-        step: 1,
-        title: "Select a Server to Remove",
-        totalSteps: 1,
       })
     ).value;
     await assignmentManager.unassignServer(selectedServer);

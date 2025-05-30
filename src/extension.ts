@@ -4,8 +4,9 @@ import { GoogleAuthProvider } from "./auth/provider";
 import { RedirectUriCodeProvider } from "./auth/redirect";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
+import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./colab/commands/constants";
+import { renameServerAlias, removeServer } from "./colab/commands/server";
 import { ServerKeepAliveController } from "./colab/keep-alive";
-import { renameServerAlias, removeServer } from "./colab/server-commands";
 import { ServerPicker } from "./colab/server-picker";
 import { CONFIG } from "./colab-config";
 import { getPackageInfo } from "./config/package-info";
@@ -72,12 +73,16 @@ export async function activate(context: vscode.ExtensionContext) {
     keepAlive,
     serverProvider,
     vscode.commands.registerCommand(
-      "colab.renameServerAlias",
-      () => void renameServerAlias(vscode, serverStorage),
+      RENAME_SERVER_ALIAS.id,
+      async (withBackButton?: boolean) => {
+        await renameServerAlias(vscode, serverStorage, withBackButton);
+      },
     ),
     vscode.commands.registerCommand(
-      "colab.removeServer",
-      () => void removeServer(vscode, assignmentManager),
+      REMOVE_SERVER.id,
+      async (withBackButton?: boolean) => {
+        await removeServer(vscode, assignmentManager, withBackButton);
+      },
     ),
   );
 }
