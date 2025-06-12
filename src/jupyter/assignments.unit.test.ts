@@ -653,12 +653,5 @@ function stripFetch(server: ColabAssignedServer): ColabAssignedServer {
 }
 
 function stripFetches(servers: ColabAssignedServer[]): ColabAssignedServer[] {
-  return servers.map((s) => ({
-    ...s,
-    connectionInformation: {
-      baseUrl: s.connectionInformation.baseUrl,
-      token: s.connectionInformation.token,
-      headers: s.connectionInformation.headers,
-    },
-  }));
+  return servers.map(stripFetch);
 }
