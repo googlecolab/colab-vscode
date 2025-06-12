@@ -30,10 +30,10 @@ export const OPEN_COLAB_WEB: Command = {
   description: "Open Colab web.",
 };
 
-/** Command to open the Colab signup page, to upgrade to pro. */
-export const UPGRADE_TO_PRO: Command = {
-  label: "$(accounts-view-bar-icon) Upgrade to Pro",
-  description: "More machines, more quota, more Colab!",
+/** Command to remove a server. */
+export const REMOVE_SERVER: RegisteredCommand = {
+  id: "colab.removeServer",
+  label: "Remove Server",
 };
 
 /** Command to rename a server alias. */
@@ -42,8 +42,8 @@ export const RENAME_SERVER_ALIAS: RegisteredCommand = {
   label: "Rename Server Alias",
 };
 
-/** Command to remove a server. */
-export const REMOVE_SERVER: RegisteredCommand = {
-  id: "colab.removeServer",
-  label: "Remove Server",
+/** Command to open the Colab signup page, to upgrade to pro. */
+export const UPGRADE_TO_PRO: Command = {
+  label: "$(accounts-view-bar-icon) Upgrade to Pro",
+  description: "More machines, more quota, more Colab!",
 };
