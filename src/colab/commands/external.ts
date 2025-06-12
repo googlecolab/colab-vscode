@@ -1,0 +1,11 @@
+import vscode from "vscode";
+
+/** Opens Colab in the browser. */
+export function openColabWeb(vs: typeof vscode) {
+  vs.env.openExternal(vs.Uri.parse("https://colab.research.google.com"));
+}
+
+/** Opens the Colab signup page in the browser. */
+export function openColabSignup(vs: typeof vscode) {
+  vs.env.openExternal(vs.Uri.parse("https://colab.research.google.com/signup"));
+}

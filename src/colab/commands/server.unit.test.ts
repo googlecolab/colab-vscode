@@ -2,18 +2,18 @@ import { randomUUID } from "crypto";
 import { expect } from "chai";
 import sinon, { SinonStubbedInstance } from "sinon";
 import { InputBox, QuickPick, QuickPickItem } from "vscode";
-import { AssignmentManager } from "../jupyter/assignments";
-import { ColabAssignedServer } from "../jupyter/servers";
-import { ServerStorage } from "../jupyter/storage";
+import { AssignmentManager } from "../../jupyter/assignments";
+import { ColabAssignedServer } from "../../jupyter/servers";
+import { ServerStorage } from "../../jupyter/storage";
 import {
   buildQuickPickStub,
   QuickPickStub,
   InputBoxStub,
   buildInputBoxStub,
-} from "../test/helpers/quick-input";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { Variant } from "./api";
-import { removeServer, renameServerAlias } from "./server-commands";
+} from "../../test/helpers/quick-input";
+import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
+import { Variant } from "../api";
+import { removeServer, renameServerAlias } from "./server";
 
 describe("Server Commands", () => {
   let vsCodeStub: VsCodeStub;

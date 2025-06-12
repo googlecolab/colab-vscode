@@ -6,13 +6,17 @@ import {
   JupyterServerCommandProvider,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import { JupyterServerCommand } from "@vscode/jupyter-extension";
 import { assert, expect } from "chai";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import { CancellationToken, CancellationTokenSource } from "vscode";
 import { Accelerator, SubscriptionTier, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
+import {
+  NEW_SERVER,
+  OPEN_COLAB_WEB,
+  UPGRADE_TO_PRO,
+} from "../colab/commands/constants";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import {
@@ -191,19 +195,6 @@ describe("ColabJupyterServerProvider", () => {
   });
 
   describe("commands", () => {
-    const newServerCommand: JupyterServerCommand = {
-      label: "$(add) New Colab Server",
-      description: "CPU, GPU or TPU.",
-    };
-    const openWebCommand: JupyterServerCommand = {
-      label: "$(ports-open-browser-icon) Open Colab Web",
-      description: "Open Colab web.",
-    };
-    const upgradeToProCommand: JupyterServerCommand = {
-      label: "$(accounts-view-bar-icon) Upgrade to Pro",
-      description: "More machines, more quota, more Colab!",
-    };
-
     describe("provideCommands", () => {
       it("excludes upgrade to pro command when getting the subscription tier fails", async () => {
         colabClientStub.getSubscriptionTier.rejects(new Error("foo"));
@@ -214,7 +205,7 @@ describe("ColabJupyterServerProvider", () => {
         );
 
         assert.isDefined(commands);
-        expect(commands).to.deep.equal([newServerCommand, openWebCommand]);
+        expect(commands).to.deep.equal([NEW_SERVER, OPEN_COLAB_WEB]);
       });
 
       it("excludes upgrade to pro command for users with pro", async () => {
@@ -226,7 +217,7 @@ describe("ColabJupyterServerProvider", () => {
         );
 
         assert.isDefined(commands);
-        expect(commands).to.deep.equal([newServerCommand, openWebCommand]);
+        expect(commands).to.deep.equal([NEW_SERVER, OPEN_COLAB_WEB]);
       });
 
       it("excludes upgrade to pro command for users with pro-plus", async () => {
@@ -238,7 +229,7 @@ describe("ColabJupyterServerProvider", () => {
         );
 
         assert.isDefined(commands);
-        expect(commands).to.deep.equal([newServerCommand, openWebCommand]);
+        expect(commands).to.deep.equal([NEW_SERVER, OPEN_COLAB_WEB]);
       });
 
       it("returns commands to create a server, open Colab web and upgrade to pro for free users", async () => {
@@ -251,9 +242,9 @@ describe("ColabJupyterServerProvider", () => {
 
         assert.isDefined(commands);
         expect(commands).to.deep.equal([
-          newServerCommand,
-          openWebCommand,
-          upgradeToProCommand,
+          NEW_SERVER,
+          OPEN_COLAB_WEB,
+          UPGRADE_TO_PRO,
         ]);
       });
     });
@@ -264,7 +255,7 @@ describe("ColabJupyterServerProvider", () => {
 
         expect(
           serverProvider.handleCommand(
-            { label: "$(ports-open-browser-icon) Open Colab Web" },
+            { label: OPEN_COLAB_WEB.label },
             cancellationToken,
           ),
         ).to.be.equal(undefined);
@@ -280,7 +271,7 @@ describe("ColabJupyterServerProvider", () => {
 
         expect(
           serverProvider.handleCommand(
-            { label: "$(accounts-view-bar-icon) Upgrade to Pro" },
+            { label: UPGRADE_TO_PRO.label },
             cancellationToken,
           ),
         ).to.be.equal(undefined);
@@ -297,7 +288,7 @@ describe("ColabJupyterServerProvider", () => {
 
           await expect(
             serverProvider.handleCommand(
-              { label: "$(add) New Colab Server" },
+              { label: NEW_SERVER.label },
               cancellationToken,
             ),
           ).to.eventually.be.equal(undefined);
@@ -323,7 +314,7 @@ describe("ColabJupyterServerProvider", () => {
 
           await expect(
             serverProvider.handleCommand(
-              { label: "$(add) New Colab Server" },
+              { label: NEW_SERVER.label },
               cancellationToken,
             ),
           ).to.eventually.deep.equal(defaultServer);

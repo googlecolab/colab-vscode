@@ -34,9 +34,9 @@ export interface QuickInputOptions {
   /** The title of the input. */
   title: string;
   /** The current step count. */
-  step: number;
+  step?: number;
   /** The total step count. */
-  totalSteps: number;
+  totalSteps?: number;
   /** Buttons for actions in the UI. */
   buttons?: QuickInputButton[];
 }
