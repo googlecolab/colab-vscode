@@ -49,9 +49,6 @@ export class AssignmentManager implements vscode.Disposable {
     this.assignmentsChange = new vs.EventEmitter<void>();
     this.disposables.push(this.assignmentsChange);
     this.onDidAssignmentsChange = this.assignmentsChange.event;
-    this.disposables.push(
-      this.onDidAssignmentsChange(() => this.setHasAssignedServerContext()),
-    );
   }
 
   dispose() {
@@ -113,7 +110,14 @@ export class AssignmentManager implements vscode.Disposable {
 
     await this.storage.clear();
     await this.storage.store(reconciled);
-    this.assignmentsChange.fire();
+    await this.signalAssignmentChange();
+  }
+
+  /**
+   * Returns whether or not the user has at least one assigned server.
+   */
+  async hasAssignedServer(): Promise<boolean> {
+    return (await this.storage.list()).length > 0;
   }
 
   /**
@@ -170,10 +174,10 @@ export class AssignmentManager implements vscode.Disposable {
    * assigned server originating from VS Code.
    */
   async setHasAssignedServerContext(): Promise<void> {
-    this.vs.commands.executeCommand(
+    await this.vs.commands.executeCommand(
       "setContext",
       "colab.hasAssignedServer",
-      (await this.storage.list()).length > 0,
+      await this.hasAssignedServer(),
     );
   }
 
@@ -190,7 +194,7 @@ export class AssignmentManager implements vscode.Disposable {
     if (!removed) {
       return;
     }
-    this.assignmentsChange.fire();
+    await this.signalAssignmentChange();
     await Promise.all(
       (await this.client.listSessions(server.endpoint)).map((session) =>
         this.client.deleteSession(server.endpoint, session.id),
@@ -224,8 +228,13 @@ export class AssignmentManager implements vscode.Disposable {
       assignment,
     );
     await this.storage.store([server]);
-    this.assignmentsChange.fire();
+    await this.signalAssignmentChange();
     return server;
+  }
+
+  private async signalAssignmentChange(): Promise<void> {
+    await this.setHasAssignedServerContext();
+    this.assignmentsChange.fire();
   }
 
   private serverWithConnectionInfo(
