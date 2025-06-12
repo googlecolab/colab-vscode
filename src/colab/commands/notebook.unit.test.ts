@@ -61,6 +61,7 @@ describe("notebookToolbar", () => {
   });
 
   it("includes all commands when there is a server assigned", async () => {
+    assignmentManager.hasAssignedServer.resolves(true);
     vsCodeStub.window.showQuickPick
       .onFirstCall()
       // Arbitrarily select the first command.
@@ -71,7 +72,13 @@ describe("notebookToolbar", () => {
 
     sinon.assert.calledOnceWithMatch(
       vsCodeStub.window.showQuickPick,
-      commandsLabeled([OPEN_COLAB_WEB.label, UPGRADE_TO_PRO.label]),
+      commandsLabeled([
+        RENAME_SERVER_ALIAS.label,
+        REMOVE_SERVER.label,
+        /* separator */ "",
+        OPEN_COLAB_WEB.label,
+        UPGRADE_TO_PRO.label,
+      ]),
     );
   });
 
