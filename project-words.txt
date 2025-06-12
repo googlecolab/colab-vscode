@@ -2,6 +2,7 @@ authuser
 colab
 gapi
 Googlers
+grayscale
 highmem
 milli
 pkce
