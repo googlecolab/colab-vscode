@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, cpSync } from "fs";
 import * as esbuild from "esbuild";
 import { nodeExternalsPlugin } from "esbuild-node-externals";
 import { glob } from "glob";
@@ -9,7 +9,8 @@ const isWatch = process.argv.includes("--watch");
 
 mkdirSync("out/auth/media", { recursive: true });
 if (isTestBuild) {
-  mkdirSync("out/test", { recursive: true });
+  mkdirSync("out/test/media", { recursive: true });
+  cpSync("src/auth/media/favicon.ico", "out/test/media/favicon.ico");
 }
 
 function logBuildMetadata(name, outputs) {
@@ -98,6 +99,7 @@ function testSetupOptions(name, entrypoint, outfile) {
 async function main() {
   try {
     ensureConfigExists();
+    cpSync("src/auth/media/favicon.ico", "out/auth/media/favicon.ico");
     const options = isTestBuild
       ? [
           testSetupOptions(
