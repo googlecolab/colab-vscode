@@ -1,25 +1,15 @@
 import { expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
-import {
-  CodeChallengeMethod,
-  GetTokenResponse,
-} from "google-auth-library/build/src/auth/oauth2client";
 import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from "sinon";
 import * as sinon from "sinon";
 import vscode from "vscode";
 import { PROVIDER_ID } from "../config/constants";
-import { PackageInfo } from "../config/package-info";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { isUUID } from "../utils/uuid";
-import { GoogleAuthProvider, REQUIRED_SCOPES } from "./provider";
-import { CodeProvider } from "./redirect";
+import { GoogleAuthProvider, REQUIRED_SCOPES } from "./auth-provider";
+import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
-const PACKAGE_INFO: PackageInfo = {
-  publisher: PROVIDER_ID,
-  name: "colab",
-};
 const CLIENT_ID = "testClientId";
 const SCOPES = Array.from(REQUIRED_SCOPES);
 const NOW = Date.now();
@@ -66,6 +56,8 @@ describe("GoogleAuthProvider", () => {
     Promise<Response>
   >;
   let storageStub: SinonStubbedInstance<AuthStorage>;
+  let loginStub: sinon.SinonStub<[scopes: string[]], Promise<Credentials>>;
+
   /**
    * Writing tests for the {@link GoogleAuthProvider} is a bit tricky because of
    * the dependency on this *stateful* client. We could completely stub it out,
@@ -76,7 +68,6 @@ describe("GoogleAuthProvider", () => {
    * compromise, but it seems like the best middle ground.
    */
   let oauth2Client: OAuth2Client;
-  let redirectUriHandlerStub: SinonStubbedInstance<CodeProvider>;
   let onDidChangeSessionsStub: sinon.SinonStub<
     [vscode.AuthenticationProviderAuthenticationSessionsChangeEvent]
   >;
@@ -93,17 +84,14 @@ describe("GoogleAuthProvider", () => {
       "testClientSecret",
       "https://localhost:8888/vscode/redirect",
     );
-    redirectUriHandlerStub = {
-      waitForCode: sinon.stub(),
-    };
+    loginStub = sinon.stub();
     onDidChangeSessionsStub = sinon.stub();
 
     authProvider = new GoogleAuthProvider(
       vsCodeStub.asVsCode(),
-      PACKAGE_INFO,
       storageStub,
       oauth2Client,
-      redirectUriHandlerStub,
+      loginStub,
     );
     authProvider.onDidChangeSessions(onDidChangeSessionsStub);
   });
@@ -313,39 +301,11 @@ describe("GoogleAuthProvider", () => {
   });
 
   describe("createSession", () => {
-    const code = "4/2";
-    let nonce: string;
-
     beforeEach(async () => {
       sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
         oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
       });
       await authProvider.initialize();
-
-      const cancel = new vsCodeStub.CancellationTokenSource().token;
-      vsCodeStub.window.withProgress
-        .withArgs(
-          sinon.match({
-            location: vsCodeStub.ProgressLocation.Notification,
-            title: sinon.match(/Signing in/),
-            cancellable: true,
-          }),
-          sinon.match.any,
-        )
-        .callsFake((_, task) => task({ report: sinon.stub() }, cancel));
-      redirectUriHandlerStub.waitForCode
-        .withArgs(sinon.match(isUUID), cancel)
-        .callsFake((n, _token) => {
-          nonce = n;
-          const callbackUri = new RegExp(
-            `vscode://google.colab\\?nonce=${nonce}`,
-          );
-          const externalCallbackUri = `vscode://google.colab?nonce%3D${nonce}%26windowId%3D1`;
-          vsCodeStub.env.asExternalUri
-            .withArgs(matchUri(callbackUri))
-            .resolves(vsCodeStub.Uri.parse(externalCallbackUri));
-          return Promise.resolve(code);
-        });
     });
 
     it("rejects when the scopes are not supported", async () => {
@@ -355,55 +315,21 @@ describe("GoogleAuthProvider", () => {
     });
 
     it("rejects when getting token fails", async () => {
-      sinon.stub(oauth2Client, "getToken").resolves({
-        res: { status: 500 },
-        tokens: {},
-      } as GetTokenResponse);
+      loginStub.rejects(new Error("Failed to get token"));
 
       await expect(
         authProvider.createSession(SCOPES),
       ).to.eventually.be.rejectedWith(/get token/);
+
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.showErrorMessage,
         sinon.match(/Sign in failed.+/),
       );
     });
-
-    it("rejects when token response is missing credentials", async () => {
-      sinon.stub(oauth2Client, "getToken").resolves({
-        res: { status: 200 },
-        tokens: {},
-      } as GetTokenResponse);
-
-      await expect(
-        authProvider.createSession(SCOPES),
-      ).to.eventually.be.rejectedWith(/credential information/);
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.window.showErrorMessage,
-        sinon.match(/Sign in failed.+/),
-      );
-    });
-
-    function matchUri(regExp: RegExp) {
-      return sinon.match((uri: vscode.Uri) => regExp.test(uri.toString()));
-    }
 
     describe("with a successful login", () => {
       beforeEach(() => {
-        sinon
-          .stub(oauth2Client, "getToken")
-          .withArgs({ code, codeVerifier: sinon.match.string })
-          .resolves({
-            res: { status: 200 },
-            tokens: DEFAULT_CREDENTIALS,
-          } as GetTokenResponse);
-        vsCodeStub.env.openExternal
-          .withArgs(
-            matchUri(
-              new RegExp("https://accounts.google.com/o/oauth2/v2/auth?"),
-            ),
-          )
-          .resolves(true);
+        loginStub.withArgs(SCOPES).resolves(DEFAULT_CREDENTIALS);
         fetchStub
           .withArgs("https://www.googleapis.com/oauth2/v2/userinfo", {
             headers: { Authorization: `Bearer ${DEFAULT_ACCESS_TOKEN}` },
@@ -424,21 +350,6 @@ describe("GoogleAuthProvider", () => {
           id: session.id,
         };
         expect(session).to.deep.equal(newSession);
-        sinon.assert.calledOnce(vsCodeStub.env.openExternal);
-        const query = new URLSearchParams(
-          vsCodeStub.env.openExternal.firstCall.args[0].query,
-        );
-        expect(Array.from(query.entries())).to.deep.include.members([
-          ["access_type", "offline"],
-          ["response_type", "code"],
-          ["scope", SCOPES.join(" ")],
-          ["prompt", "consent"],
-          ["code_challenge_method", CodeChallengeMethod.S256],
-          ["client_id", CLIENT_ID],
-          ["redirect_uri", "https://localhost:8888/vscode/redirect"],
-          ["state", `vscode://google.colab?nonce%3D${nonce}%26windowId%3D1`],
-        ]);
-        expect(query.get("code_challenge")).to.match(/^[A-Za-z0-9_-]+$/);
         sinon.assert.calledOnceWithMatch(
           vsCodeStub.window.showInformationMessage,
           sinon.match(/Signed in/),

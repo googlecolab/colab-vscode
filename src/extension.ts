@@ -1,7 +1,8 @@
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
-import { GoogleAuthProvider } from "./auth/provider";
-import { RedirectUriCodeProvider } from "./auth/redirect";
+import { GoogleAuthProvider } from "./auth/auth-provider";
+import { OAuth2FlowProvider } from "./auth/flows/flows";
+import { login } from "./auth/login";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
 import {
@@ -19,24 +20,28 @@ import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
 import { ServerStorage } from "./jupyter/storage";
+import { ExtensionUriHandler } from "./system/uri-handler";
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
   const jupyter = await getJupyterApi(vscode);
-  const redirectUriHandler = new RedirectUriCodeProvider();
-  const disposeUriHandler =
-    vscode.window.registerUriHandler(redirectUriHandler);
+  const uriHandler = new ExtensionUriHandler(vscode);
+  const disposeUriHandler = vscode.window.registerUriHandler(uriHandler);
   const authClient = new OAuth2Client(
     CONFIG.ClientId,
     CONFIG.ClientNotSoSecret,
-    `${CONFIG.ColabApiDomain}/vscode/redirect`,
+  );
+  const authFlows = new OAuth2FlowProvider(
+    vscode,
+    getPackageInfo(context),
+    uriHandler,
+    authClient,
   );
   const authProvider = new GoogleAuthProvider(
     vscode,
-    getPackageInfo(context),
     new AuthStorage(context.secrets),
     authClient,
-    redirectUriHandler,
+    (scopes: string[]) => login(vscode, authFlows, authClient, scopes),
   );
   await authProvider.initialize();
   // TODO: Align these URLs with the environment. Mismatch is no big deal during

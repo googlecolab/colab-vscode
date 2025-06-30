@@ -1,0 +1,72 @@
+import { OAuth2Client } from "google-auth-library";
+import vscode from "vscode";
+import { CONFIG } from "../../colab-config";
+import { PackageInfo } from "../../config/package-info";
+import { ExtensionUriHandler } from "../../system/uri-handler";
+import { CodeManager } from "../code-manager";
+import {
+  DEFAULT_AUTH_URL_OPTS,
+  OAuth2Flow,
+  OAuth2FlowDescriptor,
+  OAuth2TriggerOptions,
+  FlowResult,
+} from "./flows";
+
+const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
+
+export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
+  options: OAuth2FlowDescriptor = {
+    supportsWebWorkerExtensionHost: true,
+    supportsRemoteExtensionHost: true,
+  };
+
+  private readonly baseUri: string;
+  private readonly uriHandler: vscode.Disposable;
+  private readonly codeManager = new CodeManager();
+
+  constructor(
+    private readonly vs: typeof vscode,
+    private readonly packageInfo: PackageInfo,
+    private readonly oAuth2Client: OAuth2Client,
+    uriHandler: ExtensionUriHandler,
+  ) {
+    const scheme = this.vs.env.uriScheme;
+    const pub = this.packageInfo.publisher;
+    const name = this.packageInfo.name;
+    this.baseUri = `${scheme}://${pub}.${name}`;
+    this.uriHandler = uriHandler.onReceivedUri(this.resolveCode.bind(this));
+  }
+
+  dispose() {
+    this.uriHandler.dispose();
+  }
+
+  async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
+    const code = this.codeManager.waitForCode(options.nonce, options.cancel);
+    const vsCodeRedirectUri = this.vs.Uri.parse(
+      `${this.baseUri}?nonce=${options.nonce}`,
+    );
+    const externalProxiedRedirectUri =
+      await this.vs.env.asExternalUri(vsCodeRedirectUri);
+    const authUrl = this.oAuth2Client.generateAuthUrl({
+      ...DEFAULT_AUTH_URL_OPTS,
+      redirect_uri: PROXIED_REDIRECT_URI,
+      state: externalProxiedRedirectUri.toString(),
+      scope: options.scopes,
+      code_challenge: options.pkceChallenge,
+    });
+
+    await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
+    return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
+  }
+
+  private resolveCode(uri: vscode.Uri): void {
+    const params = new URLSearchParams(uri.query);
+    const nonce = params.get("nonce");
+    const code = params.get("code");
+    if (!nonce || !code) {
+      throw new Error("Missing nonce or code in redirect URI");
+    }
+    this.codeManager.resolveCode(nonce, code);
+  }
+}

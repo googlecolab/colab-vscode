@@ -1,14 +1,9 @@
-import {
-  OAuth2Client,
-  CodeChallengeMethod,
-  Credentials,
-} from "google-auth-library";
+import { OAuth2Client } from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
 import vscode, { AuthenticationSession } from "vscode";
 import { z } from "zod";
-import { PackageInfo } from "../config/package-info";
-import { CodeProvider } from "./redirect";
+import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
 export const REQUIRED_SCOPES = [
@@ -51,10 +46,9 @@ export class GoogleAuthProvider
    */
   constructor(
     private readonly vs: typeof vscode,
-    private readonly packageInfo: PackageInfo,
     private readonly storage: AuthStorage,
     private readonly oAuth2Client: OAuth2Client,
-    private readonly codeProvider: CodeProvider,
+    private readonly login: (scopes: string[]) => Promise<Credentials>,
   ) {
     this.emitter =
       new vs.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
@@ -170,7 +164,7 @@ export class GoogleAuthProvider
           `Only supports the following scopes: ${sortedScopes.join(", ")}`,
         );
       }
-      const tokenInfo = await this.login(sortedScopes.join(" "));
+      const tokenInfo = await this.login(sortedScopes);
       const user = await this.getUserInfo(tokenInfo.access_token);
       const existingSession = await this.storage.getSession();
       const newSession: RefreshableAuthenticationSession = {
@@ -204,14 +198,11 @@ export class GoogleAuthProvider
           changed: [],
         });
       }
-
+      this.vs.window.showInformationMessage("Signed in to Google!");
       return this.session;
     } catch (err: unknown) {
-      let reason = "unknown error";
-      if (err instanceof Error) {
-        reason = err.message;
-      }
-      this.vs.window.showErrorMessage(`Sign in failed: ${reason}`);
+      const msg = err instanceof Error ? err.message : "unknown error";
+      this.vs.window.showErrorMessage(`Sign in failed: ${msg}`);
       throw err;
     }
   }
@@ -265,65 +256,6 @@ export class GoogleAuthProvider
     };
   }
 
-  private async login(scopes: string): Promise<DefinedCredentials> {
-    const res = await this.vs.window.withProgress<DefinedCredentials>(
-      {
-        location: this.vs.ProgressLocation.Notification,
-        title: "Signing in to Google...",
-        cancellable: true,
-      },
-      async (_, cancel: vscode.CancellationToken) => {
-        const nonce = uuid();
-        const promisedCode = this.codeProvider.waitForCode(nonce, cancel);
-
-        const callbackUri = await this.getCallbackUri(nonce);
-        const pkce = await this.oAuth2Client.generateCodeVerifierAsync();
-        const authorizeUrl = this.oAuth2Client.generateAuthUrl({
-          access_type: "offline",
-          response_type: "code",
-          scope: scopes,
-          state: callbackUri.toString(),
-          prompt: "consent",
-          code_challenge_method: CodeChallengeMethod.S256,
-          code_challenge: pkce.codeChallenge,
-        });
-
-        await this.vs.env.openExternal(this.vs.Uri.parse(authorizeUrl));
-
-        const code = await promisedCode;
-
-        const tokenResponse = await this.oAuth2Client.getToken({
-          code,
-          codeVerifier: pkce.codeVerifier,
-        });
-        if (tokenResponse.res?.status !== 200) {
-          const details = tokenResponse.res
-            ? tokenResponse.res.statusText
-            : "unknown error";
-          throw new Error(`Failed to get token: ${details}`);
-        }
-        if (!isDefinedCredentials(tokenResponse.tokens)) {
-          throw new Error("Missing credential information");
-        }
-
-        return tokenResponse.tokens;
-      },
-    );
-    this.vs.window.showInformationMessage("Signed in to Google!");
-
-    return res;
-  }
-
-  private async getCallbackUri(nonce: string): Promise<vscode.Uri> {
-    const scheme = this.vs.env.uriScheme;
-    const pub = this.packageInfo.publisher;
-    const name = this.packageInfo.name;
-
-    const uri = this.vs.Uri.parse(`${scheme}://${pub}.${name}?nonce=${nonce}`);
-
-    return await this.vs.env.asExternalUri(uri);
-  }
-
   private async getUserInfo(
     token: string,
   ): Promise<z.infer<typeof UserInfoSchema>> {
@@ -354,26 +286,6 @@ function matchesRequiredScopes(scopes: readonly string[]): boolean {
   return (
     scopes.length === REQUIRED_SCOPES.length &&
     REQUIRED_SCOPES.every((r) => scopes.includes(r))
-  );
-}
-
-type RequiredCredentials = Pick<
-  Credentials,
-  "refresh_token" | "access_token" | "expiry_date" | "scope"
->;
-
-type DefinedCredentials = Credentials & {
-  [P in keyof RequiredCredentials]-?: NonNullable<RequiredCredentials[P]>;
-};
-
-function isDefinedCredentials(
-  credentials: Credentials,
-): credentials is DefinedCredentials {
-  return (
-    credentials.refresh_token != null &&
-    credentials.access_token != null &&
-    credentials.expiry_date != null &&
-    credentials.scope != null
   );
 }
 

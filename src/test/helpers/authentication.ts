@@ -97,3 +97,87 @@ export class FakeAuthenticationProviderManager {
     return sessions[0];
   }
 }
+
+/**
+ * A custom Sinon matcher object that verifies a vscode.Uri against the
+ * expected structure of a Google OAuth2 authentication URL.
+ */
+export function authUriMatch(
+  redirectUri: string,
+  stateParam: RegExp,
+  scopes: string[],
+) {
+  return {
+    errors: [] as string[],
+
+    test: function (uri: vscode.Uri | string): boolean {
+      this.errors = [];
+
+      try {
+        const urlString = uri.toString();
+        const parsedUrl = new URL(urlString);
+        const params = parsedUrl.searchParams;
+
+        if (parsedUrl.protocol !== "https:") {
+          this.errors.push(
+            `Expected protocol "https:", but got "${parsedUrl.protocol}"`,
+          );
+        }
+        if (parsedUrl.hostname !== "accounts.google.com") {
+          this.errors.push(
+            `Expected hostname "accounts.google.com", but got "${parsedUrl.hostname}"`,
+          );
+        }
+        if (parsedUrl.pathname !== "/o/oauth2/v2/auth") {
+          this.errors.push(
+            `Expected pathname "/o/oauth2/v2/auth", but got "${parsedUrl.pathname}"`,
+          );
+        }
+
+        const expectedParams: Record<string, string> = {
+          access_type: "offline",
+          response_type: "code",
+          prompt: "consent",
+          code_challenge_method: "S256",
+          redirect_uri: redirectUri,
+          scope: scopes.join(" "),
+        };
+
+        for (const key in expectedParams) {
+          const actual = params.get(key);
+          const expected = expectedParams[key];
+          if (actual !== expected) {
+            this.errors.push(
+              `For param "${key}", expected "${expected}", but got "${actual ?? ""}"`,
+            );
+          }
+        }
+
+        const requiredDynamicParams = ["state", "code_challenge", "client_id"];
+        for (const key of requiredDynamicParams) {
+          if (!params.has(key)) {
+            this.errors.push(`Missing required dynamic param: "${key}"`);
+          }
+        }
+
+        const state = params.get("state");
+        if (!state || !stateParam.test(state)) {
+          this.errors.push(
+            `State param should match "${stateParam.source}", but got "${state ?? ""}"`,
+          );
+        }
+      } catch (error) {
+        this.errors.push(`URL parsing failed: ${(error as Error).message}`);
+      }
+
+      return this.errors.length === 0;
+    },
+
+    toString: function (): string {
+      if (this.errors.length > 0) {
+        return `The following issues were found:\n  - ${this.errors.join("\n  - ")}`;
+      }
+      return "a valid Google Auth URL";
+    },
+  };
+}

@@ -3,24 +3,9 @@ import vscode from "vscode";
 const EXCHANGE_TIMEOUT_MS = 60_000;
 
 /**
- * Provides authentication codes.
+ * Provides the mechanism to wait for and resolve authorization codes.
  */
-export interface CodeProvider {
-  waitForCode(nonce: string, token: vscode.CancellationToken): Promise<string>;
-}
-
-interface InFlightPromise {
-  promise: Promise<string>;
-  resolve: (value: string) => void;
-  reject: (reason?: Error) => void;
-}
-
-/**
- * Waits for authentication codes obtained through redirect URIs.
- */
-export class RedirectUriCodeProvider
-  implements CodeProvider, vscode.UriHandler
-{
+export class CodeManager {
   private readonly inFlightPromises = new Map<string, InFlightPromise>();
 
   /**
@@ -62,19 +47,13 @@ export class RedirectUriCodeProvider
   }
 
   /**
-   * Resolves the in-flight promise corresponding to the provided URI.
+   * Resolves the in-flight promise corresponding to the provided nonce
+   * with the provided code.
    *
-   * @param uri - The URI containing the query parameters for nonce and code.
+   * @param nonce - The unique nonce used to correlate the request and response.
+   * @param code - The authorization code to resolve for the associated nonce.
    */
-  handleUri(uri: vscode.Uri): void {
-    const params = new URLSearchParams(uri.query);
-    const nonce = params.get("nonce");
-    const code = params.get("code");
-
-    if (!nonce || !code) {
-      throw new Error("Missing nonce or code in redirect URI");
-    }
-
+  resolveCode(nonce: string, code: string): void {
     const inFlight = this.inFlightPromises.get(nonce);
     if (!inFlight) {
       throw new Error("Unexpected code exchange received");
@@ -82,6 +61,12 @@ export class RedirectUriCodeProvider
 
     inFlight.resolve(code);
   }
+}
+
+interface InFlightPromise {
+  promise: Promise<string>;
+  resolve: (value: string) => void;
+  reject: (reason?: Error) => void;
 }
 
 /**
@@ -109,7 +94,7 @@ function createPromiseHandlers<T>(): {
 function waitForCancellation(token: vscode.CancellationToken): Promise<never> {
   return new Promise<never>((_, reject) =>
     token.onCancellationRequested(() => {
-      reject(new Error("Operation cancelled by the user"));
+      reject(new Error("Attempt cancelled by the user."));
     }),
   );
 }

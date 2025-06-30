@@ -1,7 +1,8 @@
 authuser
 colab
 gapi
-Googlers
+gaxios
+googlers
 grayscale
 highmem
 milli
