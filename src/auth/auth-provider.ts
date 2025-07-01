@@ -43,6 +43,8 @@ export class GoogleAuthProvider
    * @param oAuth2Client - The OAuth2 client for handling Google authentication.
    * @param codeProvider - The provider responsible for generating authorization
    * codes.
+   * @param login - A function that initiates the login process with the
+   * specified scopes.
    */
   constructor(
     private readonly vs: typeof vscode,

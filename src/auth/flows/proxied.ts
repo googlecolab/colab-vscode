@@ -15,10 +15,10 @@ import {
 const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
 
 export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
-  options: OAuth2FlowDescriptor = {
+  readonly options: Readonly<OAuth2FlowDescriptor> = {
     supportsWebWorkerExtensionHost: true,
     supportsRemoteExtensionHost: true,
-  };
+  } as const;
 
   private readonly baseUri: string;
   private readonly uriHandler: vscode.Disposable;

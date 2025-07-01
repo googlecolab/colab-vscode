@@ -71,8 +71,8 @@ export async function login(
         },
       );
     } catch (err) {
-      const innerMsg = err instanceof Error ? err.message : "unknown error.";
-      const msg = `Sign-in attempt failed: ${innerMsg}`;
+      const innerMsg = err instanceof Error ? err.message : "unknown error";
+      const msg = `Sign-in attempt failed: ${innerMsg}.`;
       // Notify this attempt failed, but try other methods 🤞.
       vs.window.showErrorMessage(msg);
     }
@@ -110,10 +110,10 @@ async function exchangeCodeForCredentials(
     const details = tokenResponse.res
       ? tokenResponse.res.statusText
       : "unknown error";
-    throw new Error(`Failed to get token: ${details}`);
+    throw new Error(`Failed to get token: ${details}.`);
   }
   if (!isDefinedCredentials(tokenResponse.tokens)) {
-    throw new Error("Missing credential information");
+    throw new Error("Missing credential information.");
   }
   return tokenResponse.tokens;
 }
