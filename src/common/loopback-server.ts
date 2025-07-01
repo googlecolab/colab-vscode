@@ -86,21 +86,22 @@ export class LoopbackServer implements vscode.Disposable {
     if (this.isDisposed) {
       throw new Error("Local server has already been disposed");
     }
-    if (!this.listen) {
-      this.listen = new Promise<number>((resolve, reject) => {
-        this.server.listen(0, "127.0.0.1", () => {
-          const address = this.server.address();
-          // A string is only ever returned when listening on a pipe or Unix
-          // domain socket, which isn't the case here. Regardless, the check is
-          // included to safely handle the address as an AddressInfo type.
-          if (address && typeof address !== "string") {
-            resolve(address.port);
-          } else {
-            reject(FAILED_TO_GET_PORT);
-          }
-        });
-      });
+    if (this.listen) {
+      return this.listen;
     }
+    this.listen = new Promise<number>((resolve, reject) => {
+      this.server.listen(0, "127.0.0.1", () => {
+        const address = this.server.address();
+        // A string is only ever returned when listening on a pipe or Unix
+        // domain socket, which isn't the case here. Regardless, the check is
+        // included to safely handle the address as an AddressInfo type.
+        if (address && typeof address !== "string") {
+          resolve(address.port);
+        } else {
+          reject(FAILED_TO_GET_PORT);
+        }
+      });
+    });
     return this.listen;
   }
 }
