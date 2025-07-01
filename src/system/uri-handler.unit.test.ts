@@ -6,18 +6,10 @@ import { ExtensionUriHandler } from "./uri-handler";
 
 describe("ExtensionUriHandler", () => {
   let vs: VsCodeStub;
-
-  beforeEach(() => {
-    vs = newVsCodeStub();
-  });
-
-  afterEach(() => {
-    sinon.restore();
-  });
-
   let handler: ExtensionUriHandler;
 
   beforeEach(() => {
+    vs = newVsCodeStub();
     handler = new ExtensionUriHandler(vs.asVsCode());
   });
 
