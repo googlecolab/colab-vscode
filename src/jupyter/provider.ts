@@ -20,7 +20,7 @@ import { openColabSignup, openColabWeb } from "../colab/commands/external";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import { isUUID } from "../utils/uuid";
-import { AssignmentManager } from "./assignments";
+import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 
 /**
  * Colab Jupyter server provider.
@@ -37,6 +37,7 @@ export class ColabJupyterServerProvider
   onDidChangeServers: vscode.Event<void>;
 
   private readonly serverCollection: JupyterServerCollection;
+  private readonly serverChangeEmitter: vscode.EventEmitter<void>;
 
   constructor(
     private readonly vs: typeof vscode,
@@ -45,7 +46,11 @@ export class ColabJupyterServerProvider
     private readonly serverPicker: ServerPicker,
     jupyter: Jupyter,
   ) {
-    this.onDidChangeServers = this.assignmentManager.onDidAssignmentsChange;
+    this.serverChangeEmitter = new this.vs.EventEmitter<void>();
+    this.onDidChangeServers = this.serverChangeEmitter.event;
+    this.assignmentManager.onDidAssignmentsChange(
+      this.handleAssignmentsChange.bind(this),
+    );
     this.serverCollection = jupyter.createJupyterServerCollection(
       "colab",
       "Colab",
@@ -66,7 +71,7 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return this.assignmentManager.getAssignedServers();
+    return this.getUpdatedAssignedServers();
   }
 
   /**
@@ -134,6 +139,11 @@ export class ColabJupyterServerProvider
     }
   }
 
+  private async getUpdatedAssignedServers(): Promise<JupyterServer[]> {
+    await this.assignmentManager.reconcileAssignedServers();
+    return await this.assignmentManager.getAssignedServers();
+  }
+
   private async provideRelevantCommands(): Promise<JupyterServerCommand[]> {
     const commands = [NEW_SERVER, OPEN_COLAB_WEB];
     try {
@@ -165,5 +175,15 @@ export class ColabJupyterServerProvider
       throw new this.vs.CancellationError();
     }
     return this.assignmentManager.assignServer(randomUUID(), serverType);
+  }
+
+  private handleAssignmentsChange(e: AssignmentChangeEvent): void {
+    const externalRemovals = e.removed.filter((s) => !s.userInitiated);
+    for (const { server: s } of externalRemovals) {
+      this.vs.window.showWarningMessage(
+        `Server "${s.label}" has been removed, either outside of the extension or due to inactivity.`,
+      );
+    }
+    this.serverChangeEmitter.fire();
   }
 }

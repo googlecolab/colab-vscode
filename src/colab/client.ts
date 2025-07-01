@@ -94,7 +94,7 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
     signal?: AbortSignal,
-  ): Promise<Assignment> {
+  ): Promise<{ assignment: Assignment; isNew: boolean }> {
     const assignment = await this.getAssignment(
       notebookHash,
       variant,
@@ -106,16 +106,19 @@ export class ColabClient {
         // Not required, but we want to remove the type field we use internally
         // to discriminate the union of types returned from getAssignment.
         const { kind: _, ...rest } = assignment;
-        return rest;
+        return { assignment: rest, isNew: false };
       }
       case "to_assign": {
-        return await this.postAssignment(
-          notebookHash,
-          assignment.xsrfToken,
-          variant,
-          accelerator,
-          signal,
-        );
+        return {
+          assignment: await this.postAssignment(
+            notebookHash,
+            assignment.xsrfToken,
+            variant,
+            accelerator,
+            signal,
+          ),
+          isNew: true,
+        };
       }
     }
   }

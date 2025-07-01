@@ -32,13 +32,37 @@ const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
  */
 const VSCODE_CLIENT_AGENT = "vscode";
 
+/**
+ * An {@link vscode.Event} which fires when a {@link ColabAssignedServer} is
+ * added, removed, or changed.
+ */
+export interface AssignmentChangeEvent {
+  /**
+   * The {@link ColabAssignedServer | servers} that have been added.
+   */
+  readonly added: readonly ColabAssignedServer[];
+
+  /**
+   * The {@link ColabAssignedServer | servers} that have been removed.
+   */
+  readonly removed: readonly {
+    server: ColabAssignedServer;
+    userInitiated: boolean;
+  }[];
+
+  /**
+   * The {@link ColabAssignedServer | servers} that have been changed.
+   */
+  readonly changed: readonly ColabAssignedServer[];
+}
+
 export class AssignmentManager implements vscode.Disposable {
   /**
    * Event that fires when the server assignments change.
    */
-  onDidAssignmentsChange: vscode.Event<void>;
+  onDidAssignmentsChange: vscode.Event<AssignmentChangeEvent>;
 
-  private readonly assignmentsChange: vscode.EventEmitter<void>;
+  private readonly assignmentChange: vscode.EventEmitter<AssignmentChangeEvent>;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
@@ -46,9 +70,9 @@ export class AssignmentManager implements vscode.Disposable {
     private readonly client: ColabClient,
     private readonly storage: ServerStorage,
   ) {
-    this.assignmentsChange = new vs.EventEmitter<void>();
-    this.disposables.push(this.assignmentsChange);
-    this.onDidAssignmentsChange = this.assignmentsChange.event;
+    this.assignmentChange = new vs.EventEmitter<AssignmentChangeEvent>();
+    this.disposables.push(this.assignmentChange);
+    this.onDidAssignmentsChange = this.assignmentChange.event;
   }
 
   dispose() {
@@ -103,14 +127,26 @@ export class AssignmentManager implements vscode.Disposable {
     const live = new Set(
       (await this.client.listAssignments()).map((a) => a.endpoint),
     );
-    const reconciled = stored.filter((s) => live.has(s.endpoint));
+    const removed: ColabAssignedServer[] = [];
+    const reconciled: ColabAssignedServer[] = [];
+    for (const s of stored) {
+      if (live.has(s.endpoint)) {
+        reconciled.push(s);
+      } else {
+        removed.push(s);
+      }
+    }
     if (stored.length === reconciled.length) {
       return;
     }
 
     await this.storage.clear();
     await this.storage.store(reconciled);
-    await this.signalAssignmentChange();
+    await this.signalChange({
+      added: [],
+      removed: removed.map((s) => ({ server: s, userInitiated: false })),
+      changed: [],
+    });
   }
 
   /**
@@ -194,7 +230,11 @@ export class AssignmentManager implements vscode.Disposable {
     if (!removed) {
       return;
     }
-    await this.signalAssignmentChange();
+    await this.signalChange({
+      added: [],
+      removed: [{ server, userInitiated: true }],
+      changed: [],
+    });
     await Promise.all(
       (await this.client.listSessions(server.endpoint)).map((session) =>
         this.client.deleteSession(server.endpoint, session.id),
@@ -213,7 +253,7 @@ export class AssignmentManager implements vscode.Disposable {
   private async assignOrRefresh(
     toAssign: ColabJupyterServer,
   ): Promise<ColabAssignedServer> {
-    const assignment = await this.client.assign(
+    const { assignment, isNew } = await this.client.assign(
       toAssign.id,
       toAssign.variant,
       toAssign.accelerator,
@@ -228,13 +268,17 @@ export class AssignmentManager implements vscode.Disposable {
       assignment,
     );
     await this.storage.store([server]);
-    await this.signalAssignmentChange();
+    await this.signalChange({
+      added: isNew ? [server] : [],
+      removed: [],
+      changed: isNew ? [] : [server],
+    });
     return server;
   }
 
-  private async signalAssignmentChange(): Promise<void> {
+  private async signalChange(e: AssignmentChangeEvent): Promise<void> {
     await this.setHasAssignedServerContext();
-    this.assignmentsChange.fire();
+    this.assignmentChange.fire(e);
   }
 
   private serverWithConnectionInfo(

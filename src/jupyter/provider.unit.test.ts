@@ -19,18 +19,35 @@ import {
 } from "../colab/commands/constants";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
+import { TestUri } from "../test/helpers/uri";
 import {
   newVsCodeStub as newVsCodeStub,
   VsCodeStub,
 } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
-import { AssignmentManager } from "./assignments";
+import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 import { ColabJupyterServerProvider } from "./provider";
 import {
   COLAB_SERVERS,
   ColabAssignedServer,
   ColabServerDescriptor,
 } from "./servers";
+
+const DEFAULT_SERVER: ColabAssignedServer = {
+  id: randomUUID(),
+  label: "Colab GPU A100",
+  variant: Variant.GPU,
+  accelerator: Accelerator.A100,
+  endpoint: "m-s-foo",
+  connectionInformation: {
+    baseUrl: TestUri.parse("https://example.com"),
+    token: "123",
+    headers: {
+      "X-Colab-Runtime-Proxy-Token": "123",
+      "X-Colab-Client-Agent": "vscode",
+    },
+  },
+};
 
 describe("ColabJupyterServerProvider", () => {
   let vsCodeStub: VsCodeStub;
@@ -44,7 +61,6 @@ describe("ColabJupyterServerProvider", () => {
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverPickerStub: SinonStubbedInstance<ServerPicker>;
-  let defaultServer: ColabAssignedServer;
   let serverProvider: ColabJupyterServerProvider;
 
   beforeEach(() => {
@@ -76,23 +92,9 @@ describe("ColabJupyterServerProvider", () => {
       },
     );
     assignmentStub = sinon.createStubInstance(AssignmentManager);
+    assignmentStub.onDidAssignmentsChange = sinon.stub();
     colabClientStub = sinon.createStubInstance(ColabClient);
     serverPickerStub = sinon.createStubInstance(ServerPicker);
-    defaultServer = {
-      id: randomUUID(),
-      label: "Colab GPU A100",
-      variant: Variant.GPU,
-      accelerator: Accelerator.A100,
-      endpoint: "m-s-foo",
-      connectionInformation: {
-        baseUrl: vsCodeStub.Uri.parse("https://example.com"),
-        token: "123",
-        headers: {
-          "X-Colab-Runtime-Proxy-Token": "123",
-          "X-Colab-Client-Agent": "vscode",
-        },
-      },
-    };
 
     serverProvider = new ColabJupyterServerProvider(
       vsCodeStub.asVsCode(),
@@ -135,18 +137,18 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     it("returns a single server when one is assigned", async () => {
-      assignmentStub.getAssignedServers.resolves([defaultServer]);
+      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
 
-      expect(servers).to.deep.equal([defaultServer]);
+      expect(servers).to.deep.equal([DEFAULT_SERVER]);
     });
 
     it("returns multiple servers when they are assigned", async () => {
       const assignedServers = [
-        defaultServer,
-        { ...defaultServer, id: randomUUID() },
+        DEFAULT_SERVER,
+        { ...DEFAULT_SERVER, id: randomUUID() },
       ];
       assignmentStub.getAssignedServers.resolves(assignedServers);
 
@@ -155,11 +157,31 @@ describe("ColabJupyterServerProvider", () => {
 
       expect(servers).to.deep.equal(assignedServers);
     });
+
+    it("returns only reconciled servers", async () => {
+      const nonReconciledServers = [
+        DEFAULT_SERVER,
+        { ...DEFAULT_SERVER, id: randomUUID() },
+      ];
+      // Setup the assignment manager stub to return two servers, but then
+      // once reconciled, return only the first one. This effectively ensures
+      // that the server provider only returns servers that are reconciled.
+      assignmentStub.getAssignedServers.resolves(nonReconciledServers);
+      assignmentStub.reconcileAssignedServers.callsFake(() => {
+        assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+        return Promise.resolve();
+      });
+
+      const servers =
+        await serverProvider.provideJupyterServers(cancellationToken);
+
+      expect(servers).to.deep.equal([DEFAULT_SERVER]);
+    });
   });
 
   describe("resolveJupyterServer", () => {
     it("throws when the server ID is not a UUID", () => {
-      const server = { ...defaultServer, id: "not-a-uuid" };
+      const server = { ...DEFAULT_SERVER, id: "not-a-uuid" };
 
       expect(() =>
         serverProvider.resolveJupyterServer(server, cancellationToken),
@@ -167,7 +189,7 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     it("rejects if the server is not found", async () => {
-      assignmentStub.getAssignedServers.resolves([defaultServer]);
+      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
       const server: JupyterServer = { id: randomUUID(), label: "foo" };
 
       await expect(
@@ -177,19 +199,19 @@ describe("ColabJupyterServerProvider", () => {
 
     it("returns the assigned server with refreshed connection info", async () => {
       const refreshedServer: ColabAssignedServer = {
-        ...defaultServer,
+        ...DEFAULT_SERVER,
         connectionInformation: {
-          ...defaultServer.connectionInformation,
+          ...DEFAULT_SERVER.connectionInformation,
           token: "456",
         },
       };
-      assignmentStub.getAssignedServers.resolves([defaultServer]);
+      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
       assignmentStub.refreshConnection
-        .withArgs(defaultServer)
+        .withArgs(DEFAULT_SERVER)
         .resolves(refreshedServer);
 
       await expect(
-        serverProvider.resolveJupyterServer(defaultServer, cancellationToken),
+        serverProvider.resolveJupyterServer(DEFAULT_SERVER, cancellationToken),
       ).to.eventually.deep.equal(refreshedServer);
     });
   });
@@ -302,27 +324,67 @@ describe("ColabJupyterServerProvider", () => {
           );
           const selectedServer: ColabServerDescriptor = {
             label: "My new server",
-            variant: defaultServer.variant,
-            accelerator: defaultServer.accelerator,
+            variant: DEFAULT_SERVER.variant,
+            accelerator: DEFAULT_SERVER.accelerator,
           };
           serverPickerStub.prompt
             .withArgs(availableServers)
             .resolves(selectedServer);
           assignmentStub.assignServer
             .withArgs(sinon.match(isUUID), selectedServer)
-            .resolves(defaultServer);
+            .resolves(DEFAULT_SERVER);
 
           await expect(
             serverProvider.handleCommand(
               { label: NEW_SERVER.label },
               cancellationToken,
             ),
-          ).to.eventually.deep.equal(defaultServer);
+          ).to.eventually.deep.equal(DEFAULT_SERVER);
 
           sinon.assert.calledOnce(serverPickerStub.prompt);
           sinon.assert.calledOnce(assignmentStub.assignServer);
         });
       });
+    });
+  });
+
+  describe("onDidChangeServers", () => {
+    const events: Map<"added" | "removed" | "changed", AssignmentChangeEvent> =
+      new Map<"added" | "removed" | "changed", AssignmentChangeEvent>([
+        ["added", { added: [DEFAULT_SERVER], removed: [], changed: [] }],
+        [
+          "removed",
+          {
+            added: [],
+            removed: [{ server: DEFAULT_SERVER, userInitiated: false }],
+            changed: [],
+          },
+        ],
+        ["changed", { added: [], removed: [], changed: [DEFAULT_SERVER] }],
+      ]);
+    let listener: sinon.SinonStub<[]>;
+
+    beforeEach(() => {
+      sinon.assert.calledOnce(assignmentStub.onDidAssignmentsChange);
+      listener = sinon.stub();
+      serverProvider.onDidChangeServers(listener);
+    });
+
+    for (const [label, event] of events) {
+      it(`fires when servers are ${label}`, () => {
+        assignmentStub.onDidAssignmentsChange.yield(event);
+
+        sinon.assert.calledOnce(listener);
+      });
+    }
+
+    it("warns of server removal when not initiated by the user", () => {
+      assignmentStub.onDidAssignmentsChange.yield(events.get("removed"));
+
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showWarningMessage,
+        sinon.match(new RegExp(`"${DEFAULT_SERVER.label}" .+ removed`)),
+      );
     });
   });
 });

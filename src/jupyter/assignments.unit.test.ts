@@ -15,7 +15,7 @@ import { ColabClient } from "../colab/client";
 import { ServerStorageFake } from "../test/helpers/server-storage";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
-import { AssignmentManager } from "./assignments";
+import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 import {
   COLAB_SERVERS,
   ColabAssignedServer,
@@ -48,7 +48,7 @@ describe("AssignmentManager", () => {
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverStorage: ServerStorage;
-  let assignmentsChangeListener: sinon.SinonStub<[]>;
+  let assignmentChangeListener: sinon.SinonStub<[AssignmentChangeEvent], void>;
   let defaultServer: ColabAssignedServer;
   let assignmentManager: AssignmentManager;
 
@@ -75,8 +75,8 @@ describe("AssignmentManager", () => {
       colabClientStub,
       serverStorage,
     );
-    assignmentsChangeListener = sinon.stub();
-    assignmentManager.onDidAssignmentsChange(assignmentsChangeListener);
+    assignmentChangeListener = sinon.stub();
+    assignmentManager.onDidAssignmentsChange(assignmentChangeListener);
   });
 
   afterEach(() => {
@@ -160,7 +160,7 @@ describe("AssignmentManager", () => {
       await assignmentManager.reconcileAssignedServers();
 
       sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
-      sinon.assert.notCalled(assignmentsChangeListener);
+      sinon.assert.notCalled(assignmentChangeListener);
     });
 
     it("does nothing when no servers need reconciling", async () => {
@@ -170,7 +170,7 @@ describe("AssignmentManager", () => {
       await assignmentManager.reconcileAssignedServers();
 
       sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
-      sinon.assert.notCalled(assignmentsChangeListener);
+      sinon.assert.notCalled(assignmentChangeListener);
     });
 
     it("reconciles a single assigned server when it is the only one", async () => {
@@ -187,7 +187,11 @@ describe("AssignmentManager", () => {
         "colab.hasAssignedServer",
         false,
       );
-      sinon.assert.calledOnce(assignmentsChangeListener);
+      sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+        added: [],
+        removed: [{ server: defaultServer, userInitiated: false }],
+        changed: [],
+      });
     });
 
     describe("with multiple servers", () => {
@@ -234,7 +238,11 @@ describe("AssignmentManager", () => {
           "colab.hasAssignedServer",
           true,
         );
-        sinon.assert.calledOnce(assignmentsChangeListener);
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: servers[1], userInitiated: false }],
+          changed: [],
+        });
       });
 
       it("reconciles multiple assigned servers when all need reconciling", async () => {
@@ -251,7 +259,11 @@ describe("AssignmentManager", () => {
           "colab.hasAssignedServer",
           false,
         );
-        sinon.assert.calledOnce(assignmentsChangeListener);
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: servers.map((s) => ({ server: s, userInitiated: false })),
+          changed: [],
+        });
       });
 
       it("reconciles multiple assigned servers when some need reconciling", async () => {
@@ -282,7 +294,11 @@ describe("AssignmentManager", () => {
           "colab.hasAssignedServer",
           true,
         );
-        sinon.assert.calledOnce(assignmentsChangeListener);
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: thirdServer, userInitiated: false }],
+          changed: [],
+        });
       });
 
       it("reconciles ignoring assignments originating out of VS Code", async () => {
@@ -307,7 +323,11 @@ describe("AssignmentManager", () => {
           "colab.hasAssignedServer",
           false,
         );
-        sinon.assert.calledOnce(assignmentsChangeListener);
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: servers.map((s) => ({ server: s, userInitiated: false })),
+          changed: [],
+        });
       });
     });
   });
@@ -391,7 +411,10 @@ describe("AssignmentManager", () => {
           defaultAssignment.variant,
           defaultAssignment.accelerator,
         )
-        .resolves({ ...defaultAssignment, runtimeProxyInfo: undefined });
+        .resolves({
+          assignment: { ...defaultAssignment, runtimeProxyInfo: undefined },
+          isNew: false,
+        });
 
       expect(
         assignmentManager.assignServer(
@@ -409,11 +432,14 @@ describe("AssignmentManager", () => {
           defaultAssignment.accelerator,
         )
         .resolves({
-          ...defaultAssignment,
-          runtimeProxyInfo: {
-            ...defaultAssignment.runtimeProxyInfo,
-            url: "",
+          assignment: {
+            ...defaultAssignment,
+            runtimeProxyInfo: {
+              ...defaultAssignment.runtimeProxyInfo,
+              url: "",
+            },
           },
+          isNew: false,
         });
 
       expect(
@@ -432,11 +458,14 @@ describe("AssignmentManager", () => {
           defaultAssignment.accelerator,
         )
         .resolves({
-          ...defaultAssignment,
-          runtimeProxyInfo: {
-            ...defaultAssignment.runtimeProxyInfo,
-            token: "",
+          assignment: {
+            ...defaultAssignment,
+            runtimeProxyInfo: {
+              ...defaultAssignment.runtimeProxyInfo,
+              token: "",
+            },
           },
+          isNew: false,
         });
 
       expect(
@@ -457,7 +486,7 @@ describe("AssignmentManager", () => {
             defaultServer.variant,
             defaultServer.accelerator,
           )
-          .resolves(defaultAssignment);
+          .resolves({ assignment: defaultAssignment, isNew: false });
         await serverStorage.store([defaultServer]);
 
         assignedServer = await assignmentManager.assignServer(
@@ -480,7 +509,11 @@ describe("AssignmentManager", () => {
       });
 
       it("emits an assignment change event", () => {
-        sinon.assert.calledOnce(assignmentsChangeListener);
+        sinon.assert.calledOnceWithMatch(assignmentChangeListener, {
+          added: [],
+          removed: [],
+          changed: [sinon.match(defaultServer)],
+        });
       });
 
       it("includes a fetch implementation that attaches Colab connection info", async () => {
@@ -506,7 +539,7 @@ describe("AssignmentManager", () => {
 
       sinon.assert.notCalled(colabClientStub.unassign);
       sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
-      sinon.assert.notCalled(assignmentsChangeListener);
+      sinon.assert.notCalled(assignmentChangeListener);
     });
 
     describe("when the server exists", () => {
@@ -576,7 +609,11 @@ describe("AssignmentManager", () => {
           "colab.hasAssignedServer",
           false,
         );
-        sinon.assert.calledOnce(assignmentsChangeListener);
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: defaultServer, userInitiated: true }],
+          changed: [],
+        });
       });
     });
   });
@@ -593,11 +630,14 @@ describe("AssignmentManager", () => {
           defaultServer.accelerator,
         )
         .resolves({
-          ...defaultAssignment,
-          runtimeProxyInfo: {
-            ...defaultAssignment.runtimeProxyInfo,
-            token: newToken,
+          assignment: {
+            ...defaultAssignment,
+            runtimeProxyInfo: {
+              ...defaultAssignment.runtimeProxyInfo,
+              token: newToken,
+            },
           },
+          isNew: false,
         });
       await serverStorage.store([defaultServer]);
 
@@ -636,7 +676,11 @@ describe("AssignmentManager", () => {
     });
 
     it("emits an assignment change event", () => {
-      sinon.assert.calledOnce(assignmentsChangeListener);
+      sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+        added: [],
+        removed: [],
+        changed: [refreshedServer],
+      });
     });
   });
 });

@@ -144,7 +144,10 @@ describe("ColabClient", () => {
 
       await expect(
         client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
-      ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
+      ).to.eventually.deep.equal({
+        assignment: DEFAULT_ASSIGNMENT,
+        isNew: false,
+      });
 
       sinon.assert.calledOnce(fetchStub);
     });
@@ -178,7 +181,10 @@ describe("ColabClient", () => {
 
       await expect(
         client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
-      ).to.eventually.deep.equal(DEFAULT_ASSIGNMENT);
+      ).to.eventually.deep.equal({
+        assignment: DEFAULT_ASSIGNMENT,
+        isNew: true,
+      });
 
       sinon.assert.calledTwice(fetchStub);
     });

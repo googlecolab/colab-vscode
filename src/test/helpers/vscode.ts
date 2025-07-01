@@ -56,6 +56,9 @@ export interface VsCodeStub {
     showInformationMessage: sinon.SinonStubbedMember<
       typeof vscode.window.showInformationMessage
     >;
+    showWarningMessage: sinon.SinonStubbedMember<
+      typeof vscode.window.showWarningMessage
+    >;
     showErrorMessage: sinon.SinonStubbedMember<
       typeof vscode.window.showErrorMessage
     >;
@@ -129,6 +132,7 @@ export function newVsCodeStub(): VsCodeStub {
     window: {
       withProgress: sinon.stub(),
       showInformationMessage: sinon.stub(),
+      showWarningMessage: sinon.stub(),
       showErrorMessage: sinon.stub(),
       showQuickPick: sinon.stub(),
       createInputBox: sinon.stub(),
