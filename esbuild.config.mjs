@@ -7,12 +7,9 @@ const isProduction = process.argv.includes("--production");
 const isTestBuild = process.argv.includes("--tests");
 const isWatch = process.argv.includes("--watch");
 
-if (!existsSync("out")) {
-  mkdirSync("out");
-}
-
-if (isTestBuild && !existsSync("out/test")) {
-  mkdirSync("out/test");
+mkdirSync("out/auth/media", { recursive: true });
+if (isTestBuild) {
+  mkdirSync("out/test", { recursive: true });
 }
 
 function logBuildMetadata(name, outputs) {
