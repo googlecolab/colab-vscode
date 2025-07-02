@@ -54,7 +54,7 @@ describe("LocalServerFlow", () => {
 
   // Each call to `trigger` creates a new server. This test validates each of
   // them are disposed when the flow is.
-  it("disposes the supporting loopback server when disposed", async () => {
+  it("disposes the supporting loopback server when disposed", () => {
     const fakeServer2 = createHttpServerMock({
       ...DEFAULT_ADDRESS,
       port: DEFAULT_ADDRESS.port + 1,
