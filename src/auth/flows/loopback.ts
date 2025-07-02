@@ -82,6 +82,11 @@ class Handler implements LoopbackHandler {
     assert(req.url);
     assert(req.headers.host);
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (req.method !== "GET") {
+      res.writeHead(405, { Allow: "GET" });
+      res.end("Method Not Allowed");
+      return;
+    }
     switch (url.pathname) {
       case "/": {
         const state = url.searchParams.get("state");
@@ -106,20 +111,20 @@ class Handler implements LoopbackHandler {
       }
       default: {
         console.warn("Received unhandled request: ", req);
+        res.writeHead(404);
+        res.end("Not Found");
+        break;
       }
     }
   }
-
-  handleError?: ((err: Error) => void) | undefined;
-  handleClose?: (() => void) | undefined;
 }
 
 function sendFile(res: http.ServerResponse, filepath: string): void {
   fs.readFile(filepath, (err, body) => {
     if (err) {
       console.error(err);
-      res.writeHead(404);
-      res.end();
+      res.writeHead(500);
+      res.end("Internal Server Error");
     } else {
       res.setHeader("content-length", body.length);
       res.writeHead(200);

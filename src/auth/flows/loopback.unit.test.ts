@@ -53,8 +53,26 @@ describe("LocalServerFlow", () => {
     sinon.restore();
   });
 
+  it("returns method not allowed for non-GET requests", async () => {
+    const clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
+    const trigger = flow.trigger(defaultTriggerOpts);
+    const req = {
+      url: "/",
+      method: "POST",
+      headers: { host: DEFAULT_HOST },
+    } as http.IncomingMessage;
+
+    fakeServer.emit("request", req, resStub);
+    clock.tick(60_001);
+    await expect(trigger).to.eventually.be.rejectedWith(/timeout/);
+
+    sinon.assert.calledWith(resStub.writeHead, 405, { Allow: "GET" });
+    sinon.assert.calledOnce(resStub.end);
+    clock.restore();
+  });
+
   it("throws an error for malformed requests missing a URL", () => {
-    const req = {} as http.IncomingMessage;
+    const req = { method: "GET" } as http.IncomingMessage;
     fakeServer.emit("request", req, resStub);
     void flow.trigger(defaultTriggerOpts);
 
@@ -62,7 +80,7 @@ describe("LocalServerFlow", () => {
   });
 
   it("throws an error for malformed requests missing a host header", () => {
-    const req = { url: "/" } as http.IncomingMessage;
+    const req = { method: "GET", url: "/" } as http.IncomingMessage;
     fakeServer.emit("request", req, resStub);
     void flow.trigger(defaultTriggerOpts);
 
@@ -77,6 +95,7 @@ describe("LocalServerFlow", () => {
   for (const t of requestErrorTests) {
     it(`throws an error when ${t.label} is missing`, () => {
       const req = {
+        method: "GET",
         url: t.url,
         headers: { host: DEFAULT_HOST },
       } as http.IncomingMessage;
@@ -92,6 +111,7 @@ describe("LocalServerFlow", () => {
   it("triggers and resolves the authentication flow", async () => {
     const trigger = flow.trigger(defaultTriggerOpts);
     const req = {
+      method: "GET",
       url: `/?state=nonce%3D${NONCE}&code=${CODE}&scope=${SCOPES[0]}`,
       headers: { host: DEFAULT_HOST },
     } as http.IncomingMessage;
@@ -114,6 +134,7 @@ describe("LocalServerFlow", () => {
     void flow.trigger(defaultTriggerOpts);
 
     const faviconReq = {
+      method: "GET",
       url: "/favicon.ico",
       headers: { host: DEFAULT_HOST },
     } as http.IncomingMessage;
