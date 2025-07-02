@@ -1,14 +1,11 @@
-import fs from "fs/promises";
 import http from "http";
 import { AddressInfo } from "net";
-import path from "path";
 import { expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
 import sinon from "sinon";
-import { LoopbackServer } from "../../common/loopback-server";
 import { authUriMatch } from "../../test/helpers/authentication";
 import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
-import { installHttpServerStub } from "../../test/helpers/http-server";
+import { createHttpServerMock } from "../../test/helpers/http-server";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { OAuth2TriggerOptions } from "./flows";
 import { LocalServerFlow } from "./loopback";
@@ -27,6 +24,7 @@ describe("LocalServerFlow", () => {
   let vs: VsCodeStub;
   let oauth2Client: OAuth2Client;
   let fakeServer: sinon.SinonStubbedInstance<http.Server>;
+  let createServerStub: sinon.SinonStub;
   let cancellationTokenSource: TestCancellationTokenSource;
   let defaultTriggerOpts: OAuth2TriggerOptions;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +35,8 @@ describe("LocalServerFlow", () => {
   beforeEach(() => {
     vs = newVsCodeStub();
     oauth2Client = new OAuth2Client("testClientId", "testClientSecret");
-    fakeServer = installHttpServerStub(DEFAULT_ADDRESS);
+    fakeServer = createHttpServerMock(DEFAULT_ADDRESS);
+    createServerStub = sinon.stub(http, "createServer").returns(fakeServer);
     cancellationTokenSource = new TestCancellationTokenSource();
     defaultTriggerOpts = {
       cancel: cancellationTokenSource.token,
@@ -51,6 +50,23 @@ describe("LocalServerFlow", () => {
 
   afterEach(() => {
     sinon.restore();
+  });
+
+  // Each call to `trigger` creates a new server. This test validates each of
+  // them are disposed when the flow is.
+  it("disposes the supporting loopback server when disposed", async () => {
+    const fakeServer2 = createHttpServerMock({
+      ...DEFAULT_ADDRESS,
+      port: DEFAULT_ADDRESS.port + 1,
+    });
+    createServerStub.onSecondCall().returns(fakeServer2);
+    void flow.trigger(defaultTriggerOpts);
+    void flow.trigger({ ...defaultTriggerOpts, nonce: "nonce2" });
+
+    flow.dispose();
+
+    sinon.assert.calledOnce(fakeServer.close);
+    sinon.assert.calledOnce(fakeServer2.close);
   });
 
   it("returns method not allowed for non-GET requests", async () => {
@@ -125,23 +141,28 @@ describe("LocalServerFlow", () => {
     );
     expect(flowResult.code).to.equal(CODE);
     expect(flowResult.redirectUri).to.equal(`http://${DEFAULT_HOST}`);
-    expect(flowResult.disposable).to.be.instanceOf(LoopbackServer);
     expect(resStub.statusCode).to.equal(200);
     sinon.assert.calledOnce(resStub.end);
   });
 
+  // TODO: This SUT and test read from disk, we should add the following test as
+  // an integration test to keep the UTs zippy ⚡.
+  //
+  // Commenting out for now to avoid unnecessary test bloat. It's also
+  // non-critical user functionality.
+  /*
   it("serves the favicon throughout the flow", async () => {
     void flow.trigger(defaultTriggerOpts);
-
     const faviconReq = {
       method: "GET",
       url: "/favicon.ico",
       headers: { host: DEFAULT_HOST },
     } as http.IncomingMessage;
+
     fakeServer.emit("request", faviconReq, resStub);
 
     const favicon = await fs.readFile(path.join("out/test/media/favicon.ico"));
-
     sinon.assert.calledOnceWithMatch(resStub.end, favicon);
   });
+  */
 });

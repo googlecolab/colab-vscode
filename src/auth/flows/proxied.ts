@@ -7,7 +7,7 @@ import { CodeManager } from "../code-manager";
 import {
   DEFAULT_AUTH_URL_OPTS,
   OAuth2Flow,
-  OAuth2FlowDescriptor,
+  OAuth2EnvCapabilities,
   OAuth2TriggerOptions,
   FlowResult,
 } from "./flows";
@@ -15,7 +15,7 @@ import {
 const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
 
 export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
-  readonly options: Readonly<OAuth2FlowDescriptor> = {
+  readonly options: Readonly<OAuth2EnvCapabilities> = {
     supportsWebWorkerExtensionHost: true,
     supportsRemoteExtensionHost: true,
   } as const;

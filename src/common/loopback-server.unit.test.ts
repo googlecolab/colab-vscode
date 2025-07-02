@@ -2,7 +2,7 @@ import http from "http";
 import { AddressInfo } from "net";
 import { assert, expect } from "chai";
 import * as sinon from "sinon";
-import { installHttpServerStub } from "../test/helpers/http-server";
+import { createHttpServerMock } from "../test/helpers/http-server";
 import { LoopbackHandler, LoopbackServer } from "./loopback-server";
 
 const DEFAULT_ADDRESS: AddressInfo = {
@@ -22,7 +22,8 @@ describe("LoopbackServer", () => {
       handleError: sinon.stub(),
       handleClose: sinon.stub(),
     };
-    fakeServer = installHttpServerStub(DEFAULT_ADDRESS);
+    fakeServer = createHttpServerMock(DEFAULT_ADDRESS);
+    sinon.stub(http, "createServer").returns(fakeServer);
 
     server = new LoopbackServer(handler);
   });
@@ -34,6 +35,8 @@ describe("LoopbackServer", () => {
 
   describe("dispose", () => {
     it("does nothing when no server is running", () => {
+      // Required since `listening` is a readonly getter.
+      Object.defineProperty(fakeServer, "listening", { get: () => false });
       server.dispose();
 
       sinon.assert.notCalled(fakeServer.close);
@@ -41,11 +44,6 @@ describe("LoopbackServer", () => {
 
     describe("when a server is listening", () => {
       beforeEach(async () => {
-        // Required since `listening` is a readonly getter.
-        Object.defineProperty(fakeServer, "listening", {
-          get: () => true,
-          configurable: true,
-        });
         await server.start();
       });
 

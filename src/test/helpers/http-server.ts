@@ -4,12 +4,13 @@ import { AddressInfo } from "net";
 import * as sinon from "sinon";
 
 /**
- * Installs a stub on {@link http.createServer} to return a fake server which
- * can be invoked directly in tests.
+ * Creates a stubbed instance of an {@link http.Server} which can trigger events
+ * directly.
+ *
+ * The server is "listening" to requests and will invoke the callback passed to
+ * `listen` when called.
  *
  * @param address - The address of the fake server.
- * @param isListening - Whether the server should be started and "listen" to
- * requests.
  * @returns A stubbed instance of an {@link http.Server}. Since the
  * {@link http.Server} is an {@link EventEmitter}, tests using this fake server
  * can trigger events directly. E.g.:
@@ -18,12 +19,10 @@ import * as sinon from "sinon";
  * - `fakeServer.emit("error", err);`
  * - `fakeServer.emit("close");`
  */
-export function installHttpServerStub(
+export function createHttpServerMock(
   address: AddressInfo | string | null,
-  isListening = true,
 ): sinon.SinonStubbedInstance<http.Server> {
   const fakeServer = sinon.createStubInstance(http.Server);
-  sinon.stub(http, "createServer").returns(fakeServer);
   const eventEmitter = new EventEmitter();
   fakeServer.on.callsFake(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,7 +33,13 @@ export function installHttpServerStub(
   );
   fakeServer.emit.callsFake(eventEmitter.emit.bind(eventEmitter));
   fakeServer.address.returns(address);
-  if (isListening) fakeServer.listen.yields();
+  fakeServer.listen.yields();
+  // Required since `listening` is a readonly getter.
+  Object.defineProperty(fakeServer, "listening", {
+    get: () => true,
+    // Make it configurable so we can override it in tests.
+    configurable: true,
+  });
 
   return fakeServer;
 }

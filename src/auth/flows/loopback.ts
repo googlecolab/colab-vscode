@@ -9,7 +9,7 @@ import { CodeManager } from "../code-manager";
 import {
   DEFAULT_AUTH_URL_OPTS,
   OAuth2Flow,
-  OAuth2FlowDescriptor,
+  OAuth2EnvCapabilities,
   OAuth2TriggerOptions,
   FlowResult,
 } from "./flows";
@@ -18,7 +18,7 @@ import {
  * An OAuth2 flow that uses a local server to handle the redirect URI.
  */
 export class LocalServerFlow implements OAuth2Flow {
-  options: OAuth2FlowDescriptor = {
+  options: OAuth2EnvCapabilities = {
     // Opening a port on the remote side can't be opened in the browser on
     // the client side so this flow doesn't work in remote extension hosts.
     supportsRemoteExtensionHost: false,
@@ -28,6 +28,7 @@ export class LocalServerFlow implements OAuth2Flow {
 
   private readonly handler: Handler;
   private readonly codeManager = new CodeManager();
+  private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
     private readonly vs: typeof vscode,
@@ -35,6 +36,13 @@ export class LocalServerFlow implements OAuth2Flow {
     private readonly oAuth2Client: OAuth2Client,
   ) {
     this.handler = new Handler(this.serveRoot, this.codeManager);
+  }
+
+  dispose() {
+    for (const disposable of this.disposables) {
+      disposable.dispose();
+    }
+    this.disposables.length = 0;
   }
 
   /**
@@ -46,6 +54,7 @@ export class LocalServerFlow implements OAuth2Flow {
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
     const code = this.codeManager.waitForCode(options.nonce, options.cancel);
     const server = new LoopbackServer(this.handler);
+    this.disposables.push(server);
     try {
       options.cancel.onCancellationRequested(server.dispose.bind(server));
       const port = await server.start();
@@ -62,7 +71,6 @@ export class LocalServerFlow implements OAuth2Flow {
       return {
         code: await code,
         redirectUri: address,
-        disposable: server,
       };
     } catch (err: unknown) {
       server.dispose();

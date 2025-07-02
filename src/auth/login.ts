@@ -66,7 +66,6 @@ export async function login(
             pkce.codeVerifier,
           );
 
-          flowResult.disposable?.dispose();
           return res;
         },
       );
@@ -75,6 +74,8 @@ export async function login(
       const msg = `Sign-in attempt failed: ${innerMsg}.`;
       // Notify this attempt failed, but try other methods 🤞.
       vs.window.showErrorMessage(msg);
+    } finally {
+      flow.dispose?.();
     }
   }
 
