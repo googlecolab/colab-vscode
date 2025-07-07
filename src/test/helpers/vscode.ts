@@ -14,6 +14,11 @@ class TestQuickInputButtons implements vscode.QuickInputButtons {
   };
 }
 
+enum UIKind {
+  Desktop = 1,
+  Web = 2,
+}
+
 enum ProgressLocation {
   SourceControl = 1,
   Window = 10,
@@ -39,8 +44,10 @@ export interface VsCodeStub {
       typeof vscode.commands.executeCommand
     >;
   };
+  UIKind: typeof UIKind;
   env: {
-    uriScheme: "vscode";
+    uriScheme: string;
+    uiKind: vscode.UIKind;
     openExternal: sinon.SinonStubbedMember<typeof vscode.env.openExternal>;
     asExternalUri: sinon.SinonStubbedMember<typeof vscode.env.asExternalUri>;
   };
@@ -112,8 +119,10 @@ export function newVsCodeStub(): VsCodeStub {
     commands: {
       executeCommand: sinon.stub(),
     },
+    UIKind: UIKind,
     env: {
       uriScheme: "vscode",
+      uiKind: UIKind.Desktop,
       openExternal: sinon.stub(),
       asExternalUri: sinon.stub(),
     },

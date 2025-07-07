@@ -9,7 +9,6 @@ import { CodeManager } from "../code-manager";
 import {
   DEFAULT_AUTH_URL_OPTS,
   OAuth2Flow,
-  OAuth2EnvCapabilities,
   OAuth2TriggerOptions,
   FlowResult,
 } from "./flows";
@@ -18,14 +17,6 @@ import {
  * An OAuth2 flow that uses a local server to handle the redirect URI.
  */
 export class LocalServerFlow implements OAuth2Flow {
-  options: OAuth2EnvCapabilities = {
-    // Opening a port on the remote side can't be opened in the browser on
-    // the client side so this flow doesn't work in remote extension hosts.
-    supportsRemoteExtensionHost: false,
-    // A Web Worker can't open a port to listen for the redirect.
-    supportsWebWorkerExtensionHost: false,
-  };
-
   private readonly handler: Handler;
   private readonly codeManager = new CodeManager();
   private readonly disposables: vscode.Disposable[] = [];

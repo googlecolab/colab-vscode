@@ -8,17 +8,6 @@ import { LocalServerFlow } from "./loopback";
 import { ProxiedRedirectFlow } from "./proxied";
 
 /**
- * Describes the environmental capabilities of an OAuth2 flow.
- *
- * This interface is used to determine whether a specific OAuth2 flow can be
- * used in a given environment, such as a web worker or remote extension host.
- */
-export interface OAuth2EnvCapabilities {
-  readonly supportsWebWorkerExtensionHost: boolean;
-  readonly supportsRemoteExtensionHost: boolean;
-}
-
-/**
  * Options for triggering an OAuth2 flow.
  */
 export interface OAuth2TriggerOptions {
@@ -43,8 +32,6 @@ export interface FlowResult {
  * An OAuth2 flow that can be triggered to obtain an authorization code.
  */
 export interface OAuth2Flow {
-  /** Describes the environmental capabilities of the flow. */
-  options: OAuth2EnvCapabilities;
   /** Triggers the OAuth2 flow. */
   trigger(options: OAuth2TriggerOptions): Promise<FlowResult>;
   /** Disposes of the flow and cleans up resources. */
@@ -59,30 +46,23 @@ export const DEFAULT_AUTH_URL_OPTS: GenerateAuthUrlOpts = {
 };
 
 /**
- * Provides OAuth2 flows for the extension.
+ * Returns the supported OAuth2 flows based on the environment in which the
+ * extension is running.
  */
-export class OAuth2FlowProvider {
-  constructor(
-    private readonly vs: typeof vscode,
-    private readonly packageInfo: PackageInfo,
-    private readonly extensionUriHandler: ExtensionUriHandler,
-    private readonly oAuth2Client: OAuth2Client,
-  ) {}
-
-  // TODO: Look at environment capabilities and filter flows accordingly.
-  getSupportedFlows(): OAuth2Flow[] {
-    return [
-      new LocalServerFlow(
-        this.vs,
-        path.join(__dirname, "auth/media"),
-        this.oAuth2Client,
-      ),
-      new ProxiedRedirectFlow(
-        this.vs,
-        this.packageInfo,
-        this.oAuth2Client,
-        this.extensionUriHandler,
-      ),
-    ];
+export function getOAuth2Flows(
+  vs: typeof vscode,
+  packageInfo: PackageInfo,
+  extensionUriHandler: ExtensionUriHandler,
+  oAuth2Client: OAuth2Client,
+): OAuth2Flow[] {
+  const flows: OAuth2Flow[] = [];
+  if (vs.env.uiKind === vs.UIKind.Desktop) {
+    flows.push(
+      new LocalServerFlow(vs, path.join(__dirname, "auth/media"), oAuth2Client),
+    );
   }
+  flows.push(
+    new ProxiedRedirectFlow(vs, packageInfo, oAuth2Client, extensionUriHandler),
+  );
+  return flows;
 }

@@ -4,7 +4,7 @@ import { GetTokenResponse } from "google-auth-library/build/src/auth/oauth2clien
 import sinon from "sinon";
 import vscode from "vscode";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { OAuth2Flow, OAuth2FlowProvider } from "./flows/flows";
+import { OAuth2Flow } from "./flows/flows";
 import { login } from "./login";
 import { RefreshableAuthenticationSession } from "./storage";
 
@@ -38,23 +38,17 @@ const GET_TOKEN_RESPONSE: GetTokenResponse = {
 
 function buildStubFlow(): sinon.SinonStubbedInstance<OAuth2Flow> {
   return {
-    options: {
-      supportsWebWorkerExtensionHost: true,
-      supportsRemoteExtensionHost: true,
-    },
     trigger: sinon.stub(),
   };
 }
 
 describe("login", () => {
   let vs: VsCodeStub;
-  let flowProvider: sinon.SinonStubbedInstance<OAuth2FlowProvider>;
   let oauth2Client: OAuth2Client;
   const flowCancellationSources: vscode.CancellationTokenSource[] = [];
 
   beforeEach(() => {
     vs = newVsCodeStub();
-    flowProvider = sinon.createStubInstance(OAuth2FlowProvider);
     oauth2Client = new OAuth2Client("testClientId", "testClientSecret");
 
     vs.window.withProgress
@@ -82,10 +76,8 @@ describe("login", () => {
   });
 
   it("throws an error if no flows are available", async () => {
-    flowProvider.getSupportedFlows.returns([]);
-
     await expect(
-      login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+      login(vs.asVsCode(), [], oauth2Client, SCOPES),
     ).to.be.rejectedWith("No authentication flows available.");
   });
 
@@ -93,7 +85,6 @@ describe("login", () => {
     let flow: sinon.SinonStubbedInstance<OAuth2Flow>;
     beforeEach(() => {
       flow = buildStubFlow();
-      flowProvider.getSupportedFlows.returns([flow]);
     });
 
     it("signals cancellation to the flow when the user chooses to cancel", async () => {
@@ -109,7 +100,7 @@ describe("login", () => {
       });
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow], oauth2Client, SCOPES),
       ).to.be.rejectedWith("Authentication failed.");
       expect(cancelCalled).to.be.true;
     });
@@ -118,7 +109,7 @@ describe("login", () => {
       flow.trigger.rejects(new Error("Flow failed"));
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow], oauth2Client, SCOPES),
       ).to.be.rejectedWith("Authentication failed.");
 
       sinon.assert.calledOnceWithMatch(
@@ -138,7 +129,7 @@ describe("login", () => {
       } as GetTokenResponse);
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow], oauth2Client, SCOPES),
       ).to.be.rejectedWith("Authentication failed");
 
       sinon.assert.calledOnceWithMatch(
@@ -158,7 +149,7 @@ describe("login", () => {
       } as GetTokenResponse);
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow], oauth2Client, SCOPES),
       ).to.be.rejectedWith("Authentication failed");
 
       sinon.assert.calledOnceWithMatch(
@@ -182,7 +173,7 @@ describe("login", () => {
         .resolves(GET_TOKEN_RESPONSE);
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow], oauth2Client, SCOPES),
       ).to.eventually.deep.equal(CREDENTIALS);
     });
   });
@@ -201,8 +192,6 @@ describe("login", () => {
     beforeEach(() => {
       flow1 = buildStubFlow();
       flow2 = buildStubFlow();
-
-      flowProvider.getSupportedFlows.returns([flow1, flow2]);
     });
 
     it("throws an error if multiple flows fail", async () => {
@@ -211,7 +200,7 @@ describe("login", () => {
       stubTryAnotherFlow();
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow1, flow2], oauth2Client, SCOPES),
       ).to.be.rejectedWith(/All .+ failed/);
 
       sinon.assert.calledThrice(vs.window.showErrorMessage);
@@ -242,7 +231,7 @@ describe("login", () => {
         .resolves(GET_TOKEN_RESPONSE);
 
       await expect(
-        login(vs.asVsCode(), flowProvider, oauth2Client, SCOPES),
+        login(vs.asVsCode(), [flow1, flow2], oauth2Client, SCOPES),
       ).to.eventually.deep.equal(CREDENTIALS);
 
       sinon.assert.calledWithMatch(

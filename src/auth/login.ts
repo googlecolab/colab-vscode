@@ -4,11 +4,7 @@ import {
 } from "google-auth-library";
 import { v4 as uuid } from "uuid";
 import vscode from "vscode";
-import {
-  OAuth2TriggerOptions,
-  FlowResult,
-  OAuth2FlowProvider,
-} from "./flows/flows";
+import { OAuth2TriggerOptions, FlowResult, OAuth2Flow } from "./flows/flows";
 
 /**
  * A complete set of credentials produced from completing OAuth2 authentication.
@@ -30,11 +26,10 @@ export type Credentials = OAuth2Credentials & {
  */
 export async function login(
   vs: typeof vscode,
-  flowProvider: OAuth2FlowProvider,
+  flows: OAuth2Flow[],
   client: OAuth2Client,
   scopes: string[],
 ): Promise<Credentials> {
-  const flows = flowProvider.getSupportedFlows();
   if (flows.length === 0) {
     throw new Error("No authentication flows available.");
   }

@@ -7,7 +7,6 @@ import { CodeManager } from "../code-manager";
 import {
   DEFAULT_AUTH_URL_OPTS,
   OAuth2Flow,
-  OAuth2EnvCapabilities,
   OAuth2TriggerOptions,
   FlowResult,
 } from "./flows";
@@ -15,13 +14,8 @@ import {
 const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
 
 export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
-  readonly options: Readonly<OAuth2EnvCapabilities> = {
-    supportsWebWorkerExtensionHost: true,
-    supportsRemoteExtensionHost: true,
-  } as const;
-
   private readonly baseUri: string;
-  private readonly uriHandler: vscode.Disposable;
+  private readonly uriListener: vscode.Disposable;
   private readonly codeManager = new CodeManager();
 
   constructor(
@@ -34,11 +28,11 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
     const pub = this.packageInfo.publisher;
     const name = this.packageInfo.name;
     this.baseUri = `${scheme}://${pub}.${name}`;
-    this.uriHandler = uriHandler.onReceivedUri(this.resolveCode.bind(this));
+    this.uriListener = uriHandler.onReceivedUri(this.resolveCode.bind(this));
   }
 
   dispose() {
-    this.uriHandler.dispose();
+    this.uriListener.dispose();
   }
 
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {

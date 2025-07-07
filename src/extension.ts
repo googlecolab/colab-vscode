@@ -1,7 +1,7 @@
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { GoogleAuthProvider } from "./auth/auth-provider";
-import { OAuth2FlowProvider } from "./auth/flows/flows";
+import { getOAuth2Flows } from "./auth/flows/flows";
 import { login } from "./auth/login";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
@@ -31,7 +31,7 @@ export async function activate(context: vscode.ExtensionContext) {
     CONFIG.ClientId,
     CONFIG.ClientNotSoSecret,
   );
-  const authFlows = new OAuth2FlowProvider(
+  const authFlows = getOAuth2Flows(
     vscode,
     getPackageInfo(context),
     uriHandler,
