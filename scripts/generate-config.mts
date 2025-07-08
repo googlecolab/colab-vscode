@@ -30,8 +30,8 @@ try {
   }
   switch (envConfig.env) {
     case "production":
-      colabApiDomain = "https://colab.google.com";
-      colabGapiApiDomain = "https://colab.googleapis.com";
+      colabApiDomain = "https://colab.research.google.com";
+      colabGapiApiDomain = "https://colab.pa.googleapis.com";
       break;
     case "sandbox":
       colabApiDomain = "https://colab.sandbox.google.com";
