@@ -10,11 +10,12 @@ import {
   until,
 } from "vscode-extension-tester";
 
+const ELEMENT_WAIT_MS = 5000;
+
 describe("Colab Extension", function () {
   this.timeout("2m"); // Override the default test suite timeout of 2s.
   dotenv.config();
 
-  const waitMs = 5000; // A default timeout for explicit waits.
   let driver: WebDriver;
   let workbench: Workbench;
 
@@ -67,7 +68,7 @@ describe("Colab Extension", function () {
     // to avoid getting stale element reference
     await oauthDriver.wait(
       until.urlContains("accounts.google.com/v3/signin/challenge"),
-      waitMs,
+      ELEMENT_WAIT_MS,
     );
     await oauthDriver.sleep(1000);
     const passwordInput = await oauthDriver.findElement(
@@ -79,7 +80,7 @@ describe("Colab Extension", function () {
     // Click Continue to sign in to Colab.
     await oauthDriver.wait(
       until.urlContains("accounts.google.com/signin/oauth/id"),
-      waitMs,
+      ELEMENT_WAIT_MS,
     );
     let continueButton = await oauthDriver.findElement(
       By.xpath("//span[text()='Continue']"),
@@ -89,7 +90,7 @@ describe("Colab Extension", function () {
     // Click Continue to allow the Colab extension to access the account.
     await oauthDriver.wait(
       until.urlContains("accounts.google.com/signin/oauth/v2/consent"),
-      waitMs,
+      ELEMENT_WAIT_MS,
     );
     continueButton = await oauthDriver.findElement(
       By.xpath("//span[text()='Continue']"),
@@ -97,7 +98,7 @@ describe("Colab Extension", function () {
     await continueButton.click();
 
     // The test account should be authenticated. Close the browser window.
-    await oauthDriver.wait(until.urlContains("127.0.0.1"), waitMs);
+    await oauthDriver.wait(until.urlContains("127.0.0.1"), ELEMENT_WAIT_MS);
     await oauthDriver.quit();
 
     // Now that we're authenticated, we can resume creating a Colab server via
@@ -122,6 +123,6 @@ describe("Colab Extension", function () {
         .getEnclosingElement()
         .findElements(By.className("codicon-notebook-state-success"));
       return element.length > 0;
-    }, waitMs);
+    }, ELEMENT_WAIT_MS);
   });
 });
