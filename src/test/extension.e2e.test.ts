@@ -36,7 +36,7 @@ describe("Colab Extension", function () {
       await cell.sendKeys("1 + 1");
     });
 
-    it("executes the notebook", async () => {
+    it("authenticates and executes the notebook on a Colab server", async () => {
       // Select the Colab server provider from the kernel selector.
       await workbench.executeCommand("Notebook: Select Notebook Kernel");
       let inputBox = await InputBox.create();
@@ -52,9 +52,10 @@ describe("Colab Extension", function () {
       // opening it in a browser window. Why do this instead of triggering the
       // "Open" button in the dialog? We copy the URL so that we can use a new
       // driver instance for the OAuth flow, since the original driver instance
-      // does not have a handle to the spawned window.
+      // does not have a handle to the window that would be spawned with "Open".
       dialog = new ModalDialog();
       await dialog.pushButton("Copy");
+      // TODO: Remove this dynamic import
       const clipboardy = await import("clipboardy");
       const oauthUrl = clipboardy.default.readSync();
       const oauthDriver = await new Builder().forBrowser("chrome").build();
@@ -68,7 +69,7 @@ describe("Colab Extension", function () {
       await emailInput.sendKeys(Key.ENTER);
 
       // Input the test account password. Note that we wait for the page to
-      // settle to avoid getting stale element reference
+      // settle to avoid getting a stale element reference.
       await oauthDriver.wait(
         until.urlContains("accounts.google.com/v3/signin/challenge"),
         ELEMENT_WAIT_MS,
