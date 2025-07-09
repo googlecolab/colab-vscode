@@ -20,7 +20,7 @@ describe("Colab Extension", function () {
   let workbench: Workbench;
 
   before(async () => {
-    // Wait for the extension to be activated.
+    // Wait for the extension to be installed.
     workbench = new Workbench();
     driver = workbench.getDriver();
     await driver.sleep(2000);
