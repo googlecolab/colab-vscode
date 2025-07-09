@@ -84,10 +84,10 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "pretest": "npm run build && npm run lint",
-    "pretest:e2e": "npm run build",
     "test:unit": "npm run build:tests && mocha --enable-source-maps --require ./out/test/test/unit-test-setup.js './out/test/**/*.unit.test.js'",
     "test:integration": "npm run build && node ./out/test/test/integration-test-runner.js",
     "test:integration:headless": "xvfb-run -s '-screen 0 1024x768x24' npm run test:integration",
+    "pretest:e2e": "npm run build",
     "test:e2e": "extest setup-and-run ./out/test/**/*.e2e.test.js",
     "vscode:prepublish": "npm run package",
     "package": "concurrently \"npm:typecheck:prod\" \"npm:build:extension -- --production\" --prefixColors=auto"
