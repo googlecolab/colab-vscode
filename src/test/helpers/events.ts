@@ -37,6 +37,10 @@ export class TestEventEmitter<T> implements vscode.EventEmitter<T> {
     }
   }
 
+  hasListeners(): boolean {
+    return this.listeners.size > 0;
+  }
+
   dispose(): void {
     this.disposed = true;
     this.listeners.clear();
