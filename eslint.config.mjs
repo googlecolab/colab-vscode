@@ -8,12 +8,12 @@ import checkFile from "eslint-plugin-check-file";
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
 
 export default tseslint.config(
+  { ignores: ["eslint.config.mjs", "**/*.mocharc.js"] },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   cspellESLintPluginRecommended,
   {
-    ignores: ["eslint.config.mjs"],
     languageOptions: {
       parserOptions: {
         project: "./tsconfig.json",

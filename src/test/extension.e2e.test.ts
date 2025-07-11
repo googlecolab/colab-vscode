@@ -13,7 +13,6 @@ import {
 const ELEMENT_WAIT_MS = 5000;
 
 describe("Colab Extension", function () {
-  this.timeout("2m"); // Override the default test suite timeout of 2s.
   dotenv.config();
 
   let driver: WebDriver;

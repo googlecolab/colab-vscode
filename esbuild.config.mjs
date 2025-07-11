@@ -117,7 +117,10 @@ async function main() {
             "src/**/*.vscode.test.ts",
             "src/test/suite/**/*.ts",
           ]),
-          testOptions("E2E Tests", ["src/**/*.e2e.test.ts"]),
+          testOptions("E2E Tests", [
+            "src/test/*.e2e.test.ts",
+            "src/test/e2e.mocharc.js",
+          ]),
         ]
       : [extensionOptions];
     for (const opts of options) {

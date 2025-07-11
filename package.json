@@ -88,7 +88,7 @@
     "test:integration": "npm run build && node ./out/test/test/integration-test-runner.js",
     "test:integration:headless": "xvfb-run -s '-screen 0 1024x768x24' npm run test:integration",
     "pretest:e2e": "npm run build",
-    "test:e2e": "extest setup-and-run ./out/test/**/*.e2e.test.js",
+    "test:e2e": "extest setup-and-run ./out/test/*.e2e.test.js -m ./out/test/e2e.mocharc.js",
     "vscode:prepublish": "npm run package",
     "package": "concurrently \"npm:typecheck:prod\" \"npm:build:extension -- --production\" --prefixColors=auto"
   },

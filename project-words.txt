@@ -9,6 +9,7 @@ grayscale
 highmem
 ipykernel
 milli
+mocharc
 pkce
 quickpick
 refreshable

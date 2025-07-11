@@ -17,6 +17,22 @@
       "runtimeArgs": ["run-script", "test:unit", "--", "--timeout", "0"]
     },
     {
+      "name": "Debug E2E Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/extest",
+      "args": [
+        "setup-and-run",
+        "./out/test/*.e2e.test.js",
+        "-m",
+        "./out/test/e2e.mocharc.js",
+        "--",
+        "--debug"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
       "name": "Extension Integration Tests",
       "type": "extensionHost",
       "request": "launch",
