@@ -30,7 +30,8 @@
         "--debug"
       ],
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
+      "internalConsoleOptions": "neverOpen",
+      "preLaunchTask": "npm: build"
     },
     {
       "name": "Extension Integration Tests",
