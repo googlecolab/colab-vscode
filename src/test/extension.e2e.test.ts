@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import * as chrome from "selenium-webdriver/chrome";
 import {
   Builder,
   By,
@@ -10,7 +11,7 @@ import {
   until,
 } from "vscode-extension-tester";
 
-const ELEMENT_WAIT_MS = 5000;
+const ELEMENT_WAIT_MS = 10000;
 
 describe("Colab Extension", function () {
   dotenv.config();
@@ -22,7 +23,7 @@ describe("Colab Extension", function () {
     // Wait for the extension to be installed.
     workbench = new Workbench();
     driver = workbench.getDriver();
-    await driver.sleep(2000);
+    await driver.sleep(4000);
   });
 
   describe("with a notebook", () => {
@@ -57,7 +58,7 @@ describe("Colab Extension", function () {
       // TODO: Remove this dynamic import
       const clipboardy = await import("clipboardy");
       const oauthUrl = clipboardy.default.readSync();
-      const oauthDriver = await new Builder().forBrowser("chrome").build();
+      const oauthDriver = await getOAuthDriver();
       await oauthDriver.get(oauthUrl);
 
       // Input the test account email address.
@@ -130,3 +131,24 @@ describe("Colab Extension", function () {
     });
   });
 });
+
+/**
+ * Creates a new WebDriver instance for the OAuth flow.
+ */
+function getOAuthDriver(): Promise<WebDriver> {
+  const isHeadlessMode = process.argv.includes("--headless");
+  if (isHeadlessMode) {
+    // Without the provided user agent, the OAuth flow fails with a 500.
+    return new Builder()
+      .forBrowser("chrome")
+      .setChromeOptions(
+        new chrome.Options()
+          .addArguments("--headless")
+          .addArguments(
+            '--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"',
+          ) as chrome.Options,
+      )
+      .build();
+  }
+  return new Builder().forBrowser("chrome").build();
+}

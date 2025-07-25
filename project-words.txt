@@ -8,6 +8,7 @@ googlers
 grayscale
 highmem
 ipykernel
+KHTML
 milli
 mocharc
 pkce
