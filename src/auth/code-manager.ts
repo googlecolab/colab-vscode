@@ -3,19 +3,42 @@ import vscode from "vscode";
 const EXCHANGE_TIMEOUT_MS = 60_000;
 
 /**
- * Provides the mechanism to wait for and resolve authorization codes.
+ * A promise that can have its underlying resources (like timers or listeners)
+ * cleaned up.
  */
-export class CodeManager {
-  private readonly inFlightPromises = new Map<string, InFlightPromise>();
+interface DisposablePromise<T> extends vscode.Disposable {
+  promise: Promise<T>;
+}
+
+/**
+ * Provides the mechanism to wait for and resolve authorization codes. This
+ * class is disposable and will reject any pending operations when disposed.
+ */
+export class CodeManager implements vscode.Disposable {
+  private readonly inFlightPromises = new Map<
+    string,
+    { resolve: (value: string) => void; reject: (reason: Error) => void }
+  >();
+
+  /**
+   * Rejects all pending `waitForCode` promises. This should be called
+   * when the class instance is no longer needed to prevent resource leaks.
+   */
+  dispose(): void {
+    const error = new Error("Authentication provider has been disposed.");
+    for (const promiseHandlers of this.inFlightPromises.values()) {
+      promiseHandlers.reject(error);
+    }
+    this.inFlightPromises.clear();
+  }
 
   /**
    * Waits for an authorization code corresponding to the provided nonce.
-   *
-   * A nonce can be used once to wait for a code.
+   * A nonce can only be used once.
    *
    * @param nonce - A unique string to correlate the request and response.
-   * @param token - A cancellation token used to cancel the request.
-   * @returns A promise to resolve the authorization code.
+   * @param token - A cancellation token to cancel the request.
+   * @returns A promise that resolves with the authorization code.
    */
   async waitForCode(
     nonce: string,
@@ -25,30 +48,30 @@ export class CodeManager {
       throw new Error(`Already waiting for nonce: ${nonce}`);
     }
 
-    const { promise, resolve, reject } = createPromiseHandlers<string>();
-    this.inFlightPromises.set(nonce, { promise, resolve, reject });
+    const userCancellation = waitForCancellation(token);
+    const timeout = waitForTimeout(EXCHANGE_TIMEOUT_MS);
 
     try {
+      const codePromise = new Promise<string>((resolve, reject) => {
+        this.inFlightPromises.set(nonce, { resolve, reject });
+      });
+
+      // Race the main promise against timeout and user cancellation.
       return await Promise.race([
-        promise,
-        waitForCancellation(token),
-        waitForExchangeTimeout(),
+        codePromise,
+        userCancellation.promise,
+        timeout.promise,
       ]);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        reject(err);
-      } else {
-        reject(new Error("Unknown error occurred"));
-      }
-      throw err;
     } finally {
       this.inFlightPromises.delete(nonce);
+      userCancellation.dispose();
+      timeout.dispose();
     }
   }
 
   /**
    * Resolves the in-flight promise corresponding to the provided nonce
-   * with the provided code.
+   * with the provided authorization code.
    *
    * @param nonce - The unique nonce used to correlate the request and response.
    * @param code - The authorization code to resolve for the associated nonce.
@@ -63,49 +86,43 @@ export class CodeManager {
   }
 }
 
-interface InFlightPromise {
-  promise: Promise<string>;
-  resolve: (value: string) => void;
-  reject: (reason?: Error) => void;
-}
-
-/**
- * Creates a new promise with manual resolve/reject handlers.
- */
-function createPromiseHandlers<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (reason?: Error) => void;
-} {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: Error) => void;
-
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-
-  return { promise, resolve, reject };
-}
-
 /**
  * Creates a promise that rejects when the cancellation token is triggered.
+ * Returns a disposable to remove the event listener.
  */
-function waitForCancellation(token: vscode.CancellationToken): Promise<never> {
-  return new Promise<never>((_, reject) =>
-    token.onCancellationRequested(() => {
-      reject(new Error("Attempt cancelled by the user."));
-    }),
-  );
+function waitForCancellation(
+  token: vscode.CancellationToken,
+): DisposablePromise<never> {
+  let listener: vscode.Disposable;
+  const promise = new Promise<never>((_, reject) => {
+    listener = token.onCancellationRequested(() => {
+      reject(new Error("Authentication was cancelled by the user."));
+    });
+  });
+
+  return {
+    promise,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    dispose: () => listener.dispose(),
+  };
 }
 
 /**
- * Creates a promise that rejects after the exchange timeout.
+ * Creates a promise that rejects after a specified timeout.
+ * Returns a disposable to clear the timer.
  */
-function waitForExchangeTimeout(): Promise<never> {
-  return new Promise<never>((_, reject) =>
-    setTimeout(() => {
+function waitForTimeout(ms: number): DisposablePromise<never> {
+  let timeoutId: NodeJS.Timeout;
+  const promise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
       reject(new Error("Exchange timeout exceeded"));
-    }, EXCHANGE_TIMEOUT_MS),
-  );
+    }, ms);
+  });
+
+  return {
+    promise,
+    dispose: () => {
+      clearTimeout(timeoutId);
+    },
+  };
 }

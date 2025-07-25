@@ -15,11 +15,20 @@ import {
 
 /**
  * An OAuth2 flow that uses a local server to handle the redirect URI.
+ *
+ * Since the flow when triggered spins up a local server to handle the redirect,
+ * the {@link FlowResult} returns a `dispose` method. This is needed since the
+ * endpoint should continue to serve assets like the favicon after the initial
+ * trigger. Only when the login flow is complete are we "done" with the server.
+ *
+ * Since it's possible we'd want to dispose this class while there are in-flight
+ * triggered flows, the {@link LocalServerFlow} is disposable and will clean-up
+ * any owned servers from outstanding flows.
  */
-export class LocalServerFlow implements OAuth2Flow {
-  private readonly handler: Handler;
+export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
   private readonly codeManager = new CodeManager();
-  private readonly disposables: vscode.Disposable[] = [];
+  private readonly handler: Handler;
+  private readonly activeServers = new Set<vscode.Disposable>();
 
   constructor(
     private readonly vs: typeof vscode,
@@ -30,10 +39,11 @@ export class LocalServerFlow implements OAuth2Flow {
   }
 
   dispose() {
-    for (const disposable of this.disposables) {
+    this.codeManager.dispose();
+    for (const disposable of this.activeServers) {
       disposable.dispose();
     }
-    this.disposables.length = 0;
+    this.activeServers.clear();
   }
 
   /**
@@ -43,10 +53,10 @@ export class LocalServerFlow implements OAuth2Flow {
    * expected to serve assets until fully completed (for e.g., the favicon).
    */
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
-    const code = this.codeManager.waitForCode(options.nonce, options.cancel);
     const server = new LoopbackServer(this.handler);
-    this.disposables.push(server);
+    this.activeServers.add(server);
     try {
+      const code = this.codeManager.waitForCode(options.nonce, options.cancel);
       options.cancel.onCancellationRequested(server.dispose.bind(server));
       const port = await server.start();
       const address = `http://127.0.0.1:${port.toString()}`;
@@ -59,12 +69,17 @@ export class LocalServerFlow implements OAuth2Flow {
       });
 
       await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
+      // TODO: We can't dispose of the server immediately since the favicon is
+      // loaded asynchronously. Following a successful flow result (here), we
+      // should TTL disposing of the server. It'll get cleaned up when the flow
+      // is disposed, so not crucial to add now.
       return {
         code: await code,
         redirectUri: address,
       };
     } catch (err: unknown) {
       server.dispose();
+      this.activeServers.delete(server);
       throw err;
     }
   }

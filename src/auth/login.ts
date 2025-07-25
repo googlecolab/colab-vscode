@@ -69,8 +69,6 @@ export async function login(
       const msg = `Sign-in attempt failed: ${innerMsg}.`;
       // Notify this attempt failed, but try other methods 🤞.
       vs.window.showErrorMessage(msg);
-    } finally {
-      flow.dispose?.();
     }
   }
 

@@ -49,6 +49,7 @@ describe("LocalServerFlow", () => {
   });
 
   afterEach(() => {
+    flow.dispose();
     sinon.restore();
   });
 

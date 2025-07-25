@@ -78,6 +78,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     disposeUriHandler,
+    {
+      dispose: () => {
+        authFlows.forEach((flow) => {
+          flow.dispose?.();
+        });
+      },
+    },
     authProvider,
     assignmentManager,
     keepAlive,

@@ -34,7 +34,7 @@ export interface FlowResult {
 export interface OAuth2Flow {
   /** Triggers the OAuth2 flow. */
   trigger(options: OAuth2TriggerOptions): Promise<FlowResult>;
-  /** Disposes of the flow and cleans up resources. */
+  /** Disposes of the flow and cleans up owned resources. */
   dispose?(): void;
 }
 

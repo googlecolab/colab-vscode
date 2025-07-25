@@ -19,11 +19,20 @@ describe("CodeManager", () => {
   });
 
   afterEach(() => {
+    manager.dispose();
     clock.restore();
     sinon.restore();
   });
 
-  it("throws when waiting for the same nonce", async () => {
+  it("rejects outstanding codes when disposed", async () => {
+    const code = manager.waitForCode("1", cancellationTokenSource.token);
+
+    manager.dispose();
+
+    await expect(code).to.be.rejectedWith(/disposed/);
+  });
+
+  it("rejects when waiting for the same nonce", async () => {
     const nonce = "1";
 
     void manager.waitForCode(nonce, cancellationTokenSource.token);

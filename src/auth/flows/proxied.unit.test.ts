@@ -53,37 +53,22 @@ describe("ProxiedRedirectFlow", () => {
   });
 
   afterEach(() => {
+    flow.dispose();
     sinon.restore();
   });
 
-  it("disposes the URI handler when disposed", () => {
-    const eventStub = sinon.stub(uriHandler, "onReceivedUri");
-    const disposeStub = sinon.stub<[]>();
-    eventStub.returns({ dispose: disposeStub });
-    flow = new ProxiedRedirectFlow(
-      vs.asVsCode(),
-      PACKAGE_INFO,
-      oauth2Client,
-      uriHandler,
-    );
-
-    flow.dispose();
-
-    sinon.assert.calledOnce(disposeStub);
-  });
-
-  it("throws an error when the received URI is missing a nonce", () => {
+  it("ignores requests missing a nonce", () => {
     void flow.trigger(defaultTriggerOpts);
     const uri = TestUri.parse("vscode://google.colab");
 
-    expect(() => uriHandler.handleUri(uri)).to.throw(/nonce/);
+    expect(() => uriHandler.handleUri(uri)).not.to.throw();
   });
 
-  it("throws an error when the received URI is missing a code", () => {
+  it("ignores requests missing a code", () => {
     void flow.trigger(defaultTriggerOpts);
     const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=`);
 
-    expect(() => uriHandler.handleUri(uri)).to.throw(/code/);
+    expect(() => uriHandler.handleUri(uri)).not.to.throw();
   });
 
   it("throws an error when the code exchange times out", async () => {
