@@ -87,7 +87,7 @@
     "test:unit": "npm run build:tests && mocha --enable-source-maps --require ./out/test/test/unit-test-setup.js './out/test/**/*.unit.test.js'",
     "test:integration": "npm run build && node ./out/test/test/integration-test-runner.js",
     "test:integration:headless": "xvfb-run -s '-screen 0 1024x768x24' npm run test:integration",
-    "pretest:e2e": "npm run build",
+    "pretest:e2e": "npm run build:tests",
     "test:e2e": "extest setup-and-run ./out/test/*.e2e.test.js -m ./out/test/e2e.mocharc.js",
     "test:e2e:headless": "xvfb-run -s '-screen 0 1024x768x24' npm run test:e2e -- -- --headless",
     "vscode:prepublish": "npm run package",
