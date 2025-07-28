@@ -164,19 +164,14 @@ describe("Colab Extension", function () {
  * Creates a new WebDriver instance for the OAuth flow.
  */
 function getOAuthDriver(): Promise<WebDriver> {
-  const isHeadlessMode = process.argv.includes("--headless");
-  if (isHeadlessMode) {
-    // Without the provided user agent, the OAuth flow fails with a 500.
-    return new Builder()
-      .forBrowser("chrome")
-      .setChromeOptions(
-        new chrome.Options()
-          .addArguments("--headless")
-          .addArguments(
-            '--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"',
-          ) as chrome.Options,
-      )
-      .build();
-  }
-  return new Builder().forBrowser("chrome").build();
+  const authDriverArgsPrefix = "--auth-driver:";
+  const authDriverArgs = process.argv
+    .filter((a) => a.startsWith(authDriverArgsPrefix))
+    .map((a) => a.substring(authDriverArgsPrefix.length));
+  return new Builder()
+    .forBrowser("chrome")
+    .setChromeOptions(
+      new chrome.Options().addArguments(...authDriverArgs) as chrome.Options,
+    )
+    .build();
 }
