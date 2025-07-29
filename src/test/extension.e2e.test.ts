@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import dotenv from "dotenv";
 import * as chrome from "selenium-webdriver/chrome";
 import {
@@ -8,6 +9,7 @@ import {
   ModalDialog,
   WebDriver,
   Workbench,
+  VSBrowser,
   until,
 } from "vscode-extension-tester";
 
@@ -17,6 +19,7 @@ describe("Colab Extension", function () {
   dotenv.config();
 
   let driver: WebDriver;
+  let testTitle: string;
   let workbench: Workbench;
 
   before(async () => {
@@ -27,7 +30,8 @@ describe("Colab Extension", function () {
   });
 
   describe("with a notebook", () => {
-    beforeEach(async () => {
+    beforeEach(async function () {
+      testTitle = this.currentTest?.fullTitle() ?? "";
       // Create an executable notebook. Note that it's created with a single
       // code cell by default.
       await workbench.executeCommand("Create: New Jupyter Notebook");
@@ -57,53 +61,10 @@ describe("Colab Extension", function () {
       await dialog.pushButton("Copy");
       // TODO: Remove this dynamic import
       const clipboardy = await import("clipboardy");
-      const oauthUrl = clipboardy.default.readSync();
-      const oauthDriver = await getOAuthDriver();
-      await oauthDriver.get(oauthUrl);
-
-      // Input the test account email address.
-      const emailInput = await oauthDriver.findElement(
-        By.css("input[type='email']"),
-      );
-      await emailInput.sendKeys(process.env.TEST_ACCOUNT_EMAIL ?? "");
-      await emailInput.sendKeys(Key.ENTER);
-
-      // Input the test account password. Note that we wait for the page to
-      // settle to avoid getting a stale element reference.
-      await oauthDriver.wait(
-        until.urlContains("accounts.google.com/v3/signin/challenge"),
-        ELEMENT_WAIT_MS,
-      );
-      await oauthDriver.sleep(1000);
-      const passwordInput = await oauthDriver.findElement(
-        By.css("input[type='password']"),
-      );
-      await passwordInput.sendKeys(process.env.TEST_ACCOUNT_PASSWORD ?? "");
-      await passwordInput.sendKeys(Key.ENTER);
-
-      // Click Continue to sign in to Colab.
-      await oauthDriver.wait(
-        until.urlContains("accounts.google.com/signin/oauth/id"),
-        ELEMENT_WAIT_MS,
-      );
-      let continueButton = await oauthDriver.findElement(
-        By.xpath("//span[text()='Continue']"),
-      );
-      await continueButton.click();
-
-      // Click Continue to allow the Colab extension to access the account.
-      await oauthDriver.wait(
-        until.urlContains("accounts.google.com/signin/oauth/v2/consent"),
-        ELEMENT_WAIT_MS,
-      );
-      continueButton = await oauthDriver.findElement(
-        By.xpath("//span[text()='Continue']"),
-      );
-      await continueButton.click();
-
-      // The test account should be authenticated. Close the browser window.
-      await oauthDriver.wait(until.urlContains("127.0.0.1"), ELEMENT_WAIT_MS);
-      await oauthDriver.quit();
+      await doOauthSignIn({
+        oauthUrl: clipboardy.default.readSync(),
+        testTitle,
+      });
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
@@ -131,6 +92,78 @@ describe("Colab Extension", function () {
     });
   });
 });
+
+/**
+ * Performs the OAuth sign-in flow for the Colab extension.
+ */
+async function doOauthSignIn({
+  oauthUrl,
+  testTitle,
+}: {
+  oauthUrl: string;
+  testTitle: string;
+}): Promise<void> {
+  const oauthDriver = await getOAuthDriver();
+
+  try {
+    await oauthDriver.get(oauthUrl);
+
+    // Input the test account email address.
+    const emailInput = await oauthDriver.findElement(
+      By.css("input[type='email']"),
+    );
+    await emailInput.sendKeys(process.env.TEST_ACCOUNT_EMAIL ?? "");
+    await emailInput.sendKeys(Key.ENTER);
+
+    // Input the test account password. Note that we wait for the page to
+    // settle to avoid getting a stale element reference.
+    await oauthDriver.wait(
+      until.urlContains("accounts.google.com/v3/signin/challenge"),
+      ELEMENT_WAIT_MS,
+    );
+    await oauthDriver.sleep(1000);
+    const passwordInput = await oauthDriver.findElement(
+      By.css("input[type='password']"),
+    );
+    await passwordInput.sendKeys(process.env.TEST_ACCOUNT_PASSWORD ?? "");
+    await passwordInput.sendKeys(Key.ENTER);
+
+    // Click Continue to sign in to Colab.
+    await oauthDriver.wait(
+      until.urlContains("accounts.google.com/signin/oauth/id"),
+      ELEMENT_WAIT_MS,
+    );
+    let continueButton = await oauthDriver.findElement(
+      By.xpath("//span[text()='Continue']"),
+    );
+    await continueButton.click();
+
+    // Click Continue to allow the Colab extension to access the account.
+    await oauthDriver.wait(
+      until.urlContains("accounts.google.com/signin/oauth/v2/consent"),
+      ELEMENT_WAIT_MS,
+    );
+    continueButton = await oauthDriver.findElement(
+      By.xpath("//span[text()='Continue']"),
+    );
+    await continueButton.click();
+
+    // The test account should be authenticated. Close the browser window.
+    await oauthDriver.wait(until.urlContains("127.0.0.1"), ELEMENT_WAIT_MS);
+    await oauthDriver.quit();
+  } catch (_) {
+    // If the OAuth flow fails, ensure we grab a screenshot for debugging.
+    const screenshotsDir = VSBrowser.instance.getScreenshotsDir();
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
+    fs.writeFileSync(
+      `${screenshotsDir}/${testTitle} (oauth window).png`,
+      await oauthDriver.takeScreenshot(),
+      "base64",
+    );
+  }
+}
 
 /**
  * Creates a new WebDriver instance for the OAuth flow.
