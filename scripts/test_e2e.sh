@@ -1,11 +1,12 @@
 #!/bin/bash
 #
-# This script is used to run end-to-end tests for the Colab VSCode extension.
+# This script is used to run end-to-end tests for the Colab VS Code extension.
 #
 # Usage:
 #   ./scripts/test_e2e.sh [--headless] [--vsix=<path_to_vsix_file>] [--auth-driver:<args>...]
 #
 # Arguments:
+#   - storage=<path>: Path to use for extest storage.
 #   - headless: Run tests in headless mode using xvfb.
 #   - vsix=<path_to_vsix_file>: Install the specified VSIX file before running tests.
 #   - auth-driver:<args>: Pass additional arguments to the authentication driver.
