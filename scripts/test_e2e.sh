@@ -9,6 +9,12 @@
 #   - headless: Run tests in headless mode using xvfb.
 #   - vsix=<path_to_vsix_file>: Install the specified VSIX file before running tests.
 #   - auth-driver:<args>: Pass additional arguments to the authentication driver.
+# 
+# A couple ugly workarounds are made to have this script be portable to Mac which by default
+# runs a very old version of bash:
+# 
+# - `${var[@]+"${var[@]}"}` instead of simply `${var[@]}` over arrays that could be empty.
+# - `IFS= read -r line` instead of `mapfile -t` to read lines into an array.
 
 set -euo pipefail 
 
@@ -81,18 +87,18 @@ setup_extest() {
     return
   fi
 
-  extest get-vscode "${storage_flag[@]}"
-  extest get-chromedriver "${storage_flag[@]}"
+  extest get-vscode "${storage_flag[@]+"${storage_flag[@]}"}"
+  extest get-chromedriver "${storage_flag[@]+"${storage_flag[@]}"}"
   echo "🔧 Installing VSIX from $VSIX_FILE" >&2
-  extest install-vsix "${storage_flag[@]}" --vsix_file "$VSIX_FILE"
+  extest install-vsix "${storage_flag[@]+"${storage_flag[@]}"}" --vsix_file "$VSIX_FILE"
 }
 
 build_test_cmd() {
   local base_cmd=()
   if [[ -n "$VSIX_FILE" ]]; then
-    base_cmd=(extest run-tests "${storage_flag[@]}")
+    base_cmd=(extest run-tests "${storage_flag[@]+"${storage_flag[@]}"}")
   else
-    base_cmd=(extest setup-and-run "${storage_flag[@]}")
+    base_cmd=(extest setup-and-run "${storage_flag[@]+"${storage_flag[@]}"}")
   fi
 
   # Print each part of the command on a new line.
@@ -124,7 +130,7 @@ main() {
   while IFS= read -r line; do
     test_cmd+=("$line")
   done < <(build_test_cmd)
-  run_tests "${test_cmd[@]}"
+  run_tests "${test_cmd[@]+"${test_cmd[@]}"}"
   echo "✅ All tests passed!" >&2
 }
 
