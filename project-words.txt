@@ -1,4 +1,5 @@
 authuser
+chromedriver
 colab
 extest
 gapi
