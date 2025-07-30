@@ -121,7 +121,9 @@ main() {
   check_deps
   setup_extest
   local test_cmd=()
-  mapfile -t test_cmd < <(build_test_cmd)
+  while IFS= read -r line; do
+    test_cmd+=("$line")
+  done < <(build_test_cmd)
   run_tests "${test_cmd[@]}"
   echo "✅ All tests passed!" >&2
 }
