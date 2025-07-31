@@ -117,6 +117,8 @@ describe("Colab Extension", function () {
     return driver.wait(
       async () => {
         const inputBox = await InputBox.create();
+        // We check for the item's presence before selecting it, since
+        // InputBox.selectQuickPick will not throw if the item is not found.
         const quickPickItem = await inputBox.findQuickPick(item);
         if (!quickPickItem) {
           return false;
