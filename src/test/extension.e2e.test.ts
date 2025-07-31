@@ -16,6 +16,7 @@ import {
 import { CONFIG } from "../colab-config";
 
 const ELEMENT_WAIT_MS = 10000;
+const CELL_EXECUTION_WAIT_MS = 30000;
 
 describe("Colab Extension", function () {
   dotenv.config();
@@ -30,10 +31,10 @@ describe("Colab Extension", function () {
       "production",
       'Unexpected extension environment. Run `npm run generate:config` with COLAB_EXTENSION_ENVIRONMENT="production".',
     );
-    // Wait for the extension to be installed.
+    // Wait for VS Code UI to settle before running tests.
     workbench = new Workbench();
     driver = workbench.getDriver();
-    await driver.sleep(4000);
+    await driver.sleep(8000);
   });
 
   beforeEach(function () {
@@ -98,12 +99,16 @@ describe("Colab Extension", function () {
       // Execute the notebook and poll for the success indicator (green check).
       // Why not the cell output? Because the output is rendered in a webview.
       await workbench.executeCommand("Notebook: Run All");
-      await driver.wait(async () => {
-        const element = await workbench
-          .getEnclosingElement()
-          .findElements(By.className("codicon-notebook-state-success"));
-        return element.length > 0;
-      }, ELEMENT_WAIT_MS);
+      await driver.wait(
+        async () => {
+          const element = await workbench
+            .getEnclosingElement()
+            .findElements(By.className("codicon-notebook-state-success"));
+          return element.length > 0;
+        },
+        CELL_EXECUTION_WAIT_MS,
+        "Notebook: Run All failed",
+      );
     });
   });
 
