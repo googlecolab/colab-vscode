@@ -158,17 +158,7 @@ describe("Colab Extension", function () {
         until.urlContains("accounts.google.com/signin/oauth/id"),
         ELEMENT_WAIT_MS,
       );
-      let continueButton = await oauthDriver.findElement(
-        By.xpath("//span[text()='Continue']"),
-      );
-      await continueButton.click();
-
-      // Click Continue to allow the Colab extension to access the account.
-      await oauthDriver.wait(
-        until.urlContains("accounts.google.com/signin/oauth/v2/consent"),
-        ELEMENT_WAIT_MS,
-      );
-      continueButton = await oauthDriver.findElement(
+      const continueButton = await oauthDriver.findElement(
         By.xpath("//span[text()='Continue']"),
       );
       await continueButton.click();
