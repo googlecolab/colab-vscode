@@ -106,8 +106,8 @@ describe("Colab Extension", function () {
     button: string;
     dialog: string;
   }) {
-    // ModalDialog.pushButton will throw if the dialog is not found; so, to
-    // reduce flakes, we attempt this until it succeeds or the times out.
+    // ModalDialog.pushButton will throw if the dialog is not found; to reduce
+    // flakes we attempt this until it succeeds or times out.
     return driver.wait(
       async () => {
         try {
