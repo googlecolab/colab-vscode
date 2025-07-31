@@ -57,6 +57,7 @@ const config = {
   ColabGapiDomain: colabGapiApiDomain,
   ClientId: envConfig.clientId,
   ClientNotSoSecret: envConfig.clientNotSoSecret,
+  Environment: envConfig.env,
 };
 
 const output = `// AUTO-GENERATED. Do not edit.

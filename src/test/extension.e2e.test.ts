@@ -13,6 +13,7 @@ import {
   VSBrowser,
   until,
 } from "vscode-extension-tester";
+import { CONFIG } from "../colab-config";
 
 const ELEMENT_WAIT_MS = 10000;
 
@@ -25,9 +26,9 @@ describe("Colab Extension", function () {
 
   before(async () => {
     assert.equal(
-      process.env.COLAB_EXTENSION_ENVIRONMENT,
+      CONFIG.Environment,
       "production",
-      "The COLAB_EXTENSION_ENVIRONMENT environment variable must be set to 'production' for e2e tests.",
+      'Unexpected extension environment. Run `npm run generate:config` with COLAB_EXTENSION_ENVIRONMENT="production".',
     );
     // Wait for the extension to be installed.
     workbench = new Workbench();
