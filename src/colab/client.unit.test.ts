@@ -3,6 +3,7 @@ import { expect } from "chai";
 import fetch, { Response } from "node-fetch";
 import { SinonStub, SinonMatcher } from "sinon";
 import * as sinon from "sinon";
+import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
   Accelerator,
   CcuInfo,
@@ -15,7 +16,6 @@ import {
   Session,
 } from "./api";
 import { ColabClient } from "./client";
-import { uuidToWebSafeBase64 } from "../utils/uuid";
 
 const COLAB_HOST = "colab.example.com";
 const GOOGLE_APIS_HOST = "colab.example.googleapis.com";
