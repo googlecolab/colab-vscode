@@ -56,9 +56,9 @@ export enum Outcome {
 }
 
 export enum Variant {
-  DEFAULT = 0,
-  GPU = 1,
-  TPU = 2,
+  DEFAULT = "DEFAULT",
+  GPU = "GPU",
+  TPU = "TPU",
 }
 
 enum ColabGapiVariant {
@@ -244,20 +244,7 @@ export const GetAssignmentResponseSchema = z
     /** XSRF token for assignment posting. */
     token: z.string(),
     /** The variant of the assignment. */
-    // On GET, this is a string so we must preprocess it to the enum.
-    variant: z.preprocess((val) => {
-      if (typeof val === "string") {
-        switch (val) {
-          case "DEFAULT":
-            return Variant.DEFAULT;
-          case "GPU":
-            return Variant.GPU;
-          case "TPU":
-            return Variant.TPU;
-        }
-      }
-      return val;
-    }, z.nativeEnum(Variant)),
+    variant: z.nativeEnum(Variant),
   })
   .transform(({ acc, nbh, p, token, ...rest }) => ({
     ...rest,
@@ -310,7 +297,21 @@ export const AssignmentSchema = z
     /** The outcome of the assignment. */
     outcome: z.nativeEnum(Outcome).optional(),
     /** The variant of the assignment. */
-    variant: z.nativeEnum(Variant),
+    // On GET, this is a string (enum) but on POST this is a number.
+    // Normalize it to the string-based enum.
+    variant: z.preprocess((val) => {
+      if (typeof val === "number") {
+        switch (val) {
+          case 0:
+            return Variant.DEFAULT;
+          case 1:
+            return Variant.GPU;
+          case 2:
+            return Variant.TPU;
+        }
+      }
+      return val;
+    }, z.nativeEnum(Variant)),
     /** The machine shape. */
     machineShape: z.nativeEnum(Shape),
     /** Information about the runtime proxy. */

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { expect } from "chai";
-import fetch, { Response, RequestInfo, RequestInit } from "node-fetch";
+import fetch, { Response } from "node-fetch";
 import { SinonStub, SinonMatcher } from "sinon";
 import * as sinon from "sinon";
 import {
@@ -15,14 +15,15 @@ import {
   Session,
 } from "./api";
 import { ColabClient } from "./client";
+import { uuidToWebSafeBase64 } from "../utils/uuid";
 
-const COLAB_DOMAIN = "https://colab.example.com";
-const GOOGLE_APIS_DOMAIN = "https://colab.example.googleapis.com";
+const COLAB_HOST = "colab.example.com";
+const GOOGLE_APIS_HOST = "colab.example.googleapis.com";
 const BEARER_TOKEN = "access-token";
 const NOTEBOOK_HASH = randomUUID();
 const DEFAULT_ASSIGNMENT_RESPONSE = {
   accelerator: Accelerator.A100,
-  endpoint: "mock-endpoint",
+  endpoint: "mock-server",
   fit: 30,
   sub: SubscriptionState.UNSUBSCRIBED,
   subTier: SubscriptionTier.NONE,
@@ -49,10 +50,7 @@ const DEFAULT_ASSIGNMENT: Assignment = {
 };
 
 describe("ColabClient", () => {
-  let fetchStub: SinonStub<
-    [url: RequestInfo, init?: RequestInit | undefined],
-    Promise<Response>
-  >;
+  let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
   let sessionStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
 
@@ -60,8 +58,8 @@ describe("ColabClient", () => {
     fetchStub = sinon.stub(fetch, "default");
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
     client = new ColabClient(
-      new URL(COLAB_DOMAIN),
-      new URL(GOOGLE_APIS_DOMAIN),
+      new URL(`https://${COLAB_HOST}`),
+      new URL(`https://${GOOGLE_APIS_HOST}`),
       sessionStub,
     );
   });
@@ -80,12 +78,12 @@ describe("ColabClient", () => {
     };
     fetchStub
       .withArgs(
-        matchAuthorizedRequest(
-          `${GOOGLE_APIS_DOMAIN}/v1/user-info`,
-          "GET",
-          undefined,
-          false,
-        ),
+        urlMatcher({
+          method: "GET",
+          host: GOOGLE_APIS_HOST,
+          path: "/v1/user-info",
+          withAuthUser: false,
+        }),
       )
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
@@ -113,7 +111,13 @@ describe("ColabClient", () => {
       },
     };
     fetchStub
-      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
+      .withArgs(
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/ccu-info",
+        }),
+      )
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
@@ -135,7 +139,13 @@ describe("ColabClient", () => {
   describe("assignment", () => {
     it("resolves an existing assignment", async () => {
       fetchStub
-        .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
+        .withArgs(
+          urlMatcher({
+            method: "GET",
+            host: COLAB_HOST,
+            path: "/tun/m/assign",
+          }),
+        )
         .resolves(
           new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
             status: 200,
@@ -152,48 +162,98 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("creates and resolves a new assignment when an existing one does not exist", async () => {
-      const mockGetResponse = {
-        acc: Accelerator.A100,
-        nbh: NOTEBOOK_HASH,
-        p: false,
-        token: "mock-xsrf-token",
-        variant: Variant.DEFAULT,
-      };
-      fetchStub
-        .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "GET"))
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockGetResponse)), {
-            status: 200,
-          }),
-        );
-      fetchStub
-        .withArgs(
-          matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assign`, "POST", {
-            "X-Goog-Colab-Token": "mock-xsrf-token",
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
-            status: 200,
-          }),
-        );
+    const assignmentTests: [Variant, Accelerator?][] = [
+      [Variant.DEFAULT, undefined],
+      [Variant.GPU, Accelerator.T4],
+      [Variant.TPU, Accelerator.V28],
+    ];
+    for (const [variant, accelerator] of assignmentTests) {
+      const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""}`;
 
-      await expect(
-        client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
-      ).to.eventually.deep.equal({
-        assignment: DEFAULT_ASSIGNMENT,
-        isNew: true,
+      it(`creates a new ${assignment}`, async () => {
+        const wireNbh = uuidToWebSafeBase64(NOTEBOOK_HASH);
+        const mockGetResponse = {
+          acc: accelerator ?? Accelerator.NONE,
+          nbh: wireNbh,
+          p: false,
+          token: "mock-xsrf-token",
+          variant: variant,
+        };
+        const path = "/tun/m/assign";
+        const getQueryParams: Record<string, string | RegExp> = {
+          nbh: wireNbh,
+        };
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: "GET",
+              host: COLAB_HOST,
+              path,
+              queryParams: getQueryParams,
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify(mockGetResponse)), {
+              status: 200,
+            }),
+          );
+        const postQueryParams: Record<string, string | RegExp> = {
+          ...getQueryParams,
+        };
+        if (variant !== Variant.DEFAULT) {
+          postQueryParams.variant = variant;
+        }
+        if (accelerator) {
+          postQueryParams.accelerator = accelerator;
+        }
+        const assignmentResponse = {
+          ...DEFAULT_ASSIGNMENT_RESPONSE,
+          variant,
+          accelerator: accelerator ?? Accelerator.NONE,
+        };
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: "POST",
+              host: COLAB_HOST,
+              path,
+              queryParams: postQueryParams,
+              otherHeaders: {
+                "X-Goog-Colab-Token": "mock-xsrf-token",
+              },
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify(assignmentResponse)), {
+              status: 200,
+            }),
+          );
+
+        const expectedAssignment: Assignment = {
+          ...DEFAULT_ASSIGNMENT,
+          variant,
+          accelerator: accelerator ?? Accelerator.NONE,
+        };
+        await expect(
+          client.assign(NOTEBOOK_HASH, variant, accelerator),
+        ).to.eventually.deep.equal({
+          assignment: expectedAssignment,
+          isNew: true,
+        });
+
+        sinon.assert.calledTwice(fetchStub);
       });
-
-      sinon.assert.calledTwice(fetchStub);
-    });
+    }
   });
 
   it("successfully lists assignments", async () => {
     fetchStub
       .withArgs(
-        matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/assignments`, "GET"),
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/assignments",
+        }),
       )
       .resolves(
         new Response(
@@ -214,18 +274,23 @@ describe("ColabClient", () => {
   });
 
   it("successfully unassigns the specified assignment", async () => {
-    const endpoint = "mock-endpoint";
-    const path = `tun/m/unassign/${endpoint}`;
+    const endpoint = "mock-server";
+    const path = `/tun/m/unassign/${endpoint}`;
     const token = "mock-xsrf-token";
     fetchStub
-      .withArgs(matchAuthorizedRequest(path, "GET"))
+      .withArgs(urlMatcher({ method: "GET", host: COLAB_HOST, path: path }))
       .resolves(
         new Response(withXSSI(JSON.stringify({ token })), { status: 200 }),
       );
     fetchStub
       .withArgs(
-        matchAuthorizedRequest(path, "POST", {
-          "X-Goog-Colab-Token": token,
+        urlMatcher({
+          method: "POST",
+          host: COLAB_HOST,
+          path,
+          otherHeaders: {
+            "X-Goog-Colab-Token": token,
+          },
         }),
       )
       .resolves(new Response(undefined, { status: 200 }));
@@ -240,7 +305,11 @@ describe("ColabClient", () => {
 
     fetchStub
       .withArgs(
-        matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/foo/api/kernels`, "GET"),
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/foo/api/kernels",
+        }),
       )
       .resolves(
         new Response(
@@ -274,10 +343,16 @@ describe("ColabClient", () => {
   });
 
   it("successfully lists sessions", async () => {
-    const endpoint = "mock-endpoint";
+    const server = "mock-server";
     const last_activity = new Date().toISOString();
     fetchStub
-      .withArgs(matchAuthorizedRequest(`tun/m/${endpoint}/api/sessions`, "GET"))
+      .withArgs(
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: `/tun/m/${server}/api/sessions`,
+        }),
+      )
       .resolves(
         new Response(
           withXSSI(
@@ -292,7 +367,7 @@ describe("ColabClient", () => {
                   connections: 1,
                 },
                 name: "mock-session-name",
-                path: "mock-path",
+                path: "/mock-path",
                 type: "notebook",
               },
             ]),
@@ -310,11 +385,11 @@ describe("ColabClient", () => {
         connections: 1,
       },
       name: "mock-session-name",
-      path: "mock-path",
+      path: "/mock-path",
       type: "notebook",
     };
 
-    await expect(client.listSessions(endpoint)).to.eventually.deep.equal([
+    await expect(client.listSessions(server)).to.eventually.deep.equal([
       session,
     ]);
 
@@ -322,18 +397,19 @@ describe("ColabClient", () => {
   });
 
   it("successfully deletes a session", async () => {
-    const endpoint = "mock-endpoint";
+    const server = "mock-server";
     const sessionId = "mock-session-id";
     fetchStub
       .withArgs(
-        matchAuthorizedRequest(
-          `tun/m/${endpoint}/api/sessions/${sessionId}`,
-          "DELETE",
-        ),
+        urlMatcher({
+          method: "DELETE",
+          host: COLAB_HOST,
+          path: `/tun/m/${server}/api/sessions/${sessionId}`,
+        }),
       )
       .resolves(new Response(undefined, { status: 200 }));
 
-    await expect(client.deleteSession(endpoint, sessionId)).to.eventually.be
+    await expect(client.deleteSession(server, sessionId)).to.eventually.be
       .fulfilled;
 
     sinon.assert.calledOnce(fetchStub);
@@ -342,7 +418,11 @@ describe("ColabClient", () => {
   it("successfully issues keep-alive pings", async () => {
     fetchStub
       .withArgs(
-        matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/foo/keep-alive/`, "GET"),
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/foo/keep-alive/",
+        }),
       )
       .resolves(new Response(undefined, { status: 200 }));
 
@@ -362,7 +442,13 @@ describe("ColabClient", () => {
       ineligibleTpus: [Accelerator.V5E1],
     };
     fetchStub
-      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
+      .withArgs(
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/ccu-info",
+        }),
+      )
       .resolves(new Response(JSON.stringify(mockResponse), { status: 200 }));
 
     await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
@@ -372,7 +458,13 @@ describe("ColabClient", () => {
 
   it("rejects when error responses are returned", async () => {
     fetchStub
-      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
+      .withArgs(
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/ccu-info",
+        }),
+      )
       .resolves(
         new Response("Error", {
           status: 500,
@@ -387,7 +479,13 @@ describe("ColabClient", () => {
 
   it("rejects invalid JSON responses", async () => {
     fetchStub
-      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
+      .withArgs(
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/ccu-info",
+        }),
+      )
       .resolves(new Response(withXSSI("not JSON eh?"), { status: 200 }));
 
     await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
@@ -402,7 +500,13 @@ describe("ColabClient", () => {
       eligibleGpus: [Accelerator.T4],
     };
     fetchStub
-      .withArgs(matchAuthorizedRequest(`${COLAB_DOMAIN}/tun/m/ccu-info`, "GET"))
+      .withArgs(
+        urlMatcher({
+          method: "GET",
+          host: COLAB_HOST,
+          path: "/tun/m/ccu-info",
+        }),
+      )
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
@@ -429,23 +533,122 @@ function withXSSI(response: string): string {
   return `)]}'\n${response}`;
 }
 
-function matchAuthorizedRequest(
-  endpoint: string,
-  method: "DELETE" | "GET" | "POST",
-  otherHeaders?: Record<string, string>,
-  withAuthUser = true,
-): SinonMatcher {
-  const authuser = withAuthUser ? "authuser=0" : "";
-  return sinon.match({
-    url: sinon.match(new RegExp(`${endpoint}?.*${authuser}`)),
-    method: sinon.match(method),
-    headers: sinon.match(
-      (headers: Headers) =>
-        headers.get("Authorization") === `Bearer ${BEARER_TOKEN}` &&
-        headers.get("Accept") === "application/json" &&
-        Object.entries(otherHeaders ?? {}).every(
-          ([key, value]) => headers.get(key) === value,
-        ),
-    ),
-  });
+export interface URLMatchOptions {
+  method: "GET" | "POST" | "DELETE";
+  host: typeof GOOGLE_APIS_HOST | typeof COLAB_HOST;
+  path: string | RegExp;
+  queryParams?: Record<string, string | RegExp>;
+  otherHeaders?: Record<string, string>;
+  /** Whether the authuser query parameter should be included. Defaults to true. */
+  withAuthUser?: boolean;
+}
+
+/**
+ * Creates a Sinon matcher that matches a request's URL, method, query
+ * parameters, and headers.
+ *
+ * All requests are assumed to be with the correct `Authorization` and `Accept`
+ * headers.
+ */
+export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
+  let reason = "";
+  return sinon.match((request: Request) => {
+    const reasons: string[] = [];
+    reason = "";
+
+    // Check method
+    const actualMethod = request.method.toUpperCase();
+    const expectedMethod = expected.method.toUpperCase();
+    if (actualMethod !== expectedMethod) {
+      reasons.push(`method "${actualMethod}" !== expected "${expectedMethod}"`);
+    }
+
+    const url = new URL(request.url);
+
+    // Check host
+    const actualHost = url.host;
+    const expectedHost = expected.host;
+    if (actualHost !== expectedHost) {
+      reasons.push(`host "${expectedHost}" !== expected "${expectedHost}"`);
+    }
+
+    // Check path
+    const actualPath = url.pathname;
+    const expectedPath = expected.path;
+    if (expectedPath instanceof RegExp) {
+      if (!expectedPath.test(actualPath)) {
+        reasons.push(
+          `path "${actualPath}" does not match ${expectedPath.source}`,
+        );
+      }
+    } else {
+      if (actualPath !== expectedPath) {
+        reasons.push(`path "${actualPath}" !== expected "${expectedPath}"`);
+      }
+    }
+
+    // Check query params
+    const params = url.searchParams;
+    if (expected.withAuthUser !== false) {
+      const actualAuthuser = params.get("authuser");
+      if (actualAuthuser !== "0") {
+        reasons.push(
+          `authuser param is "${actualAuthuser ?? ""}", expected "0"`,
+        );
+      }
+    }
+    if (expected.queryParams) {
+      for (const [key, value] of Object.entries(expected.queryParams)) {
+        const actual = params.get(key);
+        if (actual === null) {
+          reasons.push(`missing query param "${key}"`);
+        } else if (value instanceof RegExp) {
+          if (!value.test(actual)) {
+            reasons.push(
+              `query param "${key}" = "${actual}" does not match ${value.source}`,
+            );
+          }
+        } else {
+          if (actual !== value) {
+            reasons.push(
+              `query param "${key}" = "${actual}" !== expected "${value}"`,
+            );
+          }
+        }
+      }
+    }
+
+    // Check headers
+    const headers = request.headers;
+    const actualAuth = headers.get("Authorization");
+    const expectedAuth = `Bearer ${BEARER_TOKEN}`;
+    if (actualAuth !== expectedAuth) {
+      reasons.push(
+        `Authorization header is "${actualAuth ?? ""}", expected "${expectedAuth}"`,
+      );
+    }
+    const actualAccept = headers.get("Accept");
+    if (actualAccept !== "application/json") {
+      reasons.push(
+        `Accept header is "${actualAccept ?? ""}", expected "application/json"`,
+      );
+    }
+    if (expected.otherHeaders) {
+      for (const [key, expectedVal] of Object.entries(expected.otherHeaders)) {
+        const actualVal = headers.get(key);
+        if (actualVal !== expectedVal) {
+          reasons.push(
+            `header "${key}" = "${actualVal ?? ""}", expected "${expectedVal}"`,
+          );
+        }
+      }
+    }
+
+    if (reasons.length > 0) {
+      reason = reasons.join("; ");
+      return false;
+    }
+
+    return true;
+  }, reason || "URL did not match expected pattern");
 }

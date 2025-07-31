@@ -268,10 +268,10 @@ export class ColabClient {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
     if (variant !== Variant.DEFAULT) {
-      url.searchParams.append("variant", variant.toString());
+      url.searchParams.append("variant", variant);
     }
     if (accelerator) {
-      url.searchParams.append("accelerator", accelerator.toString());
+      url.searchParams.append("accelerator", accelerator);
     }
     return url;
   }
@@ -296,8 +296,15 @@ export class ColabClient {
     });
     const response = await fetch(request);
     if (!response.ok) {
+      let errorBody = "";
+      try {
+        errorBody = await response.text();
+      } catch {
+        // Ignore errors reading the body
+      }
       throw new Error(
-        `Failed to issue request to ${endpoint.toString()}: ${response.statusText}`,
+        `Failed to issue request ${request.method} ${endpoint.toString()}: ${response.statusText}` +
+          (errorBody ? `\nResponse body: ${errorBody}` : ""),
       );
     }
     if (!schema) {
