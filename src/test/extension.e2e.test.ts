@@ -52,16 +52,20 @@ describe("Colab Extension", function () {
       await inputBox.selectQuickPick("Colab");
 
       // Accept the dialog allowing the Colab extension to sign in using Google.
-      let dialog = new ModalDialog();
-      await dialog.pushButton("Allow");
+      await pushDialogButton({
+        button: "Allow",
+        dialog: "The extension 'Colab' wants to sign in using Google.",
+      });
 
       // Begin the sign-in process by copying the OAuth URL to the clipboard and
       // opening it in a browser window. Why do this instead of triggering the
       // "Open" button in the dialog? We copy the URL so that we can use a new
       // driver instance for the OAuth flow, since the original driver instance
       // does not have a handle to the window that would be spawned with "Open".
-      dialog = new ModalDialog();
-      await dialog.pushButton("Copy");
+      await pushDialogButton({
+        button: "Copy",
+        dialog: "Do you want Code to open the external website?",
+      });
       // TODO: Remove this dynamic import
       const clipboardy = await import("clipboardy");
       await doOauthSignIn(/* oauthUrl= */ clipboardy.default.readSync());
@@ -91,6 +95,34 @@ describe("Colab Extension", function () {
       }, ELEMENT_WAIT_MS);
     });
   });
+
+  /**
+   * Pushes a button in a modal dialog and waits for the action to complete.
+   */
+  async function pushDialogButton({
+    button,
+    dialog,
+  }: {
+    button: string;
+    dialog: string;
+  }) {
+    // ModalDialog.pushButton will throw if the dialog is not found; so, to
+    // reduce flakes, we attempt this until it succeeds or the times out.
+    return driver.wait(
+      async () => {
+        try {
+          const dialog = new ModalDialog();
+          await dialog.pushButton(button);
+          return true;
+        } catch (_) {
+          // Swallow the error since we want to fail when the timeout's reached.
+          return false;
+        }
+      },
+      ELEMENT_WAIT_MS,
+      `Push "${button}" button for dialog "${dialog}" failed`,
+    );
+  }
 
   /**
    * Performs the OAuth sign-in flow for the Colab extension.
