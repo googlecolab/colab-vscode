@@ -2,6 +2,7 @@ authuser
 chromedriver
 colab
 extest
+exthost
 gapi
 gaxios
 googlecolab
