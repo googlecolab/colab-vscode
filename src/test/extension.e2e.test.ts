@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { assert } from "chai";
 import dotenv from "dotenv";
 import * as chrome from "selenium-webdriver/chrome";
 import {
@@ -23,6 +24,11 @@ describe("Colab Extension", function () {
   let workbench: Workbench;
 
   before(async () => {
+    assert.equal(
+      process.env.COLAB_EXTENSION_ENVIRONMENT,
+      "production",
+      "The COLAB_EXTENSION_ENVIRONMENT environment variable must be set to 'production' for e2e tests.",
+    );
     // Wait for the extension to be installed.
     workbench = new Workbench();
     driver = workbench.getDriver();
