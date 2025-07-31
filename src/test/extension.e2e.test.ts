@@ -46,10 +46,14 @@ describe("Colab Extension", function () {
     it("authenticates and executes the notebook on a Colab server", async () => {
       // Select the Colab server provider from the kernel selector.
       await workbench.executeCommand("Notebook: Select Notebook Kernel");
-      let inputBox = await InputBox.create();
-      await inputBox.selectQuickPick("Select Another Kernel...");
-      inputBox = await InputBox.create();
-      await inputBox.selectQuickPick("Colab");
+      await selectQuickPickItem({
+        item: "Select Another Kernel...",
+        quickPick: "Change kernel",
+      });
+      await selectQuickPickItem({
+        item: "Colab",
+        quickPick: "Select Another Kernel",
+      });
 
       // Accept the dialog allowing the Colab extension to sign in using Google.
       await pushDialogButton({
@@ -72,17 +76,21 @@ describe("Colab Extension", function () {
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
-      inputBox = await InputBox.create();
-      await inputBox.selectQuickPick("New Colab Server");
-      // Select the variant.
-      inputBox = await InputBox.create();
-      await inputBox.selectQuickPick("CPU");
+      await selectQuickPickItem({
+        item: "New Colab Server",
+        quickPick: "Select a Jupyter Server",
+      });
+      await selectQuickPickItem({
+        item: "CPU",
+        quickPick: "Select a variant (1/2)",
+      });
       // Alias the server with the default name.
-      inputBox = await InputBox.create();
+      const inputBox = await InputBox.create();
       await inputBox.sendKeys(Key.ENTER);
-      // Select the kernel.
-      inputBox = await InputBox.create();
-      await inputBox.selectQuickPick("Python 3 (ipykernel)");
+      await selectQuickPickItem({
+        item: "Python 3 (ipykernel)",
+        quickPick: "Select a Kernel from Colab CPU",
+      });
 
       // Execute the notebook and poll for the success indicator (green check).
       // Why not the cell output? Because the output is rendered in a webview.
@@ -95,6 +103,31 @@ describe("Colab Extension", function () {
       }, ELEMENT_WAIT_MS);
     });
   });
+
+  /**
+   * Selects the QuickPick option.
+   */
+  async function selectQuickPickItem({
+    item,
+    quickPick,
+  }: {
+    item: string;
+    quickPick: string;
+  }) {
+    return driver.wait(
+      async () => {
+        const inputBox = await InputBox.create();
+        const quickPickItem = await inputBox.findQuickPick(item);
+        if (!quickPickItem) {
+          return false;
+        }
+        await quickPickItem.select();
+        return true;
+      },
+      ELEMENT_WAIT_MS,
+      `Select "${item}" item for QuickPick "${quickPick}" failed`,
+    );
+  }
 
   /**
    * Pushes a button in a modal dialog and waits for the action to complete.
