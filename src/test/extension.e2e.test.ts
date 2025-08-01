@@ -54,10 +54,6 @@ describe("Colab Extension", function () {
       // Select the Colab server provider from the kernel selector.
       await workbench.executeCommand("Notebook: Select Notebook Kernel");
       await selectQuickPickItem({
-        item: "Select Another Kernel...",
-        quickPick: "Change kernel",
-      });
-      await selectQuickPickItem({
         item: "Colab",
         quickPick: "Select Another Kernel",
       });
