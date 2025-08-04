@@ -124,15 +124,21 @@ describe("Colab Extension", function () {
   }) {
     return driver.wait(
       async () => {
-        const inputBox = await InputBox.create();
-        // We check for the item's presence before selecting it, since
-        // InputBox.selectQuickPick will not throw if the item is not found.
-        const quickPickItem = await inputBox.findQuickPick(item);
-        if (!quickPickItem) {
+        try {
+          const inputBox = await InputBox.create();
+          // We check for the item's presence before selecting it, since
+          // InputBox.selectQuickPick will not throw if the item is not found.
+          const quickPickItem = await inputBox.findQuickPick(item);
+          if (!quickPickItem) {
+            return false;
+          }
+          await quickPickItem.select();
+          return true;
+        } catch (_) {
+          // Swallow the InputBox.create error since we want to fail when our
+          // timeout's reached.
           return false;
         }
-        await quickPickItem.select();
-        return true;
       },
       ELEMENT_WAIT_MS,
       `Select "${item}" item for QuickPick "${quickPick}" failed`,
