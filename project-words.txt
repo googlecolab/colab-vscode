@@ -22,5 +22,6 @@ unassigning
 unassignment
 unassigns
 veryhighmem
+vscode
 vulnz
 xssi
