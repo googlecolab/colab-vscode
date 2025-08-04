@@ -72,9 +72,7 @@ export class FakeAuthenticationProviderManager {
     if (!provider) {
       throw new Error(`No provider registered for id: ${providerId}`);
     }
-    const sessionOptions: vscode.AuthenticationProviderSessionOptions = options
-      ? options
-      : {};
+    const sessionOptions = options ?? {};
     let sessions = await provider.getSessions(scopes, sessionOptions);
 
     if (sessions.length === 0) {
