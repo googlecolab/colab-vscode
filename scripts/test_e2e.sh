@@ -10,14 +10,14 @@
 #   - headless: Run tests in headless mode using xvfb.
 #   - vsix=<path_to_vsix_file>: Install the specified VSIX file before running tests.
 #   - auth-driver:<args>: Pass additional arguments to the authentication driver.
-# 
+#
 # A couple ugly workarounds are made to have this script be portable to Mac which by default
 # runs a very old version of bash:
-# 
+#
 # - `${var[@]+"${var[@]}"}` instead of simply `${var[@]}` over arrays that could be empty.
 # - `IFS= read -r line` instead of `mapfile -t` to read lines into an array.
 
-set -euo pipefail 
+set -euo pipefail
 
 STORAGE=""
 HEADLESS=0
@@ -107,7 +107,7 @@ build_test_cmd() {
   printf "%s\n" ./out/test/*.e2e.test.js -m ./out/test/e2e.mocharc.js
 
   if [[ ${#AUTH_DRIVER_ARGS[@]} -gt 0 ]]; then
-    printf "--\n"
+    printf "%s\n" "--"
     printf "%s\n" "${AUTH_DRIVER_ARGS[@]}"
   fi
 }
