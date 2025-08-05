@@ -566,7 +566,7 @@ describe("AssignmentManager", () => {
           id: "mock-session-id-2",
         };
         colabClientStub.listSessions
-          .withArgs(defaultServer.endpoint)
+          .withArgs(defaultServer)
           .resolves([session1, session2]);
 
         await assignmentManager.unassignServer(defaultServer);
@@ -574,12 +574,12 @@ describe("AssignmentManager", () => {
         sinon.assert.calledTwice(colabClientStub.deleteSession);
         sinon.assert.calledWith(
           colabClientStub.deleteSession,
-          defaultServer.endpoint,
+          defaultServer,
           session1.id,
         );
         sinon.assert.calledWith(
           colabClientStub.deleteSession,
-          defaultServer.endpoint,
+          defaultServer,
           session2.id,
         );
       });

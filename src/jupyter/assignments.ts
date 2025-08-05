@@ -236,8 +236,8 @@ export class AssignmentManager implements vscode.Disposable {
       changed: [],
     });
     await Promise.all(
-      (await this.client.listSessions(server.endpoint)).map((session) =>
-        this.client.deleteSession(server.endpoint, session.id),
+      (await this.client.listSessions(server)).map((session) =>
+        this.client.deleteSession(server, session.id),
       ),
     );
     await this.client.unassign(server.endpoint);

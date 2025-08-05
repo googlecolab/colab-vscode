@@ -84,10 +84,7 @@ export class ServerKeepAliveController implements Disposable {
     assignment: ColabAssignedServer,
     signal: AbortSignal,
   ): Promise<void> {
-    const kernels = await this.colabClient.listKernels(
-      assignment.endpoint,
-      signal,
-    );
+    const kernels = await this.colabClient.listKernels(assignment, signal);
     if (await this.shouldKeepAlive(assignment, kernels)) {
       await this.colabClient.sendKeepAlive(assignment.endpoint, signal);
     }

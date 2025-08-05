@@ -2,6 +2,7 @@ import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request, RequestInit, Headers } from "node-fetch";
 import { z } from "zod";
+import { ColabAssignedServer } from "../jupyter/servers";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
   Assignment,
@@ -165,10 +166,23 @@ export class ColabClient {
    * @param endpoint - The assigned endpoint to list kernels for.
    * @returns The list of kernels.
    */
-  async listKernels(endpoint: string, signal?: AbortSignal): Promise<Kernel[]> {
+  async listKernels(
+    server: ColabAssignedServer,
+    signal?: AbortSignal,
+  ): Promise<Kernel[]> {
+    const url = new URL(
+      "api/kernels",
+      server.connectionInformation.baseUrl.toString(),
+    );
     return await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/${endpoint}/api/kernels`, this.colabDomain),
-      { method: "GET", signal },
+      url,
+      {
+        method: "GET",
+        headers: {
+          "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+        },
+        signal,
+      },
       z.array(KernelSchema),
     );
   }
@@ -180,12 +194,22 @@ export class ColabClient {
    * @returns The list of sessions.
    */
   async listSessions(
-    endpoint: string,
+    server: ColabAssignedServer,
     signal?: AbortSignal,
   ): Promise<Session[]> {
+    const url = new URL(
+      "api/sessions",
+      server.connectionInformation.baseUrl.toString(),
+    );
     return await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/${endpoint}/api/sessions`, this.colabDomain),
-      { method: "GET", signal },
+      url,
+      {
+        method: "GET",
+        headers: {
+          "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+        },
+        signal,
+      },
       z.array(SessionSchema),
     );
   }
@@ -197,17 +221,21 @@ export class ColabClient {
    * @param sessionId - The ID of the session to delete.
    */
   async deleteSession(
-    endpoint: string,
+    server: ColabAssignedServer,
     sessionId: string,
     signal?: AbortSignal,
   ) {
-    return await this.issueRequest(
-      new URL(
-        `${TUN_ENDPOINT}/${endpoint}/api/sessions/${sessionId}`,
-        this.colabDomain,
-      ),
-      { method: "DELETE", signal },
+    const url = new URL(
+      `api/sessions/${sessionId}`,
+      server.connectionInformation.baseUrl.toString(),
     );
+    return await this.issueRequest(url, {
+      method: "DELETE",
+      headers: {
+        "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+      },
+      signal,
+    });
   }
 
   /**

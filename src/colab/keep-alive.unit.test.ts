@@ -97,7 +97,7 @@ describe("ServerKeepAliveController", () => {
     it("skips when a keep-alive is already in flight", async () => {
       assignmentStub.getAssignedServers.resolves([defaultServer]);
       colabClientStub.listKernels
-        .withArgs(defaultServer.endpoint)
+        .withArgs(defaultServer)
         .resolves([DEFAULT_KERNEL]);
       colabClientStub.sendKeepAlive.callsFake(ABORTING_KEEP_ALIVE);
       serverKeepAliveController = new ServerKeepAliveController(
@@ -121,7 +121,7 @@ describe("ServerKeepAliveController", () => {
     it("aborts slow keep-alive attempts", async () => {
       assignmentStub.getAssignedServers.resolves([defaultServer]);
       colabClientStub.listKernels
-        .withArgs(defaultServer.endpoint)
+        .withArgs(defaultServer)
         .resolves([DEFAULT_KERNEL]);
       colabClientStub.sendKeepAlive
         .onFirstCall()
@@ -164,7 +164,7 @@ describe("ServerKeepAliveController", () => {
     beforeEach(() => {
       assignmentStub.getAssignedServers.resolves([defaultServer]);
       colabClientStub.listKernels
-        .withArgs(defaultServer.endpoint)
+        .withArgs(defaultServer)
         .resolves([DEFAULT_KERNEL]);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
@@ -206,7 +206,7 @@ describe("ServerKeepAliveController", () => {
     beforeEach(() => {
       assignmentStub.getAssignedServers.resolves([defaultServer]);
       colabClientStub.listKernels
-        .withArgs(defaultServer.endpoint)
+        .withArgs(defaultServer)
         .resolves([idleKernel]);
       cancellationSource = new vsCodeStub.CancellationTokenSource();
       reportStub = sinon.stub();
@@ -288,7 +288,7 @@ describe("ServerKeepAliveController", () => {
           lastActivity: NOW.toString(),
         };
         colabClientStub.listKernels
-          .withArgs(defaultServer.endpoint)
+          .withArgs(defaultServer)
           .resolves([activeKernel]);
 
         await tickPast(CONFIG.keepAliveIntervalMs);
@@ -318,7 +318,7 @@ describe("ServerKeepAliveController", () => {
             lastActivity: NOW.toString(),
           };
           colabClientStub.listKernels
-            .withArgs(defaultServer.endpoint)
+            .withArgs(defaultServer)
             .resolves([activeKernel]);
           await tickPast(CONFIG.keepAliveIntervalMs);
         });
@@ -377,9 +377,7 @@ describe("ServerKeepAliveController", () => {
       idle2 = createServerWithKernel(4, "idle");
       const servers = [active1, active2, idle1, idle2];
       for (const { server, kernel } of servers) {
-        colabClientStub.listKernels
-          .withArgs(server.endpoint)
-          .resolves([kernel]);
+        colabClientStub.listKernels.withArgs(server).resolves([kernel]);
       }
       assignmentStub.getAssignedServers.resolves(servers.map((s) => s.server));
     });
@@ -486,9 +484,7 @@ describe("ServerKeepAliveController", () => {
           lastActivity: new Date(42).toString(),
         },
       ];
-      colabClientStub.listKernels
-        .withArgs(defaultServer.endpoint)
-        .resolves(kernels);
+      colabClientStub.listKernels.withArgs(defaultServer).resolves(kernels);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -518,9 +514,7 @@ describe("ServerKeepAliveController", () => {
           lastActivity: new Date(43).toString(),
         },
       ];
-      colabClientStub.listKernels
-        .withArgs(defaultServer.endpoint)
-        .resolves(kernels);
+      colabClientStub.listKernels.withArgs(defaultServer).resolves(kernels);
       serverKeepAliveController = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
         colabClientStub,
