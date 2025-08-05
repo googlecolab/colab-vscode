@@ -115,7 +115,7 @@ build_test_cmd() {
 run_tests() {
   if [[ "$HEADLESS" -eq 1 ]]; then
     echo "🏃 Running tests in headless mode..." >&2
-    xvfb-run -a -s '-screen 0 1024x768x24' "$@"
+    xvfb-run -a -s '-screen 0 1920x1080x24' "$@"
   else
     echo "🏃 Running tests..." >&2
     "$@"
