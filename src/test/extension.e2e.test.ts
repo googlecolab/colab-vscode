@@ -135,8 +135,7 @@ describe("Colab Extension", function () {
           await quickPickItem.select();
           return true;
         } catch (_) {
-          // Swallow the InputBox.create error since we want to fail when our
-          // timeout's reached.
+          // Swallow errors since we want to fail when our timeout's reached.
           return false;
         }
       },
