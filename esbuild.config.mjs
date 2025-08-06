@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, cpSync } from "fs";
+import * as path from "path";
 import * as esbuild from "esbuild";
 import { nodeExternalsPlugin } from "esbuild-node-externals";
 import { glob } from "glob";
@@ -89,7 +90,7 @@ function testSetupOptions(name, entrypoint, outfile) {
   return {
     ...baseOptions,
     entryPoints: [entrypoint],
-    outfile: outfile,
+    outfile: path.join("out/test", outfile),
     bundle: false, // Don't bundle the test setup file, just transpile it.
     external: undefined, // Cannot use "external" without "bundle".
     plugins: [buildReporter(name), nodeExternalsPlugin()],
@@ -105,12 +106,12 @@ async function main() {
           testSetupOptions(
             "Unit Test Setup",
             "src/test/unit-test-setup.ts",
-            "out/test/test/unit-test-setup.js",
+            "test/unit-test-setup.js",
           ),
           testSetupOptions(
             "Integration Test Setup",
             "src/test/integration-test-runner.ts",
-            "out/test/test/integration-test-runner.js",
+            "test/integration-test-runner.js",
           ),
           testOptions("Unit Tests", "src/**/*.unit.test.ts"),
           testOptions("Integration Tests", [
