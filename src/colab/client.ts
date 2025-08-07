@@ -331,10 +331,10 @@ export class ColabClient {
         // Ignore errors reading the body
       }
       throw new ColabRequestError({
-        body: errorBody,
         method: request.method,
-        response,
         url: endpoint.toString(),
+        response,
+        responseBody: errorBody,
       });
     }
     if (!schema) {
@@ -358,29 +358,29 @@ function stripXssiPrefix(v: string): string {
 }
 
 class ColabRequestError extends Error {
-  readonly body?: string;
   readonly method: string;
-  readonly response: fetch.Response;
   readonly url: string;
+  readonly response: fetch.Response;
+  readonly responseBody?: string;
 
   constructor({
-    body,
     method,
-    response,
     url,
+    response,
+    responseBody,
   }: {
-    body?: string;
     method: string;
-    response: fetch.Response;
     url: string;
+    response: fetch.Response;
+    responseBody?: string;
   }) {
     super(
       `Failed to issue request ${method} ${url}: ${response.statusText}` +
-        (body ? `\nResponse body: ${body}` : ""),
+        (responseBody ? `\nResponse body: ${responseBody}` : ""),
     );
-    this.body = body;
     this.method = method;
-    this.response = response;
     this.url = url;
+    this.response = response;
+    this.responseBody = responseBody;
   }
 }
