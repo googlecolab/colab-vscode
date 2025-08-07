@@ -4,6 +4,7 @@ import * as http from "http";
 import * as path from "path";
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
+import { CONTENT_TYPE_TEXT_HEADER } from "../../colab/headers";
 import { LoopbackHandler, LoopbackServer } from "../../common/loopback-server";
 import { CodeManager } from "../code-manager";
 import {
@@ -114,7 +115,9 @@ class Handler implements LoopbackHandler {
           throw new Error("Missing nonce or code in redirect URI");
         }
         this.codeProvider.resolveCode(nonce, code);
-        res.writeHead(200, { "content-type": "text/plain" });
+        res.writeHead(200, {
+          [CONTENT_TYPE_TEXT_HEADER.key]: CONTENT_TYPE_TEXT_HEADER.value,
+        });
         res.end("You may now return to the application.");
         break;
       }

@@ -10,27 +10,16 @@ import vscode from "vscode";
 import { Accelerator, Assignment, Variant } from "../colab/api";
 import { ColabClient, TooManyAssignmentsError } from "../colab/client";
 import {
+  COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+} from "../colab/headers";
+import {
   COLAB_SERVERS,
   ColabAssignedServer,
   ColabJupyterServer,
   ColabServerDescriptor,
 } from "./servers";
 import { ServerStorage } from "./storage";
-
-/**
- * The header key for the Colab runtime proxy token.
- */
-const COLAB_RUNTIME_PROXY_TOKEN_HEADER = "X-Colab-Runtime-Proxy-Token";
-
-/**
- * The header key for the Colab client agent.
- */
-const COLAB_CLIENT_AGENT_HEADER = "X-Colab-Client-Agent";
-
-/**
- * The client agent value for requests originating from VS Code.
- */
-const VSCODE_CLIENT_AGENT = "vscode";
 
 /**
  * An {@link vscode.Event} which fires when a {@link ColabAssignedServer} is
@@ -300,8 +289,8 @@ export class AssignmentManager implements vscode.Disposable {
     }
     const headers: Record<string, string> =
       server.connectionInformation?.headers ?? {};
-    headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER] = token;
-    headers[COLAB_CLIENT_AGENT_HEADER] = VSCODE_CLIENT_AGENT;
+    headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
+    headers[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
     return {
       id: server.id,
@@ -371,8 +360,11 @@ function colabProxyFetch(
 
     init ??= {};
     const headers = new Headers(init.headers);
-    headers.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER, token);
-    headers.append(COLAB_CLIENT_AGENT_HEADER, VSCODE_CLIENT_AGENT);
+    headers.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
+    headers.append(
+      COLAB_CLIENT_AGENT_HEADER.key,
+      COLAB_CLIENT_AGENT_HEADER.value,
+    );
     init.headers = headers;
 
     return fetch(info, init);

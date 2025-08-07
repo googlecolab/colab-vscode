@@ -17,6 +17,10 @@ import {
   OPEN_COLAB_WEB,
   UPGRADE_TO_PRO,
 } from "../colab/commands/constants";
+import {
+  COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+} from "../colab/headers";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import { TestUri } from "../test/helpers/uri";
@@ -43,8 +47,8 @@ const DEFAULT_SERVER: ColabAssignedServer = {
     baseUrl: TestUri.parse("https://example.com"),
     token: "123",
     headers: {
-      "X-Colab-Runtime-Proxy-Token": "123",
-      "X-Colab-Client-Agent": "vscode",
+      [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: "123",
+      [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
     },
   },
 };
