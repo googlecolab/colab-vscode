@@ -246,7 +246,7 @@ export class ColabClient {
   async sendKeepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
     await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.colabDomain),
-      { method: "GET", signal },
+      { method: "GET", headers: { "X-Colab-Tunnel": "Google" }, signal },
     );
   }
 

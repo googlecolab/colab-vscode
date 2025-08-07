@@ -460,6 +460,7 @@ describe("ColabClient", () => {
           method: "GET",
           host: COLAB_HOST,
           path: "/tun/m/foo/keep-alive/",
+          otherHeaders: { "X-Colab-Tunnel": "Google" },
         }),
       )
       .resolves(new Response(undefined, { status: 200 }));
