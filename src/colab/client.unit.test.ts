@@ -21,6 +21,7 @@ import { ColabClient, TooManyAssignmentsError } from "./client";
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
+  COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_XSRF_TOKEN_HEADER,
@@ -725,6 +726,12 @@ export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
     if (actualAccept !== ACCEPT_JSON_HEADER.value) {
       reasons.push(
         `Accept header is "${actualAccept ?? ""}", expected "${ACCEPT_JSON_HEADER.value}"`,
+      );
+    }
+    const actualClientAgent = headers.get(COLAB_CLIENT_AGENT_HEADER.key);
+    if (actualClientAgent !== COLAB_CLIENT_AGENT_HEADER.value) {
+      reasons.push(
+        `Client-Agent header is "${actualClientAgent ?? ""}", expected "${COLAB_CLIENT_AGENT_HEADER.value}"`,
       );
     }
     if (expected.otherHeaders) {

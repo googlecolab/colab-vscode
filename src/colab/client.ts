@@ -24,6 +24,7 @@ import {
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
+  COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_XSRF_TOKEN_HEADER,
@@ -338,6 +339,10 @@ export class ColabClient {
     const requestHeaders = new Headers(init.headers);
     requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
     requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
+    requestHeaders.set(
+      COLAB_CLIENT_AGENT_HEADER.key,
+      COLAB_CLIENT_AGENT_HEADER.value,
+    );
     const request = new Request(endpoint, {
       ...init,
       headers: requestHeaders,
