@@ -17,7 +17,7 @@ import {
   Kernel,
   Session,
 } from "./api";
-import { ColabClient } from "./client";
+import { ColabClient, TooManyAssignmentsError } from "./client";
 
 const COLAB_HOST = "colab.example.com";
 const GOOGLE_APIS_HOST = "colab.example.googleapis.com";
@@ -246,6 +246,57 @@ describe("ColabClient", () => {
         sinon.assert.calledTwice(fetchStub);
       });
     }
+
+    it("rejects when assignment creation fails due to quota", async () => {
+      const wireNbh = uuidToWebSafeBase64(NOTEBOOK_HASH);
+      const mockGetResponse = {
+        acc: Accelerator.NONE,
+        nbh: wireNbh,
+        p: false,
+        token: "mock-xsrf-token",
+        variant: Variant.DEFAULT,
+      };
+      const path = "/tun/m/assign";
+      const queryParams: Record<string, string | RegExp> = {
+        nbh: wireNbh,
+      };
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: "GET",
+            host: COLAB_HOST,
+            path,
+            queryParams,
+          }),
+        )
+        .resolves(
+          new Response(withXSSI(JSON.stringify(mockGetResponse)), {
+            status: 200,
+          }),
+        );
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: "POST",
+            host: COLAB_HOST,
+            path,
+            queryParams,
+            otherHeaders: {
+              "X-Goog-Colab-Token": "mock-xsrf-token",
+            },
+          }),
+        )
+        .resolves(
+          new Response(withXSSI(JSON.stringify("")), {
+            status: 412,
+          }),
+        );
+
+      await expect(
+        client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+      ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
+      sinon.assert.calledTwice(fetchStub);
+    });
   });
 
   it("successfully lists assignments", async () => {
