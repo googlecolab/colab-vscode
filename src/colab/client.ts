@@ -324,7 +324,7 @@ export class ColabClient {
     });
     const response = await fetch(request);
     if (!response.ok) {
-      let errorBody = "";
+      let errorBody;
       try {
         errorBody = await response.text();
       } catch {
@@ -358,7 +358,7 @@ function stripXssiPrefix(v: string): string {
 }
 
 class ColabRequestError extends Error {
-  readonly body: string;
+  readonly body?: string;
   readonly method: string;
   readonly response: fetch.Response;
   readonly url: string;
@@ -369,7 +369,7 @@ class ColabRequestError extends Error {
     response,
     url,
   }: {
-    body: string;
+    body?: string;
     method: string;
     response: fetch.Response;
     url: string;
