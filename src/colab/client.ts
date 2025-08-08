@@ -288,6 +288,7 @@ export class ColabClient {
         AssignmentSchema,
       );
     } catch (error) {
+      // Check for Precondition Failed
       if (error instanceof ColabRequestError && error.response.status === 412) {
         throw new TooManyAssignmentsError(error.message);
       }
@@ -353,6 +354,9 @@ export class ColabClient {
   }
 }
 
+/** Error thrown when the user has too many assignments. */
+export class TooManyAssignmentsError extends Error {}
+
 /**
  * If present, strip the XSSI busting prefix from v.
  */
@@ -386,6 +390,3 @@ class ColabRequestError extends Error {
     this.responseBody = responseBody;
   }
 }
-
-/** Error thrown when the user has too many assignments. */
-export class TooManyAssignmentsError extends Error {}
