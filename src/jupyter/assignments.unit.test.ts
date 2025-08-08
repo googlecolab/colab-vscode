@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { assert, expect } from "chai";
 import fetch, { Headers } from "node-fetch";
 import sinon, { SinonStubbedInstance } from "sinon";
+import { Uri } from "vscode";
 import {
   Accelerator,
   Assignment,
@@ -599,13 +600,12 @@ describe("AssignmentManager", () => {
           /.*Remove a server.*/,
           "Remove Server at Colab Web",
         );
-        sinon.assert.calledOnceWithMatch(vsCodeStub.env.openExternal, {
-          scheme: "https",
-          authority: "colab.research.google.com",
-          path: "/",
-          query: "",
-          fragment: "",
-        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.env.openExternal,
+          sinon.match(function (url: Uri) {
+            return url.toString() === "https://colab.research.google.com/";
+          }),
+        );
       });
     });
   });
