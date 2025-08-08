@@ -10,6 +10,10 @@ import {
 } from "../test/helpers/quick-input";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { Accelerator, Variant } from "./api";
+import {
+  COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+} from "./headers";
 import { ServerPicker } from "./server-picker";
 
 const ALL_SERVERS = Array.from(COLAB_SERVERS);
@@ -32,8 +36,8 @@ describe("ServerPicker", () => {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),
         token: "123",
         headers: {
-          "X-Colab-Runtime-Proxy-Token": "123",
-          "X-Colab-Client-Agent": "vscode",
+          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: "123",
+          [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         },
       },
     };

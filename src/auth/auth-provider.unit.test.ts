@@ -4,6 +4,10 @@ import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from "sinon";
 import * as sinon from "sinon";
 import vscode from "vscode";
+import {
+  AUTHORIZATION_HEADER,
+  CONTENT_TYPE_JSON_HEADER,
+} from "../colab/headers";
 import { PROVIDER_ID } from "../config/constants";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { GoogleAuthProvider, REQUIRED_SCOPES } from "./auth-provider";
@@ -332,12 +336,16 @@ describe("GoogleAuthProvider", () => {
         loginStub.withArgs(SCOPES).resolves(DEFAULT_CREDENTIALS);
         fetchStub
           .withArgs("https://www.googleapis.com/oauth2/v2/userinfo", {
-            headers: { Authorization: `Bearer ${DEFAULT_ACCESS_TOKEN}` },
+            headers: {
+              [AUTHORIZATION_HEADER.key]: `Bearer ${DEFAULT_ACCESS_TOKEN}`,
+            },
           })
           .resolves(
             new Response(JSON.stringify(DEFAULT_USER_INFO), {
               status: 200,
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+              },
             }),
           );
       });

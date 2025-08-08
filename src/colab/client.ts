@@ -21,9 +21,15 @@ import {
   UserInfoSchema,
   SubscriptionTier,
 } from "./api";
+import {
+  ACCEPT_JSON_HEADER,
+  AUTHORIZATION_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+  COLAB_TUNNEL_HEADER,
+  COLAB_XSRF_TOKEN_HEADER,
+} from "./headers";
 
 const XSSI_PREFIX = ")]}'\n";
-const XSRF_HEADER_KEY = "X-Goog-Colab-Token";
 const TUN_ENDPOINT = "/tun/m";
 
 // To discriminate the type of GET assignment responses.
@@ -141,7 +147,7 @@ export class ColabClient {
     );
     await this.issueRequest(url, {
       method: "POST",
-      headers: { [XSRF_HEADER_KEY]: token },
+      headers: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
       signal,
     });
   }
@@ -179,7 +185,8 @@ export class ColabClient {
       {
         method: "GET",
         headers: {
-          "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+            server.connectionInformation.token,
         },
         signal,
       },
@@ -206,7 +213,8 @@ export class ColabClient {
       {
         method: "GET",
         headers: {
-          "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+            server.connectionInformation.token,
         },
         signal,
       },
@@ -232,7 +240,8 @@ export class ColabClient {
     return await this.issueRequest(url, {
       method: "DELETE",
       headers: {
-        "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
+        [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+          server.connectionInformation.token,
       },
       signal,
     });
@@ -246,7 +255,11 @@ export class ColabClient {
   async sendKeepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
     await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.colabDomain),
-      { method: "GET", headers: { "X-Colab-Tunnel": "Google" }, signal },
+      {
+        method: "GET",
+        headers: { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value },
+        signal,
+      },
     );
   }
 
@@ -282,7 +295,7 @@ export class ColabClient {
         url,
         {
           method: "POST",
-          headers: { [XSRF_HEADER_KEY]: xsrfToken },
+          headers: { [COLAB_XSRF_TOKEN_HEADER.key]: xsrfToken },
           signal,
         },
         AssignmentSchema,
@@ -323,8 +336,8 @@ export class ColabClient {
     }
     const token = await this.getAccessToken();
     const requestHeaders = new Headers(init.headers);
-    requestHeaders.set("Accept", "application/json");
-    requestHeaders.set("Authorization", `Bearer ${token}`);
+    requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
+    requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
     const request = new Request(endpoint, {
       ...init,
       headers: requestHeaders,

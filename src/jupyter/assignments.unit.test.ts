@@ -13,6 +13,10 @@ import {
   Variant,
 } from "../colab/api";
 import { ColabClient, TooManyAssignmentsError } from "../colab/client";
+import {
+  COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+} from "../colab/headers";
 import { ServerStorageFake } from "../test/helpers/server-storage";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
@@ -65,9 +69,9 @@ describe("AssignmentManager", () => {
         baseUrl: vsCodeStub.Uri.parse(defaultAssignment.runtimeProxyInfo.url),
         token: defaultAssignment.runtimeProxyInfo.token,
         headers: {
-          "X-Colab-Runtime-Proxy-Token":
+          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
             defaultAssignment.runtimeProxyInfo.token,
-          "X-Colab-Client-Agent": "vscode",
+          [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         },
       },
     };
@@ -396,8 +400,9 @@ describe("AssignmentManager", () => {
 
         sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
           headers: new Headers({
-            "X-Colab-Runtime-Proxy-Token": server.connectionInformation.token,
-            "X-Colab-Client-Agent": "vscode",
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+              server.connectionInformation.token,
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
           }),
         });
       });
@@ -525,9 +530,9 @@ describe("AssignmentManager", () => {
 
         sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
           headers: new Headers({
-            "X-Colab-Runtime-Proxy-Token":
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
               assignedServer.connectionInformation.token,
-            "X-Colab-Client-Agent": "vscode",
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
           }),
         });
       });
@@ -728,8 +733,8 @@ describe("AssignmentManager", () => {
         connectionInformation: {
           ...defaultServer.connectionInformation,
           headers: {
-            "X-Colab-Runtime-Proxy-Token": newToken,
-            "X-Colab-Client-Agent": "vscode",
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
           },
           token: newToken,
         },
@@ -745,9 +750,9 @@ describe("AssignmentManager", () => {
 
       sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
         headers: new Headers({
-          "X-Colab-Runtime-Proxy-Token":
+          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
             refreshedServer.connectionInformation.token,
-          "X-Colab-Client-Agent": "vscode",
+          [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         }),
       });
     });

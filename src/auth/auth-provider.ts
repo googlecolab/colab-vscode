@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
 import vscode, { AuthenticationSession } from "vscode";
 import { z } from "zod";
+import { AUTHORIZATION_HEADER } from "../colab/headers";
 import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
@@ -258,7 +259,7 @@ export class GoogleAuthProvider
     const url = "https://www.googleapis.com/oauth2/v2/userinfo";
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        [AUTHORIZATION_HEADER.key]: `Bearer ${token}`,
       },
     });
     if (!response.ok) {

@@ -18,6 +18,13 @@ import {
   Session,
 } from "./api";
 import { ColabClient, TooManyAssignmentsError } from "./client";
+import {
+  ACCEPT_JSON_HEADER,
+  AUTHORIZATION_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+  COLAB_TUNNEL_HEADER,
+  COLAB_XSRF_TOKEN_HEADER,
+} from "./headers";
 
 const COLAB_HOST = "colab.example.com";
 const GOOGLE_APIS_HOST = "colab.example.googleapis.com";
@@ -221,7 +228,7 @@ describe("ColabClient", () => {
               path,
               queryParams: postQueryParams,
               otherHeaders: {
-                "X-Goog-Colab-Token": "mock-xsrf-token",
+                [COLAB_XSRF_TOKEN_HEADER.key]: "mock-xsrf-token",
               },
             }),
           )
@@ -337,7 +344,7 @@ describe("ColabClient", () => {
           host: COLAB_HOST,
           path,
           otherHeaders: {
-            "X-Goog-Colab-Token": token,
+            [COLAB_XSRF_TOKEN_HEADER.key]: token,
           },
         }),
       )
@@ -378,7 +385,7 @@ describe("ColabClient", () => {
             host: assignedServerUrl.host,
             path: "/api/kernels",
             otherHeaders: {
-              "X-Colab-Runtime-Proxy-Token":
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
                 assignedServer.connectionInformation.token,
             },
             withAuthUser: false,
@@ -426,7 +433,7 @@ describe("ColabClient", () => {
             host: assignedServerUrl.host,
             path: "/api/sessions",
             otherHeaders: {
-              "X-Colab-Runtime-Proxy-Token":
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
                 assignedServer.connectionInformation.token,
             },
             withAuthUser: false,
@@ -484,7 +491,7 @@ describe("ColabClient", () => {
             host: assignedServerUrl.host,
             path: `/api/sessions/${sessionId}`,
             otherHeaders: {
-              "X-Colab-Runtime-Proxy-Token":
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
                 assignedServer.connectionInformation.token,
             },
             withAuthUser: false,
@@ -506,7 +513,9 @@ describe("ColabClient", () => {
           method: "GET",
           host: COLAB_HOST,
           path: "/tun/m/foo/keep-alive/",
-          otherHeaders: { "X-Colab-Tunnel": "Google" },
+          otherHeaders: {
+            [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
+          },
         }),
       )
       .resolves(new Response(undefined, { status: 200 }));
@@ -632,7 +641,7 @@ export interface URLMatchOptions {
  * Creates a Sinon matcher that matches a request's URL, method, query
  * parameters, and headers.
  *
- * All requests are assumed to be with the correct `Authorization` and `Accept`
+ * All requests are assumed to be with the correct authorization and accept
  * headers.
  */
 export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
@@ -705,17 +714,17 @@ export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
 
     // Check headers
     const headers = request.headers;
-    const actualAuth = headers.get("Authorization");
+    const actualAuth = headers.get(AUTHORIZATION_HEADER.key);
     const expectedAuth = `Bearer ${BEARER_TOKEN}`;
     if (actualAuth !== expectedAuth) {
       reasons.push(
         `Authorization header is "${actualAuth ?? ""}", expected "${expectedAuth}"`,
       );
     }
-    const actualAccept = headers.get("Accept");
-    if (actualAccept !== "application/json") {
+    const actualAccept = headers.get(ACCEPT_JSON_HEADER.key);
+    if (actualAccept !== ACCEPT_JSON_HEADER.value) {
       reasons.push(
-        `Accept header is "${actualAccept ?? ""}", expected "application/json"`,
+        `Accept header is "${actualAccept ?? ""}", expected "${ACCEPT_JSON_HEADER.value}"`,
       );
     }
     if (expected.otherHeaders) {
