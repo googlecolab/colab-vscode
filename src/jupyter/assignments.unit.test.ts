@@ -544,18 +544,16 @@ describe("AssignmentManager", () => {
       });
 
       it("notifies the user", async () => {
-        try {
-          await assignmentManager.assignServer(
+        await expect(
+          assignmentManager.assignServer(
             defaultServer.id,
             defaultAssignmentDescriptor,
-          );
-        } catch (_) {
-          // Error shouldn't fail test
-        }
+          ),
+        ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
         sinon.assert.calledOnceWithMatch(
-          vsCodeStub.window.showErrorMessage,
-          "You have too many servers. Remove a server to continue.",
+          vsCodeStub.window.showErrorMessage as sinon.SinonStub,
+          /.*Remove a server.*/,
         );
       });
 
@@ -565,18 +563,16 @@ describe("AssignmentManager", () => {
           "Remove Server",
         );
 
-        try {
-          await assignmentManager.assignServer(
+        await expect(
+          assignmentManager.assignServer(
             defaultServer.id,
             defaultAssignmentDescriptor,
-          );
-        } catch (_) {
-          // Error shouldn't fail test
-        }
+          ),
+        ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
-        sinon.assert.calledOnceWithExactly(
+        sinon.assert.calledOnceWithMatch(
           vsCodeStub.window.showErrorMessage as sinon.SinonStub,
-          "You have too many servers. Remove a server to continue.",
+          /.*Remove a server.*/,
           "Remove Server",
         );
         sinon.assert.calledOnceWithExactly(
@@ -591,18 +587,16 @@ describe("AssignmentManager", () => {
           "Remove Server at Colab Web",
         );
 
-        try {
-          await assignmentManager.assignServer(
+        await expect(
+          assignmentManager.assignServer(
             defaultServer.id,
             defaultAssignmentDescriptor,
-          );
-        } catch (_) {
-          // Error shouldn't fail test
-        }
+          ),
+        ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
-        sinon.assert.calledOnceWithExactly(
+        sinon.assert.calledOnceWithMatch(
           vsCodeStub.window.showErrorMessage as sinon.SinonStub,
-          "You have too many servers. Remove a server to continue.",
+          /.*Remove a server.*/,
           "Remove Server at Colab Web",
         );
         sinon.assert.calledOnceWithMatch(vsCodeStub.env.openExternal, {
