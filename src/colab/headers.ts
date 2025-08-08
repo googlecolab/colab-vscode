@@ -27,7 +27,7 @@ export const CONTENT_TYPE_JSON_HEADER: StaticHeader = {
 };
 
 /**
- * The HTTP header for JSON content type.
+ * The HTTP header for text content type.
  */
 export const CONTENT_TYPE_TEXT_HEADER: StaticHeader = {
   key: "Content-Type",
@@ -35,7 +35,7 @@ export const CONTENT_TYPE_TEXT_HEADER: StaticHeader = {
 };
 
 /**
- * The HTTP header for the accepting JSON.
+ * The HTTP header for accepting JSON.
  */
 export const ACCEPT_JSON_HEADER: StaticHeader = {
   key: "Accept",
