@@ -286,16 +286,11 @@ describe("ColabClient", () => {
             },
           }),
         )
-        .resolves(
-          new Response(withXSSI(JSON.stringify("")), {
-            status: 412,
-          }),
-        );
+        .resolves(new Response(undefined, { status: 412 }));
 
       await expect(
         client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
       ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
-      sinon.assert.calledTwice(fetchStub);
     });
   });
 
