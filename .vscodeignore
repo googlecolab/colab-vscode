@@ -1,6 +1,7 @@
 .*ignore
 .env*
 .github/
+.nvmrc
 .vscode-test.mjs
 .vscode-test/
 .vscode/

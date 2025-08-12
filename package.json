@@ -7,7 +7,7 @@
   "repository": "googlecolab/colab-vscode",
   "type": "commonjs",
   "engines": {
-    "vscode": "^1.100.2"
+    "vscode": "^1.103.0"
   },
   "extensionDependencies": [
     "ms-toolsai.jupyter"
@@ -100,7 +100,7 @@
     "@types/chai": "^4.3.20",
     "@types/chai-as-promised": "^7.1.8",
     "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
+    "@types/node": "22.x",
     "@types/node-fetch": "^2.6.12",
     "@types/sinon": "^17.0.3",
     "@types/uuid": "^10.0.0",
