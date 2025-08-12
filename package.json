@@ -105,6 +105,7 @@
     "@types/sinon": "^17.0.3",
     "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.100.0",
+    "@vscode/jupyter-extension": "1.0.93",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "chai": "^4.5.0",
@@ -130,7 +131,6 @@
     "vscode-extension-tester": "^8.14.1"
   },
   "dependencies": {
-    "@vscode/jupyter-extension": "1.0.93",
     "glob": "^11.0.0",
     "google-auth-library": "^9.15.0",
     "node-fetch": "^2.6.7",
