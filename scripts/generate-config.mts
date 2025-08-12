@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -60,7 +66,16 @@ const config = {
   Environment: envConfig.env,
 };
 
-const output = `// AUTO-GENERATED. Do not edit.
+const currentYear = new Date().getFullYear();
+const licenseHeader = `/**
+ * @license
+ * Copyright ${currentYear.toString()} Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */`;
+
+const output = `${licenseHeader}
+
+// AUTO-GENERATED. Do not edit.
 //
 // Generate with \`npm run generate-config\` after updating environment
 // variables (see \`.env.template\`).

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { OAuth2Client } from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";

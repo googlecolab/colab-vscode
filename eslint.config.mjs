@@ -1,11 +1,12 @@
-import eslint from "@eslint/js";
-import eslintConfigPrettier from "eslint-config-prettier";
-import stylisticTs from "@stylistic/eslint-plugin";
-import tseslint from "typescript-eslint";
-import tsDocPlugin from "eslint-plugin-tsdoc";
-import importPlugin from "eslint-plugin-import";
 import checkFile from "eslint-plugin-check-file";
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
+import eslint from "@eslint/js";
+import eslintConfigPrettier from "eslint-config-prettier";
+import importPlugin from "eslint-plugin-import";
+import licenseHeader from "eslint-plugin-license-header";
+import stylisticTs from "@stylistic/eslint-plugin";
+import tsDocPlugin from "eslint-plugin-tsdoc";
+import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   { ignores: ["eslint.config.mjs", "**/*.mocharc.js"] },
@@ -23,6 +24,7 @@ export default tseslint.config(
     plugins: {
       "@stylistic/ts": stylisticTs,
       "check-file": checkFile,
+      "license-header": licenseHeader,
       import: importPlugin,
       tsdoc: tsDocPlugin,
     },
@@ -80,9 +82,26 @@ export default tseslint.config(
   {
     files: ["**/*.mjs"],
     languageOptions: {
-      env: {
-        node: true,
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...global.Node,
       },
+    },
+  },
+  {
+    files: ["**/*.{ts,js,mjs,mts}"],
+    rules: {
+      "license-header/header": [
+        "error",
+        [
+          "/**",
+          " * @license",
+          " * Copyright " + new Date().getFullYear() + " Google LLC",
+          " * SPDX-License-Identifier: Apache-2.0",
+          " */",
+        ],
+      ],
     },
   },
   // Intentionally last to override any conflicting rules.

@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * API types for interacting with Colab's backends.
  *
  * This file not only defines the entire Colab API surface area, but also tries

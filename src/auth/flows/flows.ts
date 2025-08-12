@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import path from "path";
 import { CodeChallengeMethod, GenerateAuthUrlOpts } from "google-auth-library";
 import { OAuth2Client } from "google-auth-library";

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { expect } from "chai";
 import { SinonFakeTimers } from "sinon";
 import * as sinon from "sinon";

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import vscode, { Disposable } from "vscode";
 import { ColabClient } from "../colab/client";
 import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";

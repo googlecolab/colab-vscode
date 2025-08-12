@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { randomUUID } from "crypto";
 import { expect } from "chai";
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
