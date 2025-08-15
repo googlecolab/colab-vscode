@@ -2,13 +2,15 @@
   "include": [
     "src/**/*",
     "scripts/**/*",
-    "esbuild.config.mjs",
-    "eslint.config.mjs"
+    "esbuild.config.mts",
+    "eslint.config.mts",
+    ".vscode-test.mjs"
   ],
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "allowJs": true,
     "outDir": "out",
     "lib": ["ES2022", "dom"],
     "esModuleInterop": true,

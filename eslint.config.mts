@@ -1,15 +1,22 @@
-import checkFile from "eslint-plugin-check-file";
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import cspellESLintPluginRecommended from "@cspell/eslint-plugin/recommended";
 import eslint from "@eslint/js";
-import eslintConfigPrettier from "eslint-config-prettier";
-import importPlugin from "eslint-plugin-import";
-import licenseHeader from "eslint-plugin-license-header";
 import stylisticTs from "@stylistic/eslint-plugin";
+import eslintConfigPrettier from "eslint-config-prettier";
+import checkFile from "eslint-plugin-check-file";
+import importPlugin from "eslint-plugin-import";
+// @ts-expect-error: No type definitions available for this plugin.
+import licenseHeader from "eslint-plugin-license-header";
 import tsDocPlugin from "eslint-plugin-tsdoc";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["eslint.config.mjs", "**/*.mocharc.js"] },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -20,10 +27,14 @@ export default tseslint.config(
         project: "./tsconfig.json",
         tsconfigRootDir: import.meta.dirname,
       },
+      globals: {
+        ...globals.node, // For linting Node.js globals.
+      },
     },
     plugins: {
       "@stylistic/ts": stylisticTs,
       "check-file": checkFile,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       "license-header": licenseHeader,
       import: importPlugin,
       tsdoc: tsDocPlugin,
@@ -42,8 +53,9 @@ export default tseslint.config(
           ignoreStrings: true,
           ignoreTemplateLiterals: true,
           ignoreUrls: true,
-          // Generics and regex literals are often long and can be hard to split.
-          ignorePattern: "(<.*>)|(\/.+\/)",
+          // Generics and regex literals are often long and can be hard to
+          // split.
+          ignorePattern: "(<.*>)|(/.+/)",
         },
       ],
       "@typescript-eslint/no-unused-vars": [
@@ -85,19 +97,19 @@ export default tseslint.config(
       ecmaVersion: 2022,
       sourceType: "module",
       globals: {
-        ...global.Node,
+        ...globals.node,
       },
     },
   },
   {
-    files: ["**/*.{ts,js,mjs,mts}"],
+    files: ["**/*.{ts,js,mocharc.js,mjs,mts}"],
     rules: {
       "license-header/header": [
         "error",
         [
           "/**",
           " * @license",
-          " * Copyright " + new Date().getFullYear() + " Google LLC",
+          " * Copyright " + new Date().getFullYear().toString() + " Google LLC",
           " * SPDX-License-Identifier: Apache-2.0",
           " */",
         ],

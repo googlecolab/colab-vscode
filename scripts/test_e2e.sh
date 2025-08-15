@@ -1,4 +1,18 @@
 #!/bin/bash
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 #
 # This script is used to run end-to-end tests for the Colab VS Code extension.
 #
@@ -70,7 +84,7 @@ parse_args() {
 
 check_deps() {
   local missing=()
-  command -v extest >/dev/null 2>&1 || missing+=("extest (did you mean to invoke script behind \`npm run\`?)")
+  command -v extest >/dev/null 2>&1 || missing+=('extest (did you mean to invoke script behind `npm run`?)')
   if [[ "$HEADLESS" -eq 1 ]]; then
     command -v xvfb-run >/dev/null 2>&1 || missing+=("xvfb-run")
   fi
@@ -124,7 +138,7 @@ run_tests() {
 
 main() {
   parse_args "$@"
-  [[ -n "$STORAGE" ]] && storage_flag=(--storage="${STORAGE}")
+  [[ -n "$STORAGE" ]] && storage_flag=(--storage="$STORAGE")
   check_deps
   setup_extest
   local test_cmd=()

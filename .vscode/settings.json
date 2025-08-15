@@ -5,6 +5,12 @@
   "search.exclude": {
     "out": true
   },
-  // Turn off tsc task auto detection since we have the necessary tasks as npm scripts.
-  "typescript.tsc.autoDetect": "off"
+  // Turn off tsc task auto detection since we have the necessary tasks as npm
+  // scripts.
+  "typescript.tsc.autoDetect": "off",
+  // The following eslint settings are needed since the eslint config is defined
+  // in a flag .mts file and we run it natively as per
+  // https://eslint.org/docs/latest/use/configure/configuration-files#native-typescript-support
+  "eslint.execArgv": ["--experimental-strip-types"],
+  "eslint.options": { "flags": ["unstable_native_nodejs_ts_config"] }
 }
