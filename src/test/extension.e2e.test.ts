@@ -217,8 +217,14 @@ describe("Colab Extension", function () {
       );
       await continueButton.click();
 
-      // The test account should be authenticated. Close the browser window.
+      // Check that the test account's authenticated. Close the browser window.
       await oauthDriver.wait(until.urlContains("127.0.0.1"), ELEMENT_WAIT_MS);
+      const body = await oauthDriver.findElement(By.css("body"));
+      assert.equal(
+        await body.getText(),
+        "You may now return to the application.",
+        "Unexpected loopback server response.",
+      );
       await oauthDriver.quit();
     } catch (_) {
       // If the OAuth flow fails, ensure we grab a screenshot for debugging.
