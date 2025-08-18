@@ -98,7 +98,8 @@ export class ColabClient {
    * Returns the existing machine assignment if one exists, or creates one if it
    * does not.
    *
-   * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest. This value should always be a string of length 44 (see: http://go/so/13378815).
+   * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest.
+   * This value should always be a string of length 44.
    * @param variant - The machine variant to assign.
    * @param accelerator - The accelerator to assign.
    * @returns The assignment which is assigned to the user.
