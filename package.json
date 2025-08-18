@@ -4,7 +4,10 @@
   "displayName": "Colab",
   "description": "Connect to Colab runtimes.",
   "version": "0.0.1",
-  "repository": "googlecolab/colab-vscode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/googlecolab/colab-vscode"
+  },
   "type": "commonjs",
   "engines": {
     "vscode": "^1.103.0"
