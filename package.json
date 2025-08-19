@@ -26,14 +26,14 @@
     "Notebooks"
   ],
   "tags": [
-    "notebook",
-    "google",
     "colab",
-    "jupyter",
-    "python",
+    "google",
+    "interactive",
     "julia",
-    "r",
-    "interactive"
+    "jupyter",
+    "notebook",
+    "python",
+    "r"
   ],
   "activationEvents": [
     "onNotebook:jupyter-notebook",
