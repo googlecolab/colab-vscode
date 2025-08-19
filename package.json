@@ -2,12 +2,19 @@
   "name": "colab",
   "publisher": "google",
   "displayName": "Colab",
-  "description": "Connect to Colab runtimes.",
-  "version": "0.0.1",
+  "description": "Connect notebooks to Colab servers.",
+  "icon": "icon.png",
+  "version": "0.1.0",
+  "pricing": "Free",
+  "homepage": "https://github.com/googlecolab/colab-vscode",
   "repository": {
     "type": "git",
     "url": "https://github.com/googlecolab/colab-vscode"
   },
+  "bugs": {
+    "url": "https://github.com/googlecolab/colab-vscode/issues"
+  },
+  "qna": "https://github.com/googlecolab/colab-vscode/discussions",
   "type": "commonjs",
   "engines": {
     "vscode": "^1.103.0"
@@ -17,6 +24,16 @@
   ],
   "categories": [
     "Notebooks"
+  ],
+  "tags": [
+    "notebook",
+    "google",
+    "colab",
+    "jupyter",
+    "python",
+    "julia",
+    "r",
+    "interactive"
   ],
   "activationEvents": [
     "onNotebook:jupyter-notebook",
