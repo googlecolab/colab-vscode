@@ -102,7 +102,9 @@ describe("ColabJupyterServerProvider", () => {
       },
     );
     assignmentStub = sinon.createStubInstance(AssignmentManager);
-    assignmentStub.onDidAssignmentsChange = sinon.stub();
+    Object.defineProperty(assignmentStub, "onDidAssignmentsChange", {
+      value: sinon.stub(),
+    });
     colabClientStub = sinon.createStubInstance(ColabClient);
     serverPickerStub = sinon.createStubInstance(ServerPicker);
 

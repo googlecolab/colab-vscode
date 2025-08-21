@@ -40,7 +40,7 @@ export class ColabJupyterServerProvider
     JupyterServerCommandProvider,
     vscode.Disposable
 {
-  onDidChangeServers: vscode.Event<void>;
+  readonly onDidChangeServers: vscode.Event<void>;
 
   private readonly serverCollection: JupyterServerCollection;
   private readonly serverChangeEmitter: vscode.EventEmitter<void>;

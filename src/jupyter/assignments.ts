@@ -55,7 +55,7 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Event that fires when the server assignments change.
    */
-  onDidAssignmentsChange: vscode.Event<AssignmentChangeEvent>;
+  readonly onDidAssignmentsChange: vscode.Event<AssignmentChangeEvent>;
 
   private readonly assignmentChange: vscode.EventEmitter<AssignmentChangeEvent>;
   private readonly disposables: vscode.Disposable[] = [];
