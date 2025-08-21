@@ -5,7 +5,7 @@
  */
 
 import { assert, expect } from "chai";
-import sinon, { SinonStubbedInstance } from "sinon";
+import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
 import { TestEventEmitter } from "../test/helpers/events";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { CcuInfo, SubscriptionTier } from "./api";
@@ -62,6 +62,8 @@ describe("ConsumptionNotifier", () => {
   beforeEach(() => {
     vs = newVsCodeStub();
     colabClient = sinon.createStubInstance(ColabClient);
+    colabClient.getSubscriptionTier.resolves(SubscriptionTier.NONE);
+
     ccuEmitter = new TestEventEmitter<CcuInfo>();
 
     consumptionNotifier = new TestConsumptionNotifier(
@@ -72,6 +74,7 @@ describe("ConsumptionNotifier", () => {
   });
 
   afterEach(() => {
+    consumptionNotifier.dispose();
     sinon.restore();
   });
 
@@ -87,7 +90,7 @@ describe("ConsumptionNotifier", () => {
     click: (action: string) => void;
   }> {
     return new Promise((resolve) => {
-      // Type assertion needed due to overloading
+      // Type assertion needed due to overloading.
       (
         vs.window[
           severity === "warn" ? "showWarningMessage" : "showErrorMessage"
@@ -370,7 +373,6 @@ describe("ConsumptionNotifier", () => {
 
   for (const severity of NOTIFICATION_SEVERITIES) {
     it(`should open signup page when action is clicked for ${severity}`, async () => {
-      colabClient.getSubscriptionTier.resolves(SubscriptionTier.NONE);
       const ccuInfo = createCcuInfo({
         paidMinutes: 0,
         freeMinutes: severity === "warn" ? 1 : 0,
@@ -392,4 +394,41 @@ describe("ConsumptionNotifier", () => {
       );
     });
   }
+
+  describe("snooze", () => {
+    let fakeClock: SinonFakeTimers;
+
+    beforeEach(() => {
+      fakeClock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
+    });
+
+    afterEach(() => {
+      fakeClock.restore();
+    });
+
+    for (const severity of NOTIFICATION_SEVERITIES) {
+      it(`should not ${severity} while in "snooze" period`, async () => {
+        const ccuInfo = createCcuInfo({
+          paidMinutes: 0,
+          freeMinutes: severity === "warn" ? 1 : 0,
+        });
+        const firstNotification = nextNotification(severity);
+        ccuEmitter.fire(ccuInfo);
+        await firstNotification;
+        fakeClock.tick(1);
+
+        // Expect no notification while within "snooze" period.
+        const noOp = consumptionNotifier.nextConsumptionCalculation();
+        ccuEmitter.fire(ccuInfo);
+        expect(noOp).to.eventually.be.fulfilled;
+
+        fakeClock.tick(1000 * 60 * 30); // 30 minutes
+
+        // Expect a notification after the "snooze" period.
+        const secondNotification = nextNotification(severity);
+        ccuEmitter.fire(ccuInfo);
+        expect(secondNotification).to.eventually.be.fulfilled;
+      });
+    }
+  });
 });

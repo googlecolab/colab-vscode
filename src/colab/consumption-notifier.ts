@@ -10,6 +10,14 @@ import { ColabClient } from "./client";
 import { openColabSignup } from "./commands/external";
 
 const WARN_WHEN_LESS_THAN_MINUTES = 30;
+const DEFAULT_SNOOZE_MINUTES = 10;
+
+/**
+ * The type of notification the notifier dispatches.
+ */
+type Notify =
+  | typeof vscode.window.showErrorMessage
+  | typeof vscode.window.showWarningMessage;
 
 /**
  * Monitors Colab Compute Units (CCU) balance and consumption rate, notifying
@@ -17,17 +25,24 @@ const WARN_WHEN_LESS_THAN_MINUTES = 30;
  */
 export class ConsumptionNotifier implements vscode.Disposable {
   private ccuListener: vscode.Disposable;
+  private snoozeError = false;
+  private snoozeWarn = false;
+  private errorTimeout?: NodeJS.Timeout;
+  private warnTimeout?: NodeJS.Timeout;
 
   constructor(
     private readonly vs: typeof vscode,
     private readonly colab: ColabClient,
     onDidChangeCcuInfo: vscode.Event<CcuInfo>,
+    private readonly snoozeMinutes: number = DEFAULT_SNOOZE_MINUTES,
   ) {
     this.ccuListener = onDidChangeCcuInfo((e) => this.notifyCcuConsumption(e));
   }
 
   dispose() {
     this.ccuListener.dispose();
+    clearTimeout(this.errorTimeout);
+    clearTimeout(this.warnTimeout);
   }
 
   /**
@@ -45,28 +60,84 @@ export class ConsumptionNotifier implements vscode.Disposable {
       return;
     }
 
-    let notify:
-      | typeof vscode.window.showErrorMessage
-      | typeof vscode.window.showWarningMessage;
+    const notification = this.buildNotification(totalMinutesLeft);
+    if (!notification) {
+      return;
+    }
+
+    const action = notification.notify(
+      notification.message,
+      await this.getTierRelevantAction(paidMinutesLeft > 0),
+    );
+    this.setSnoozeTimeout(notification.notify);
+    if (await action) {
+      openColabSignup(this.vs);
+    }
+  }
+
+  private buildNotification(totalMinutesLeft: number):
+    | {
+        message: string;
+        notify: Notify;
+      }
+    | undefined {
+    let notify: Notify;
     let message: string;
 
     // Completely ran out.
     if (totalMinutesLeft <= 0) {
+      if (this.snoozeError) {
+        return undefined;
+      }
       message = "Colab Compute Units (CCU) depleted!";
       notify = this.vs.window.showErrorMessage;
     } else {
       // Close to running out.
+      if (this.snoozeWarn) {
+        return undefined;
+      }
       message = `Low Colab Compute Units (CCU) balance! ${totalMinutesLeft.toString()} minutes left.`;
       notify = this.vs.window.showWarningMessage;
     }
 
+    return { message, notify };
+  }
+
+  private async getTierRelevantAction(
+    hasPaidBalance: boolean,
+  ): Promise<SignupAction> {
     const tier = await this.colab.getSubscriptionTier();
-    const action = await notify(
-      message,
-      getTierRelevantAction(tier, paidMinutesLeft > 0),
-    );
-    if (action) {
-      openColabSignup(this.vs);
+    switch (tier) {
+      case SubscriptionTier.NONE:
+        return hasPaidBalance
+          ? SignupAction.PURCHASE_MORE_CCU
+          : SignupAction.SIGNUP_FOR_COLAB;
+      case SubscriptionTier.PRO:
+        return SignupAction.UPGRADE_TO_PRO_PLUS;
+      case SubscriptionTier.PRO_PLUS:
+        return SignupAction.PURCHASE_MORE_CCU;
+    }
+  }
+
+  private setSnoozeTimeout(notifyType: Notify) {
+    const snoozeMs = this.snoozeMinutes * 60 * 1000;
+
+    if (notifyType === this.vs.window.showErrorMessage) {
+      this.snoozeError = true;
+      if (this.errorTimeout) {
+        clearTimeout(this.errorTimeout);
+      }
+      this.errorTimeout = setTimeout(() => {
+        this.snoozeError = false;
+      }, snoozeMs);
+    } else {
+      this.snoozeWarn = true;
+      if (this.warnTimeout) {
+        clearTimeout(this.warnTimeout);
+      }
+      this.warnTimeout = setTimeout(() => {
+        this.snoozeWarn = false;
+      }, snoozeMs);
     }
   }
 }
@@ -85,20 +156,4 @@ enum SignupAction {
   SIGNUP_FOR_COLAB = "Sign Up for Colab",
   UPGRADE_TO_PRO_PLUS = "Upgrade to Pro+",
   PURCHASE_MORE_CCU = "Purchase More CCUs",
-}
-
-function getTierRelevantAction(
-  t: SubscriptionTier,
-  hasPaidBalance: boolean,
-): SignupAction {
-  switch (t) {
-    case SubscriptionTier.NONE:
-      return hasPaidBalance
-        ? SignupAction.PURCHASE_MORE_CCU
-        : SignupAction.SIGNUP_FOR_COLAB;
-    case SubscriptionTier.PRO:
-      return SignupAction.UPGRADE_TO_PRO_PLUS;
-    case SubscriptionTier.PRO_PLUS:
-      return SignupAction.PURCHASE_MORE_CCU;
-  }
 }
