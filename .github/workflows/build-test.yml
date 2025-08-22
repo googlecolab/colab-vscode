@@ -67,6 +67,7 @@ jobs:
           path: src
       - run: npm run lint
       - run: npm run format:check
+      - run: npm run typecheck
       # While spell check runs in lint, here we run it as a separate step to
       # make it easier to see the results and treat violations as errors
       # instead of warnings.
