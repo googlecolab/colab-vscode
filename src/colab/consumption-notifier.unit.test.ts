@@ -123,15 +123,32 @@ describe("ConsumptionNotifier", () => {
     expect(ccuEmitter.hasListeners()).to.be.false;
   });
 
-  interface RemainingConsumption {
+  interface ConsumptionByMinutes {
     paidMinutes: number;
     freeMinutes: number;
   }
 
-  function createCcuInfo(c: RemainingConsumption): CcuInfo {
-    const hourlyConsumptionRate = 0.07;
-    const paidBalance = (c.paidMinutes / 60) * hourlyConsumptionRate;
-    const freeTokens = (c.freeMinutes / 60) * hourlyConsumptionRate * 1000;
+  interface ConsumptionByRate {
+    hourlyRate: number;
+    paidHourlyCcuBalance: number;
+    freeTokens: number;
+  }
+
+  type Consumption = ConsumptionByMinutes | ConsumptionByRate;
+
+  function createCcuInfo(c: Consumption): CcuInfo {
+    let hourlyConsumptionRate: number;
+    let paidBalance: number;
+    let freeTokens: number;
+    if ("hourlyRate" in c) {
+      hourlyConsumptionRate = c.hourlyRate;
+      paidBalance = c.paidHourlyCcuBalance;
+      freeTokens = c.freeTokens;
+    } else {
+      hourlyConsumptionRate = 0.7;
+      paidBalance = (c.paidMinutes / 60) * hourlyConsumptionRate;
+      freeTokens = (c.freeMinutes / 60) * hourlyConsumptionRate * 1000;
+    }
     return {
       currentBalance: paidBalance,
       consumptionRateHourly: hourlyConsumptionRate,
@@ -148,54 +165,60 @@ describe("ConsumptionNotifier", () => {
 
   const nonNotifyingTests: {
     label: string;
-    tier: SubscriptionTier;
-    paidMinutes: number;
-    freeMinutes: number;
+    tier?: SubscriptionTier;
+    consumption: Consumption;
   }[] = [
     {
       label: "free with sufficient free minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 0,
-      freeMinutes: 31,
+      consumption: { paidMinutes: 0, freeMinutes: 31 },
     },
     {
       label: "pay-as-you-go with sufficient paid minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 31,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 31, freeMinutes: 0 },
     },
     {
       label: "pay-as-you-go with sufficient combined paid and free minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 15,
-      freeMinutes: 16,
+      consumption: { paidMinutes: 15, freeMinutes: 16 },
     },
     {
       label: "subscribed with sufficient paid minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 31,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 31, freeMinutes: 0 },
     },
     {
       label: "subscribed with sufficient free minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 0,
-      freeMinutes: 31,
+      consumption: { paidMinutes: 0, freeMinutes: 31 },
     },
     {
       label: "subscribed with sufficient combined paid and free minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 15,
-      freeMinutes: 16,
+      consumption: { paidMinutes: 15, freeMinutes: 16 },
+    },
+    {
+      label: "sufficient headroom and no active assignments",
+      consumption: {
+        hourlyRate: 0,
+        paidHourlyCcuBalance: 42,
+        freeTokens: 9000,
+      },
+    },
+    {
+      label: "insufficient headroom but no active assignments",
+      consumption: { hourlyRate: 0, paidHourlyCcuBalance: 0, freeTokens: 1 },
+    },
+    {
+      label: "depleted but no active assignments",
+      consumption: { hourlyRate: 0, paidHourlyCcuBalance: 0, freeTokens: 0 },
     },
   ];
   for (const t of nonNotifyingTests) {
     it(`should not notify when ${t.label}`, async () => {
-      colabClient.getSubscriptionTier.resolves(t.tier);
-      const ccuInfo = createCcuInfo({
-        paidMinutes: t.paidMinutes,
-        freeMinutes: t.freeMinutes,
-      });
+      colabClient.getSubscriptionTier.resolves(t.tier ?? SubscriptionTier.NONE);
+      const ccuInfo = createCcuInfo(t.consumption);
 
       const noOp = consumptionNotifier.nextConsumptionCalculation();
       ccuEmitter.fire(ccuInfo);
@@ -209,8 +232,7 @@ describe("ConsumptionNotifier", () => {
   const notifyingTests: {
     label: string;
     tier: SubscriptionTier;
-    paidMinutes: number;
-    freeMinutes: number;
+    consumption: ConsumptionByMinutes;
     should: {
       severity: NotificationSeverity;
       action: "Sign Up" | "Upgrade" | "Purchase More";
@@ -219,8 +241,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "unsubscribed with no free minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 0,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 0, freeMinutes: 0 },
       should: {
         severity: "error",
         action: "Sign Up",
@@ -229,8 +250,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "unsubscribed with minimal free minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 0,
-      freeMinutes: 1,
+      consumption: { paidMinutes: 0, freeMinutes: 1 },
       should: {
         severity: "warn",
         action: "Sign Up",
@@ -239,8 +259,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pay-as-you-go with minimal paid minutes and no free minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 1,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 1, freeMinutes: 0 },
       should: {
         severity: "warn",
         action: "Purchase More",
@@ -249,8 +268,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pay-as-you-go with minimal combined paid and free minutes",
       tier: SubscriptionTier.NONE,
-      paidMinutes: 1,
-      freeMinutes: 1,
+      consumption: { paidMinutes: 1, freeMinutes: 1 },
       should: {
         severity: "warn",
         action: "Purchase More",
@@ -259,8 +277,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pro with no paid or free minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 0,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 0, freeMinutes: 0 },
       should: {
         severity: "error",
         action: "Upgrade",
@@ -269,8 +286,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pro with no paid and minimal free minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 0,
-      freeMinutes: 1,
+      consumption: { paidMinutes: 0, freeMinutes: 1 },
       should: {
         severity: "warn",
         action: "Upgrade",
@@ -281,8 +297,7 @@ describe("ConsumptionNotifier", () => {
       // their quota but then signs up for Pro.
       label: "pro with minimal paid and no free minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 1,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 1, freeMinutes: 0 },
       should: {
         severity: "warn",
         action: "Upgrade",
@@ -291,8 +306,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pro with minimal combined paid and free minutes",
       tier: SubscriptionTier.PRO,
-      paidMinutes: 1,
-      freeMinutes: 1,
+      consumption: { paidMinutes: 1, freeMinutes: 1 },
       should: {
         severity: "warn",
         action: "Upgrade",
@@ -301,8 +315,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pro+ with no paid or free minutes",
       tier: SubscriptionTier.PRO_PLUS,
-      paidMinutes: 0,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 0, freeMinutes: 0 },
       should: {
         severity: "error",
         action: "Purchase More",
@@ -311,8 +324,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pro+ with no paid and minimal free minutes",
       tier: SubscriptionTier.PRO_PLUS,
-      paidMinutes: 0,
-      freeMinutes: 1,
+      consumption: { paidMinutes: 0, freeMinutes: 1 },
       should: {
         severity: "warn",
         action: "Purchase More",
@@ -323,8 +335,7 @@ describe("ConsumptionNotifier", () => {
       // their quota but then signs up for Pro+.
       label: "pro+ with minimal paid and no free minutes",
       tier: SubscriptionTier.PRO_PLUS,
-      paidMinutes: 1,
-      freeMinutes: 0,
+      consumption: { paidMinutes: 1, freeMinutes: 0 },
       should: {
         severity: "warn",
         action: "Purchase More",
@@ -333,8 +344,7 @@ describe("ConsumptionNotifier", () => {
     {
       label: "pro+ with minimal combined paid and free minutes",
       tier: SubscriptionTier.PRO_PLUS,
-      paidMinutes: 1,
-      freeMinutes: 1,
+      consumption: { paidMinutes: 1, freeMinutes: 1 },
       should: {
         severity: "warn",
         action: "Purchase More",
@@ -345,16 +355,15 @@ describe("ConsumptionNotifier", () => {
     const action = t.should.action.toLowerCase();
     it(`should ${t.should.severity} with a prompt to ${action} when ${t.label}`, async () => {
       colabClient.getSubscriptionTier.resolves(t.tier);
-      const ccuInfo = createCcuInfo({
-        paidMinutes: t.paidMinutes,
-        freeMinutes: t.freeMinutes,
-      });
+      const ccuInfo = createCcuInfo(t.consumption);
 
       const waitForNotification = nextNotification(t.should.severity);
       ccuEmitter.fire(ccuInfo);
       const notification = await waitForNotification;
 
-      const minutesLeft = (t.paidMinutes + t.freeMinutes).toString();
+      const minutesLeft = (
+        t.consumption.paidMinutes + t.consumption.freeMinutes
+      ).toString();
       const expectedMessage =
         t.should.severity === "error"
           ? /depleted/

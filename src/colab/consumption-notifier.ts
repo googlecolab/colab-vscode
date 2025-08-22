@@ -52,6 +52,10 @@ export class ConsumptionNotifier implements vscode.Disposable {
    * to the signup page).
    */
   protected async notifyCcuConsumption(e: CcuInfo): Promise<void> {
+    // When the user is not consuming any CCU-s, no need to notify.
+    if (e.consumptionRateHourly <= 0) {
+      return;
+    }
     const paidMinutesLeft = (e.currentBalance / e.consumptionRateHourly) * 60;
     const freeMinutesLeft = calculateRoughMinutesLeft(e);
     // Quantize to 10 minutes.
@@ -147,7 +151,7 @@ function calculateRoughMinutesLeft(ccuInfo: CcuInfo): number {
   if (!freeQuota) {
     return 0;
   }
-  // Free quota is in mill-CCUs.
+  // Free quota is in milli-CCUs.
   const freeCcu = freeQuota.remainingTokens / 1000;
   return Math.floor((freeCcu / ccuInfo.consumptionRateHourly) * 60);
 }
