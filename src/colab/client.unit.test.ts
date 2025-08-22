@@ -613,7 +613,7 @@ describe("ColabClient", () => {
       );
 
     await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
-      /assignmentsCount.+Required/s,
+      /assignmentsCount.+received undefined/s,
     );
   });
 

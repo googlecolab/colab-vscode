@@ -101,17 +101,14 @@ export enum Accelerator {
  * @param enumObj - the native enum object schema to preprocess to.
  * @returns the zod effect to get the native enum from a lower case string.
  */
-function uppercaseEnum<T extends z.EnumLike>(
+function uppercaseEnum<T extends Record<string, string>>(
   enumObj: T,
-): z.ZodEffects<z.ZodNativeEnum<T>, T[keyof T], unknown> {
-  return z.preprocess((val) => {
-    if (typeof val === "string") {
-      return val.toUpperCase();
-    }
-    return val;
-  }, z.nativeEnum(enumObj));
+): z.ZodType<T[keyof T]> {
+  return z
+    .string()
+    .transform((val) => val.toUpperCase())
+    .pipe(z.enum(Object.values(enumObj) as [T[keyof T], ...T[keyof T][]]));
 }
-
 /**
  * Normalize the similar but different representations of subscription tiers
  *
@@ -157,7 +154,7 @@ function normalizeVariant(variant: ColabGapiVariant): Variant {
 export const UserInfoSchema = z.object({
   /** The subscription tier. */
   subscriptionTier: z
-    .nativeEnum(ColabGapiSubscriptionTier)
+    .enum(ColabGapiSubscriptionTier)
     .transform(normalizeSubTier),
   /** The paid Colab Compute Units balance. */
   paidComputeUnitsBalance: z.number().optional(),
@@ -166,9 +163,9 @@ export const UserInfoSchema = z.object({
     .array(
       z.object({
         /** The variant of the assignment. */
-        variant: z.nativeEnum(ColabGapiVariant).transform(normalizeVariant),
+        variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
         /** The assigned accelerator. */
-        models: z.array(z.nativeEnum(Accelerator)),
+        models: z.array(z.enum(Accelerator)),
       }),
     )
     .optional(),
@@ -226,7 +223,7 @@ export const CcuInfoSchema = z.object({
             return Number.isSafeInteger(num);
           },
           {
-            message: "Value too large to be a safe integer for JavaScript",
+            error: "Value too large to be a safe integer for JavaScript",
           },
         )
         .transform((val) => Number(val)),
@@ -250,7 +247,7 @@ export const GetAssignmentResponseSchema = z
     /** XSRF token for assignment posting. */
     token: z.string(),
     /** The variant of the assignment. */
-    variant: z.nativeEnum(Variant),
+    variant: z.enum(Variant),
   })
   .transform(({ acc, nbh, p, token, ...rest }) => ({
     ...rest,
@@ -294,14 +291,14 @@ export const AssignmentSchema = z
     /** Whether the backend is trusted. */
     allowedCredentials: z.boolean().optional(),
     /** The subscription state. */
-    sub: z.nativeEnum(SubscriptionState).optional(),
+    sub: z.enum(SubscriptionState).optional(),
     /** The subscription tier. */
     subTier: z
-      .nativeEnum(ColabSubscriptionTier)
+      .enum(ColabSubscriptionTier)
       .transform(normalizeSubTier)
       .optional(),
     /** The outcome of the assignment. */
-    outcome: z.nativeEnum(Outcome).optional(),
+    outcome: z.enum(Outcome).optional(),
     /** The variant of the assignment. */
     // On GET, this is a string (enum) but on POST this is a number.
     // Normalize it to the string-based enum.
@@ -317,9 +314,9 @@ export const AssignmentSchema = z
         }
       }
       return val;
-    }, z.nativeEnum(Variant)),
+    }, z.enum(Variant)),
     /** The machine shape. */
-    machineShape: z.nativeEnum(Shape),
+    machineShape: z.enum(Shape),
     /** Information about the runtime proxy. */
     runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
   })
@@ -350,7 +347,7 @@ export const KernelSchema = z
     /** The kernel spec name. */
     name: z.string(),
     /** The ISO 8601 timestamp for the last-seen activity on the kernel. */
-    last_activity: z.string().datetime(),
+    last_activity: z.iso.datetime(),
     /** The current execution state of the kernel. */
     execution_state: z.string(),
     /** The number of active connections to the kernel. */

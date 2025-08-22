@@ -245,7 +245,7 @@ export class ColabClient {
       `api/sessions/${sessionId}`,
       server.connectionInformation.baseUrl.toString(),
     );
-    return await this.issueRequest(url, {
+    await this.issueRequest(url, {
       method: "DELETE",
       headers: {
         [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
@@ -333,11 +333,37 @@ export class ColabClient {
     return url;
   }
 
-  private async issueRequest<T extends z.ZodType<unknown>>(
+  /**
+   * Issues a request to the given endpoint, adding the necessary headers and
+   * handling errors.
+   *
+   * @param endpoint - The endpoint to issue the request to.
+   * @param init - The request init to use for the fetch.
+   * @param schema - The schema to validate the response against.
+   * @returns A promise that resolves the parsed response when the request is
+   * complete.
+   */
+  private async issueRequest<T extends z.ZodType>(
     endpoint: URL,
     init: RequestInit,
-    schema?: T,
-  ): Promise<z.infer<T>> {
+    schema: T,
+  ): Promise<z.infer<T>>;
+
+  /**
+   * Issues a request to the given endpoint, adding the necessary headers and
+   * handling errors.
+   *
+   * @param endpoint - The endpoint to issue the request to.
+   * @param init - The request init to use for the fetch.
+   * @returns A promise that resolves when the request is complete.
+   */
+  private async issueRequest(endpoint: URL, init: RequestInit): Promise<void>;
+
+  private async issueRequest(
+    endpoint: URL,
+    init: RequestInit,
+    schema?: z.ZodType,
+  ): Promise<unknown> {
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
       endpoint.searchParams.append("authuser", "0");

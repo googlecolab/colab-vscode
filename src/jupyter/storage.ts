@@ -15,10 +15,13 @@ import { ColabAssignedServer } from "./servers";
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
 const AssignedServers = z.array(
   z.object({
-    id: z.string().refine(isUUID, "String must be a valid UUID."),
+    id: z
+      .string()
+      .refine(isUUID, "String must be a valid UUID.")
+      .transform((s) => s as UUID),
     label: z.string().nonempty(),
-    variant: z.nativeEnum(Variant),
-    accelerator: z.nativeEnum(Accelerator).optional(),
+    variant: z.enum(Variant),
+    accelerator: z.enum(Accelerator).optional(),
     endpoint: z.string().nonempty(),
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),
