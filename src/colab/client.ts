@@ -26,6 +26,8 @@ import {
   Session,
   UserInfoSchema,
   SubscriptionTier,
+  PostAssignmentResponse,
+  PostAssignmentResponseSchema,
 } from "./api";
 import {
   ACCEPT_JSON_HEADER,
@@ -124,14 +126,15 @@ export class ColabClient {
         return { assignment: rest, isNew: false };
       }
       case "to_assign": {
+        const res = await this.postAssignment(
+          notebookHash,
+          assignment.xsrfToken,
+          variant,
+          accelerator,
+          signal,
+        );
         return {
-          assignment: await this.postAssignment(
-            notebookHash,
-            assignment.xsrfToken,
-            variant,
-            accelerator,
-            signal,
-          ),
+          assignment: AssignmentSchema.parse(res),
           isNew: true,
         };
       }
@@ -296,7 +299,7 @@ export class ColabClient {
     variant: Variant,
     accelerator?: Accelerator,
     signal?: AbortSignal,
-  ): Promise<Assignment> {
+  ): Promise<PostAssignmentResponse> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
     try {
       return await this.issueRequest(
@@ -306,7 +309,7 @@ export class ColabClient {
           headers: { [COLAB_XSRF_TOKEN_HEADER.key]: xsrfToken },
           signal,
         },
-        AssignmentSchema,
+        PostAssignmentResponseSchema,
       );
     } catch (error) {
       // Check for Precondition Failed

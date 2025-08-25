@@ -263,62 +263,80 @@ export const GetAssignmentResponseSchema = z
 /** The response when getting an assignment. */
 export type GetAssignmentResponse = z.infer<typeof GetAssignmentResponseSchema>;
 
-export const RuntimeProxyInfoSchema = z
-  .object({
-    /** Token for the runtime proxy. */
-    token: z.string(),
-    /** Token expiration time in seconds. */
-    tokenExpiresInSeconds: z.number(),
-    /** URL of the runtime proxy. */
-    url: z.string(),
-  })
-  .transform(({ tokenExpiresInSeconds, ...rest }) => ({
+const RuntimeProxyInfoWireSchema = z.object({
+  /** Token for the runtime proxy. */
+  token: z.string(),
+  /** Token expiration time in seconds. */
+  tokenExpiresInSeconds: z.number().optional(),
+  /** URL of the runtime proxy. */
+  url: z.string(),
+});
+
+export const RuntimeProxyInfoSchema = RuntimeProxyInfoWireSchema.transform(
+  ({ tokenExpiresInSeconds, ...rest }) => ({
     ...rest,
     /** Token expiration time in seconds. */
     expirySec: tokenExpiresInSeconds,
-  }));
+  }),
+);
 export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 
-/** A machine assignment in Colab. */
-export const AssignmentSchema = z
-  .object({
-    /** The assigned accelerator. */
-    accelerator: uppercaseEnum(Accelerator),
-    /** The endpoint URL. */
-    endpoint: z.string(),
-    /** Frontend idle timeout in seconds. */
-    fit: z.number().optional(),
-    /** Whether the backend is trusted. */
-    allowedCredentials: z.boolean().optional(),
-    /** The subscription state. */
-    sub: z.enum(SubscriptionState).optional(),
-    /** The subscription tier. */
-    subTier: z
-      .enum(ColabSubscriptionTier)
-      .transform(normalizeSubTier)
-      .optional(),
-    /** The outcome of the assignment. */
-    outcome: z.enum(Outcome).optional(),
-    /** The variant of the assignment. */
-    // On GET, this is a string (enum) but on POST this is a number.
-    // Normalize it to the string-based enum.
-    variant: z.preprocess((val) => {
-      if (typeof val === "number") {
-        switch (val) {
-          case 0:
-            return Variant.DEFAULT;
-          case 1:
-            return Variant.GPU;
-          case 2:
-            return Variant.TPU;
-        }
+/** The response when creating an assignment. */
+export const PostAssignmentResponseSchema = z.object({
+  /** The assigned accelerator. */
+  accelerator: uppercaseEnum(Accelerator).optional(),
+  /** The endpoint URL. */
+  endpoint: z.string().optional(),
+  /** Frontend idle timeout in seconds. */
+  fit: z.number().optional(),
+  /** Whether the backend is trusted. */
+  allowedCredentials: z.boolean().optional(),
+  /** The subscription state. */
+  sub: z.enum(SubscriptionState).optional(),
+  /** The subscription tier. */
+  subTier: z.enum(ColabSubscriptionTier).transform(normalizeSubTier).optional(),
+  /** The outcome of the assignment. */
+  outcome: z.enum(Outcome).optional(),
+  /** The variant of the assignment. */
+  // On GET, this is a string (enum) but on POST this is a number.
+  // Normalize it to the string-based enum.
+  variant: z.preprocess((val) => {
+    if (typeof val === "number") {
+      switch (val) {
+        case 0:
+          return Variant.DEFAULT;
+        case 1:
+          return Variant.GPU;
+        case 2:
+          return Variant.TPU;
       }
-      return val;
-    }, z.enum(Variant)),
-    /** The machine shape. */
-    machineShape: z.enum(Shape),
-    /** Information about the runtime proxy. */
-    runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
+    }
+    return val;
+  }, z.enum(Variant).optional()),
+  /** The machine shape. */
+  machineShape: z.enum(Shape).optional(),
+  /** Information about the runtime proxy. */
+  runtimeProxyInfo: RuntimeProxyInfoWireSchema.optional(),
+});
+/** The response when creating an assignment. */
+export type PostAssignmentResponse = z.infer<
+  typeof PostAssignmentResponseSchema
+>;
+
+/** A machine assignment in Colab. */
+export const AssignmentSchema = PostAssignmentResponseSchema.extend({
+  runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
+})
+  .omit({
+    outcome: true,
+  })
+  // fit, sub, subTier and runtimeProxyInfo come back on POST but not when
+  // listing all.
+  .required({
+    accelerator: true,
+    endpoint: true,
+    variant: true,
+    machineShape: true,
   })
   .transform(({ fit, sub, subTier, ...rest }) => ({
     ...rest,
