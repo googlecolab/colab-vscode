@@ -27,6 +27,7 @@ import {
   UserInfoSchema,
   SubscriptionTier,
   PostAssignmentResponse,
+  Outcome,
   PostAssignmentResponseSchema,
 } from "./api";
 import {
@@ -105,6 +106,9 @@ export class ColabClient {
    * @param variant - The machine variant to assign.
    * @param accelerator - The accelerator to assign.
    * @returns The assignment which is assigned to the user.
+   * @throws TooManyAssignmentsError if the user has too many assignments.
+   * @throws InsufficientQuotaError if the user lacks the quota to assign.
+   * @throws DenylistedError if the user has been banned.
    */
   async assign(
     notebookHash: UUID,
@@ -126,17 +130,46 @@ export class ColabClient {
         return { assignment: rest, isNew: false };
       }
       case "to_assign": {
-        const res = await this.postAssignment(
-          notebookHash,
-          assignment.xsrfToken,
-          variant,
-          accelerator,
-          signal,
-        );
-        return {
-          assignment: AssignmentSchema.parse(res),
-          isNew: true,
-        };
+        let res: PostAssignmentResponse;
+        try {
+          res = await this.postAssignment(
+            notebookHash,
+            assignment.xsrfToken,
+            variant,
+            accelerator,
+            signal,
+          );
+        } catch (error) {
+          // Check for Precondition Failed
+          if (
+            error instanceof ColabRequestError &&
+            error.response.status === 412
+          ) {
+            throw new TooManyAssignmentsError(error.message);
+          }
+          throw error;
+        }
+
+        switch (res.outcome) {
+          case Outcome.QUOTA_DENIED_REQUESTED_VARIANTS:
+          case Outcome.QUOTA_EXCEEDED_USAGE_TIME:
+            throw new InsufficientQuotaError(
+              "You have insufficient quota to assign this server.",
+            );
+          case Outcome.DENYLISTED:
+            // TODO: Consider adding a mechanism to send feedback as part of an
+            // appeal.
+            throw new DenylistedError(
+              "This account has been blocked from accessing Colab servers due to suspected abusive activity. This does not impact access to other Google products. Review the [usage limitations](https://research.google.com/colaboratory/faq.html#limitations-and-restrictions).",
+            );
+          case Outcome.UNDEFINED_OUTCOME:
+          case Outcome.SUCCESS:
+          case undefined:
+            return {
+              assignment: AssignmentSchema.parse(res),
+              isNew: true,
+            };
+        }
       }
     }
   }
@@ -301,23 +334,15 @@ export class ColabClient {
     signal?: AbortSignal,
   ): Promise<PostAssignmentResponse> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
-    try {
-      return await this.issueRequest(
-        url,
-        {
-          method: "POST",
-          headers: { [COLAB_XSRF_TOKEN_HEADER.key]: xsrfToken },
-          signal,
-        },
-        PostAssignmentResponseSchema,
-      );
-    } catch (error) {
-      // Check for Precondition Failed
-      if (error instanceof ColabRequestError && error.response.status === 412) {
-        throw new TooManyAssignmentsError(error.message);
-      }
-      throw error;
-    }
+    return await this.issueRequest(
+      url,
+      {
+        method: "POST",
+        headers: { [COLAB_XSRF_TOKEN_HEADER.key]: xsrfToken },
+        signal,
+      },
+      PostAssignmentResponseSchema,
+    );
   }
 
   private buildAssignUrl(
@@ -410,6 +435,12 @@ export class ColabClient {
 
 /** Error thrown when the user has too many assignments. */
 export class TooManyAssignmentsError extends Error {}
+
+/** Error thrown when the user has been denylisted. */
+export class DenylistedError extends Error {}
+
+/** Error thrown when the user has insufficient quota. */
+export class InsufficientQuotaError extends Error {}
 
 /**
  * If present, strip the XSSI busting prefix from v.

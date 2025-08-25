@@ -18,7 +18,12 @@ import {
   SubscriptionTier,
   Variant,
 } from "../colab/api";
-import { ColabClient, TooManyAssignmentsError } from "../colab/client";
+import {
+  ColabClient,
+  DenylistedError,
+  InsufficientQuotaError,
+  TooManyAssignmentsError,
+} from "../colab/client";
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -544,15 +549,9 @@ describe("AssignmentManager", () => {
       });
     });
 
-    describe("when a server is not assigned due to quota", () => {
+    describe("with too many assigned servers", () => {
       beforeEach(() => {
-        colabClientStub.assign
-          .withArgs(
-            defaultServer.id,
-            defaultServer.variant,
-            defaultServer.accelerator,
-          )
-          .rejects(new TooManyAssignmentsError());
+        colabClientStub.assign.rejects(new TooManyAssignmentsError());
       });
 
       it("notifies the user", async () => {
@@ -565,7 +564,7 @@ describe("AssignmentManager", () => {
 
         sinon.assert.calledOnceWithMatch(
           vsCodeStub.window.showErrorMessage as sinon.SinonStub,
-          /.*Remove a server.*/,
+          /too many/,
         );
       });
 
@@ -582,11 +581,6 @@ describe("AssignmentManager", () => {
           ),
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
-        sinon.assert.calledOnceWithMatch(
-          vsCodeStub.window.showErrorMessage as sinon.SinonStub,
-          /.*Remove a server.*/,
-          "Remove Server",
-        );
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.commands.executeCommand,
           "colab.removeServer",
@@ -607,15 +601,74 @@ describe("AssignmentManager", () => {
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
         sinon.assert.calledOnceWithMatch(
-          vsCodeStub.window.showErrorMessage as sinon.SinonStub,
-          /.*Remove a server.*/,
-          "Remove Server at Colab Web",
-        );
-        sinon.assert.calledOnceWithMatch(
           vsCodeStub.env.openExternal,
           sinon.match(function (url: Uri) {
             return url.toString() === "https://colab.research.google.com/";
           }),
+        );
+      });
+    });
+
+    describe("with insufficient quota", () => {
+      beforeEach(() => {
+        colabClientStub.assign.rejects(new InsufficientQuotaError("💰🐖"));
+      });
+
+      it("notifies the user", async () => {
+        await expect(
+          assignmentManager.assignServer(
+            defaultServer.id,
+            defaultAssignmentDescriptor,
+          ),
+        ).to.eventually.be.rejectedWith(InsufficientQuotaError);
+
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showErrorMessage as sinon.SinonStub,
+          /Unable to assign .* 💰🐖/,
+        );
+      });
+
+      it("presents an action to learn more", async () => {
+        sinon.stub(assignmentManager, "hasAssignedServer").resolves(false);
+        (vsCodeStub.window.showErrorMessage as sinon.SinonStub).resolves(
+          "Learn More",
+        );
+
+        await expect(
+          assignmentManager.assignServer(
+            defaultServer.id,
+            defaultAssignmentDescriptor,
+          ),
+        ).to.eventually.be.rejectedWith(InsufficientQuotaError);
+
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.env.openExternal,
+          sinon.match(function (url: Uri) {
+            return (
+              url.toString() ===
+              "https://research.google.com/colaboratory/faq.html#resource-limits"
+            );
+          }),
+        );
+      });
+    });
+
+    describe("when the user is banned", () => {
+      beforeEach(() => {
+        colabClientStub.assign.rejects(new DenylistedError("👨‍⚖️"));
+      });
+
+      it("notifies the user", async () => {
+        await expect(
+          assignmentManager.assignServer(
+            defaultServer.id,
+            defaultAssignmentDescriptor,
+          ),
+        ).to.eventually.be.rejectedWith(DenylistedError);
+
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showErrorMessage as sinon.SinonStub,
+          /Unable to assign .* 👨‍⚖️/,
         );
       });
     });
