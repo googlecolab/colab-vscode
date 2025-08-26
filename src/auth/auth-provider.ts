@@ -7,9 +7,10 @@
 import { OAuth2Client } from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
-import vscode, { AuthenticationSession } from "vscode";
+import vscode, { AuthenticationSession, Disposable } from "vscode";
 import { z } from "zod";
 import { AUTHORIZATION_HEADER } from "../colab/headers";
+import { Toggleable } from "../common/toggleable";
 import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
@@ -31,10 +32,12 @@ export class GoogleAuthProvider
   implements vscode.AuthenticationProvider, vscode.Disposable
 {
   readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
+  private isInitialized = false;
   private readonly authProvider: vscode.Disposable;
   private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
   private session?: Readonly<AuthenticationSession>;
-  private isInitialized = false;
+  private readonly disposeController = new AbortController();
+  private readonly disposeSignal: AbortSignal = this.disposeController.signal;
 
   /**
    * Initializes the GoogleAuthProvider.
@@ -85,10 +88,21 @@ export class GoogleAuthProvider
   }
 
   /**
+   * Disposes the provider and cleans up resources.
+   */
+  dispose() {
+    this.authProvider.dispose();
+    this.disposeController.abort(new Error("GoogleAuthProvider was disposed."));
+  }
+
+  /**
    * Initializes the provider by loading the session from storage, saturating
    * and refreshing the OAuth2 client.
    */
   async initialize() {
+    if (this.disposeSignal.aborted) {
+      throw this.disposeSignal.reason;
+    }
     if (this.isInitialized) {
       return;
     }
@@ -114,13 +128,36 @@ export class GoogleAuthProvider
       scopes: session.scopes,
     };
     this.isInitialized = true;
+    this.emitter.fire({
+      added: [],
+      removed: [],
+      changed: [this.session],
+    });
   }
 
   /**
-   * Disposes the provider and cleans up resources.
+   * Sets the state of the toggles based on the authentication session.
+   *
+   * @returns A {@link Disposable} that can be used to stop toggling the
+   * provided toggles when there are changes to the authorization status.
    */
-  dispose() {
-    this.authProvider.dispose();
+  whileAuthorized(...toggles: Toggleable[]): Disposable {
+    this.assertReady();
+    const setToggles = () => {
+      if (this.session === undefined) {
+        toggles.forEach((t) => {
+          t.off();
+        });
+      } else {
+        toggles.forEach((t) => {
+          t.on();
+        });
+      }
+    };
+    const listener = this.onDidChangeSessions(setToggles);
+    // Call the function initially to set the correct state.
+    setToggles();
+    return listener;
   }
 
   /**
@@ -139,7 +176,7 @@ export class GoogleAuthProvider
     scopes: readonly string[] | undefined,
     options: vscode.AuthenticationProviderSessionOptions,
   ): Promise<vscode.AuthenticationSession[]> {
-    this.assertInitialized();
+    this.assertReady();
     if (scopes && !matchesRequiredScopes(scopes)) {
       return [];
     }
@@ -159,7 +196,7 @@ export class GoogleAuthProvider
    * @throws An error if login fails.
    */
   async createSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
-    this.assertInitialized();
+    this.assertReady();
     try {
       const sortedScopes = scopes.sort();
       if (!matchesRequiredScopes(sortedScopes)) {
@@ -219,7 +256,7 @@ export class GoogleAuthProvider
    * @param sessionId - The session ID.
    */
   async removeSession(sessionId: string): Promise<void> {
-    this.assertInitialized();
+    this.assertReady();
     if (!this.session || this.session.id !== sessionId) {
       return;
     }
@@ -278,9 +315,12 @@ export class GoogleAuthProvider
     return UserInfoSchema.parse(json);
   }
 
-  private assertInitialized(): void {
+  private assertReady(): void {
     if (!this.isInitialized) {
       throw new Error(`Must call initialize() first.`);
+    }
+    if (this.disposeSignal.aborted) {
+      throw this.disposeSignal.reason;
     }
   }
 }

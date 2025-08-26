@@ -14,6 +14,7 @@ import {
   AUTHORIZATION_HEADER,
   CONTENT_TYPE_JSON_HEADER,
 } from "../colab/headers";
+import { Toggleable } from "../common/toggleable";
 import { PROVIDER_ID } from "../config/constants";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { GoogleAuthProvider, REQUIRED_SCOPES } from "./auth-provider";
@@ -148,7 +149,31 @@ describe("GoogleAuthProvider", () => {
     });
 
     describe("initialize", () => {
-      it("does nothing when there is no stored session", async () => {
+      it("throws an error if disposed", async () => {
+        authProvider.dispose();
+
+        await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
+          /disposed/,
+        );
+      });
+
+      it("does not doubly initialize", async () => {
+        storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+        const setCredentialsSpy = sinon.spy(oauth2Client, "setCredentials");
+        const refreshStub = sinon
+          .stub(oauth2Client, "refreshAccessToken")
+          .callsFake(() => {
+            oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+          });
+        await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
+        await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
+        sinon.assert.calledOnce(setCredentialsSpy);
+        sinon.assert.calledOnce(refreshStub);
+      });
+
+      it("does nothing without a stored session", async () => {
         await expect(authProvider.initialize()).to.eventually.be.fulfilled;
 
         await expect(
@@ -156,7 +181,7 @@ describe("GoogleAuthProvider", () => {
         ).to.eventually.deep.equal([]);
       });
 
-      describe("when there is a stored session", () => {
+      describe("with a stored session", () => {
         beforeEach(() => {
           storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
         });
@@ -174,30 +199,138 @@ describe("GoogleAuthProvider", () => {
           sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
             oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
           });
+
           await expect(authProvider.initialize()).to.eventually.be.fulfilled;
 
           const session = await GoogleAuthProvider.getOrCreateSession(
             vsCodeStub.asVsCode(),
           );
-
           expect(session.accessToken).to.equal(DEFAULT_ACCESS_TOKEN);
         });
 
-        it("does not doubly initialize", async () => {
-          const setCredentialsSpy = sinon.spy(oauth2Client, "setCredentials");
-          const refreshStub = sinon
-            .stub(oauth2Client, "refreshAccessToken")
-            .callsFake(() => {
-              oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
-            });
-          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+        it("emits a session change", async () => {
+          sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
+            oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+          });
 
           await expect(authProvider.initialize()).to.eventually.be.fulfilled;
-
-          sinon.assert.calledOnce(setCredentialsSpy);
-          sinon.assert.calledOnce(refreshStub);
+          sinon.assert.calledOnceWithExactly(onDidChangeSessionsStub, {
+            added: [],
+            removed: [],
+            changed: [DEFAULT_AUTH_SESSION],
+          });
         });
       });
+    });
+  });
+
+  describe("whileAuthorized", () => {
+    let toggles: sinon.SinonStubbedInstance<Toggleable>[];
+
+    beforeEach(() => {
+      toggles = [
+        {
+          on: sinon.stub(),
+          off: sinon.stub(),
+        },
+        {
+          on: sinon.stub(),
+          off: sinon.stub(),
+        },
+      ];
+    });
+
+    it("throws when uninitialized", () => {
+      expect(() => authProvider.whileAuthorized(...toggles)).to.throw(
+        /initialize/,
+      );
+    });
+
+    it("throws when disposed", async () => {
+      await authProvider.initialize();
+      authProvider.dispose();
+
+      expect(() => authProvider.whileAuthorized(...toggles)).to.throw(
+        /disposed/,
+      );
+    });
+
+    it("initializes toggles to on when authorized", async () => {
+      sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
+        oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+      });
+      storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+      await authProvider.initialize();
+
+      authProvider.whileAuthorized(...toggles);
+
+      for (const t of toggles) {
+        sinon.assert.calledOnce(t.on);
+        sinon.assert.notCalled(t.off);
+      }
+    });
+
+    it("initializes toggles to off when not authorized", async () => {
+      await authProvider.initialize();
+
+      authProvider.whileAuthorized(...toggles);
+
+      for (const t of toggles) {
+        sinon.assert.calledOnce(t.off);
+        sinon.assert.notCalled(t.on);
+      }
+    });
+
+    it("turns toggles on when session becomes authorized", async () => {
+      await authProvider.initialize();
+      authProvider.whileAuthorized(...toggles);
+      loginStub.withArgs(SCOPES).resolves(DEFAULT_CREDENTIALS);
+      fetchStub
+        .withArgs("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: {
+            [AUTHORIZATION_HEADER.key]: `Bearer ${DEFAULT_ACCESS_TOKEN}`,
+          },
+        })
+        .resolves(
+          new Response(JSON.stringify(DEFAULT_USER_INFO), {
+            status: 200,
+            headers: {
+              [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+            },
+          }),
+        );
+      for (const t of toggles) {
+        t.on.resetHistory();
+        t.off.resetHistory();
+      }
+
+      await authProvider.createSession(SCOPES);
+
+      for (const t of toggles) {
+        sinon.assert.notCalled(t.off);
+        sinon.assert.calledOnce(t.on);
+      }
+    });
+
+    it("turns toggles off when session is no longer authorized", async () => {
+      sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
+        oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+      });
+      storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+      await authProvider.initialize();
+      sinon.stub(oauth2Client, "revokeToken").resolves();
+      authProvider.whileAuthorized(...toggles);
+      for (const t of toggles) {
+        t.on.resetHistory();
+        t.off.resetHistory();
+      }
+
+      await authProvider.removeSession(DEFAULT_REFRESH_SESSION.id);
+
+      for (const t of toggles) {
+        sinon.assert.calledOnce(t.off);
+        sinon.assert.notCalled(t.on);
+      }
     });
   });
 
@@ -211,6 +344,21 @@ describe("GoogleAuthProvider", () => {
         .callsFake(() => {
           oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
         });
+    });
+
+    it("throws when uninitialized", async () => {
+      await expect(
+        authProvider.getSessions(undefined, {}),
+      ).to.eventually.be.rejectedWith(/initialize/);
+    });
+
+    it("throws when disposed", async () => {
+      await authProvider.initialize();
+      authProvider.dispose();
+
+      await expect(
+        authProvider.getSessions(undefined, {}),
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     describe("when no session is stored", () => {
@@ -311,20 +459,37 @@ describe("GoogleAuthProvider", () => {
   });
 
   describe("createSession", () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
         oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
       });
+    });
+
+    it("throws when uninitialized", async () => {
+      await expect(
+        authProvider.createSession(SCOPES),
+      ).to.eventually.be.rejectedWith(/initialize/);
+    });
+
+    it("throws when disposed", async () => {
       await authProvider.initialize();
+      authProvider.dispose();
+
+      await expect(
+        authProvider.createSession(SCOPES),
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it("rejects when the scopes are not supported", async () => {
+      await authProvider.initialize();
+
       await expect(
         authProvider.createSession(["foo", "bar"]),
       ).to.eventually.be.rejectedWith(/scopes/);
     });
 
     it("rejects when getting token fails", async () => {
+      await authProvider.initialize();
       loginStub.rejects(new Error("Failed to get token"));
 
       await expect(
@@ -338,7 +503,8 @@ describe("GoogleAuthProvider", () => {
     });
 
     describe("with a successful login", () => {
-      beforeEach(() => {
+      beforeEach(async () => {
+        await authProvider.initialize();
         loginStub.withArgs(SCOPES).resolves(DEFAULT_CREDENTIALS);
         fetchStub
           .withArgs("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -400,6 +566,21 @@ describe("GoogleAuthProvider", () => {
       });
     });
 
+    it("throws when uninitialized", async () => {
+      await expect(
+        authProvider.removeSession("foo"),
+      ).to.eventually.be.rejectedWith(/initialize/);
+    });
+
+    it("throws when disposed", async () => {
+      await authProvider.initialize();
+      authProvider.dispose();
+
+      await expect(
+        authProvider.removeSession("foo"),
+      ).to.eventually.be.rejectedWith(/disposed/);
+    });
+
     it("does nothing when there is no session", async () => {
       await authProvider.initialize();
 
@@ -412,6 +593,7 @@ describe("GoogleAuthProvider", () => {
     it("does nothing when the managed session's ID does not match", async () => {
       storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
       await authProvider.initialize();
+      onDidChangeSessionsStub.resetHistory();
 
       await authProvider.removeSession("foo");
 
@@ -444,7 +626,7 @@ describe("GoogleAuthProvider", () => {
 
       it("notifies of the removed session", async () => {
         sinon.stub(oauth2Client, "revokeToken").resolves();
-
+        onDidChangeSessionsStub.resetHistory();
         const session = await authProvider.getSessions(undefined, {});
 
         await authProvider.removeSession(DEFAULT_REFRESH_SESSION.id);
