@@ -104,6 +104,19 @@ describe("ServerKeepAliveController", () => {
       sinon.assert.notCalled(colabClientStub.sendKeepAlive);
     });
 
+    it("throws if used after being disposed", () => {
+      serverKeepAliveController = new ServerKeepAliveController(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        assignmentStub,
+        CONFIG,
+      );
+      serverKeepAliveController.dispose();
+
+      expect(serverKeepAliveController.on).to.throw();
+      expect(serverKeepAliveController.off).to.throw();
+    });
+
     it("skips when a keep-alive is already in flight", async () => {
       assignmentStub.getAssignedServers.resolves([defaultServer]);
       colabClientStub.listKernels

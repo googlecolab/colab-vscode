@@ -8,6 +8,7 @@ import { UUID } from "crypto";
 import { Disposable } from "vscode";
 import vscode from "vscode";
 import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";
+import { Toggleable } from "../common/toggleable";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabAssignedServer } from "../jupyter/servers";
 import { Kernel } from "./api";
@@ -45,10 +46,11 @@ const DEFAULT_CONFIG: Config = {
  * Keeps Colab servers alive while they are recently used, or if the user
  * explicitly extends their lifetime.
  */
-export class ServerKeepAliveController implements Disposable {
+export class ServerKeepAliveController implements Toggleable, Disposable {
   private readonly extendedKeepAlive = new Map<UUID, Date>();
   private readonly tombstones = new Set<UUID>();
   private readonly runner: SequentialTaskRunner;
+  private isDisposed = false;
 
   constructor(
     private readonly vs: typeof vscode,
@@ -67,10 +69,30 @@ export class ServerKeepAliveController implements Disposable {
       (signal) => this.keepServersAlive(signal),
       OverrunPolicy.AllowToComplete,
     );
+    // TODO: Remove once toggle is managed by a higher level which has
+    // visibility on the authorization state.
+    this.runner.start();
   }
 
   dispose(): void {
     this.runner.dispose();
+    this.isDisposed = true;
+  }
+
+  /**
+   * Turn on the keep-alive signals.
+   */
+  on() {
+    this.assertNotDisposed();
+    this.runner.start();
+  }
+
+  /**
+   * Turn off the keep-alive signals.
+   */
+  off() {
+    this.assertNotDisposed();
+    this.runner.stop();
   }
 
   private async keepServersAlive(signal: AbortSignal): Promise<void> {
@@ -186,5 +208,11 @@ export class ServerKeepAliveController implements Disposable {
         },
       );
     });
+  }
+
+  private assertNotDisposed(): void {
+    if (this.isDisposed) {
+      throw new Error("ServerKeepAliveController is disposed");
+    }
   }
 }

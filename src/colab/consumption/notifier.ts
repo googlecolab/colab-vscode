@@ -5,9 +5,9 @@
  */
 
 import vscode from "vscode";
-import { CcuInfo, SubscriptionTier } from "./api";
-import { ColabClient } from "./client";
-import { openColabSignup } from "./commands/external";
+import { CcuInfo, SubscriptionTier } from "../api";
+import { ColabClient } from "../client";
+import { openColabSignup } from "../commands/external";
 
 const WARN_WHEN_LESS_THAN_MINUTES = 30;
 const DEFAULT_SNOOZE_MINUTES = 10;

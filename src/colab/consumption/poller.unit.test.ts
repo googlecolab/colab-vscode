@@ -11,10 +11,10 @@ import {
   SinonStubbedInstance,
   createStubInstance,
 } from "sinon";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { Accelerator, CcuInfo } from "./api";
-import { CcuInformationManager } from "./ccu-info";
-import { ColabClient } from "./client";
+import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
+import { Accelerator, CcuInfo } from "../api";
+import { ColabClient } from "../client";
+import { ConsumptionPoller } from "./poller";
 
 const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
@@ -32,7 +32,7 @@ const DEFAULT_CCU_INFO: CcuInfo = {
   },
 };
 
-describe("CcuInformation", () => {
+describe("ConsumptionPoller", () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let clientStub: SinonStubbedInstance<ColabClient>;
@@ -51,31 +51,21 @@ describe("CcuInformation", () => {
   });
 
   describe("lifecycle", () => {
-    let ccuInfo: CcuInformationManager;
+    let poller: ConsumptionPoller;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
-      ccuInfo = await CcuInformationManager.initialize(
-        vsCodeStub.asVsCode(),
-        clientStub,
-      );
+      poller = new ConsumptionPoller(vsCodeStub.asVsCode(), clientStub);
     });
 
     afterEach(() => {
-      ccuInfo.dispose();
-    });
-
-    it("fetches CCU info on initialization", async () => {
-      sinon.assert.calledOnce(clientStub.getCcuInfo);
-      await expect(clientStub.getCcuInfo()).to.eventually.deep.equal(
-        DEFAULT_CCU_INFO,
-      );
+      poller.dispose();
     });
 
     it("disposes the runner", async () => {
       clientStub.getCcuInfo.resetHistory();
 
-      ccuInfo.dispose();
+      poller.dispose();
 
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
       sinon.assert.notCalled(clientStub.getCcuInfo);
@@ -97,18 +87,16 @@ describe("CcuInformation", () => {
   });
 
   describe("when the CCU info does not change", () => {
-    let ccuInfo: CcuInformationManager;
+    let poller: ConsumptionPoller;
     let onDidChangeCcuInfo: sinon.SinonStub<[]>;
 
     beforeEach(async () => {
       clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
-      ccuInfo = await CcuInformationManager.initialize(
-        vsCodeStub.asVsCode(),
-        clientStub,
-      );
-      onDidChangeCcuInfo = sinon.stub();
-      ccuInfo.onDidChangeCcuInfo(onDidChangeCcuInfo);
+      poller = new ConsumptionPoller(vsCodeStub.asVsCode(), clientStub);
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
       clientStub.getCcuInfo.resetHistory();
+      onDidChangeCcuInfo = sinon.stub();
+      poller.onDidChangeCcuInfo(onDidChangeCcuInfo);
     });
 
     it("does not emit an event", async () => {
@@ -116,14 +104,6 @@ describe("CcuInformation", () => {
 
       sinon.assert.calledOnce(clientStub.getCcuInfo);
       sinon.assert.notCalled(onDidChangeCcuInfo);
-    });
-
-    it("gets the CCU info", async () => {
-      expect(ccuInfo.ccuInfo).to.deep.equal(DEFAULT_CCU_INFO);
-
-      await fakeClock.tickAsync(POLL_INTERVAL_MS);
-
-      expect(ccuInfo.ccuInfo).to.deep.equal(DEFAULT_CCU_INFO);
     });
   });
 
@@ -133,17 +113,14 @@ describe("CcuInformation", () => {
       eligibleGpus: [],
     };
 
-    let ccuInfo: CcuInformationManager;
+    let poller: ConsumptionPoller;
     let onDidChangeCcuInfo: sinon.SinonStub<[]>;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       clientStub.getCcuInfo.onFirstCall().resolves(DEFAULT_CCU_INFO);
-      ccuInfo = await CcuInformationManager.initialize(
-        vsCodeStub.asVsCode(),
-        clientStub,
-      );
+      poller = new ConsumptionPoller(vsCodeStub.asVsCode(), clientStub);
       onDidChangeCcuInfo = sinon.stub();
-      ccuInfo.onDidChangeCcuInfo(onDidChangeCcuInfo);
+      poller.onDidChangeCcuInfo(onDidChangeCcuInfo);
       clientStub.getCcuInfo.resetHistory();
       clientStub.getCcuInfo.onFirstCall().resolves(newCcuInfo);
     });
@@ -153,14 +130,6 @@ describe("CcuInformation", () => {
 
       sinon.assert.calledOnce(onDidChangeCcuInfo);
       sinon.assert.calledOnce(clientStub.getCcuInfo);
-    });
-
-    it("gets the CCU info", async () => {
-      expect(ccuInfo.ccuInfo).to.deep.equal(DEFAULT_CCU_INFO);
-
-      await fakeClock.tickAsync(POLL_INTERVAL_MS);
-
-      expect(ccuInfo.ccuInfo).to.deep.equal(newCcuInfo);
     });
   });
 });

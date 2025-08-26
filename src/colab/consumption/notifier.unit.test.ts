@@ -6,11 +6,11 @@
 
 import { assert, expect } from "chai";
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
-import { TestEventEmitter } from "../test/helpers/events";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { CcuInfo, SubscriptionTier } from "./api";
-import { ColabClient } from "./client";
-import { ConsumptionNotifier } from "./consumption-notifier";
+import { TestEventEmitter } from "../../test/helpers/events";
+import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
+import { CcuInfo, SubscriptionTier } from "../api";
+import { ColabClient } from "../client";
+import { ConsumptionNotifier } from "./notifier";
 
 const NOTIFICATION_SEVERITIES = ["warn", "error"] as const;
 type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];

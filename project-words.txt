@@ -16,6 +16,7 @@ mocharc
 pkce
 quickpick
 refreshable
+toggleable
 tombstoned
 toolsai
 tpus
