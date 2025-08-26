@@ -5,7 +5,7 @@
  */
 
 import { OAuth2Client } from "google-auth-library";
-import vscode from "vscode";
+import vscode, { Disposable } from "vscode";
 import { GoogleAuthProvider } from "./auth/auth-provider";
 import { getOAuth2Flows } from "./auth/flows/flows";
 import { login } from "./auth/login";
@@ -18,9 +18,12 @@ import {
 } from "./colab/commands/constants";
 import { notebookToolbar } from "./colab/commands/notebook";
 import { renameServerAlias, removeServer } from "./colab/commands/server";
+import { ConsumptionNotifier } from "./colab/consumption/notifier";
+import { ConsumptionPoller } from "./colab/consumption/poller";
 import { ServerKeepAliveController } from "./colab/keep-alive";
 import { ServerPicker } from "./colab/server-picker";
 import { CONFIG } from "./colab-config";
+import { Toggleable } from "./common/toggleable";
 import { getPackageInfo } from "./config/package-info";
 import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
@@ -32,7 +35,7 @@ import { ExtensionUriHandler } from "./system/uri-handler";
 export async function activate(context: vscode.ExtensionContext) {
   const jupyter = await getJupyterApi(vscode);
   const uriHandler = new ExtensionUriHandler(vscode);
-  const disposeUriHandler = vscode.window.registerUriHandler(uriHandler);
+  const uriHandlerRegistration = vscode.window.registerUriHandler(uriHandler);
   const authClient = new OAuth2Client(
     CONFIG.ClientId,
     CONFIG.ClientNotSoSecret,
@@ -50,8 +53,6 @@ export async function activate(context: vscode.ExtensionContext) {
     (scopes: string[]) => login(vscode, authFlows, authClient, scopes),
   );
   await authProvider.initialize();
-  // TODO: Align these URLs with the environment. Mismatch is no big deal during
-  // development.
   const colabClient = new ColabClient(
     new URL(CONFIG.ColabApiDomain),
     new URL(CONFIG.ColabGapiDomain),
@@ -68,12 +69,6 @@ export async function activate(context: vscode.ExtensionContext) {
   );
   await assignmentManager.reconcileAssignedServers();
   await assignmentManager.setHasAssignedServerContext();
-
-  const keepAlive = new ServerKeepAliveController(
-    vscode,
-    colabClient,
-    assignmentManager,
-  );
   const serverProvider = new ColabJupyterServerProvider(
     vscode,
     assignmentManager,
@@ -81,20 +76,63 @@ export async function activate(context: vscode.ExtensionContext) {
     new ServerPicker(vscode, assignmentManager),
     jupyter,
   );
+  const keepServersAlive = new ServerKeepAliveController(
+    vscode,
+    colabClient,
+    assignmentManager,
+  );
+  const consumptionMonitor = watchConsumption(colabClient);
+  // Sending server "keep-alive" pings and monitoring consumption requires
+  // issuing authenticated requests to Colab. This can only be done after the
+  // user has signed in. We don't block extension activation on completing the
+  // heavily asynchronous sign-in flow.
+  const whileAuthorizedToggle = authProvider.whileAuthorized(
+    keepServersAlive,
+    consumptionMonitor.toggle,
+  );
 
   context.subscriptions.push(
-    disposeUriHandler,
-    {
-      dispose: () => {
-        authFlows.forEach((flow) => {
-          flow.dispose?.();
-        });
-      },
-    },
+    uriHandler,
+    uriHandlerRegistration,
+    disposeAll(authFlows),
     authProvider,
     assignmentManager,
-    keepAlive,
     serverProvider,
+    keepServersAlive,
+    ...consumptionMonitor.disposables,
+    whileAuthorizedToggle,
+    ...registerCommands(serverStorage, assignmentManager),
+  );
+}
+
+/**
+ * Sets up consumption monitoring.
+ *
+ * If the user has already signed in, starts immediately. Otherwise, waits until
+ * the user signs in.
+ */
+function watchConsumption(colab: ColabClient): {
+  toggle: Toggleable;
+  disposables: Disposable[];
+} {
+  const disposables: Disposable[] = [];
+  const poller = new ConsumptionPoller(vscode, colab);
+  disposables.push(poller);
+  const notifier = new ConsumptionNotifier(
+    vscode,
+    colab,
+    poller.onDidChangeCcuInfo,
+  );
+  disposables.push(notifier);
+
+  return { toggle: poller, disposables };
+}
+
+function registerCommands(
+  serverStorage: ServerStorage,
+  assignmentManager: AssignmentManager,
+): Disposable[] {
+  return [
     vscode.commands.registerCommand(
       RENAME_SERVER_ALIAS.id,
       async (withBackButton?: boolean) => {
@@ -110,5 +148,17 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
     }),
-  );
+  ];
+}
+
+/**
+ * Returns a Disposable that calls dispose on all items in the array which are
+ * disposable.
+ */
+function disposeAll(items: { dispose?: () => void }[]): Disposable {
+  return {
+    dispose: () => {
+      items.forEach((item) => item.dispose?.());
+    },
+  };
 }

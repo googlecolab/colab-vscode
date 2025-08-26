@@ -69,9 +69,6 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
       (signal) => this.keepServersAlive(signal),
       OverrunPolicy.AllowToComplete,
     );
-    // TODO: Remove once toggle is managed by a higher level which has
-    // visibility on the authorization state.
-    this.runner.start();
   }
 
   dispose(): void {

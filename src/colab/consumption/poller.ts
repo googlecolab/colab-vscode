@@ -40,9 +40,6 @@ export class ConsumptionPoller implements Toggleable, Disposable {
       this.poll.bind(this),
       OverrunPolicy.AbandonAndRun,
     );
-    // TODO: Remove once toggle is managed by a higher level which has
-    // visibility on the authorization state.
-    this.runner.start();
   }
 
   dispose(): void {
