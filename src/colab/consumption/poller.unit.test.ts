@@ -70,7 +70,7 @@ describe("ConsumptionPoller", () => {
       sinon.assert.notCalled(clientStub.getCcuInfo);
     });
 
-    it("throws when disposed", () => {
+    it("throws when used after being disposed", () => {
       poller.dispose();
 
       expect(() => {
@@ -89,7 +89,6 @@ describe("ConsumptionPoller", () => {
       );
       poller.on();
 
-      await fakeClock.tickAsync(POLL_INTERVAL_MS);
       await fakeClock.tickAsync(TASK_TIMEOUT_MS + 1);
 
       sinon.assert.calledOnce(clientStub.getCcuInfo);
@@ -98,17 +97,19 @@ describe("ConsumptionPoller", () => {
   });
 
   describe("toggled on", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+      clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
       poller.on();
+      // Turning the poller on runs the task immediately. Wait past the task
+      // timeout to ensure the immediate invocation runs to completion.
+      await fakeClock.tickAsync(TASK_TIMEOUT_MS);
+      clientStub.getCcuInfo.resetHistory();
     });
 
     describe("when the CCU info does not change", () => {
       let onDidChangeCcuInfo: sinon.SinonStub<[CcuInfo]>;
 
-      beforeEach(async () => {
-        clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
-        await fakeClock.tickAsync(POLL_INTERVAL_MS);
-        clientStub.getCcuInfo.resetHistory();
+      beforeEach(() => {
         onDidChangeCcuInfo = sinon.stub();
         poller.onDidChangeCcuInfo(onDidChangeCcuInfo);
       });
@@ -130,18 +131,16 @@ describe("ConsumptionPoller", () => {
       let onDidChangeCcuInfo: sinon.SinonStub<[CcuInfo]>;
 
       beforeEach(() => {
-        clientStub.getCcuInfo.onFirstCall().resolves(DEFAULT_CCU_INFO);
         onDidChangeCcuInfo = sinon.stub();
         poller.onDidChangeCcuInfo(onDidChangeCcuInfo);
-        clientStub.getCcuInfo.resetHistory();
-        clientStub.getCcuInfo.onFirstCall().resolves(newCcuInfo);
+        clientStub.getCcuInfo.resolves(newCcuInfo);
       });
 
       it("emits an event", async () => {
         await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
-        sinon.assert.calledOnce(onDidChangeCcuInfo);
         sinon.assert.calledOnce(clientStub.getCcuInfo);
+        sinon.assert.calledOnce(onDidChangeCcuInfo);
       });
     });
   });

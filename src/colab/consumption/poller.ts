@@ -5,7 +5,11 @@
  */
 
 import vscode, { Disposable } from "vscode";
-import { OverrunPolicy, SequentialTaskRunner } from "../../common/task-runner";
+import {
+  OverrunPolicy,
+  SequentialTaskRunner,
+  StartMode,
+} from "../../common/task-runner";
 import { Toggleable } from "../../common/toggleable";
 import { CcuInfo } from "../api";
 import { ColabClient } from "../client";
@@ -52,7 +56,7 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    */
   on(): void {
     this.assertNotDisposed();
-    this.runner.start();
+    this.runner.start(StartMode.Immediately);
   }
 
   /**
