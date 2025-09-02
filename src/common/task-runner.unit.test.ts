@@ -5,7 +5,12 @@
  */
 
 import sinon, { SinonFakeTimers } from "sinon";
-import { Config, OverrunPolicy, SequentialTaskRunner } from "./task-runner";
+import {
+  Config,
+  OverrunPolicy,
+  SequentialTaskRunner,
+  StartMode,
+} from "./task-runner";
 
 const INTERVAL_TIMEOUT_MS = 1000;
 const TASK_TIMEOUT_MS = 100;
@@ -136,7 +141,7 @@ describe("SequentialTaskRunner", () => {
       intervalTimeoutMs: INTERVAL_TIMEOUT_MS,
       taskTimeoutMs: TASK_TIMEOUT_MS,
     });
-    runner.start(true);
+    runner.start(StartMode.Immediately);
 
     await tickPast(INTERVAL_TIMEOUT_MS);
 

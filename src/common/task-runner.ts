@@ -34,6 +34,16 @@ export enum OverrunPolicy {
 }
 
 /**
+ * Specifies when the task runner should start its first run.
+ */
+export enum StartMode {
+  /** Start the task immediately. */
+  Immediately,
+  /** Start the task after the configured {@link Config.intervalTimeoutMs}. */
+  Scheduled,
+}
+
+/**
  * Runs a task at a regular interval, ensuring that only one task is running at
  * a time.
  *
@@ -43,7 +53,7 @@ export enum OverrunPolicy {
 export class SequentialTaskRunner implements Disposable {
   private inFlight?: Promise<void>;
   private inFlightAbort?: AbortController;
-  private timeout?: NodeJS.Timeout;
+  private taskInterval?: NodeJS.Timeout;
 
   constructor(
     private readonly config: Config,
@@ -59,15 +69,18 @@ export class SequentialTaskRunner implements Disposable {
    * Starts running, using the provided configuration.
    *
    * If already started, does nothing.
+   *
+   * @param mode - When to start the first task. Defaults to
+   * {@link StartMode.Scheduled}.
    */
-  start(immediately = false): void {
-    if (this.timeout) {
+  start(mode: StartMode = StartMode.Scheduled): void {
+    if (this.taskInterval) {
       return;
     }
-    if (immediately) {
+    if (mode === StartMode.Immediately) {
       void this.run();
     }
-    this.timeout = setInterval(
+    this.taskInterval = setInterval(
       () => void this.run(),
       this.config.intervalTimeoutMs,
     );
@@ -80,8 +93,8 @@ export class SequentialTaskRunner implements Disposable {
    * nothing.
    */
   stop(): void {
-    clearInterval(this.timeout);
-    this.timeout = undefined;
+    clearInterval(this.taskInterval);
+    this.taskInterval = undefined;
     this.inFlightAbort?.abort();
   }
 
@@ -109,6 +122,7 @@ export class SequentialTaskRunner implements Disposable {
     } finally {
       clearTimeout(timeout);
       this.inFlight = undefined;
+      this.inFlightAbort = undefined;
     }
   }
 }
