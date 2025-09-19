@@ -12,9 +12,11 @@ import sinon from "sinon";
 import { authUriMatch } from "../../test/helpers/authentication";
 import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
 import { createHttpServerMock } from "../../test/helpers/http-server";
+import { matchUri } from "../../test/helpers/uri";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { OAuth2TriggerOptions } from "./flows";
 import { LocalServerFlow } from "./loopback";
+import { CONFIG } from "../../colab-config";
 
 const DEFAULT_ADDRESS: AddressInfo = {
   address: "127.0.0.1",
@@ -138,6 +140,28 @@ describe("LocalServerFlow", () => {
       url: `/?state=nonce%3D${NONCE}&code=${CODE}&scope=${SCOPES[0]}`,
       headers: { host: DEFAULT_HOST },
     } as http.IncomingMessage;
+    const authSuccessPageOpened = new Promise<void>((resolve) => {
+      vs.env.openExternal.callsFake(() => {
+        resolve();
+        return Promise.resolve(true);
+      });
+    });
+    const authSuccessUri = "vscode://google.colab/auth-success";
+    const externalAuthSuccessUri = `${authSuccessUri}?windowId=1`;
+    const state = encodeURIComponent(externalAuthSuccessUri);
+    const colabAuthSuccessUrl = `${CONFIG.ColabApiDomain}/vscode/auth-success?state=${state}`;
+    const responseRedirected = new Promise<void>((resolve) => {
+      resStub.writeHead
+        .withArgs(302, sinon.match({ Location: colabAuthSuccessUrl }))
+        .callsFake(() => {
+          resolve();
+          resStub.statusCode = 302;
+          return resStub;
+        });
+    });
+    vs.env.asExternalUri
+      .withArgs(matchUri(authSuccessUri))
+      .resolves(vs.Uri.parse(externalAuthSuccessUri));
     fakeServer.emit("request", req, resStub);
 
     const flowResult = await trigger;
@@ -146,9 +170,11 @@ describe("LocalServerFlow", () => {
       vs.env.openExternal,
       authUriMatch(`http://${DEFAULT_HOST}`, /nonce=nonce/, SCOPES),
     );
+    await expect(authSuccessPageOpened).to.eventually.be.fulfilled;
+    await expect(responseRedirected).to.eventually.be.fulfilled;
     expect(flowResult.code).to.equal(CODE);
     expect(flowResult.redirectUri).to.equal(`http://${DEFAULT_HOST}`);
-    expect(resStub.statusCode).to.equal(200);
+    expect(resStub.statusCode).to.equal(302);
     sinon.assert.calledOnce(resStub.end);
   });
 

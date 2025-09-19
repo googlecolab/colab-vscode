@@ -10,7 +10,7 @@ import * as http from "http";
 import * as path from "path";
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
-import { CONTENT_TYPE_TEXT_HEADER } from "../../colab/headers";
+import { CONFIG } from "../../colab-config";
 import { LoopbackHandler, LoopbackServer } from "../../common/loopback-server";
 import { CodeManager } from "../code-manager";
 import {
@@ -42,7 +42,7 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
     private readonly serveRoot: string,
     private readonly oAuth2Client: OAuth2Client,
   ) {
-    this.handler = new Handler(this.serveRoot, this.codeManager);
+    this.handler = new Handler(vs, this.serveRoot, this.codeManager);
   }
 
   dispose() {
@@ -94,6 +94,7 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
 
 class Handler implements LoopbackHandler {
   constructor(
+    private readonly vs: typeof vscode,
     private readonly serveRoot: string,
     private readonly codeProvider: CodeManager,
   ) {}
@@ -121,10 +122,11 @@ class Handler implements LoopbackHandler {
           throw new Error("Missing nonce or code in redirect URI");
         }
         this.codeProvider.resolveCode(nonce, code);
-        res.writeHead(200, {
-          [CONTENT_TYPE_TEXT_HEADER.key]: CONTENT_TYPE_TEXT_HEADER.value,
+
+        void this.redirectSuccessfulAuth(res).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Issue redirecting loopback request: ${msg}`);
         });
-        res.end("You may now return to the application.");
         break;
       }
       case "/favicon.ico": {
@@ -139,6 +141,23 @@ class Handler implements LoopbackHandler {
         break;
       }
     }
+  }
+
+  async redirectSuccessfulAuth(res: http.ServerResponse): Promise<void> {
+    const authSuccessUri = await this.vs.env.asExternalUri(
+      this.vs.Uri.parse("vscode://google.colab/auth-success"),
+    );
+    const successState = encodeURIComponent(authSuccessUri.toString());
+    const redirectUri = `${CONFIG.ColabApiDomain}/vscode/auth-success?state=${successState}`;
+    // Since we need to handle the request asynchronously, it's technically
+    // possible that the response has already been closed by time we get here.
+    // This is not foreseen to ever happen, under normal network conditions. In
+    // that case, just no-op.
+    if (res.headersSent) {
+      return;
+    }
+    res.writeHead(302, { Location: redirectUri });
+    res.end();
   }
 }
 

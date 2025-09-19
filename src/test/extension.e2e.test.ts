@@ -221,12 +221,9 @@ describe("Colab Extension", function () {
       await continueButton.click();
 
       // Check that the test account's authenticated. Close the browser window.
-      await oauthDriver.wait(until.urlContains("127.0.0.1"), ELEMENT_WAIT_MS);
-      const body = await oauthDriver.findElement(By.css("body"));
-      assert.equal(
-        await body.getText(),
-        "You may now return to the application.",
-        "Unexpected loopback server response.",
+      await oauthDriver.wait(
+        until.urlContains("vscode/auth-success"),
+        ELEMENT_WAIT_MS,
       );
       await oauthDriver.quit();
     } catch (_) {

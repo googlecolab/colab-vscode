@@ -5,6 +5,7 @@
  */
 
 import { join } from "path";
+import * as sinon from "sinon";
 import vscode from "vscode";
 
 interface UriOptions {
@@ -112,4 +113,18 @@ export class TestUri implements vscode.Uri {
       fragment: this.fragment,
     });
   }
+}
+
+/**
+ * Creates a Sinon matcher for a {@link vscode.Uri} that matches the provided
+ * regular expression.
+ *
+ * @param regExp - A regular expression to match against the stringified URI.
+ * @returns A Sinon matcher for the URI.
+ */
+export function matchUri(regExp: RegExp | string) {
+  if (typeof regExp === "string") {
+    regExp = new RegExp(regExp);
+  }
+  return sinon.match((uri: vscode.Uri) => regExp.test(uri.toString()));
 }
