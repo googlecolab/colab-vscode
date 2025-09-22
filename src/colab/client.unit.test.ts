@@ -22,8 +22,14 @@ import {
   Variant,
   Kernel,
   Session,
+  Outcome,
 } from "./api";
-import { ColabClient, TooManyAssignmentsError } from "./client";
+import {
+  ColabClient,
+  DenylistedError,
+  InsufficientQuotaError,
+  TooManyAssignmentsError,
+} from "./client";
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
@@ -153,13 +159,25 @@ describe("ColabClient", () => {
   });
 
   describe("assignment", () => {
+    const ASSIGN_PATH = "/tun/m/assign";
+    let wireNbh: string;
+    let queryParams: Record<string, string | RegExp>;
+
+    beforeEach(() => {
+      wireNbh = uuidToWebSafeBase64(NOTEBOOK_HASH);
+      queryParams = {
+        nbh: wireNbh,
+      };
+    });
+
     it("resolves an existing assignment", async () => {
       fetchStub
         .withArgs(
           urlMatcher({
             method: "GET",
             host: COLAB_HOST,
-            path: "/tun/m/assign",
+            path: ASSIGN_PATH,
+            queryParams,
           }),
         )
         .resolves(
@@ -178,34 +196,22 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    const assignmentTests: [Variant, Accelerator?][] = [
-      [Variant.DEFAULT, undefined],
-      [Variant.GPU, Accelerator.T4],
-      [Variant.TPU, Accelerator.V28],
-    ];
-    for (const [variant, accelerator] of assignmentTests) {
-      const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""}`;
-
-      it(`creates a new ${assignment}`, async () => {
-        const wireNbh = uuidToWebSafeBase64(NOTEBOOK_HASH);
+    describe("without an existing assignment", () => {
+      beforeEach(() => {
         const mockGetResponse = {
-          acc: accelerator ?? Accelerator.NONE,
+          acc: Accelerator.NONE,
           nbh: wireNbh,
           p: false,
           token: "mock-xsrf-token",
-          variant: variant,
-        };
-        const path = "/tun/m/assign";
-        const getQueryParams: Record<string, string | RegExp> = {
-          nbh: wireNbh,
+          variant: Variant.DEFAULT,
         };
         fetchStub
           .withArgs(
             urlMatcher({
               method: "GET",
               host: COLAB_HOST,
-              path,
-              queryParams: getQueryParams,
+              path: ASSIGN_PATH,
+              queryParams,
             }),
           )
           .resolves(
@@ -213,98 +219,160 @@ describe("ColabClient", () => {
               status: 200,
             }),
           );
-        const postQueryParams: Record<string, string | RegExp> = {
-          ...getQueryParams,
-        };
-        if (variant !== Variant.DEFAULT) {
-          postQueryParams.variant = variant;
-        }
-        if (accelerator) {
-          postQueryParams.accelerator = accelerator;
-        }
-        const assignmentResponse = {
-          ...DEFAULT_ASSIGNMENT_RESPONSE,
-          variant,
-          accelerator: accelerator ?? Accelerator.NONE,
-        };
+      });
+
+      const assignmentTests: [Variant, Accelerator?][] = [
+        [Variant.DEFAULT, undefined],
+        [Variant.GPU, Accelerator.T4],
+        [Variant.TPU, Accelerator.V28],
+      ];
+      for (const [variant, accelerator] of assignmentTests) {
+        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""}`;
+
+        it(`creates a new ${assignment}`, async () => {
+          const postQueryParams: Record<string, string | RegExp> = {
+            ...queryParams,
+          };
+          if (variant !== Variant.DEFAULT) {
+            postQueryParams.variant = variant;
+          }
+          if (accelerator) {
+            postQueryParams.accelerator = accelerator;
+          }
+          const assignmentResponse = {
+            ...DEFAULT_ASSIGNMENT_RESPONSE,
+            variant,
+            accelerator: accelerator ?? Accelerator.NONE,
+          };
+          fetchStub
+            .withArgs(
+              urlMatcher({
+                method: "POST",
+                host: COLAB_HOST,
+                path: ASSIGN_PATH,
+                queryParams: postQueryParams,
+                otherHeaders: {
+                  [COLAB_XSRF_TOKEN_HEADER.key]: "mock-xsrf-token",
+                },
+              }),
+            )
+            .resolves(
+              new Response(withXSSI(JSON.stringify(assignmentResponse)), {
+                status: 200,
+              }),
+            );
+
+          const expectedAssignment: Assignment = {
+            ...DEFAULT_ASSIGNMENT,
+            variant,
+            accelerator: accelerator ?? Accelerator.NONE,
+          };
+          await expect(
+            client.assign(NOTEBOOK_HASH, variant, accelerator),
+          ).to.eventually.deep.equal({
+            assignment: expectedAssignment,
+            isNew: true,
+          });
+
+          sinon.assert.calledTwice(fetchStub);
+        });
+      }
+
+      it("rejects when assignments exceed limit", async () => {
         fetchStub
           .withArgs(
             urlMatcher({
               method: "POST",
               host: COLAB_HOST,
-              path,
-              queryParams: postQueryParams,
+              path: ASSIGN_PATH,
+              queryParams,
               otherHeaders: {
-                [COLAB_XSRF_TOKEN_HEADER.key]: "mock-xsrf-token",
+                "X-Goog-Colab-Token": "mock-xsrf-token",
+              },
+            }),
+          )
+          .resolves(new Response(undefined, { status: 412 }));
+
+        await expect(
+          client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+        ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
+      });
+
+      for (const quotaTest of [
+        {
+          reason: "request variant unavailable",
+          outcome: Outcome.QUOTA_DENIED_REQUESTED_VARIANTS,
+        },
+        {
+          reason: "usage time exceeded",
+          outcome: Outcome.QUOTA_EXCEEDED_USAGE_TIME,
+        },
+      ]) {
+        it(`rejects when quota is exceeded due to ${quotaTest.reason}`, async () => {
+          fetchStub
+            .withArgs(
+              urlMatcher({
+                method: "POST",
+                host: COLAB_HOST,
+                path: ASSIGN_PATH,
+                queryParams,
+                otherHeaders: {
+                  "X-Goog-Colab-Token": "mock-xsrf-token",
+                },
+              }),
+            )
+            .resolves(
+              new Response(
+                withXSSI(
+                  JSON.stringify({
+                    outcome: quotaTest.outcome,
+                  }),
+                ),
+                {
+                  status: 200,
+                },
+              ),
+            );
+
+          await expect(
+            client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+          ).to.eventually.be.rejectedWith(
+            InsufficientQuotaError,
+            /insufficient quota/,
+          );
+        });
+      }
+
+      it("rejects when user is banned", async () => {
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: "POST",
+              host: COLAB_HOST,
+              path: ASSIGN_PATH,
+              queryParams,
+              otherHeaders: {
+                "X-Goog-Colab-Token": "mock-xsrf-token",
               },
             }),
           )
           .resolves(
-            new Response(withXSSI(JSON.stringify(assignmentResponse)), {
-              status: 200,
-            }),
+            new Response(
+              withXSSI(
+                JSON.stringify({
+                  outcome: Outcome.DENYLISTED,
+                }),
+              ),
+              {
+                status: 200,
+              },
+            ),
           );
 
-        const expectedAssignment: Assignment = {
-          ...DEFAULT_ASSIGNMENT,
-          variant,
-          accelerator: accelerator ?? Accelerator.NONE,
-        };
         await expect(
-          client.assign(NOTEBOOK_HASH, variant, accelerator),
-        ).to.eventually.deep.equal({
-          assignment: expectedAssignment,
-          isNew: true,
-        });
-
-        sinon.assert.calledTwice(fetchStub);
+          client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+        ).to.eventually.be.rejectedWith(DenylistedError, /blocked/);
       });
-    }
-
-    it("rejects when assignment creation fails due to quota", async () => {
-      const wireNbh = uuidToWebSafeBase64(NOTEBOOK_HASH);
-      const mockGetResponse = {
-        acc: Accelerator.NONE,
-        nbh: wireNbh,
-        p: false,
-        token: "mock-xsrf-token",
-        variant: Variant.DEFAULT,
-      };
-      const path = "/tun/m/assign";
-      const queryParams: Record<string, string | RegExp> = {
-        nbh: wireNbh,
-      };
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: "GET",
-            host: COLAB_HOST,
-            path,
-            queryParams,
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockGetResponse)), {
-            status: 200,
-          }),
-        );
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: "POST",
-            host: COLAB_HOST,
-            path,
-            queryParams,
-            otherHeaders: {
-              "X-Goog-Colab-Token": "mock-xsrf-token",
-            },
-          }),
-        )
-        .resolves(new Response(undefined, { status: 412 }));
-
-      await expect(
-        client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
-      ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
     });
   });
 

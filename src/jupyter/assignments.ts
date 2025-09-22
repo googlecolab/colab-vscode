@@ -14,7 +14,12 @@ import fetch, {
 } from "node-fetch";
 import vscode from "vscode";
 import { Accelerator, Assignment, Variant } from "../colab/api";
-import { ColabClient, TooManyAssignmentsError } from "../colab/client";
+import {
+  ColabClient,
+  DenylistedError,
+  InsufficientQuotaError,
+  TooManyAssignmentsError,
+} from "../colab/client";
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -257,8 +262,18 @@ export class AssignmentManager implements vscode.Disposable {
         toAssign.accelerator,
       ));
     } catch (error) {
+      // TODO: Consider listing assignments to check if there are too many
+      // before the user goes through the assignment flow. This handling logic
+      // would still be needed for the rare race condition where an assignment
+      // is made (e.g. in Colab web) during the extension assignment flow.
       if (error instanceof TooManyAssignmentsError) {
         void this.notifyMaxAssignmentsExceeded();
+      }
+      if (error instanceof InsufficientQuotaError) {
+        void this.notifyInsufficientQuota(error);
+      }
+      if (error instanceof DenylistedError) {
+        this.notifyBanned(error);
       }
       throw error;
     }
@@ -318,7 +333,7 @@ export class AssignmentManager implements vscode.Disposable {
     // TODO: Account for the number of assignments from the VS Code and Colab
     // UIs in the error message and actions.
     const selectedAction = await this.vs.window.showErrorMessage(
-      "You have too many servers. Remove a server to continue.",
+      "Unable to assign server. You have too many, remove one to continue.",
       (await this.hasAssignedServer())
         ? AssignmentsExceededActions.REMOVE_SERVER
         : AssignmentsExceededActions.REMOVE_SERVER_COLAB_WEB,
@@ -336,12 +351,35 @@ export class AssignmentManager implements vscode.Disposable {
         return;
     }
   }
+
+  // TODO: Account for subscription tiers in actions.
+  private async notifyInsufficientQuota(error: InsufficientQuotaError) {
+    const selectedAction = await this.vs.window.showErrorMessage(
+      `Unable to assign server. ${error.message}`,
+      LEARN_MORE,
+    );
+    if (selectedAction === LEARN_MORE) {
+      this.vs.env.openExternal(
+        this.vs.Uri.parse(
+          "https://research.google.com/colaboratory/faq.html#resource-limits",
+        ),
+      );
+    }
+  }
+
+  private notifyBanned(error: DenylistedError) {
+    void this.vs.window.showErrorMessage(
+      `Unable to assign server. ${error.message}`,
+    );
+  }
 }
 
 enum AssignmentsExceededActions {
   REMOVE_SERVER = "Remove Server",
   REMOVE_SERVER_COLAB_WEB = "Remove Server at Colab Web",
 }
+
+const LEARN_MORE = "Learn More";
 
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
