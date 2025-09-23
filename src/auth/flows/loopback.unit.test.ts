@@ -9,6 +9,7 @@ import { AddressInfo } from "net";
 import { expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
 import sinon from "sinon";
+import { CONFIG } from "../../colab-config";
 import { authUriMatch } from "../../test/helpers/authentication";
 import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
 import { createHttpServerMock } from "../../test/helpers/http-server";
@@ -16,7 +17,6 @@ import { matchUri } from "../../test/helpers/uri";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { OAuth2TriggerOptions } from "./flows";
 import { LocalServerFlow } from "./loopback";
-import { CONFIG } from "../../colab-config";
 
 const DEFAULT_ADDRESS: AddressInfo = {
   address: "127.0.0.1",

@@ -7,7 +7,6 @@
 import { expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
 import * as sinon from "sinon";
-import vscode from "vscode";
 import { CONFIG } from "../../colab-config";
 import { PackageInfo } from "../../config/package-info";
 import { ExtensionUriHandler } from "../../system/uri-handler";
