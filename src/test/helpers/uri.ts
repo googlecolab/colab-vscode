@@ -122,7 +122,7 @@ export class TestUri implements vscode.Uri {
  * @param regExp - A regular expression to match against the stringified URI.
  * @returns A Sinon matcher for the URI.
  */
-export function matchUri(regExp: RegExp | string) {
+export function matchUri(regExp: RegExp | string): sinon.SinonMatcher {
   if (typeof regExp === "string") {
     regExp = new RegExp(regExp);
   }
