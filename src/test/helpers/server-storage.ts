@@ -12,11 +12,14 @@ import { ServerStorage } from "../../jupyter/storage";
  * An in memory fake implementation of {@link ServerStorage}.
  */
 export class ServerStorageFake
-  implements Pick<ServerStorage, "list" | "store" | "remove" | "clear">
+  implements Pick<ServerStorage, "list" | "get" | "store" | "remove" | "clear">
 {
   private servers?: ColabAssignedServer[];
 
   list = () => Promise.resolve(this.servers ?? []);
+
+  get = (serverId: UUID) =>
+    Promise.resolve(this.servers?.find((s) => s.id === serverId));
 
   store = (servers: ColabAssignedServer[]) => {
     this.servers = servers;

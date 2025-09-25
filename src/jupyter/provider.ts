@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID, UUID } from "crypto";
 import {
   Jupyter,
   JupyterServer,
@@ -77,7 +76,7 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
-    return this.getUpdatedAssignedServers();
+    return this.assignmentManager.getAssignedServers();
   }
 
   /**
@@ -90,7 +89,7 @@ export class ColabJupyterServerProvider
     if (!isUUID(server.id)) {
       throw new Error("Unexpected server ID format, expected UUID");
     }
-    return this.getServer(server.id);
+    return this.assignmentManager.refreshConnection(server.id);
   }
 
   /**
@@ -145,11 +144,6 @@ export class ColabJupyterServerProvider
     }
   }
 
-  private async getUpdatedAssignedServers(): Promise<JupyterServer[]> {
-    await this.assignmentManager.reconcileAssignedServers();
-    return await this.assignmentManager.getAssignedServers();
-  }
-
   private async provideRelevantCommands(): Promise<JupyterServerCommand[]> {
     const commands = [NEW_SERVER, OPEN_COLAB_WEB];
     try {
@@ -164,15 +158,6 @@ export class ColabJupyterServerProvider
     return commands;
   }
 
-  private async getServer(id: UUID): Promise<JupyterServer> {
-    const assignedServers = await this.assignmentManager.getAssignedServers();
-    const assignedServer = assignedServers.find((s) => s.id === id);
-    if (!assignedServer) {
-      throw new Error("Server not found");
-    }
-    return await this.assignmentManager.refreshConnection(assignedServer);
-  }
-
   private async assignServer(): Promise<JupyterServer> {
     const serverType = await this.serverPicker.prompt(
       await this.assignmentManager.getAvailableServerDescriptors(),
@@ -180,7 +165,7 @@ export class ColabJupyterServerProvider
     if (!serverType) {
       throw new this.vs.CancellationError();
     }
-    return this.assignmentManager.assignServer(randomUUID(), serverType);
+    return this.assignmentManager.assignServer(serverType);
   }
 
   private handleAssignmentsChange(e: AssignmentChangeEvent): void {

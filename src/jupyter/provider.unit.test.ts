@@ -7,7 +7,6 @@
 import { randomUUID } from "crypto";
 import {
   Jupyter,
-  JupyterServer,
   JupyterServerCollection,
   JupyterServerCommandProvider,
   JupyterServerProvider,
@@ -34,7 +33,6 @@ import {
   newVsCodeStub as newVsCodeStub,
   VsCodeStub,
 } from "../test/helpers/vscode";
-import { isUUID } from "../utils/uuid";
 import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 import { ColabJupyterServerProvider } from "./provider";
 import {
@@ -169,26 +167,6 @@ describe("ColabJupyterServerProvider", () => {
 
       expect(servers).to.deep.equal(assignedServers);
     });
-
-    it("returns only reconciled servers", async () => {
-      const nonReconciledServers = [
-        DEFAULT_SERVER,
-        { ...DEFAULT_SERVER, id: randomUUID() },
-      ];
-      // Setup the assignment manager stub to return two servers, but then
-      // once reconciled, return only the first one. This effectively ensures
-      // that the server provider only returns servers that are reconciled.
-      assignmentStub.getAssignedServers.resolves(nonReconciledServers);
-      assignmentStub.reconcileAssignedServers.callsFake(() => {
-        assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
-        return Promise.resolve();
-      });
-
-      const servers =
-        await serverProvider.provideJupyterServers(cancellationToken);
-
-      expect(servers).to.deep.equal([DEFAULT_SERVER]);
-    });
   });
 
   describe("resolveJupyterServer", () => {
@@ -198,15 +176,6 @@ describe("ColabJupyterServerProvider", () => {
       expect(() =>
         serverProvider.resolveJupyterServer(server, cancellationToken),
       ).to.throw(/expected UUID/);
-    });
-
-    it("rejects if the server is not found", async () => {
-      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
-      const server: JupyterServer = { id: randomUUID(), label: "foo" };
-
-      await expect(
-        serverProvider.resolveJupyterServer(server, cancellationToken),
-      ).to.eventually.be.rejectedWith(/not found/);
     });
 
     it("returns the assigned server with refreshed connection info", async () => {
@@ -219,7 +188,7 @@ describe("ColabJupyterServerProvider", () => {
       };
       assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
       assignmentStub.refreshConnection
-        .withArgs(DEFAULT_SERVER)
+        .withArgs(DEFAULT_SERVER.id)
         .resolves(refreshedServer);
 
       await expect(
@@ -343,7 +312,7 @@ describe("ColabJupyterServerProvider", () => {
             .withArgs(availableServers)
             .resolves(selectedServer);
           assignmentStub.assignServer
-            .withArgs(sinon.match(isUUID), selectedServer)
+            .withArgs(selectedServer)
             .resolves(DEFAULT_SERVER);
 
           await expect(

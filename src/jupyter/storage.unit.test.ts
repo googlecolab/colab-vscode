@@ -52,17 +52,35 @@ describe("ServerStorage", () => {
 
   describe("when no servers are stored", () => {
     describe("list", () => {
-      beforeEach(async () => {
+      it("returns an empty array", async () => {
         await expect(serverStorage.list()).to.eventually.deep.equal([]);
+
+        sinon.assert.calledOnce(secretsStub.get);
       });
 
-      it("returns an empty array", () => {
+      it("caches empty array", async () => {
+        await serverStorage.list();
+
+        // Calling the second time uses the cache.
+        await serverStorage.list();
+
+        sinon.assert.calledOnce(secretsStub.get);
+      });
+    });
+
+    describe("get", () => {
+      const id = randomUUID();
+
+      it("returns undefined", async () => {
+        await expect(serverStorage.get(id)).to.eventually.be.undefined;
+
         sinon.assert.calledOnce(secretsStub.get);
       });
 
       it("caches empty array", async () => {
         // Calling the second time uses the cache.
-        await expect(serverStorage.list()).to.eventually.deep.equal([]);
+        await expect(serverStorage.get(id)).to.eventually.be.undefined;
+        await expect(serverStorage.get(id)).to.eventually.be.undefined;
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -142,14 +160,29 @@ describe("ServerStorage", () => {
       });
 
       it("caches the returned server", async () => {
-        await expect(serverStorage.list()).to.eventually.deep.equal([
-          defaultServer,
-        ]);
+        await serverStorage.list();
 
         // Calling the second time uses the cache.
-        await expect(serverStorage.list()).to.eventually.deep.equal([
-          defaultServer,
-        ]);
+        await serverStorage.list();
+
+        sinon.assert.calledOnce(secretsStub.get);
+      });
+    });
+
+    describe("get", () => {
+      it("returns the server", async () => {
+        await expect(
+          serverStorage.get(defaultServer.id),
+        ).to.eventually.deep.equal(defaultServer);
+
+        sinon.assert.calledOnce(secretsStub.get);
+      });
+
+      it("caches the returned server", async () => {
+        await serverStorage.get(defaultServer.id);
+
+        // Calling the second time uses the cache.
+        await serverStorage.get(defaultServer.id);
 
         sinon.assert.calledOnce(secretsStub.get);
       });
@@ -335,6 +368,26 @@ describe("ServerStorage", () => {
         await expect(serverStorage.list()).to.eventually.have.same.deep.members(
           servers,
         );
+
+        sinon.assert.calledOnce(secretsStub.get);
+      });
+    });
+
+    describe("get", () => {
+      it("returns either of the servers", async () => {
+        await expect(serverStorage.get(servers[0].id)).to.eventually.deep.equal(
+          servers[0],
+        );
+        await expect(serverStorage.get(servers[1].id)).to.eventually.deep.equal(
+          servers[1],
+        );
+      });
+
+      it("caches the returned servers", async () => {
+        await serverStorage.get(servers[0].id);
+
+        // Calling the second time uses the cache.
+        await serverStorage.get(servers[1].id);
 
         sinon.assert.calledOnce(secretsStub.get);
       });

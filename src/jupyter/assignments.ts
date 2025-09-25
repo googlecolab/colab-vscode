@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
+import { randomUUID, UUID } from "crypto";
 import fetch, {
   Headers,
   Request,
@@ -13,7 +13,12 @@ import fetch, {
   Response,
 } from "node-fetch";
 import vscode from "vscode";
-import { Accelerator, Assignment, Variant } from "../colab/api";
+import {
+  Accelerator,
+  Assignment,
+  RuntimeProxyInfo,
+  Variant,
+} from "../colab/api";
 import {
   ColabClient,
   DenylistedError,
@@ -153,6 +158,7 @@ export class AssignmentManager implements vscode.Disposable {
    * Returns whether or not the user has at least one assigned server.
    */
   async hasAssignedServer(): Promise<boolean> {
+    await this.reconcileAssignedServers();
     return (await this.storage.list()).length > 0;
   }
 
@@ -163,6 +169,7 @@ export class AssignmentManager implements vscode.Disposable {
    * and can be refreshed by calling {@link refreshConnection}.
    */
   async getAssignedServers(): Promise<ColabAssignedServer[]> {
+    await this.reconcileAssignedServers();
     return (await this.storage.list()).map((server) => ({
       ...server,
       connectionInformation: {
@@ -175,34 +182,85 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Assigns a server.
    *
-   * @param id - The ID of the server to assign.
    * @param descriptor - The server descriptor used as a template for the server
    * being assigned.
    * @returns The assigned server.
    */
   async assignServer(
-    id: UUID,
     descriptor: ColabServerDescriptor,
   ): Promise<ColabAssignedServer> {
-    return this.assignOrRefresh({
-      id,
-      label: descriptor.label,
-      variant: descriptor.variant,
-      accelerator: descriptor.accelerator,
+    const id = randomUUID();
+    let assignment: Assignment;
+    try {
+      ({ assignment } = await this.client.assign(
+        id,
+        descriptor.variant,
+        descriptor.accelerator,
+      ));
+    } catch (error) {
+      // TODO: Consider listing assignments to check if there are too many
+      // before the user goes through the assignment flow. This handling logic
+      // would still be needed for the rare race condition where an assignment
+      // is made (e.g. in Colab web) during the extension assignment flow.
+      if (error instanceof TooManyAssignmentsError) {
+        void this.notifyMaxAssignmentsExceeded();
+      }
+      if (error instanceof InsufficientQuotaError) {
+        void this.notifyInsufficientQuota(error);
+      }
+      if (error instanceof DenylistedError) {
+        this.notifyBanned(error);
+      }
+      throw error;
+    }
+    const server = this.toAssignedServer(
+      {
+        id,
+        label: descriptor.label,
+        variant: assignment.variant,
+        accelerator: assignment.accelerator,
+      },
+      assignment.endpoint,
+      assignment.runtimeProxyInfo,
+    );
+    await this.storage.store([server]);
+    await this.signalChange({
+      added: [server],
+      removed: [],
+      changed: [],
     });
+    return server;
   }
 
   /**
    * Refreshes the connection information for a server.
    *
-   * @param server - The server to refresh.
+   * @param id - The ID of the assigned server to refresh.
    * @returns The server with updated connection information: its token and
    * fetch implementation.
+   * @throws If there is no assigned server with the given ID.
    */
-  async refreshConnection(
-    server: ColabJupyterServer,
-  ): Promise<ColabAssignedServer> {
-    return this.assignOrRefresh(server);
+  async refreshConnection(id: UUID): Promise<ColabAssignedServer> {
+    await this.reconcileAssignedServers();
+    const server = await this.storage.get(id);
+    if (!server) {
+      throw new Error("Server is not assigned.");
+    }
+    const newConnectionInfo = await this.client.refreshConnection(
+      server.endpoint,
+    );
+    const updatedServer = this.toAssignedServer(
+      server,
+      server.endpoint,
+      newConnectionInfo,
+    );
+    await this.storage.store([updatedServer]);
+    await this.signalChange({
+      added: [],
+      removed: [],
+      changed: [updatedServer],
+    });
+    return updatedServer;
   }
 
   /**
@@ -243,68 +301,17 @@ export class AssignmentManager implements vscode.Disposable {
     await this.client.unassign(server.endpoint);
   }
 
-  /**
-   * Assigns a new server or refreshes the connection information for an
-   * existing server.
-   *
-   * @param toAssign - The server to assign or refresh.
-   * @returns The assigned server.
-   */
-  private async assignOrRefresh(
-    toAssign: ColabJupyterServer,
-  ): Promise<ColabAssignedServer> {
-    let assignment: Assignment;
-    let isNew: boolean;
-    try {
-      ({ assignment, isNew } = await this.client.assign(
-        toAssign.id,
-        toAssign.variant,
-        toAssign.accelerator,
-      ));
-    } catch (error) {
-      // TODO: Consider listing assignments to check if there are too many
-      // before the user goes through the assignment flow. This handling logic
-      // would still be needed for the rare race condition where an assignment
-      // is made (e.g. in Colab web) during the extension assignment flow.
-      if (error instanceof TooManyAssignmentsError) {
-        void this.notifyMaxAssignmentsExceeded();
-      }
-      if (error instanceof InsufficientQuotaError) {
-        void this.notifyInsufficientQuota(error);
-      }
-      if (error instanceof DenylistedError) {
-        this.notifyBanned(error);
-      }
-      throw error;
-    }
-    const server = this.serverWithConnectionInfo(
-      {
-        id: toAssign.id,
-        label: toAssign.label,
-        variant: assignment.variant,
-        accelerator: assignment.accelerator,
-      },
-      assignment,
-    );
-    await this.storage.store([server]);
-    await this.signalChange({
-      added: isNew ? [server] : [],
-      removed: [],
-      changed: isNew ? [] : [server],
-    });
-    return server;
-  }
-
   private async signalChange(e: AssignmentChangeEvent): Promise<void> {
     await this.setHasAssignedServerContext();
     this.assignmentChange.fire(e);
   }
 
-  private serverWithConnectionInfo(
+  private toAssignedServer(
     server: ColabJupyterServer,
-    assignment: Assignment,
+    endpoint: string,
+    connectionInfo: RuntimeProxyInfo,
   ): ColabAssignedServer {
-    const { url, token } = assignment.runtimeProxyInfo;
+    const { url, token } = connectionInfo;
     const headers: Record<string, string> =
       server.connectionInformation?.headers ?? {};
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
@@ -315,7 +322,7 @@ export class AssignmentManager implements vscode.Disposable {
       label: server.label,
       variant: server.variant,
       accelerator: server.accelerator,
-      endpoint: assignment.endpoint,
+      endpoint: endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
         token,

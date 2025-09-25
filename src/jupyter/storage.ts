@@ -75,6 +75,17 @@ export class ServerStorage {
   }
 
   /**
+   * Get a single assigned server by its ID.
+   *
+   * @param id - The ID of the server to retrieve.
+   * @returns The assigned server if found, otherwise undefined.
+   */
+  async get(id: UUID): Promise<ColabAssignedServer | undefined> {
+    const servers = await this.list();
+    return servers.find((server) => server.id === id);
+  }
+
+  /**
    * Stores the provided assigned servers.
    *
    * Servers are unique by their ID. If a server with the same ID is already

@@ -350,20 +350,28 @@ describe("AssignmentManager", () => {
 
   describe("hasAssignedServers", () => {
     it("returns false when no servers are assigned", async () => {
+      colabClientStub.listAssignments.resolves([]);
+
       await expect(assignmentManager.hasAssignedServer()).to.eventually.be
         .false;
     });
 
     it("returns true when at least one server is assigned", async () => {
+      colabClientStub.listAssignments.resolves([defaultAssignment]);
       await serverStorage.store([defaultServer]);
 
       await expect(assignmentManager.hasAssignedServer()).to.eventually.be.true;
     });
 
     it("returns true when multiple servers are assigned", async () => {
+      const secondEndpoint = "m-s-foo";
+      colabClientStub.listAssignments.resolves([
+        defaultAssignment,
+        { ...defaultAssignment, endpoint: secondEndpoint },
+      ]);
       await serverStorage.store([
         { ...defaultServer, id: randomUUID() },
-        { ...defaultServer, id: randomUUID() },
+        { ...defaultServer, id: randomUUID(), endpoint: secondEndpoint },
       ]);
 
       await expect(assignmentManager.hasAssignedServer()).to.eventually.be.true;
@@ -379,6 +387,7 @@ describe("AssignmentManager", () => {
 
     describe("when a server is assigned", () => {
       beforeEach(async () => {
+        colabClientStub.listAssignments.resolves([defaultAssignment]);
         await serverStorage.store([defaultServer]);
       });
 
@@ -440,10 +449,7 @@ describe("AssignmentManager", () => {
         });
 
       expect(
-        assignmentManager.assignServer(
-          randomUUID(),
-          defaultAssignmentDescriptor,
-        ),
+        assignmentManager.assignServer(defaultAssignmentDescriptor),
       ).to.be.rejectedWith(/connection info/);
     });
 
@@ -466,10 +472,7 @@ describe("AssignmentManager", () => {
         });
 
       expect(
-        assignmentManager.assignServer(
-          randomUUID(),
-          defaultAssignmentDescriptor,
-        ),
+        assignmentManager.assignServer(defaultAssignmentDescriptor),
       ).to.be.rejectedWith(/connection info/);
     });
 
@@ -479,21 +482,24 @@ describe("AssignmentManager", () => {
       beforeEach(async () => {
         colabClientStub.assign
           .withArgs(
-            defaultServer.id,
+            sinon.match(isUUID),
             defaultServer.variant,
             defaultServer.accelerator,
           )
           .resolves({ assignment: defaultAssignment, isNew: false });
+        colabClientStub.listAssignments.resolves([defaultAssignment]);
         await serverStorage.store([defaultServer]);
 
         assignedServer = await assignmentManager.assignServer(
-          defaultServer.id,
           defaultAssignmentDescriptor,
         );
       });
 
       it("stores and returns the server", () => {
-        expect(stripFetch(assignedServer)).to.deep.equal(defaultServer);
+        const { id: assignedId, ...got } = stripFetch(assignedServer);
+        const { id: defaultId, ...want } = defaultServer;
+        expect(got).to.deep.equal(want);
+        expect(assignedId).to.satisfy(isUUID);
       });
 
       it("sets the hasAssignedServer context to true", () => {
@@ -506,10 +512,11 @@ describe("AssignmentManager", () => {
       });
 
       it("emits an assignment change event", () => {
+        const { id: defaultId, ...want } = defaultServer;
         sinon.assert.calledOnceWithMatch(assignmentChangeListener, {
-          added: [],
+          added: [sinon.match(want)],
           removed: [],
-          changed: [sinon.match(defaultServer)],
+          changed: [],
         });
       });
 
@@ -536,10 +543,7 @@ describe("AssignmentManager", () => {
 
       it("notifies the user", async () => {
         await expect(
-          assignmentManager.assignServer(
-            defaultServer.id,
-            defaultAssignmentDescriptor,
-          ),
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
         sinon.assert.calledOnceWithMatch(
@@ -555,10 +559,7 @@ describe("AssignmentManager", () => {
         );
 
         await expect(
-          assignmentManager.assignServer(
-            defaultServer.id,
-            defaultAssignmentDescriptor,
-          ),
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
         sinon.assert.calledOnceWithExactly(
@@ -574,10 +575,7 @@ describe("AssignmentManager", () => {
         );
 
         await expect(
-          assignmentManager.assignServer(
-            defaultServer.id,
-            defaultAssignmentDescriptor,
-          ),
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
         sinon.assert.calledOnceWithMatch(
@@ -596,10 +594,7 @@ describe("AssignmentManager", () => {
 
       it("notifies the user", async () => {
         await expect(
-          assignmentManager.assignServer(
-            defaultServer.id,
-            defaultAssignmentDescriptor,
-          ),
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
         ).to.eventually.be.rejectedWith(InsufficientQuotaError);
 
         sinon.assert.calledOnceWithMatch(
@@ -615,10 +610,7 @@ describe("AssignmentManager", () => {
         );
 
         await expect(
-          assignmentManager.assignServer(
-            defaultServer.id,
-            defaultAssignmentDescriptor,
-          ),
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
         ).to.eventually.be.rejectedWith(InsufficientQuotaError);
 
         sinon.assert.calledOnceWithMatch(
@@ -640,10 +632,7 @@ describe("AssignmentManager", () => {
 
       it("notifies the user", async () => {
         await expect(
-          assignmentManager.assignServer(
-            defaultServer.id,
-            defaultAssignmentDescriptor,
-          ),
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
         ).to.eventually.be.rejectedWith(DenylistedError);
 
         sinon.assert.calledOnceWithMatch(
@@ -744,26 +733,18 @@ describe("AssignmentManager", () => {
     let refreshedServer: ColabAssignedServer;
 
     beforeEach(async () => {
-      colabClientStub.assign
-        .withArgs(
-          defaultServer.id,
-          defaultServer.variant,
-          defaultServer.accelerator,
-        )
-        .resolves({
-          assignment: {
-            ...defaultAssignment,
-            runtimeProxyInfo: {
-              ...defaultAssignment.runtimeProxyInfo,
-              token: newToken,
-            },
-          },
-          isNew: false,
-        });
+      colabClientStub.listAssignments.resolves([defaultAssignment]);
       await serverStorage.store([defaultServer]);
+      colabClientStub.refreshConnection
+        .withArgs(defaultServer.endpoint)
+        .resolves({
+          ...defaultAssignment.runtimeProxyInfo,
+          token: newToken,
+        });
 
-      refreshedServer =
-        await assignmentManager.refreshConnection(defaultServer);
+      refreshedServer = await assignmentManager.refreshConnection(
+        defaultServer.id,
+      );
     });
 
     it("stores and returns the server with updated connection info", () => {
