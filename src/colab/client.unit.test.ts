@@ -23,6 +23,7 @@ import {
   Kernel,
   Session,
   Outcome,
+  ListedAssignments,
 } from "./api";
 import {
   ColabClient,
@@ -57,18 +58,22 @@ const DEFAULT_ASSIGNMENT_RESPONSE = {
     url: "https://mock-url.com",
   },
 };
-const { fit, runtimeProxyInfo, sub, subTier, ...rest } =
-  DEFAULT_ASSIGNMENT_RESPONSE;
-const { tokenExpiresInSeconds, ...rpRest } = runtimeProxyInfo;
+const DEFAULT_LIST_ASSIGNMENTS_RESPONSE: ListedAssignments = {
+  assignments: [
+    {
+      accelerator: DEFAULT_ASSIGNMENT_RESPONSE.accelerator,
+      endpoint: DEFAULT_ASSIGNMENT_RESPONSE.endpoint,
+      variant: DEFAULT_ASSIGNMENT_RESPONSE.variant,
+      machineShape: DEFAULT_ASSIGNMENT_RESPONSE.machineShape,
+    },
+  ],
+};
+const { fit, sub, subTier, ...rest } = DEFAULT_ASSIGNMENT_RESPONSE;
 const DEFAULT_ASSIGNMENT: Assignment = {
   ...rest,
   idleTimeoutSec: fit,
   subscriptionState: sub,
   subscriptionTier: subTier,
-  runtimeProxyInfo: {
-    ...rpRest,
-    expirySec: tokenExpiresInSeconds,
-  },
 };
 
 describe("ColabClient", () => {
@@ -387,18 +392,16 @@ describe("ColabClient", () => {
       )
       .resolves(
         new Response(
-          withXSSI(
-            JSON.stringify({ assignments: [DEFAULT_ASSIGNMENT_RESPONSE] }),
-          ),
+          withXSSI(JSON.stringify(DEFAULT_LIST_ASSIGNMENTS_RESPONSE)),
           {
             status: 200,
           },
         ),
       );
 
-    await expect(client.listAssignments()).to.eventually.deep.equal([
-      DEFAULT_ASSIGNMENT,
-    ]);
+    await expect(client.listAssignments()).to.eventually.deep.equal(
+      DEFAULT_LIST_ASSIGNMENTS_RESPONSE.assignments,
+    );
 
     sinon.assert.calledOnce(fetchStub);
   });

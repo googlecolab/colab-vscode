@@ -19,7 +19,6 @@ import {
   CcuInfoSchema,
   AssignmentSchema,
   GetAssignmentResponseSchema,
-  AssignmentsSchema,
   KernelSchema,
   Kernel,
   SessionSchema,
@@ -29,6 +28,8 @@ import {
   PostAssignmentResponse,
   Outcome,
   PostAssignmentResponseSchema,
+  ListedAssignmentsSchema,
+  ListedAssignment,
 } from "./api";
 import {
   ACCEPT_JSON_HEADER,
@@ -201,11 +202,11 @@ export class ColabClient {
    *
    * @returns The list of assignments.
    */
-  async listAssignments(signal?: AbortSignal): Promise<Assignment[]> {
+  async listAssignments(signal?: AbortSignal): Promise<ListedAssignment[]> {
     const assignments = await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/assignments`, this.colabDomain),
       { method: "GET", signal },
-      AssignmentsSchema,
+      ListedAssignmentsSchema,
     );
     return assignments.assignments;
   }

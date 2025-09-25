@@ -263,7 +263,7 @@ export const GetAssignmentResponseSchema = z
 /** The response when getting an assignment. */
 export type GetAssignmentResponse = z.infer<typeof GetAssignmentResponseSchema>;
 
-const RuntimeProxyInfoWireSchema = z.object({
+export const RuntimeProxyInfoSchema = z.object({
   /** Token for the runtime proxy. */
   token: z.string(),
   /** Token expiration time in seconds. */
@@ -271,14 +271,6 @@ const RuntimeProxyInfoWireSchema = z.object({
   /** URL of the runtime proxy. */
   url: z.string(),
 });
-
-export const RuntimeProxyInfoSchema = RuntimeProxyInfoWireSchema.transform(
-  ({ tokenExpiresInSeconds, ...rest }) => ({
-    ...rest,
-    /** Token expiration time in seconds. */
-    expirySec: tokenExpiresInSeconds,
-  }),
-);
 export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 
 /** The response when creating an assignment. */
@@ -316,20 +308,41 @@ export const PostAssignmentResponseSchema = z.object({
   /** The machine shape. */
   machineShape: z.enum(Shape).optional(),
   /** Information about the runtime proxy. */
-  runtimeProxyInfo: RuntimeProxyInfoWireSchema.optional(),
+  runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
 });
 /** The response when creating an assignment. */
 export type PostAssignmentResponse = z.infer<
   typeof PostAssignmentResponseSchema
 >;
 
+/** The schema of an assignment when listing all. */
+export const ListedAssignmentSchema = PostAssignmentResponseSchema.required({
+  accelerator: true,
+  endpoint: true,
+  variant: true,
+  machineShape: true,
+}).omit({
+  fit: true,
+  allowedCredentials: true,
+  sub: true,
+  subTier: true,
+  outcome: true,
+  runtimeProxyInfo: true,
+});
+/** An abbreviated, listed assignment in Colab. */
+export type ListedAssignment = z.infer<typeof ListedAssignmentSchema>;
+
+/** The schema of the Colab API's list assignments endpoint. */
+export const ListedAssignmentsSchema = z.object({
+  assignments: z.array(ListedAssignmentSchema),
+});
+/** Abbreviated, listed assignments in Colab. */
+export type ListedAssignments = z.infer<typeof ListedAssignmentsSchema>;
+
 /** A machine assignment in Colab. */
-export const AssignmentSchema = PostAssignmentResponseSchema.extend({
-  runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
+export const AssignmentSchema = PostAssignmentResponseSchema.omit({
+  outcome: true,
 })
-  .omit({
-    outcome: true,
-  })
   // fit, sub, subTier and runtimeProxyInfo come back on POST but not when
   // listing all.
   .required({
@@ -337,6 +350,7 @@ export const AssignmentSchema = PostAssignmentResponseSchema.extend({
     endpoint: true,
     variant: true,
     machineShape: true,
+    runtimeProxyInfo: true,
   })
   .transform(({ fit, sub, subTier, ...rest }) => ({
     ...rest,
@@ -349,11 +363,6 @@ export const AssignmentSchema = PostAssignmentResponseSchema.extend({
   }));
 /** A machine assignment in Colab. */
 export type Assignment = z.infer<typeof AssignmentSchema>;
-
-/** The schema of the Colab API's list assignments endpoint. */
-export const AssignmentsSchema = z.object({
-  assignments: z.array(AssignmentSchema),
-});
 
 /** A Colab Jupyter kernel returned from the Colab API. */
 // This can be obtained by querying the Jupyter REST API's /api/spec.yaml

@@ -55,7 +55,7 @@ const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
   machineShape: Shape.STANDARD,
   runtimeProxyInfo: {
     token: "mock-token",
-    expirySec: 42,
+    tokenExpiresInSeconds: 42,
     url: "https://example.com",
   },
 };
@@ -421,26 +421,6 @@ describe("AssignmentManager", () => {
   });
 
   describe("assignServer", () => {
-    it("throws an error when the assignment does not include runtime proxy info", () => {
-      colabClientStub.assign
-        .withArgs(
-          sinon.match(isUUID),
-          defaultAssignment.variant,
-          defaultAssignment.accelerator,
-        )
-        .resolves({
-          assignment: { ...defaultAssignment, runtimeProxyInfo: undefined },
-          isNew: false,
-        });
-
-      expect(
-        assignmentManager.assignServer(
-          randomUUID(),
-          defaultAssignmentDescriptor,
-        ),
-      ).to.be.rejectedWith(/connection info/);
-    });
-
     it("throws an error when the assignment does not include a URL to connect to", () => {
       colabClientStub.assign
         .withArgs(

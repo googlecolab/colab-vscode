@@ -304,10 +304,7 @@ export class AssignmentManager implements vscode.Disposable {
     server: ColabJupyterServer,
     assignment: Assignment,
   ): ColabAssignedServer {
-    const { url, token } = assignment.runtimeProxyInfo ?? {};
-    if (!url || !token) {
-      throw new Error("Unable to obtain connection information for server.");
-    }
+    const { url, token } = assignment.runtimeProxyInfo;
     const headers: Record<string, string> =
       server.connectionInformation?.headers ?? {};
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
