@@ -30,6 +30,8 @@ import {
   PostAssignmentResponseSchema,
   ListedAssignmentsSchema,
   ListedAssignment,
+  RuntimeProxyInfo,
+  RuntimeProxyInfoSchema,
 } from "./api";
 import {
   ACCEPT_JSON_HEADER,
@@ -74,6 +76,7 @@ export class ColabClient {
   /**
    * Gets the user's subscription tier.
    *
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The user's subscription tier.
    */
   async getSubscriptionTier(signal?: AbortSignal): Promise<SubscriptionTier> {
@@ -88,6 +91,7 @@ export class ColabClient {
   /**
    * Gets the current Colab Compute Units (CCU) information.
    *
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The current CCU information.
    */
   async getCcuInfo(signal?: AbortSignal): Promise<CcuInfo> {
@@ -106,6 +110,7 @@ export class ColabClient {
    * This value should always be a string of length 44.
    * @param variant - The machine variant to assign.
    * @param accelerator - The accelerator to assign.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The assignment which is assigned to the user.
    * @throws TooManyAssignmentsError if the user has too many assignments.
    * @throws InsufficientQuotaError if the user lacks the quota to assign.
@@ -179,6 +184,7 @@ export class ColabClient {
    * Unassigns the specified machine assignment.
    *
    * @param endpoint - The endpoint to unassign.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    */
   async unassign(endpoint: string, signal?: AbortSignal): Promise<void> {
     const url = new URL(
@@ -198,8 +204,37 @@ export class ColabClient {
   }
 
   /**
+   * Refreshes the connection for the given endpoint.
+   *
+   * @param endpoint - The server endpoint to refresh the connection for.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns The refreshed runtime proxy information.
+   */
+  async refreshConnection(
+    endpoint: string,
+    signal?: AbortSignal,
+  ): Promise<RuntimeProxyInfo> {
+    const url = new URL(
+      `${TUN_ENDPOINT}/runtime-proxy-token`,
+      this.colabDomain,
+    );
+    url.searchParams.append("endpoint", endpoint);
+    url.searchParams.append("port", "8080");
+    return await this.issueRequest(
+      url,
+      {
+        method: "GET",
+        headers: { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value },
+        signal,
+      },
+      RuntimeProxyInfoSchema,
+    );
+  }
+
+  /**
    * Lists all assignments.
    *
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The list of assignments.
    */
   async listAssignments(signal?: AbortSignal): Promise<ListedAssignment[]> {
@@ -212,9 +247,10 @@ export class ColabClient {
   }
 
   /**
-   * Lists all kernels for a given endpoint.
+   * Lists all kernels for a given server.
    *
-   * @param endpoint - The assigned endpoint to list kernels for.
+   * @param server - The server to list kernels for.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The list of kernels.
    */
   async listKernels(
@@ -240,9 +276,10 @@ export class ColabClient {
   }
 
   /**
-   * Lists all sessions for a given endpoint.
+   * Lists all sessions for a given server.
    *
-   * @param endpoint - The assigned endpoint to list sessions for.
+   * @param server - The server to list sessions for.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The list of sessions.
    */
   async listSessions(
@@ -270,8 +307,9 @@ export class ColabClient {
   /**
    * Deletes the given session
    *
-   * @param endpoint - The endpoint to delete the session from.
+   * @param server - The server with the session to delete.
    * @param sessionId - The ID of the session to delete.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    */
   async deleteSession(
     server: ColabAssignedServer,
@@ -296,6 +334,7 @@ export class ColabClient {
    * Sends a keep-alive ping to the given endpoint.
    *
    * @param endpoint - The assigned endpoint to keep alive.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
    */
   async sendKeepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
     await this.issueRequest(

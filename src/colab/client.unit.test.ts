@@ -24,6 +24,7 @@ import {
   Session,
   Outcome,
   ListedAssignments,
+  RuntimeProxyInfo,
 } from "./api";
 import {
   ColabClient,
@@ -451,6 +452,36 @@ describe("ColabClient", () => {
           token: "123",
         },
       };
+    });
+
+    it("successfully refreshes the connection", async () => {
+      const newConnectionInfo: RuntimeProxyInfo = {
+        token: "new",
+        tokenExpiresInSeconds: 3600,
+        url: assignedServerUrl.toString(),
+      };
+      const path = "/tun/m/runtime-proxy-token";
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: "GET",
+            host: COLAB_HOST,
+            path: path,
+            queryParams: {
+              endpoint: assignedServer.endpoint,
+              port: "8080",
+            },
+          }),
+        )
+        .resolves(
+          new Response(withXSSI(JSON.stringify(newConnectionInfo)), {
+            status: 200,
+          }),
+        );
+
+      await expect(
+        client.refreshConnection(assignedServer.endpoint),
+      ).to.eventually.deep.equal(newConnectionInfo);
     });
 
     it("successfully lists kernels", async () => {
