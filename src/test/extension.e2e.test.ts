@@ -52,6 +52,20 @@ describe("Colab Extension", function () {
       // Create an executable notebook. Note that it's created with a single
       // code cell by default.
       await workbench.executeCommand("Create: New Jupyter Notebook");
+
+      // Wait for the notebook editor to finish loading before we interact with
+      // it.
+      await driver.wait(
+        async () => {
+          const editors = await driver.findElements(
+            By.className("notebook-editor"),
+          );
+          return editors.length > 0;
+        },
+        ELEMENT_WAIT_MS,
+        "Notebook editor did not load in time",
+      );
+
       await workbench.executeCommand("Notebook: Edit Cell");
       const cell = await driver.switchTo().activeElement();
       await cell.sendKeys("1 + 1");
