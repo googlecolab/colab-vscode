@@ -86,7 +86,6 @@ describe("GoogleAuthProvider", () => {
 
   beforeEach(() => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
-    fakeClock.setSystemTime(NOW);
     vsCodeStub = newVsCodeStub();
     fetchStub = sinon.stub(fetch, "default");
     storageStub = sinon.createStubInstance(AuthStorage);
