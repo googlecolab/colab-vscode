@@ -16,6 +16,7 @@ import { ColabAssignedServer } from "./servers";
 import { ServerStorage } from "./storage";
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
+const DEFAULT_ASSIGNED_DATE = new Date();
 
 describe("ServerStorage", () => {
   let vsCodeStub: VsCodeStub;
@@ -39,6 +40,7 @@ describe("ServerStorage", () => {
         token: "123",
         headers: { foo: "bar" },
       },
+      dateAssigned: DEFAULT_ASSIGNED_DATE,
     };
     serverStorage = new ServerStorage(
       vsCodeStub.asVsCode(),

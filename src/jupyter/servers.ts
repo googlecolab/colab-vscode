@@ -40,6 +40,7 @@ export type ColabAssignedServer = ColabJupyterServer & {
   readonly connectionInformation: JupyterServerConnectionInformation & {
     readonly token: string;
   };
+  readonly dateAssigned: Date;
 };
 
 /**

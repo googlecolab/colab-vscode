@@ -81,6 +81,7 @@ describe("ServerKeepAliveController", () => {
           [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         },
       },
+      dateAssigned: new Date(),
     };
     keepAlive = new ServerKeepAliveController(
       vsCodeStub.asVsCode(),

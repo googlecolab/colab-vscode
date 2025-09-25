@@ -54,6 +54,7 @@ describe("Server Commands", () => {
         token: "123",
         headers: { foo: "bar" },
       },
+      dateAssigned: new Date(),
     };
   });
 
