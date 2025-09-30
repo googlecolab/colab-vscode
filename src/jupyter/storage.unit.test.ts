@@ -78,8 +78,8 @@ describe("ServerStorage", () => {
       });
 
       it("caches empty array", async () => {
-        // Calling the second time uses the cache.
         await expect(serverStorage.get(id)).to.eventually.be.undefined;
+        // Calling the second time uses the cache.
         await expect(serverStorage.get(id)).to.eventually.be.undefined;
 
         sinon.assert.calledOnce(secretsStub.get);
