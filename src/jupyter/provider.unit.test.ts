@@ -55,6 +55,7 @@ const DEFAULT_SERVER: ColabAssignedServer = {
       [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
     },
   },
+  dateAssigned: new Date(),
 };
 
 describe("ColabJupyterServerProvider", () => {

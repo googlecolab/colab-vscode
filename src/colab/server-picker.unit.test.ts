@@ -46,6 +46,7 @@ describe("ServerPicker", () => {
           [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         },
       },
+      dateAssigned: new Date(),
     };
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     serverPicker = new ServerPicker(vsCodeStub.asVsCode(), assignmentStub);

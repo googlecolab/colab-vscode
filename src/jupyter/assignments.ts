@@ -222,6 +222,7 @@ export class AssignmentManager implements vscode.Disposable {
       },
       assignment.endpoint,
       assignment.runtimeProxyInfo,
+      new Date(),
     );
     await this.storage.store([server]);
     await this.signalChange({
@@ -253,6 +254,7 @@ export class AssignmentManager implements vscode.Disposable {
       server,
       server.endpoint,
       newConnectionInfo,
+      server.dateAssigned,
     );
     await this.storage.store([updatedServer]);
     await this.signalChange({
@@ -310,6 +312,7 @@ export class AssignmentManager implements vscode.Disposable {
     server: ColabJupyterServer,
     endpoint: string,
     connectionInfo: RuntimeProxyInfo,
+    dateAssigned: Date,
   ): ColabAssignedServer {
     const { url, token } = connectionInfo;
     const headers: Record<string, string> =
@@ -329,6 +332,7 @@ export class AssignmentManager implements vscode.Disposable {
         headers,
         fetch: colabProxyFetch(token),
       },
+      dateAssigned,
     };
   }
 

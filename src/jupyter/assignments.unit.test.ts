@@ -7,7 +7,7 @@
 import { randomUUID } from "crypto";
 import { assert, expect } from "chai";
 import fetch, { Headers } from "node-fetch";
-import sinon, { SinonStubbedInstance } from "sinon";
+import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
 import { Uri } from "vscode";
 import {
   Accelerator,
@@ -39,6 +39,8 @@ import {
 } from "./servers";
 import { ServerStorage } from "./storage";
 
+const NOW = new Date();
+
 const defaultAssignmentDescriptor: ColabServerDescriptor = {
   label: "Colab GPU A100",
   variant: Variant.GPU,
@@ -61,6 +63,7 @@ const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
 };
 
 describe("AssignmentManager", () => {
+  let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverStorage: ServerStorage;
@@ -69,6 +72,7 @@ describe("AssignmentManager", () => {
   let assignmentManager: AssignmentManager;
 
   beforeEach(() => {
+    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
     serverStorage = new ServerStorageFake() as ServerStorage;
@@ -85,6 +89,7 @@ describe("AssignmentManager", () => {
           [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         },
       },
+      dateAssigned: NOW,
     };
     assignmentManager = new AssignmentManager(
       vsCodeStub.asVsCode(),
@@ -96,6 +101,7 @@ describe("AssignmentManager", () => {
   });
 
   afterEach(() => {
+    fakeClock.restore();
     sinon.restore();
   });
 

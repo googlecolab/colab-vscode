@@ -30,6 +30,7 @@ const AssignedServers = z.array(
         .record(z.string().nonempty(), z.string().nonempty())
         .optional(),
     }),
+    dateAssigned: z.coerce.date(),
   }),
 );
 
@@ -69,6 +70,7 @@ export class ServerStorage {
         token: server.connectionInformation.token,
         headers: server.connectionInformation.headers,
       },
+      dateAssigned: server.dateAssigned,
     }));
     this.cache = res;
     return res;
@@ -97,6 +99,10 @@ export class ServerStorage {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
     const serversById = mapServersById(existingServersJson);
     for (const server of servers) {
+      // This ensures that updating an existing server does not modify the
+      // original assignment date.
+      const dateAssigned =
+        serversById.get(server.id)?.dateAssigned ?? server.dateAssigned;
       serversById.set(server.id, {
         id: server.id,
         label: server.label,
@@ -108,6 +114,7 @@ export class ServerStorage {
           token: server.connectionInformation.token,
           headers: server.connectionInformation.headers,
         },
+        dateAssigned,
       });
     }
     return this.storeServers(

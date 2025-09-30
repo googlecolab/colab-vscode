@@ -451,6 +451,7 @@ describe("ColabClient", () => {
           baseUrl: TestUri.parse(assignedServerUrl.toString()),
           token: "123",
         },
+        dateAssigned: new Date(),
       };
     });
 

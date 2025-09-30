@@ -16,6 +16,7 @@ import { ColabAssignedServer } from "./servers";
 import { ServerStorage } from "./storage";
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
+const DEFAULT_ASSIGNED_DATE = new Date();
 
 describe("ServerStorage", () => {
   let vsCodeStub: VsCodeStub;
@@ -39,6 +40,7 @@ describe("ServerStorage", () => {
         token: "123",
         headers: { foo: "bar" },
       },
+      dateAssigned: DEFAULT_ASSIGNED_DATE,
     };
     serverStorage = new ServerStorage(
       vsCodeStub.asVsCode(),
@@ -207,6 +209,29 @@ describe("ServerStorage", () => {
         expect(serverLabels).to.have.same.deep.members([
           defaultServer.label,
           newServer.label,
+        ]);
+      });
+
+      it("does not override the date assigned", async () => {
+        const updatedServer: ColabAssignedServer = {
+          ...defaultServer,
+          label: "bar",
+          // This date gets ignored.
+          dateAssigned: new Date(DEFAULT_ASSIGNED_DATE.getTime() + 10000),
+        };
+
+        await expect(serverStorage.store([updatedServer])).to.eventually.be
+          .fulfilled;
+
+        sinon.assert.calledOnceWithMatch(
+          secretsStub.store,
+          ASSIGNED_SERVERS_KEY,
+        );
+        await expect(serverStorage.list()).to.eventually.deep.equal([
+          {
+            ...updatedServer,
+            dateAssigned: DEFAULT_ASSIGNED_DATE,
+          },
         ]);
       });
 
