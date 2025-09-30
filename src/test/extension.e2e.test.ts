@@ -219,6 +219,15 @@ describe("Colab Extension", function () {
         By.xpath("//span[text()='Continue']"),
       );
       await continueButton.click();
+      // Click Allow to authorize the scope.
+      await oauthDriver.wait(
+        until.urlContains("accounts.google.com/signin/oauth/consent"),
+        ELEMENT_WAIT_MS,
+      );
+      const allowButton = await oauthDriver.findElement(
+        By.xpath("//span[text()='Allow']"),
+      );
+      await allowButton.click();
 
       // Check that the test account's authenticated. Close the browser window.
       await oauthDriver.wait(

@@ -14,7 +14,11 @@ import { Toggleable } from "../common/toggleable";
 import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
-export const REQUIRED_SCOPES = ["profile", "email"] as const;
+export const REQUIRED_SCOPES = [
+  "profile",
+  "email",
+  "https://www.googleapis.com/auth/colaboratory",
+] as const;
 const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
