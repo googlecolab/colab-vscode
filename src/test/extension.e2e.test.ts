@@ -218,18 +218,16 @@ describe("Colab Extension", function () {
       await waitAndClick(
         oauthDriver,
         By.xpath("//span[text()='Continue']"),
-        '"Continue" button not visible on consent screen',
+        '"Continue" button not visible on ID screen',
       );
 
-      // Click Allow to authorize the scope.
-      await oauthDriver.wait(
-        until.urlContains("accounts.google.com/signin/oauth/consent"),
-        ELEMENT_WAIT_MS,
-      );
+      // Click Allow or Continue to authorize the scope (handles both v1 and v2
+      // consent screens).
+      await oauthDriver.wait(until.urlContains("consent"), ELEMENT_WAIT_MS);
       await waitAndClick(
         oauthDriver,
-        By.xpath("//span[text()='Allow']"),
-        '"Allow" button not visible on consent screen',
+        By.xpath("//span[text()='Allow' or text()='Continue']"),
+        '"Allow" or "Continue" button not visible on consent screen',
       );
 
       // Check that the test account's authenticated. Close the browser window.
