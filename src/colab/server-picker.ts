@@ -8,7 +8,7 @@ import vscode, { QuickPickItem } from "vscode";
 import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabServerDescriptor } from "../jupyter/servers";
-import { Accelerator, Variant } from "./api";
+import { Accelerator, Variant, variantToMachineType } from "./api";
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -75,7 +75,7 @@ export class ServerPicker {
     for (const variant of acceleratorsByVariant.keys()) {
       items.push({
         value: variant,
-        label: variantToString(variant),
+        label: variantToMachineType(variant),
         // TODO: Add a description for each variant?
       });
     }
@@ -134,7 +134,7 @@ export class ServerPicker {
     input: MultiStepInput,
     state: PartialServerWith<"variant">,
   ): Promise<InputStep | undefined> {
-    const placeholder = await this.getPlaceholder(
+    const placeholder = await this.assignments.getDefaultLabel(
       state.variant,
       state.accelerator,
     );
@@ -152,42 +152,6 @@ export class ServerPicker {
     });
     state.alias = alias || placeholder;
     return;
-  }
-
-  private async getPlaceholder(
-    variant: Variant,
-    accelerator?: Accelerator,
-  ): Promise<string> {
-    const servers = await this.assignments.getAssignedServers();
-    const a =
-      accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
-    const v = variantToString(variant);
-    const labelBase = `Colab ${v}${a}`;
-    const labelRegex = new RegExp(`^${labelBase}(?:\\s\\((\\d+)\\))?$`);
-    const indices = new Set(
-      servers
-        .map((s) => {
-          const match = labelRegex.exec(s.label);
-          if (!match) {
-            return null;
-          }
-          if (!match[1]) {
-            return 0;
-          }
-          return +match[1];
-        })
-        .filter((i) => i !== null),
-    );
-    let placeholderIdx = 0;
-    // Find the first missing index. Follows standard file explorer "duplicate"
-    // file naming scheme.
-    while (indices.has(placeholderIdx)) {
-      placeholderIdx++;
-    }
-    if (placeholderIdx === 0) {
-      return labelBase;
-    }
-    return `${labelBase} (${placeholderIdx.toString()})`;
   }
 }
 
@@ -213,17 +177,6 @@ function isAcceleratorDefined(
   state: Partial<Server>,
 ): state is PartialServerWith<"accelerator"> {
   return state.accelerator !== undefined;
-}
-
-function variantToString(variant: Variant): string {
-  switch (variant) {
-    case Variant.DEFAULT:
-      return "CPU";
-    case Variant.GPU:
-      return "GPU";
-    case Variant.TPU:
-      return "TPU";
-  }
 }
 
 interface VariantPick extends QuickPickItem {

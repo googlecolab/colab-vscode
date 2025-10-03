@@ -71,6 +71,39 @@ describe("AssignmentManager", () => {
   let defaultServer: ColabAssignedServer;
   let assignmentManager: AssignmentManager;
 
+  /**
+   * Set up the stubs to return the given assignments from both the Colab client
+   * and the server storage.
+   *
+   * The stored server and mocked assignment use {@link defaultServer} and
+   * {@link defaultAssignment} as templates, with fields overridden from the
+   * given assignments.
+   *
+   * @param assignments - The assignments to set up as both stored and returned
+   * by the Colab client.
+   */
+  async function setupAssignments(assignments: ColabServerDescriptor[]) {
+    colabClientStub.listAssignments.resolves(
+      assignments.map(
+        (a): Assignment => ({
+          ...defaultAssignment,
+          variant: a.variant,
+          accelerator: a.accelerator ?? Accelerator.NONE,
+        }),
+      ),
+    );
+    await serverStorage.store(
+      assignments.map(
+        (a): ColabAssignedServer => ({
+          ...defaultServer,
+          variant: a.variant,
+          accelerator: a.accelerator ?? Accelerator.NONE,
+          label: a.label,
+        }),
+      ),
+    );
+  }
+
   beforeEach(() => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vsCodeStub = newVsCodeStub();
@@ -365,6 +398,7 @@ describe("AssignmentManager", () => {
     it("returns true when at least one server is assigned", async () => {
       colabClientStub.listAssignments.resolves([defaultAssignment]);
       await serverStorage.store([defaultServer]);
+      await setupAssignments([defaultAssignmentDescriptor]);
 
       await expect(assignmentManager.hasAssignedServer()).to.eventually.be.true;
     });
@@ -789,6 +823,120 @@ describe("AssignmentManager", () => {
         removed: [],
         changed: [refreshedServer],
       });
+    });
+  });
+
+  describe("getDefaultLabel", () => {
+    it("returns a simple variant-accelerator pair when there are no assigned servers", async () => {
+      await expect(
+        assignmentManager.getDefaultLabel(Variant.GPU, Accelerator.A100),
+      ).to.eventually.equal("Colab GPU A100");
+    });
+
+    it("returns a simple variant-accelerator pair when there are only custom aliased servers", async () => {
+      const variant = Variant.GPU;
+      const accelerator = Accelerator.A100;
+      await setupAssignments([{ variant, accelerator, label: "foo" }]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(variant, accelerator),
+      ).to.eventually.equal("Colab GPU A100");
+    });
+
+    it("returns the next sequential label with one matching assigned server", async () => {
+      const variant = Variant.GPU;
+      const accelerator = Accelerator.A100;
+      await setupAssignments([
+        { variant, accelerator, label: "Colab GPU A100" },
+      ]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(variant, accelerator),
+      ).to.eventually.equal("Colab GPU A100 (1)");
+    });
+
+    it("returns the next sequential label with multiple assigned servers", async () => {
+      const variant = Variant.GPU;
+      const accelerator = Accelerator.A100;
+      await setupAssignments([
+        { variant, accelerator, label: "Colab GPU A100" },
+        { variant, accelerator, label: "Colab GPU A100 (1)" },
+      ]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(variant, accelerator),
+      ).to.eventually.equal("Colab GPU A100 (2)");
+    });
+
+    it("only increments from matching variant-accelerator server pairs", async () => {
+      await setupAssignments([
+        { variant: Variant.DEFAULT, label: "Colab CPU" },
+        {
+          variant: Variant.GPU,
+          accelerator: Accelerator.A100,
+          label: "Colab GPU A100",
+        },
+      ]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(Variant.GPU, Accelerator.A100),
+      ).to.eventually.equal("Colab GPU A100 (1)");
+    });
+
+    // To ensure a string sort isn't used, which would put "10" before "2".
+    it("uses the next sequential label with many assigned servers", async () => {
+      const variant = Variant.GPU;
+      const accelerator = Accelerator.A100;
+      await setupAssignments(
+        Array.from({ length: 10 }, (_, i) => i + 1)
+          .map((i) => ({
+            variant,
+            accelerator,
+            label: `Colab GPU A100 (${i.toString()})`,
+          }))
+          .concat({ variant, accelerator, label: "Colab GPU A100" }),
+      );
+
+      await expect(
+        assignmentManager.getDefaultLabel(variant, accelerator),
+      ).to.eventually.equal("Colab GPU A100 (11)");
+    });
+
+    it("uses the simple variant-accelerator label when the initial assignment is missing", async () => {
+      const variant = Variant.GPU;
+      const accelerator = Accelerator.A100;
+      await setupAssignments([
+        { variant, accelerator, label: "Colab GPU A100 (2)" },
+      ]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(variant, accelerator),
+      ).to.eventually.equal("Colab GPU A100");
+    });
+
+    it("uses the next sequential label when there's an assigned server gap", async () => {
+      const variant = Variant.GPU;
+      const accelerator = Accelerator.A100;
+      await setupAssignments([
+        { variant, accelerator, label: "Colab GPU A100 (2)" },
+        { variant, accelerator, label: "Colab GPU A100" },
+      ]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(variant, accelerator),
+      ).to.eventually.equal("Colab GPU A100 (1)");
+    });
+
+    it("reconciles servers before determining label", async () => {
+      colabClientStub.listAssignments.resolves([]);
+      await serverStorage.store([defaultServer]);
+
+      await expect(
+        assignmentManager.getDefaultLabel(
+          defaultServer.variant,
+          defaultServer.accelerator,
+        ),
+      ).to.eventually.equal(defaultServer.label);
     });
   });
 });

@@ -404,3 +404,20 @@ export const SessionSchema = z.object({
   type: z.string(),
 });
 export type Session = z.infer<typeof SessionSchema>;
+
+/**
+ * Maps a Colab {@link Variant} to a human-friendly machine type name.
+ *
+ * @param variant - The Colab {@link Variant}.
+ * @returns The human-friendly machine type name.
+ */
+export function variantToMachineType(variant: Variant): string {
+  switch (variant) {
+    case Variant.DEFAULT:
+      return "CPU";
+    case Variant.GPU:
+      return "GPU";
+    case Variant.TPU:
+      return "TPU";
+  }
+}

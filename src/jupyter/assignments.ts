@@ -18,6 +18,7 @@ import {
   Assignment,
   RuntimeProxyInfo,
   Variant,
+  variantToMachineType,
 } from "../colab/api";
 import {
   ColabClient,
@@ -301,6 +302,42 @@ export class AssignmentManager implements vscode.Disposable {
       ),
     );
     await this.client.unassign(server.endpoint);
+  }
+
+  async getDefaultLabel(
+    variant: Variant,
+    accelerator?: Accelerator,
+  ): Promise<string> {
+    const servers = await this.getAssignedServers();
+    const a =
+      accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
+    const v = variantToMachineType(variant);
+    const labelBase = `Colab ${v}${a}`;
+    const labelRegex = new RegExp(`^${labelBase}(?:\\s\\((\\d+)\\))?$`);
+    const indices = new Set(
+      servers
+        .map((s) => {
+          const match = labelRegex.exec(s.label);
+          if (!match) {
+            return null;
+          }
+          if (!match[1]) {
+            return 0;
+          }
+          return +match[1];
+        })
+        .filter((i) => i !== null),
+    );
+    let placeholderIdx = 0;
+    // Find the first missing index. Follows standard file explorer "duplicate"
+    // file naming scheme.
+    while (indices.has(placeholderIdx)) {
+      placeholderIdx++;
+    }
+    if (placeholderIdx === 0) {
+      return labelBase;
+    }
+    return `${labelBase} (${placeholderIdx.toString()})`;
   }
 
   private async signalChange(e: AssignmentChangeEvent): Promise<void> {
