@@ -12,7 +12,10 @@ import { CONFIG } from "../../colab-config";
 import { PackageInfo } from "../../config/package-info";
 import { ExtensionUriHandler } from "../../system/uri-handler";
 import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
-import { buildInputBoxStub } from "../../test/helpers/quick-input";
+import {
+  buildInputBoxStub,
+  InputBoxStub,
+} from "../../test/helpers/quick-input";
 import { matchUri, TestUri } from "../../test/helpers/uri";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { FlowResult, OAuth2TriggerOptions } from "./flows";
@@ -35,9 +38,16 @@ describe("ProxiedRedirectFlow", () => {
   let cancellationTokenSource: TestCancellationTokenSource;
   let defaultTriggerOpts: OAuth2TriggerOptions;
   let flow: ProxiedRedirectFlow;
+  let inputBoxStub: InputBoxStub & {
+    nextShow: () => Promise<void>;
+  };
 
   beforeEach(() => {
+    inputBoxStub = buildInputBoxStub();
     vs = newVsCodeStub();
+    vs.window.createInputBox.returns(
+      inputBoxStub as Partial<InputBox> as InputBox,
+    );
     oauth2Client = new OAuth2Client("testClientId", "testClientSecret");
     uriHandler = new ExtensionUriHandler(vs.asVsCode());
     cancellationTokenSource = new TestCancellationTokenSource();
@@ -82,11 +92,18 @@ describe("ProxiedRedirectFlow", () => {
     clock.restore();
   });
 
+  it("cancels auth when the user dismisses the input box", async () => {
+    const trigger = flow.trigger(defaultTriggerOpts);
+    const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=${CODE}`);
+    uriHandler.handleUri(uri);
+
+    await inputBoxStub.nextShow();
+    inputBoxStub.onDidHide.yield();
+
+    await expect(trigger).to.eventually.be.rejectedWith(/cancelled/);
+  });
+
   it("triggers and resolves the authentication flow", async () => {
-    const inputBoxStub = buildInputBoxStub();
-    vs.window.createInputBox.returns(
-      inputBoxStub as Partial<InputBox> as InputBox,
-    );
     const trigger = flow.trigger(defaultTriggerOpts);
     const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=${CODE}`);
     uriHandler.handleUri(uri);

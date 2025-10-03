@@ -7,7 +7,10 @@
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { CONFIG } from "../../colab-config";
-import { MultiStepInput } from "../../common/multi-step-quickpick";
+import {
+  MultiStepInput,
+  InputFlowAction,
+} from "../../common/multi-step-quickpick";
 import { PackageInfo } from "../../config/package-info";
 import { CodeManager } from "../code-manager";
 import {
@@ -60,21 +63,29 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
 
   private displayAuthCodeInput(nonce: string) {
     void MultiStepInput.run(this.vs, async (input) => {
-      const pastedCode = await input.showInputBox({
-        buttons: undefined,
-        ignoreFocusOut: true,
-        password: true,
-        prompt: "Enter your authorization code",
-        title: "Sign in to Google",
-        validate: (value: string) => {
-          return value.length === 0
-            ? "Authorization code cannot be empty"
-            : undefined;
-        },
-        value: "",
-      });
-      this.codeManager.resolveCode(nonce, pastedCode);
-      return undefined;
+      try {
+        const pastedCode = await input.showInputBox({
+          buttons: undefined,
+          ignoreFocusOut: true,
+          password: true,
+          prompt: "Enter your authorization code",
+          title: "Sign in to Google",
+          validate: (value: string) => {
+            return value.length === 0
+              ? "Authorization code cannot be empty"
+              : undefined;
+          },
+          value: "",
+        });
+        this.codeManager.resolveCode(nonce, pastedCode);
+        return undefined;
+      } catch (e) {
+        if (e === InputFlowAction.cancel) {
+          this.codeManager.cancel(nonce);
+          return;
+        }
+        throw e;
+      }
     });
   }
 }
