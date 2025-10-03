@@ -17,6 +17,7 @@ import vscode from "vscode";
 import { SubscriptionTier } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
+  AUTO_CONNECT,
   NEW_SERVER,
   OPEN_COLAB_WEB,
   UPGRADE_TO_PRO,
@@ -125,6 +126,8 @@ export class ColabJupyterServerProvider
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
     switch (command.label) {
+      case AUTO_CONNECT.label:
+        return this.assignmentManager.latestOrAutoAssignServer();
       case NEW_SERVER.label:
         return this.assignServer().catch((err: unknown) => {
           // Returning `undefined` shows the previous UI (kernel picker).
@@ -145,7 +148,7 @@ export class ColabJupyterServerProvider
   }
 
   private async provideRelevantCommands(): Promise<JupyterServerCommand[]> {
-    const commands = [NEW_SERVER, OPEN_COLAB_WEB];
+    const commands = [AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB];
     try {
       const tier = await this.client.getSubscriptionTier();
       if (tier === SubscriptionTier.NONE) {

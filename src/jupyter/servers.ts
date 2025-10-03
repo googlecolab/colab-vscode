@@ -43,15 +43,17 @@ export type ColabAssignedServer = ColabJupyterServer & {
   readonly dateAssigned: Date;
 };
 
+export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
+  label: "Colab CPU",
+  variant: Variant.DEFAULT,
+};
+
 /**
  * The mapping of all potentially available ID to Colab Jupyter servers.
  */
 export const COLAB_SERVERS = new Set<ColabServerDescriptor>([
   // CPUs
-  {
-    label: "Colab CPU",
-    variant: Variant.DEFAULT,
-  },
+  DEFAULT_CPU_SERVER,
   // GPUs
   {
     label: "Colab GPU T4",

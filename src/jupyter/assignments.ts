@@ -35,6 +35,7 @@ import {
   ColabAssignedServer,
   ColabJupyterServer,
   ColabServerDescriptor,
+  DEFAULT_CPU_SERVER,
 } from "./servers";
 import { ServerStorage } from "./storage";
 
@@ -232,6 +233,31 @@ export class AssignmentManager implements vscode.Disposable {
       changed: [],
     });
     return server;
+  }
+
+  async latestOrAutoAssignServer(): Promise<ColabAssignedServer> {
+    const assigned = await this.getAssignedServers();
+    const latest = assigned.reduce<ColabAssignedServer | undefined>(
+      (latest, server) => {
+        return !latest || server.dateAssigned > latest.dateAssigned
+          ? server
+          : latest;
+      },
+      undefined,
+    );
+    if (latest) {
+      await this.refreshConnection(latest.id);
+      return latest;
+    }
+    const alias = await this.getDefaultLabel(
+      DEFAULT_CPU_SERVER.variant,
+      DEFAULT_CPU_SERVER.accelerator,
+    );
+    const serverType: ColabServerDescriptor = {
+      ...DEFAULT_CPU_SERVER,
+      label: alias,
+    };
+    return this.assignServer(serverType);
   }
 
   /**

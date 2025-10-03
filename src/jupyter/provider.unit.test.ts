@@ -18,6 +18,7 @@ import { CancellationToken, CancellationTokenSource } from "vscode";
 import { Accelerator, SubscriptionTier, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
+  AUTO_CONNECT,
   NEW_SERVER,
   OPEN_COLAB_WEB,
   UPGRADE_TO_PRO,
@@ -209,7 +210,11 @@ describe("ColabJupyterServerProvider", () => {
         );
 
         assert.isDefined(commands);
-        expect(commands).to.deep.equal([NEW_SERVER, OPEN_COLAB_WEB]);
+        expect(commands).to.deep.equal([
+          AUTO_CONNECT,
+          NEW_SERVER,
+          OPEN_COLAB_WEB,
+        ]);
       });
 
       it("excludes upgrade to pro command for users with pro", async () => {
@@ -221,7 +226,11 @@ describe("ColabJupyterServerProvider", () => {
         );
 
         assert.isDefined(commands);
-        expect(commands).to.deep.equal([NEW_SERVER, OPEN_COLAB_WEB]);
+        expect(commands).to.deep.equal([
+          AUTO_CONNECT,
+          NEW_SERVER,
+          OPEN_COLAB_WEB,
+        ]);
       });
 
       it("excludes upgrade to pro command for users with pro-plus", async () => {
@@ -233,7 +242,11 @@ describe("ColabJupyterServerProvider", () => {
         );
 
         assert.isDefined(commands);
-        expect(commands).to.deep.equal([NEW_SERVER, OPEN_COLAB_WEB]);
+        expect(commands).to.deep.equal([
+          AUTO_CONNECT,
+          NEW_SERVER,
+          OPEN_COLAB_WEB,
+        ]);
       });
 
       it("returns commands to create a server, open Colab web and upgrade to pro for free users", async () => {
@@ -246,6 +259,7 @@ describe("ColabJupyterServerProvider", () => {
 
         assert.isDefined(commands);
         expect(commands).to.deep.equal([
+          AUTO_CONNECT,
           NEW_SERVER,
           OPEN_COLAB_WEB,
           UPGRADE_TO_PRO,

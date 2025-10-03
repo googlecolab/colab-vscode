@@ -24,15 +24,21 @@ export const COLAB_TOOLBAR: RegisteredCommand = {
   label: "Colab",
 };
 
+/** Command to auto-connect a Colab server. */
+export const AUTO_CONNECT: Command = {
+  label: "$(symbol-event)  Auto Connect",
+  description: "1-click connect! Most recently created server, or a new one.",
+};
+
 /** Command to create a new Colab server. */
 export const NEW_SERVER: Command = {
-  label: "$(add) New Colab Server",
+  label: "$(add)  New Colab Server",
   description: "CPU, GPU or TPU.",
 };
 
 /** Command to open Colab in the browser. */
 export const OPEN_COLAB_WEB: Command = {
-  label: "$(ports-open-browser-icon) Open Colab Web",
+  label: "$(link-external)  Open Colab Web",
   description: "Open Colab web.",
 };
 
@@ -50,6 +56,6 @@ export const RENAME_SERVER_ALIAS: RegisteredCommand = {
 
 /** Command to open the Colab signup page, to upgrade to pro. */
 export const UPGRADE_TO_PRO: Command = {
-  label: "$(accounts-view-bar-icon) Upgrade to Pro",
+  label: "$(accounts-view-bar-icon)  Upgrade to Pro",
   description: "More machines, more quota, more Colab!",
 };
