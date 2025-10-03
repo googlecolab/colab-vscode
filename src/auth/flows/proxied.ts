@@ -7,8 +7,8 @@
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { CONFIG } from "../../colab-config";
+import { MultiStepInput } from "../../common/multi-step-quickpick";
 import { PackageInfo } from "../../config/package-info";
-import { ExtensionUriHandler } from "../../system/uri-handler";
 import { CodeManager } from "../code-manager";
 import {
   DEFAULT_AUTH_URL_OPTS,
@@ -27,7 +27,6 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
     private readonly vs: typeof vscode,
     private readonly packageInfo: PackageInfo,
     private readonly oAuth2Client: OAuth2Client,
-    private readonly uriHandler: ExtensionUriHandler,
   ) {
     const scheme = this.vs.env.uriScheme;
     const pub = this.packageInfo.publisher;
@@ -40,37 +39,42 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
   }
 
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
-    const listener = this.uriHandler.onReceivedUri((uri: vscode.Uri) => {
-      const params = new URLSearchParams(uri.query);
-      const nonce = params.get("nonce");
-      const code = params.get("code");
-      if (!nonce || !code) {
-        // A request for `vscode://google.colab` without a code or nonce (while
-        // the user's in the authentication flow) is possible and should be
-        // ignored.
-        return;
-      }
-      this.codeManager.resolveCode(nonce, code);
+    const code = this.codeManager.waitForCode(options.nonce, options.cancel);
+    const vsCodeRedirectUri = this.vs.Uri.parse(
+      `${this.baseUri}?nonce=${options.nonce}`,
+    );
+    const externalProxiedRedirectUri =
+      await this.vs.env.asExternalUri(vsCodeRedirectUri);
+    const authUrl = this.oAuth2Client.generateAuthUrl({
+      ...DEFAULT_AUTH_URL_OPTS,
+      redirect_uri: PROXIED_REDIRECT_URI,
+      state: externalProxiedRedirectUri.toString(),
+      scope: options.scopes,
+      code_challenge: options.pkceChallenge,
     });
-    try {
-      const code = this.codeManager.waitForCode(options.nonce, options.cancel);
-      const vsCodeRedirectUri = this.vs.Uri.parse(
-        `${this.baseUri}?nonce=${options.nonce}`,
-      );
-      const externalProxiedRedirectUri =
-        await this.vs.env.asExternalUri(vsCodeRedirectUri);
-      const authUrl = this.oAuth2Client.generateAuthUrl({
-        ...DEFAULT_AUTH_URL_OPTS,
-        redirect_uri: PROXIED_REDIRECT_URI,
-        state: externalProxiedRedirectUri.toString(),
-        scope: options.scopes,
-        code_challenge: options.pkceChallenge,
-      });
 
-      await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
-      return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
-    } finally {
-      listener.dispose();
-    }
+    await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
+    this.displayAuthCodeInput(options.nonce);
+    return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
+  }
+
+  private displayAuthCodeInput(nonce: string) {
+    void MultiStepInput.run(this.vs, async (input) => {
+      const pastedCode = await input.showInputBox({
+        buttons: undefined,
+        ignoreFocusOut: true,
+        password: true,
+        prompt: "Enter your authorization code",
+        title: "Sign in to Google",
+        validate: (value: string) => {
+          return value.length === 0
+            ? "Authorization code cannot be empty"
+            : undefined;
+        },
+        value: "",
+      });
+      this.codeManager.resolveCode(nonce, pastedCode);
+      return undefined;
+    });
   }
 }

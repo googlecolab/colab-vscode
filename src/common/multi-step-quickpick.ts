@@ -45,6 +45,8 @@ export interface QuickInputOptions {
   totalSteps?: number;
   /** Buttons for actions in the UI. */
   buttons?: QuickInputButton[];
+  /** If the UI should stay open even when losing UI focus. */
+  ignoreFocusOut?: boolean;
 }
 
 /**
@@ -72,6 +74,8 @@ export interface InputBoxOptions extends QuickInputOptions {
    * set as the validation message indicating a problem with the current input
    * value. If undefined is returned, the validation message is cleared. */
   validate: (value: string) => string | undefined;
+  /** If the input value should be hidden. */
+  password?: boolean;
   /** The optional placeholder text shown when no value has been input. */
   placeholder?: string;
 }
@@ -155,6 +159,7 @@ export class MultiStepInput {
         input.totalSteps = opts.totalSteps;
         input.placeholder = opts.placeholder;
         input.items = opts.items;
+        input.ignoreFocusOut = opts.ignoreFocusOut ?? false;
         if (opts.activeItem) {
           input.activeItems = [opts.activeItem];
         }
@@ -199,8 +204,10 @@ export class MultiStepInput {
         input.step = opts.step;
         input.totalSteps = opts.totalSteps;
         input.value = opts.value || "";
+        input.password = opts.password ?? false;
         input.prompt = opts.prompt;
         input.placeholder = opts.placeholder;
+        input.ignoreFocusOut = opts.ignoreFocusOut ?? false;
         if (opts.buttons) {
           input.buttons = opts.buttons;
         }

@@ -9,7 +9,6 @@ import { CodeChallengeMethod, GenerateAuthUrlOpts } from "google-auth-library";
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { PackageInfo } from "../../config/package-info";
-import { ExtensionUriHandler } from "../../system/uri-handler";
 import { LocalServerFlow } from "./loopback";
 import { ProxiedRedirectFlow } from "./proxied";
 
@@ -58,7 +57,6 @@ export const DEFAULT_AUTH_URL_OPTS: GenerateAuthUrlOpts = {
 export function getOAuth2Flows(
   vs: typeof vscode,
   packageInfo: PackageInfo,
-  extensionUriHandler: ExtensionUriHandler,
   oAuth2Client: OAuth2Client,
 ): OAuth2Flow[] {
   const flows: OAuth2Flow[] = [];
@@ -67,8 +65,6 @@ export function getOAuth2Flows(
       new LocalServerFlow(vs, path.join(__dirname, "auth/media"), oAuth2Client),
     );
   }
-  flows.push(
-    new ProxiedRedirectFlow(vs, packageInfo, oAuth2Client, extensionUriHandler),
-  );
+  flows.push(new ProxiedRedirectFlow(vs, packageInfo, oAuth2Client));
   return flows;
 }

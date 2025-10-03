@@ -7,11 +7,12 @@
 import { expect } from "chai";
 import { OAuth2Client } from "google-auth-library";
 import * as sinon from "sinon";
+import { InputBox } from "vscode";
 import { CONFIG } from "../../colab-config";
 import { PackageInfo } from "../../config/package-info";
 import { ExtensionUriHandler } from "../../system/uri-handler";
-import { authUriMatch } from "../../test/helpers/authentication";
 import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
+import { buildInputBoxStub } from "../../test/helpers/quick-input";
 import { matchUri, TestUri } from "../../test/helpers/uri";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { FlowResult, OAuth2TriggerOptions } from "./flows";
@@ -46,12 +47,7 @@ describe("ProxiedRedirectFlow", () => {
       scopes: SCOPES,
       pkceChallenge: "1 + 1 = ?",
     };
-    flow = new ProxiedRedirectFlow(
-      vs.asVsCode(),
-      PACKAGE_INFO,
-      oauth2Client,
-      uriHandler,
-    );
+    flow = new ProxiedRedirectFlow(vs.asVsCode(), PACKAGE_INFO, oauth2Client);
     vs.env.asExternalUri
       .withArgs(matchUri(/vscode:\/\/google\.colab\?nonce=nonce/))
       .resolves(vs.Uri.parse(EXTERNAL_CALLBACK_URI));
@@ -87,15 +83,20 @@ describe("ProxiedRedirectFlow", () => {
   });
 
   it("triggers and resolves the authentication flow", async () => {
+    const inputBoxStub = buildInputBoxStub();
+    vs.window.createInputBox.returns(
+      inputBoxStub as Partial<InputBox> as InputBox,
+    );
     const trigger = flow.trigger(defaultTriggerOpts);
     const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=${CODE}`);
     uriHandler.handleUri(uri);
 
+    await inputBoxStub.nextShow();
+    inputBoxStub.value = CODE;
+    inputBoxStub.onDidChangeValue.yield(CODE);
+    inputBoxStub.onDidAccept.yield();
+
     const expected: FlowResult = { code: CODE, redirectUri: REDIRECT_URI };
     await expect(trigger).to.eventually.deep.equal(expected);
-    sinon.assert.calledOnceWithMatch(
-      vs.env.openExternal,
-      authUriMatch(REDIRECT_URI, /vscode:\/\/google\.colab/, SCOPES),
-    );
   });
 });

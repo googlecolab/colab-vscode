@@ -9,7 +9,6 @@ import { OAuth2Client } from "google-auth-library";
 import sinon from "sinon";
 import vscode from "vscode";
 import { PackageInfo } from "../../config/package-info";
-import { ExtensionUriHandler } from "../../system/uri-handler";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { getOAuth2Flows, OAuth2Flow } from "./flows";
 
@@ -34,7 +33,6 @@ describe("getOAuth2Flows", () => {
     return getOAuth2Flows(
       vs.asVsCode(),
       PACKAGE_INFO,
-      new ExtensionUriHandler(vs.asVsCode()),
       sinon.createStubInstance(OAuth2Client),
     );
   }
