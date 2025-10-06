@@ -63,7 +63,6 @@ export async function renameServerAlias(
 // TODO: Consider making this multi-select.
 // TODO: Handle bug where, if the server of the connected kernel is
 // removed, a fallback kernel is selected but does not connect.
-// TODO: Consider adding a notification that the server was removed.
 // TODO: Update MultiStepInput to handle a single-step case.
 export async function removeServer(
   vs: typeof vscode,
@@ -83,7 +82,14 @@ export async function removeServer(
         items: servers.map((s) => ({ label: s.label, value: s })),
       })
     ).value;
-    await assignmentManager.unassignServer(selectedServer);
+    await vs.window.withProgress(
+      {
+        cancellable: false,
+        location: vs.ProgressLocation.Notification,
+        title: `Removing server "${selectedServer.label}"...`,
+      },
+      () => assignmentManager.unassignServer(selectedServer),
+    );
     return undefined;
   });
 }

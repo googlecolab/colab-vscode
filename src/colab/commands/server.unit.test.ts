@@ -209,6 +209,30 @@ describe("Server Commands", () => {
           defaultServer,
         );
       });
+
+      it("notifies the user while removing the server", async () => {
+        assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
+
+        const remove = removeServer(
+          vsCodeStub.asVsCode(),
+          assignmentManagerStub,
+        );
+        await quickPickStub.nextShow();
+        quickPickStub.onDidChangeSelection.yield([
+          { label: defaultServer.label, value: defaultServer },
+        ]);
+
+        await expect(remove).to.eventually.be.fulfilled;
+        sinon.assert.calledWithMatch(
+          vsCodeStub.window.withProgress,
+          {
+            cancellable: false,
+            location: vsCodeStub.ProgressLocation.Notification,
+            title: `Removing server "${defaultServer.label}"...`,
+          },
+          sinon.match.func,
+        );
+      });
     });
   });
 });
