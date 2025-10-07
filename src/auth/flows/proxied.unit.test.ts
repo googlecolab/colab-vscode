@@ -92,10 +92,23 @@ describe("ProxiedRedirectFlow", () => {
     clock.restore();
   });
 
+  it("validates the input authentication code", async () => {
+    void flow.trigger(defaultTriggerOpts);
+
+    await inputBoxStub.nextShow();
+    inputBoxStub.value = "";
+    inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
+    expect(inputBoxStub.validationMessage).equal(
+      "Authorization code cannot be empty",
+    );
+
+    inputBoxStub.value = "s".repeat(10);
+    inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
+    expect(inputBoxStub.validationMessage).equal(undefined);
+  });
+
   it("cancels auth when the user dismisses the input box", async () => {
     const trigger = flow.trigger(defaultTriggerOpts);
-    const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=${CODE}`);
-    uriHandler.handleUri(uri);
 
     await inputBoxStub.nextShow();
     inputBoxStub.onDidHide.yield();
@@ -105,8 +118,6 @@ describe("ProxiedRedirectFlow", () => {
 
   it("triggers and resolves the authentication flow", async () => {
     const trigger = flow.trigger(defaultTriggerOpts);
-    const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=${CODE}`);
-    uriHandler.handleUri(uri);
 
     await inputBoxStub.nextShow();
     inputBoxStub.value = CODE;
