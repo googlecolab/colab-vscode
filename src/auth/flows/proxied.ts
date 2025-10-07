@@ -42,7 +42,14 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
   }
 
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
-    const code = this.codeManager.waitForCode(options.nonce, options.cancel);
+    const cancelTokenSource = new this.vs.CancellationTokenSource();
+    options.cancel.onCancellationRequested(() => {
+      cancelTokenSource.cancel();
+    });
+    const code = this.codeManager.waitForCode(
+      options.nonce,
+      cancelTokenSource.token,
+    );
     const vsCodeRedirectUri = this.vs.Uri.parse(
       `${this.baseUri}?nonce=${options.nonce}`,
     );
@@ -57,11 +64,14 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
     });
 
     await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
-    this.promptForAuthorizationCode(options.nonce);
+    this.promptForAuthorizationCode(options.nonce, cancelTokenSource);
     return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
   }
 
-  private promptForAuthorizationCode(nonce: string) {
+  private promptForAuthorizationCode(
+    nonce: string,
+    cancelTokenSource: vscode.CancellationTokenSource,
+  ) {
     void MultiStepInput.run(this.vs, async (input) => {
       try {
         const pastedCode = await input.showInputBox({
@@ -81,7 +91,7 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
         return undefined;
       } catch (e) {
         if (e === InputFlowAction.cancel) {
-          this.codeManager.cancel(nonce);
+          cancelTokenSource.cancel();
           return;
         }
         throw e;

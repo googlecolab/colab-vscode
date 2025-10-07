@@ -70,18 +70,10 @@ describe("CodeManager", () => {
     await expect(gotCode).to.be.rejectedWith(/timeout/);
   });
 
-  it("rejects when the user cancels via token", async () => {
+  it("rejects when the user cancels", async () => {
     const gotCode = manager.waitForCode("1", cancellationTokenSource.token);
 
     cancellationTokenSource.cancel();
-
-    await expect(gotCode).to.be.rejectedWith(/cancelled/);
-  });
-
-  it("rejects when the user cancels via method", async () => {
-    const gotCode = manager.waitForCode("1", cancellationTokenSource.token);
-
-    manager.cancel("1");
 
     await expect(gotCode).to.be.rejectedWith(/cancelled/);
   });

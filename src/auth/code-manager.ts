@@ -8,9 +8,6 @@ import vscode from "vscode";
 
 const EXCHANGE_TIMEOUT_MS = 60_000;
 
-export const USER_CANCELLATION_ERROR_MESSAGE =
-  "Authentication was cancelled by the user";
-
 /**
  * A promise that can have its underlying resources (like timers or listeners)
  * cleaned up.
@@ -93,21 +90,6 @@ export class CodeManager implements vscode.Disposable {
 
     inFlight.resolve(code);
   }
-
-  /**
-   * Rejects the in-flight promise corresponding to the provided nonce with
-   * a User Cancellation error.
-   *
-   * @param nonce - The unique nonce used to correlate the request and response.
-   */
-  cancel(nonce: string): void {
-    const inFlight = this.inFlightPromises.get(nonce);
-    if (!inFlight) {
-      throw new Error("Unexpected code exchange received");
-    }
-
-    inFlight.reject(new Error(USER_CANCELLATION_ERROR_MESSAGE));
-  }
 }
 
 /**
@@ -120,7 +102,7 @@ function waitForCancellation(
   let listener: vscode.Disposable;
   const promise = new Promise<never>((_, reject) => {
     listener = token.onCancellationRequested(() => {
-      reject(new Error(USER_CANCELLATION_ERROR_MESSAGE));
+      reject(new Error("Authentication was cancelled by the user"));
     });
   });
 
