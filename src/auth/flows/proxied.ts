@@ -57,11 +57,11 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
     });
 
     await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
-    this.displayAuthCodeInput(options.nonce);
+    this.promptForAuthorizationCode(options.nonce);
     return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
   }
 
-  private displayAuthCodeInput(nonce: string) {
+  private promptForAuthorizationCode(nonce: string) {
     void MultiStepInput.run(this.vs, async (input) => {
       try {
         const pastedCode = await input.showInputBox({
