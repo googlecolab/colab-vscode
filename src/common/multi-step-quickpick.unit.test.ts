@@ -209,6 +209,7 @@ describe("MultiStepQuickPick", () => {
         items: [{ label: "foo" }],
         activeItem: { label: "foo" },
         buttons: [vsCodeStub.QuickInputButtons.Back],
+        ignoreFocusOut: true,
       };
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showQuickPick(opts);
@@ -390,6 +391,8 @@ describe("MultiStepQuickPick", () => {
         placeholder: "42",
         validate: () => undefined,
         buttons: [vsCodeStub.QuickInputButtons.Back],
+        ignoreFocusOut: true,
+        password: true,
       };
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showInputBox(opts);
