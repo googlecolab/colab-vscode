@@ -46,26 +46,30 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
     options.cancel.onCancellationRequested(() => {
       cancelTokenSource.cancel();
     });
-    const code = this.codeManager.waitForCode(
-      options.nonce,
-      cancelTokenSource.token,
-    );
-    const vsCodeRedirectUri = this.vs.Uri.parse(
-      `${this.baseUri}?nonce=${options.nonce}`,
-    );
-    const externalProxiedRedirectUri =
-      await this.vs.env.asExternalUri(vsCodeRedirectUri);
-    const authUrl = this.oAuth2Client.generateAuthUrl({
-      ...DEFAULT_AUTH_URL_OPTS,
-      redirect_uri: PROXIED_REDIRECT_URI,
-      state: externalProxiedRedirectUri.toString(),
-      scope: options.scopes,
-      code_challenge: options.pkceChallenge,
-    });
+    try {
+      const code = this.codeManager.waitForCode(
+        options.nonce,
+        cancelTokenSource.token,
+      );
+      const vsCodeRedirectUri = this.vs.Uri.parse(
+        `${this.baseUri}?nonce=${options.nonce}`,
+      );
+      const externalProxiedRedirectUri =
+        await this.vs.env.asExternalUri(vsCodeRedirectUri);
+      const authUrl = this.oAuth2Client.generateAuthUrl({
+        ...DEFAULT_AUTH_URL_OPTS,
+        redirect_uri: PROXIED_REDIRECT_URI,
+        state: externalProxiedRedirectUri.toString(),
+        scope: options.scopes,
+        code_challenge: options.pkceChallenge,
+      });
 
-    await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
-    this.promptForAuthorizationCode(options.nonce, cancelTokenSource);
-    return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
+      await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));
+      this.promptForAuthorizationCode(options.nonce, cancelTokenSource);
+      return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
+    } finally {
+      cancelTokenSource.dispose();
+    }
   }
 
   private promptForAuthorizationCode(
