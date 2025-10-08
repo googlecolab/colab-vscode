@@ -120,7 +120,7 @@ export class ColabJupyterServerProvider
   ): Promise<JupyterServerCommand[]> {
     const commands: JupyterServerCommand[] = [];
     // Only show the command to view existing servers if the user is not signed
-    // in but previously had assigned servers. Otherwise, it's the command is
+    // in, but previously had assigned servers. Otherwise, the command is
     // redundant.
     if (
       !this.isAuthorized &&
