@@ -485,11 +485,24 @@ describe("AssignmentManager", () => {
 
       const servers = await assignmentManager.getLastKnownAssignedServers();
 
-      const expectedServers = storedServers.map((s) => {
-        const { connectionInformation, ...rest } = s;
-        return rest;
-      });
-      expect(servers).to.deep.equal(expectedServers);
+      expect(servers).to.deep.equal([
+        {
+          id: storedServers[0].id,
+          label: storedServers[0].label,
+          variant: storedServers[0].variant,
+          accelerator: storedServers[0].accelerator,
+          dateAssigned: storedServers[0].dateAssigned,
+          endpoint: storedServers[0].endpoint,
+        },
+        {
+          id: storedServers[1].id,
+          label: storedServers[1].label,
+          variant: storedServers[1].variant,
+          accelerator: storedServers[1].accelerator,
+          dateAssigned: storedServers[1].dateAssigned,
+          endpoint: storedServers[1].endpoint,
+        },
+      ]);
     });
   });
 
