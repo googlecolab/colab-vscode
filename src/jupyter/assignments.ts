@@ -182,6 +182,26 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
+   * Retrieves the last known assigned servers from storage.
+   *
+   * Note: Connection information is stripped since the servers may no longer
+   * exist. Downstream usage should refresh connection information, which
+   * requires reconciliation.
+   *
+   * @returns A list of {@link ColabJupyterServer} objects without connection
+   * information.
+   */
+  async getLastKnownAssignedServers(): Promise<ColabJupyterServer[]> {
+    // Since we can't be sure the servers still exist, we strip the connection
+    // info. That forces downstream usage to refresh the connection information,
+    // which requires reconciliation.
+    return (await this.storage.list()).map((server) => {
+      const { connectionInformation, ...rest } = server;
+      return rest;
+    });
+  }
+
+  /**
    * Assigns a server.
    *
    * @param descriptor - The server descriptor used as a template for the server
