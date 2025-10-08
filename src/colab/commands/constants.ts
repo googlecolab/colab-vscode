@@ -24,6 +24,12 @@ export const COLAB_TOOLBAR: RegisteredCommand = {
   label: "Colab",
 };
 
+/** Command to trigger the sign-in flow, to view existing Colab servers. */
+export const SIGN_IN_VIEW_EXISTING: Command = {
+  label: "$(sign-in)  View Existing Servers",
+  description: "Click to sign-in...",
+};
+
 /** Command to auto-connect a Colab server. */
 export const AUTO_CONNECT: Command = {
   label: "$(symbol-event)  Auto Connect",

@@ -21,6 +21,7 @@ import {
   AUTO_CONNECT,
   NEW_SERVER,
   OPEN_COLAB_WEB,
+  SIGN_IN_VIEW_EXISTING,
   UPGRADE_TO_PRO,
 } from "../colab/commands/constants";
 import {
@@ -29,6 +30,7 @@ import {
 } from "../colab/headers";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
+import { Toggleable } from "../common/toggleable";
 import { TestUri } from "../test/helpers/uri";
 import {
   newVsCodeStub as newVsCodeStub,
@@ -68,10 +70,30 @@ describe("ColabJupyterServerProvider", () => {
   >;
   let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
   let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
+  let whileAuthorizedToggles: Toggleable[];
+  let whileAuthorizedDisposeStub: sinon.SinonStub<[], void>;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverPickerStub: SinonStubbedInstance<ServerPicker>;
   let serverProvider: ColabJupyterServerProvider;
+
+  enum AuthStatus {
+    SIGNED_OUT,
+    SIGNED_IN,
+  }
+
+  function toggleAuth(s: AuthStatus) {
+    for (const t of whileAuthorizedToggles) {
+      switch (s) {
+        case AuthStatus.SIGNED_OUT:
+          t.off();
+          break;
+        case AuthStatus.SIGNED_IN:
+          t.on();
+          break;
+      }
+    }
+  }
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
@@ -101,6 +123,16 @@ describe("ColabJupyterServerProvider", () => {
         return serverCollectionStub;
       },
     );
+    whileAuthorizedToggles = [];
+    whileAuthorizedDisposeStub = sinon.stub();
+    const whileAuthorized = (...toggles: Toggleable[]) => {
+      whileAuthorizedToggles.push(...toggles);
+
+      return {
+        dispose: whileAuthorizedDisposeStub,
+      };
+    };
+
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     Object.defineProperty(assignmentStub, "onDidAssignmentsChange", {
       value: sinon.stub(),
@@ -110,11 +142,13 @@ describe("ColabJupyterServerProvider", () => {
 
     serverProvider = new ColabJupyterServerProvider(
       vsCodeStub.asVsCode(),
+      whileAuthorized,
       assignmentStub,
       colabClientStub,
       serverPickerStub,
       jupyterStub as Partial<Jupyter> as Jupyter,
     );
+    toggleAuth(AuthStatus.SIGNED_IN);
   });
 
   afterEach(() => {
@@ -129,6 +163,12 @@ describe("ColabJupyterServerProvider", () => {
         "Colab",
         serverProvider,
       );
+    });
+
+    it("disposes the authorization toggle listener", () => {
+      serverProvider.dispose();
+
+      sinon.assert.calledOnce(whileAuthorizedDisposeStub);
     });
 
     it('disposes the "Colab" Jupyter server collection', () => {
@@ -169,6 +209,18 @@ describe("ColabJupyterServerProvider", () => {
 
       expect(servers).to.deep.equal(assignedServers);
     });
+
+    it("returns no servers when not signed in", async () => {
+      toggleAuth(AuthStatus.SIGNED_OUT);
+
+      const servers =
+        await serverProvider.provideJupyterServers(cancellationToken);
+
+      expect(servers).to.have.lengthOf(0);
+      // Assert the call was never made, which requires the user to be signed
+      // in.
+      sinon.assert.notCalled(assignmentStub.getAssignedServers);
+    });
   });
 
   describe("resolveJupyterServer", () => {
@@ -201,82 +253,148 @@ describe("ColabJupyterServerProvider", () => {
 
   describe("commands", () => {
     describe("provideCommands", () => {
-      it("excludes upgrade to pro command when getting the subscription tier fails", async () => {
-        colabClientStub.getSubscriptionTier.rejects(new Error("foo"));
+      describe("when signed in", () => {
+        beforeEach(() => {
+          toggleAuth(AuthStatus.SIGNED_IN);
+        });
 
-        const commands = await serverProvider.provideCommands(
-          undefined,
-          cancellationToken,
-        );
+        it("excludes upgrade to pro command when getting the subscription tier fails", async () => {
+          colabClientStub.getSubscriptionTier.rejects(new Error("foo"));
 
-        assert.isDefined(commands);
-        expect(commands).to.deep.equal([
-          AUTO_CONNECT,
-          NEW_SERVER,
-          OPEN_COLAB_WEB,
-        ]);
+          const commands = await serverProvider.provideCommands(
+            undefined,
+            cancellationToken,
+          );
+
+          assert.isDefined(commands);
+          expect(commands).to.deep.equal([
+            AUTO_CONNECT,
+            NEW_SERVER,
+            OPEN_COLAB_WEB,
+          ]);
+        });
+
+        it("excludes upgrade to pro command for users with pro", async () => {
+          colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
+
+          const commands = await serverProvider.provideCommands(
+            undefined,
+            cancellationToken,
+          );
+
+          assert.isDefined(commands);
+          expect(commands).to.deep.equal([
+            AUTO_CONNECT,
+            NEW_SERVER,
+            OPEN_COLAB_WEB,
+          ]);
+        });
+
+        it("excludes upgrade to pro command for users with pro-plus", async () => {
+          colabClientStub.getSubscriptionTier.resolves(
+            SubscriptionTier.PRO_PLUS,
+          );
+
+          const commands = await serverProvider.provideCommands(
+            undefined,
+            cancellationToken,
+          );
+
+          assert.isDefined(commands);
+          expect(commands).to.deep.equal([
+            AUTO_CONNECT,
+            NEW_SERVER,
+            OPEN_COLAB_WEB,
+          ]);
+        });
+
+        it("returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users", async () => {
+          colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.NONE);
+
+          const commands = await serverProvider.provideCommands(
+            undefined,
+            cancellationToken,
+          );
+
+          assert.isDefined(commands);
+          expect(commands).to.deep.equal([
+            AUTO_CONNECT,
+            NEW_SERVER,
+            OPEN_COLAB_WEB,
+            UPGRADE_TO_PRO,
+          ]);
+        });
       });
 
-      it("excludes upgrade to pro command for users with pro", async () => {
-        colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
+      describe("when signed out", () => {
+        beforeEach(() => {
+          toggleAuth(AuthStatus.SIGNED_OUT);
+        });
 
-        const commands = await serverProvider.provideCommands(
-          undefined,
-          cancellationToken,
-        );
+        it("includes command to sign-in and view existing servers if there previously were some", async () => {
+          assignmentStub.getLastKnownAssignedServers.resolves([DEFAULT_SERVER]);
 
-        assert.isDefined(commands);
-        expect(commands).to.deep.equal([
-          AUTO_CONNECT,
-          NEW_SERVER,
-          OPEN_COLAB_WEB,
-        ]);
-      });
+          const commands = await serverProvider.provideCommands(
+            undefined,
+            cancellationToken,
+          );
 
-      it("excludes upgrade to pro command for users with pro-plus", async () => {
-        colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO_PLUS);
+          assert.isDefined(commands);
+          expect(commands).to.deep.equal([
+            SIGN_IN_VIEW_EXISTING,
+            AUTO_CONNECT,
+            NEW_SERVER,
+            OPEN_COLAB_WEB,
+          ]);
+        });
 
-        const commands = await serverProvider.provideCommands(
-          undefined,
-          cancellationToken,
-        );
+        it("returns commands to auto-connect, create a server and open Colab web", async () => {
+          assignmentStub.getLastKnownAssignedServers.resolves([]);
 
-        assert.isDefined(commands);
-        expect(commands).to.deep.equal([
-          AUTO_CONNECT,
-          NEW_SERVER,
-          OPEN_COLAB_WEB,
-        ]);
-      });
+          const commands = await serverProvider.provideCommands(
+            undefined,
+            cancellationToken,
+          );
 
-      it("returns commands to create a server, open Colab web and upgrade to pro for free users", async () => {
-        colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.NONE);
-
-        const commands = await serverProvider.provideCommands(
-          undefined,
-          cancellationToken,
-        );
-
-        assert.isDefined(commands);
-        expect(commands).to.deep.equal([
-          AUTO_CONNECT,
-          NEW_SERVER,
-          OPEN_COLAB_WEB,
-          UPGRADE_TO_PRO,
-        ]);
+          assert.isDefined(commands);
+          expect(commands).to.deep.equal([
+            AUTO_CONNECT,
+            NEW_SERVER,
+            OPEN_COLAB_WEB,
+          ]);
+        });
       });
     });
 
     describe("handleCommand", () => {
-      it('opens a browser to the Colab web client for "Open Colab Web"', () => {
+      // See catch block of ColabJupyterServerProvider.handleCommand for
+      // context. This is a required workaround until
+      // https://github.com/microsoft/vscode-jupyter/issues/16469 is resolved.
+      it("dismisses the input when an error is thrown", async () => {
+        assignmentStub.latestOrAutoAssignServer.rejects(new Error("barf"));
+
+        await expect(
+          serverProvider.handleCommand(
+            { label: AUTO_CONNECT.label },
+            cancellationToken,
+          ),
+        ).to.eventually.be.rejectedWith(/barf/);
+
+        sinon.assert.calledOnceWithExactly(
+          vsCodeStub.commands.executeCommand,
+          "workbench.action.closeQuickOpen",
+        );
+      });
+
+      it('opens a browser to the Colab web client for "Open Colab Web"', async () => {
         vsCodeStub.env.openExternal.resolves(true);
 
-        expect(
+        await expect(
           serverProvider.handleCommand(
             { label: OPEN_COLAB_WEB.label },
             cancellationToken,
           ),
-        ).to.be.equal(undefined);
+        ).to.eventually.equal(undefined);
 
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.env.openExternal,
@@ -284,20 +402,48 @@ describe("ColabJupyterServerProvider", () => {
         );
       });
 
-      it('opens a browser to the Colab signup page for "Upgrade to Pro"', () => {
+      it('opens a browser to the Colab signup page for "Upgrade to Pro"', async () => {
         vsCodeStub.env.openExternal.resolves(true);
 
-        expect(
+        await expect(
           serverProvider.handleCommand(
             { label: UPGRADE_TO_PRO.label },
             cancellationToken,
           ),
-        ).to.be.equal(undefined);
+        ).to.eventually.equal(undefined);
 
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.env.openExternal,
           vsCodeStub.Uri.parse("https://colab.research.google.com/signup"),
         );
+      });
+
+      describe("for signing-in to view existing servers", () => {
+        it("triggers server reconciliation and navigates back out of the flow", async () => {
+          assignmentStub.reconcileAssignedServers.resolves();
+
+          await expect(
+            serverProvider.handleCommand(
+              { label: SIGN_IN_VIEW_EXISTING.label },
+              cancellationToken,
+            ),
+          ).to.eventually.be.equal(undefined);
+
+          sinon.assert.calledOnce(assignmentStub.reconcileAssignedServers);
+        });
+      });
+
+      describe("for auto-connecting", () => {
+        it("assigns the latest server or auto-assigns one", async () => {
+          assignmentStub.latestOrAutoAssignServer.resolves(DEFAULT_SERVER);
+
+          await expect(
+            serverProvider.handleCommand(
+              { label: AUTO_CONNECT.label },
+              cancellationToken,
+            ),
+          ).to.eventually.deep.equal(DEFAULT_SERVER);
+        });
       });
 
       describe("for new Colab server", () => {

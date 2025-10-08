@@ -12,7 +12,7 @@ import {
   JupyterServerCommandProvider,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import { CancellationToken, ProviderResult } from "vscode";
+import { CancellationToken, Disposable, ProviderResult } from "vscode";
 import vscode from "vscode";
 import { SubscriptionTier } from "../colab/api";
 import { ColabClient } from "../colab/client";
@@ -20,11 +20,13 @@ import {
   AUTO_CONNECT,
   NEW_SERVER,
   OPEN_COLAB_WEB,
+  SIGN_IN_VIEW_EXISTING,
   UPGRADE_TO_PRO,
 } from "../colab/commands/constants";
 import { openColabSignup, openColabWeb } from "../colab/commands/external";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
+import { Toggleable } from "../common/toggleable";
 import { isUUID } from "../utils/uuid";
 import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 
@@ -44,9 +46,12 @@ export class ColabJupyterServerProvider
 
   private readonly serverCollection: JupyterServerCollection;
   private readonly serverChangeEmitter: vscode.EventEmitter<void>;
+  private isAuthorized = false;
+  private authorizedListener: Disposable;
 
   constructor(
     private readonly vs: typeof vscode,
+    whileAuthorized: (...toggles: Toggleable[]) => Disposable,
     private readonly assignmentManager: AssignmentManager,
     private readonly client: ColabClient,
     private readonly serverPicker: ServerPicker,
@@ -56,6 +61,9 @@ export class ColabJupyterServerProvider
     this.onDidChangeServers = this.serverChangeEmitter.event;
     this.assignmentManager.onDidAssignmentsChange(
       this.handleAssignmentsChange.bind(this),
+    );
+    this.authorizedListener = whileAuthorized(
+      this.toggleAuthorizationState.bind(this)(),
     );
     this.serverCollection = jupyter.createJupyterServerCollection(
       "colab",
@@ -67,6 +75,7 @@ export class ColabJupyterServerProvider
   }
 
   dispose() {
+    this.authorizedListener.dispose();
     this.serverCollection.dispose();
   }
 
@@ -77,6 +86,9 @@ export class ColabJupyterServerProvider
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
+    if (!this.isAuthorized) {
+      return [];
+    }
     return this.assignmentManager.getAssignedServers();
   }
 
@@ -102,53 +114,24 @@ export class ColabJupyterServerProvider
    * filtered down by the quick pick automatically.
    */
   // TODO: Integrate rename server alias and remove server commands.
-  provideCommands(
+  async provideCommands(
     _value: string | undefined,
     _token: CancellationToken,
-  ): ProviderResult<JupyterServerCommand[]> {
-    return this.provideRelevantCommands();
-  }
-
-  /**
-   * Invoked when a command has been selected.
-   *
-   * @returns The newly assigned server or undefined if the command does not
-   * create a new server.
-   */
-  // TODO: Determine why throwing a vscode.CancellationError does not dismiss
-  // the kernel picker and instead just puts the Jupyter picker into a busy
-  // (loading) state. Filed a GitHub issue on the Jupyter extension repo:
-  // https://github.com/microsoft/vscode-jupyter/issues/16469
-  //
-  // TODO: Consider popping a notification if the `openExternal` call fails.
-  handleCommand(
-    command: JupyterServerCommand,
-    _token: CancellationToken,
-  ): ProviderResult<JupyterServer> {
-    switch (command.label) {
-      case AUTO_CONNECT.label:
-        return this.assignmentManager.latestOrAutoAssignServer();
-      case NEW_SERVER.label:
-        return this.assignServer().catch((err: unknown) => {
-          // Returning `undefined` shows the previous UI (kernel picker).
-          if (err === InputFlowAction.back) {
-            return undefined;
-          }
-          throw err;
-        });
-      case OPEN_COLAB_WEB.label:
-        openColabWeb(this.vs);
-        return;
-      case UPGRADE_TO_PRO.label:
-        openColabSignup(this.vs);
-        return;
-      default:
-        throw new Error("Unexpected command");
+  ): Promise<JupyterServerCommand[]> {
+    const commands: JupyterServerCommand[] = [];
+    // Only show the command to view existing servers if the user is not signed
+    // in but previously had assigned servers. Otherwise, it's the command is
+    // redundant.
+    if (
+      !this.isAuthorized &&
+      (await this.assignmentManager.getLastKnownAssignedServers()).length > 0
+    ) {
+      commands.push(SIGN_IN_VIEW_EXISTING);
     }
-  }
-
-  private async provideRelevantCommands(): Promise<JupyterServerCommand[]> {
-    const commands = [AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB];
+    commands.push(AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB);
+    if (!this.isAuthorized) {
+      return commands;
+    }
     try {
       const tier = await this.client.getSubscriptionTier();
       if (tier === SubscriptionTier.NONE) {
@@ -159,6 +142,77 @@ export class ColabJupyterServerProvider
       // just return the commands without it.
     }
     return commands;
+  }
+
+  /**
+   * Invoked when a command has been selected.
+   *
+   * @returns The newly assigned server or undefined if the command does not
+   * create a new server.
+   */
+  // TODO: Consider popping a notification if the `openExternal` call fails.
+  async handleCommand(
+    command: JupyterServerCommand,
+    _token: CancellationToken,
+  ): Promise<JupyterServer | undefined> {
+    try {
+      switch (command.label) {
+        case SIGN_IN_VIEW_EXISTING.label:
+          // The sign-in flow starts by prompting the user with an
+          // application-level dialog to sign-in. Since it effectively takes
+          // over the application, we fire and forget reconciliation to trigger
+          // sign-in and navigate back.
+          await this.assignmentManager.reconcileAssignedServers();
+          throw InputFlowAction.back;
+        case AUTO_CONNECT.label:
+          return await this.assignmentManager.latestOrAutoAssignServer();
+        case NEW_SERVER.label:
+          return await this.assignServer();
+        case OPEN_COLAB_WEB.label:
+          openColabWeb(this.vs);
+          return;
+        case UPGRADE_TO_PRO.label:
+          openColabSignup(this.vs);
+          return;
+        default:
+          throw new Error("Unexpected command");
+      }
+    } catch (e: unknown) {
+      if (e === InputFlowAction.back) {
+        // Navigate "back" by returning undefined.
+        return;
+      }
+
+      // Which quick open? The open one... 😉. This is a little nasty, but
+      // unfortunately it's the only known workaround while
+      // https://github.com/microsoft/vscode-jupyter/issues/16469 is unresolved.
+      //
+      // Throwing a CancellationError is meant to dismiss the dialog, but it
+      // doesn't. Additionally, if any other error is thrown while handling
+      // commands, the quick pick is left spinning in the "busy" state.
+      await this.vs.commands.executeCommand("workbench.action.closeQuickOpen");
+      throw e;
+    }
+  }
+
+  private toggleAuthorizationState(): Toggleable {
+    const toggle = (to: boolean) => {
+      const didChange = this.isAuthorized !== to;
+      if (!didChange) {
+        return;
+      }
+      this.isAuthorized = to;
+      this.serverChangeEmitter.fire();
+    };
+
+    return {
+      on: () => {
+        toggle(true);
+      },
+      off: () => {
+        toggle(false);
+      },
+    };
   }
 
   private async assignServer(): Promise<JupyterServer> {
