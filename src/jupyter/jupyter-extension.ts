@@ -5,7 +5,13 @@
  */
 
 import { Jupyter } from "@vscode/jupyter-extension";
-import vscode from "vscode";
+import { satisfies as semVerSatisfies } from "semver";
+import vscode, { Extension } from "vscode";
+import { getPackageInfo } from "../config/package-info";
+
+// TODO: Remove the upper bound once VS Code / Jupyter resolve
+// https://github.com/microsoft/vscode/issues/270285.
+const JUPYTER_SEMVER_RANGE = ">=2025.0.0 <2025.9.0";
 
 /**
  * Get the exported API from the Jupyter extension.
@@ -15,8 +21,20 @@ export async function getJupyterApi(vs: typeof vscode): Promise<Jupyter> {
   if (!ext) {
     throw new Error("Jupyter Extension not installed");
   }
+  validateJupyterVersion(ext);
   if (!ext.isActive) {
     await ext.activate();
   }
   return ext.exports;
+}
+
+function validateJupyterVersion(jupyter: Extension<Jupyter>) {
+  const got = getPackageInfo(jupyter).version;
+  const want = JUPYTER_SEMVER_RANGE;
+
+  if (!semVerSatisfies(got, JUPYTER_SEMVER_RANGE)) {
+    throw new Error(
+      `Jupyter version "${got}" does not satisfy required version range "${want}"`,
+    );
+  }
 }

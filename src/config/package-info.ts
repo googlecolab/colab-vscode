@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ExtensionContext } from "vscode";
+import { Extension } from "vscode";
 import { z } from "zod";
 
 /**
@@ -19,9 +19,10 @@ import { z } from "zod";
 const PackageInfoSchema = z.object({
   publisher: z.string(),
   name: z.string(),
+  version: z.string(),
 });
 export type PackageInfo = z.infer<typeof PackageInfoSchema>;
 
-export function getPackageInfo(context: ExtensionContext): PackageInfo {
-  return PackageInfoSchema.parse(context.extension.packageJSON);
+export function getPackageInfo(ext: Extension<unknown>): PackageInfo {
+  return PackageInfoSchema.parse(ext.packageJSON);
 }
