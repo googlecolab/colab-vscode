@@ -15,6 +15,7 @@ import { getOAuth2Flows, OAuth2Flow } from "./flows";
 const PACKAGE_INFO: PackageInfo = {
   publisher: "google",
   name: "colab",
+  version: "0.1.0",
 };
 
 describe("getOAuth2Flows", () => {

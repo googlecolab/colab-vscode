@@ -24,6 +24,7 @@ import { ProxiedRedirectFlow } from "./proxied";
 const PACKAGE_INFO: PackageInfo = {
   publisher: "google",
   name: "colab",
+  version: "0.1.0",
 };
 const NONCE = "nonce";
 const CODE = "42";
