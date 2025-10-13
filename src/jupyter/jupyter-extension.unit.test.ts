@@ -76,22 +76,6 @@ describe("Jupyter Extension", () => {
       sinon.assert.notCalled(activateStub);
     });
 
-    // TODO: Remove the upper bound once VS Code / Jupyter resolve
-    // https://github.com/microsoft/vscode/issues/270285.
-    it("rejects if the Jupyter extension version is too high", async () => {
-      const ext = getJupyterExtension();
-      vsCodeStub.extensions.getExtension.returns({
-        ...ext,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        packageJSON: { ...ext.packageJSON, version: "2023.9.0" },
-      } as vscode.Extension<Jupyter>);
-
-      await expect(getJupyterApi(vsCodeStub.asVsCode())).to.be.rejectedWith(
-        /satisfy required version/,
-      );
-      sinon.assert.notCalled(activateStub);
-    });
-
     it("activates the extension if it is not active", async () => {
       const ext = getJupyterExtension(ExtensionStatus.Inactive);
       vsCodeStub.extensions.getExtension.returns(

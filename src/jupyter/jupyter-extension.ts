@@ -9,9 +9,7 @@ import { satisfies as semVerSatisfies } from "semver";
 import vscode, { Extension } from "vscode";
 import { getPackageInfo } from "../config/package-info";
 
-// TODO: Remove the upper bound once VS Code / Jupyter resolve
-// https://github.com/microsoft/vscode/issues/270285.
-const JUPYTER_SEMVER_RANGE = ">=2025.0.0 <2025.9.0";
+const JUPYTER_SEMVER_RANGE = ">=2025.0.0";
 
 /**
  * Get the exported API from the Jupyter extension.
