@@ -67,13 +67,16 @@ describe("Colab Extension", function () {
         item: "Colab",
         quickPick: "Select Another Kernel",
       });
+      await selectQuickPickItem({
+        item: "New Colab Server",
+        quickPick: "Select a Jupyter Server",
+      });
 
       // Accept the dialog allowing the Colab extension to sign in using Google.
       await pushDialogButton({
         button: "Allow",
         dialog: "The extension 'Colab' wants to sign in using Google.",
       });
-
       // Begin the sign-in process by copying the OAuth URL to the clipboard and
       // opening it in a browser window. Why do this instead of triggering the
       // "Open" button in the dialog? We copy the URL so that we can use a new
@@ -89,10 +92,6 @@ describe("Colab Extension", function () {
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
-      await selectQuickPickItem({
-        item: "New Colab Server",
-        quickPick: "Select a Jupyter Server",
-      });
       await selectQuickPickItem({
         item: "CPU",
         quickPick: "Select a variant (1/2)",
