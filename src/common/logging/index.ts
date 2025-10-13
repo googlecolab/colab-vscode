@@ -111,9 +111,7 @@ function doLog(
   ...args: unknown[]
 ): void {
   if (loggers.length === 0) {
-    throw new Error(
-      "Logger not initialized. Call initializeLogger() before logging.",
-    );
+    return;
   }
   if (level === LogLevel.Off || level > threshold) {
     return;

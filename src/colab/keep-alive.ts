@@ -66,8 +66,13 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
         // "keep-alive" signal are quick. Twice the prompt time should be
         // plenty.
         taskTimeoutMs: 2 * config.idleExtensionPromptTimeMs,
+        // Nothing to cleanup, abandon immediately.
+        abandonGraceMs: 0,
       },
-      (signal) => this.keepServersAlive(signal),
+      {
+        name: ServerKeepAliveController.name,
+        run: (signal) => this.keepServersAlive(signal),
+      },
       OverrunPolicy.AllowToComplete,
     );
   }

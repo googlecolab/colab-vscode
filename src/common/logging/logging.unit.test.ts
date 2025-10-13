@@ -57,12 +57,10 @@ describe("Logging Module", () => {
       ).to.throw(/already/);
     });
 
-    it("throws if used before being initialized", () => {
+    it("no-ops silently if used before being initialized", () => {
       expect(() => {
         log.info("test");
-      }).to.throw(
-        "Logger not initialized. Call initializeLogger() before logging.",
-      );
+      }).not.to.throw();
     });
 
     it("disposes config listener and output channel when disposed", () => {

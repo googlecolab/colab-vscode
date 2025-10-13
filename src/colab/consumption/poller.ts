@@ -40,8 +40,13 @@ export class ConsumptionPoller implements Toggleable, Disposable {
       {
         intervalTimeoutMs: POLL_INTERVAL_MS,
         taskTimeoutMs: TASK_TIMEOUT_MS,
+        // Nothing to cleanup, abandon immediately.
+        abandonGraceMs: 0,
       },
-      this.poll.bind(this),
+      {
+        name: ConsumptionPoller.name,
+        run: this.poll.bind(this),
+      },
       OverrunPolicy.AbandonAndRun,
     );
   }
