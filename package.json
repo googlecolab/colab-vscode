@@ -63,12 +63,18 @@
         "command": "colab.toolbarCommand",
         "category": "Colab",
         "title": "Colab",
-        "icon": {
-          "light": "resources/colab_grayscale_light.svg",
-          "dark": "resources/colab_grayscale_dark.svg"
-        }
+        "icon": "$(colab-logo)"
       }
     ],
+    "icons": {
+      "colab-logo": {
+        "description": "Google Colab logo",
+        "default": {
+          "fontPath": "./resources/colab-font.woff",
+          "fontCharacter": "\\e900"
+        }
+      }
+    },
     "menus": {
       "notebook/toolbar": [
         {
