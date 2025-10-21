@@ -7,12 +7,7 @@
 import vscode, { QuickPickItem } from "vscode";
 import { InputFlowAction } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
-import {
-  OPEN_COLAB_WEB,
-  REMOVE_SERVER,
-  RENAME_SERVER_ALIAS,
-  UPGRADE_TO_PRO,
-} from "./constants";
+import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from "./constants";
 import { openColabSignup, openColabWeb } from "./external";
 
 /**
@@ -71,15 +66,8 @@ async function getAvailableCommands(
     return externalCommands;
   }
   const serverCommands: NotebookCommand[] = [
-    {
-      label: RENAME_SERVER_ALIAS.label,
-      invoke: () => {
-        return vs.commands.executeCommand(
-          RENAME_SERVER_ALIAS.id,
-          /* withBackButton= */ true,
-        );
-      },
-    },
+    // TODO: Include the rename server alias command once rename is reflected in
+    // the recent kernels list.
     {
       label: REMOVE_SERVER.label,
       invoke: () => {

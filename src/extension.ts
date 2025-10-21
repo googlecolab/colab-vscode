@@ -11,13 +11,9 @@ import { getOAuth2Flows } from "./auth/flows/flows";
 import { login } from "./auth/login";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
-import {
-  COLAB_TOOLBAR,
-  REMOVE_SERVER,
-  RENAME_SERVER_ALIAS,
-} from "./colab/commands/constants";
+import { COLAB_TOOLBAR, REMOVE_SERVER } from "./colab/commands/constants";
 import { notebookToolbar } from "./colab/commands/notebook";
-import { renameServerAlias, removeServer } from "./colab/commands/server";
+import { removeServer } from "./colab/commands/server";
 import { ConsumptionNotifier } from "./colab/consumption/notifier";
 import { ConsumptionPoller } from "./colab/consumption/poller";
 import { ServerKeepAliveController } from "./colab/keep-alive";
@@ -99,7 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
-    ...registerCommands(serverStorage, assignmentManager),
+    ...registerCommands(assignmentManager),
   );
 }
 
@@ -126,17 +122,10 @@ function watchConsumption(colab: ColabClient): {
   return { toggle: poller, disposables };
 }
 
-function registerCommands(
-  serverStorage: ServerStorage,
-  assignmentManager: AssignmentManager,
-): Disposable[] {
+function registerCommands(assignmentManager: AssignmentManager): Disposable[] {
   return [
-    vscode.commands.registerCommand(
-      RENAME_SERVER_ALIAS.id,
-      async (withBackButton?: boolean) => {
-        await renameServerAlias(vscode, serverStorage, withBackButton);
-      },
-    ),
+    // TODO: Register the rename server alias command once rename is reflected
+    // in the recent kernels list.
     vscode.commands.registerCommand(
       REMOVE_SERVER.id,
       async (withBackButton?: boolean) => {

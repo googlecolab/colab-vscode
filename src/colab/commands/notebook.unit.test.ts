@@ -11,7 +11,7 @@ import { InputFlowAction } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { OPEN_COLAB_WEB, UPGRADE_TO_PRO } from "./constants";
-import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./constants";
+import { REMOVE_SERVER } from "./constants";
 import { notebookToolbar } from "./notebook";
 
 describe("notebookToolbar", () => {
@@ -37,11 +37,12 @@ describe("notebookToolbar", () => {
   it("re-invokes the notebook toolbar when a command flows back", async () => {
     assignmentManager.hasAssignedServer.resolves(true);
     vsCodeStub.commands.executeCommand
-      .withArgs("colab.renameServerAlias")
+      .withArgs("colab.removeServer")
+      .onFirstCall()
       .rejects(InputFlowAction.back);
     vsCodeStub.window.showQuickPick
       .onFirstCall()
-      .callsFake(findCommand(RENAME_SERVER_ALIAS.label))
+      .callsFake(findCommand(REMOVE_SERVER.label))
       .onSecondCall()
       .callsFake(findCommand(REMOVE_SERVER.label));
 
@@ -79,7 +80,6 @@ describe("notebookToolbar", () => {
     sinon.assert.calledOnceWithMatch(
       vsCodeStub.window.showQuickPick,
       commandsLabeled([
-        RENAME_SERVER_ALIAS.label,
         REMOVE_SERVER.label,
         /* separator */ "",
         OPEN_COLAB_WEB.label,
@@ -119,21 +119,6 @@ describe("notebookToolbar", () => {
         (u: Uri) =>
           u.authority === "colab.research.google.com" && u.path === "/signup",
       ),
-    );
-  });
-
-  it("renames a server alias", async () => {
-    assignmentManager.hasAssignedServer.resolves(true);
-    vsCodeStub.window.showQuickPick.callsFake(
-      findCommand(RENAME_SERVER_ALIAS.label),
-    );
-
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
-      .eventually.be.fulfilled;
-
-    sinon.assert.calledOnceWithMatch(
-      vsCodeStub.commands.executeCommand,
-      "colab.renameServerAlias",
     );
   });
 

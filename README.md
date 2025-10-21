@@ -30,10 +30,9 @@ cell](./docs/assets/hello-world.gif)
 
 Activate the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P` on Mac.
 
-| Command                      | Description                                                                  |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| `Colab: Rename server alias` | Select and rename the local alias used to identify an assigned Colab server. |
-| `Colab: Remove server`       | Select an assigned Colab server to remove.                                   |
+| Command                | Description                                |
+| ---------------------- | ------------------------------------------ |
+| `Colab: Remove server` | Select an assigned Colab server to remove. |
 
 ## Contributing
 
