@@ -67,7 +67,7 @@ async function getAvailableCommands(
   }
   const serverCommands: NotebookCommand[] = [
     // TODO: Include the rename server alias command once rename is reflected in
-    // the recent kernels list.
+    // the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     {
       label: REMOVE_SERVER.label,
       invoke: () => {

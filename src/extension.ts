@@ -125,7 +125,7 @@ function watchConsumption(colab: ColabClient): {
 function registerCommands(assignmentManager: AssignmentManager): Disposable[] {
   return [
     // TODO: Register the rename server alias command once rename is reflected
-    // in the recent kernels list.
+    // in the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     vscode.commands.registerCommand(
       REMOVE_SERVER.id,
       async (withBackButton?: boolean) => {
