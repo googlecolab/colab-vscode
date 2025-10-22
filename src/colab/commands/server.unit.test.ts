@@ -192,85 +192,57 @@ describe("Server Commands", () => {
         ]);
       });
 
-      it("unassigns the selected server", async () => {
-        assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
+      describe("when a server is removed", () => {
+        let remove: Promise<void>;
 
-        const remove = removeServer(
-          vsCodeStub.asVsCode(),
-          assignmentManagerStub,
-        );
-        await quickPickStub.nextShow();
-        quickPickStub.onDidChangeSelection.yield([
-          { label: defaultServer.label, value: defaultServer },
-        ]);
-
-        expect(remove).to.eventually.be.fulfilled;
-        assignmentManagerStub.unassignServer.calledOnceWithExactly(
-          defaultServer,
-        );
-      });
-
-      it("notifies the user while removing the server", async () => {
-        assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
-
-        const remove = removeServer(
-          vsCodeStub.asVsCode(),
-          assignmentManagerStub,
-        );
-        await quickPickStub.nextShow();
-        quickPickStub.onDidChangeSelection.yield([
-          { label: defaultServer.label, value: defaultServer },
-        ]);
-
-        await expect(remove).to.eventually.be.fulfilled;
-        sinon.assert.calledWithMatch(
-          vsCodeStub.window.withProgress,
-          {
-            cancellable: false,
-            location: vsCodeStub.ProgressLocation.Notification,
-            title: `Removing server "${defaultServer.label}"...`,
-          },
-          sinon.match.func,
-        );
-      });
-
-      it("notifies the user to reload notebooks connected to the removed server", async () => {
-        assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
-
-        const remove = removeServer(
-          vsCodeStub.asVsCode(),
-          assignmentManagerStub,
-        );
-        await quickPickStub.nextShow();
-        quickPickStub.onDidChangeSelection.yield([
-          { label: defaultServer.label, value: defaultServer },
-        ]);
-
-        await expect(remove).to.eventually.be.fulfilled;
-        sinon.assert.calledWithMatch(
-          vsCodeStub.window.showInformationMessage,
-          sinon.match(/re-open notebooks foo was previously connected to/),
-          sinon.match.string,
-        );
-      });
-
-      describe("and the reload notebook notification is shown", () => {
-        it("opens the issue when the user clicks View Issue", async () => {
+        beforeEach(async () => {
           assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
-          vsCodeStub.window.showInformationMessage.resolves({
-            title: "View Issue",
-          });
-
-          const remove = removeServer(
-            vsCodeStub.asVsCode(),
-            assignmentManagerStub,
-          );
+          remove = removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
           await quickPickStub.nextShow();
           quickPickStub.onDidChangeSelection.yield([
             { label: defaultServer.label, value: defaultServer },
           ]);
+        });
+
+        it("unassigns the selected server", async () => {
+          await expect(remove).to.eventually.be.fulfilled;
+
+          assignmentManagerStub.unassignServer.calledOnceWithExactly(
+            defaultServer,
+          );
+        });
+
+        it("notifies the user while server unassignment is in progress", async () => {
+          await expect(remove).to.eventually.be.fulfilled;
+
+          sinon.assert.calledWithMatch(
+            vsCodeStub.window.withProgress,
+            {
+              cancellable: false,
+              location: vsCodeStub.ProgressLocation.Notification,
+              title: `Removing server "${defaultServer.label}"...`,
+            },
+            sinon.match.func,
+          );
+        });
+
+        it("notifies the user to reload notebooks", async () => {
+          await expect(remove).to.eventually.be.fulfilled;
+
+          sinon.assert.calledWithMatch(
+            vsCodeStub.window.showInformationMessage,
+            sinon.match(/re-open notebooks foo was previously connected to/),
+            sinon.match.string,
+          );
+        });
+
+        it("opens the Jupyter Github issue when the notification is clicked", async () => {
+          vsCodeStub.window.showInformationMessage.resolves({
+            title: "View Issue",
+          });
 
           await expect(remove).to.eventually.be.fulfilled;
+
           sinon.assert.calledWithMatch(
             vsCodeStub.env.openExternal,
             vsCodeStub.Uri.parse(
@@ -279,20 +251,11 @@ describe("Server Commands", () => {
           );
         });
 
-        it("does not open the issue when the user dismisses the notification", async () => {
-          assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
+        it("does not open the Jupyter Github issue when the notification is dismissed", async () => {
           vsCodeStub.window.showInformationMessage.resolves(undefined);
 
-          const remove = removeServer(
-            vsCodeStub.asVsCode(),
-            assignmentManagerStub,
-          );
-          await quickPickStub.nextShow();
-          quickPickStub.onDidChangeSelection.yield([
-            { label: defaultServer.label, value: defaultServer },
-          ]);
-
           await expect(remove).to.eventually.be.fulfilled;
+
           sinon.assert.notCalled(vsCodeStub.env.openExternal);
         });
       });
