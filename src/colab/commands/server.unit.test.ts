@@ -233,6 +233,69 @@ describe("Server Commands", () => {
           sinon.match.func,
         );
       });
+
+      it("notifies the user to reload notebooks connected to the removed server", async () => {
+        assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
+
+        const remove = removeServer(
+          vsCodeStub.asVsCode(),
+          assignmentManagerStub,
+        );
+        await quickPickStub.nextShow();
+        quickPickStub.onDidChangeSelection.yield([
+          { label: defaultServer.label, value: defaultServer },
+        ]);
+
+        await expect(remove).to.eventually.be.fulfilled;
+        sinon.assert.calledWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/re-open notebooks foo was previously connected to/),
+          sinon.match.string,
+        );
+      });
+
+      describe("and the reload notebook notification is shown", () => {
+        it("opens the issue when the user clicks View Issue", async () => {
+          assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
+          vsCodeStub.window.showInformationMessage.resolves({
+            title: "View Issue",
+          });
+
+          const remove = removeServer(
+            vsCodeStub.asVsCode(),
+            assignmentManagerStub,
+          );
+          await quickPickStub.nextShow();
+          quickPickStub.onDidChangeSelection.yield([
+            { label: defaultServer.label, value: defaultServer },
+          ]);
+
+          await expect(remove).to.eventually.be.fulfilled;
+          sinon.assert.calledWithMatch(
+            vsCodeStub.env.openExternal,
+            vsCodeStub.Uri.parse(
+              "https://github.com/microsoft/vscode-jupyter/issues/17094",
+            ),
+          );
+        });
+
+        it("does not open the issue when the user dismisses the notification", async () => {
+          assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
+          vsCodeStub.window.showInformationMessage.resolves(undefined);
+
+          const remove = removeServer(
+            vsCodeStub.asVsCode(),
+            assignmentManagerStub,
+          );
+          await quickPickStub.nextShow();
+          quickPickStub.onDidChangeSelection.yield([
+            { label: defaultServer.label, value: defaultServer },
+          ]);
+
+          await expect(remove).to.eventually.be.fulfilled;
+          sinon.assert.notCalled(vsCodeStub.env.openExternal);
+        });
+      });
     });
   });
 });

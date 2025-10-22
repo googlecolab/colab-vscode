@@ -61,8 +61,6 @@ export async function renameServerAlias(
  * Prompts the user to select an assigned Colab server to remove.
  */
 // TODO: Consider making this multi-select.
-// TODO: Handle bug where, if the server of the connected kernel is
-// removed, a fallback kernel is selected but does not connect.
 // TODO: Update MultiStepInput to handle a single-step case.
 export async function removeServer(
   vs: typeof vscode,
@@ -90,6 +88,20 @@ export async function removeServer(
       },
       () => assignmentManager.unassignServer(selectedServer),
     );
+    // TODO: Remove once https://github.com/microsoft/vscode-jupyter/issues/17094 is fixed.
+    void notifyReloadNotebooks(vs, selectedServer.label);
     return undefined;
   });
+}
+
+async function notifyReloadNotebooks(vs: typeof vscode, serverLabel: string) {
+  const result = await vs.window.showInformationMessage(
+    `Sorry for the inconvenience, to work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverLabel} was previously connected to.`,
+    `View Issue`,
+  );
+  if (result) {
+    vs.env.openExternal(
+      vs.Uri.parse("https://github.com/microsoft/vscode-jupyter/issues/17094"),
+    );
+  }
 }
