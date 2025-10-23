@@ -40,6 +40,32 @@
     "onNotebook:interactive"
   ],
   "contributes": {
+    "configuration": {
+      "title": "Colab",
+      "properties": {
+        "colab.logging.level": {
+          "type": "string",
+          "default": "info",
+          "enum": [
+            "off",
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "enumDescriptions": [
+            "Nothing is logged.",
+            "Error logs only are logged.",
+            "Warning logs and higher (error) are logged.",
+            "Info logs and higher (warning and error) are logged.",
+            "Debug logs and higher (info, warning and error).",
+            "Trace logs and higher (debug, info, warning and error) are logged."
+          ],
+          "description": "Controls the verbosity of logs from the Colab extension. These can be found in the 'Colab' output channel."
+        }
+      }
+    },
     "authentication": [
       {
         "label": "Google",

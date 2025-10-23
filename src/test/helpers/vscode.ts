@@ -25,6 +25,12 @@ enum UIKind {
   Web = 2,
 }
 
+export enum ExtensionMode {
+  Production = 1,
+  Development = 2,
+  Test = 3,
+}
+
 enum ProgressLocation {
   SourceControl = 1,
   Window = 10,
@@ -69,6 +75,9 @@ export interface VsCodeStub {
       typeof vscode.window.showErrorMessage
     >;
     showQuickPick: sinon.SinonStubbedMember<typeof vscode.window.showQuickPick>;
+    createOutputChannel: sinon.SinonStubbedMember<
+      typeof vscode.window.createOutputChannel
+    >;
     createInputBox: sinon.SinonStubbedMember<
       typeof vscode.window.createInputBox
     >;
@@ -76,6 +85,15 @@ export interface VsCodeStub {
       typeof vscode.window.createQuickPick
     >;
   };
+  workspace: {
+    getConfiguration: sinon.SinonStubbedMember<
+      typeof vscode.workspace.getConfiguration
+    >;
+    onDidChangeConfiguration: sinon.SinonStubbedMember<
+      typeof vscode.workspace.onDidChangeConfiguration
+    >;
+  };
+  ExtensionMode: typeof vscode.ExtensionMode;
   ProgressLocation: typeof ProgressLocation;
   QuickInputButtons: typeof TestQuickInputButtons;
   extensions: {
@@ -106,10 +124,17 @@ export function newVsCodeStub(): VsCodeStub {
         env: { ...this.env } as Partial<typeof vscode.env> as typeof vscode.env,
         window: {
           ...this.window,
-          // The unknown cast is necessary due to the complex overloading.
+          // The unknown casts are necessary due to the complex overloading.
+          /* eslint-disable @/max-len */
+          createOutputChannel: this.window
+            .createOutputChannel as unknown as typeof vscode.window.createOutputChannel,
+          /* eslint-enable @/max-len */
           showQuickPick: this.window
             .showQuickPick as unknown as typeof vscode.window.showQuickPick,
         } as Partial<typeof vscode.window> as typeof vscode.window,
+        workspace: this.workspace as Partial<
+          typeof vscode.workspace
+        > as typeof vscode.workspace,
         commands: { ...this.commands } as Partial<
           typeof vscode.commands
         > as typeof vscode.commands,
@@ -141,9 +166,15 @@ export function newVsCodeStub(): VsCodeStub {
       showWarningMessage: sinon.stub(),
       showErrorMessage: sinon.stub(),
       showQuickPick: sinon.stub(),
+      createOutputChannel: sinon.stub(),
       createInputBox: sinon.stub(),
       createQuickPick: sinon.stub(),
     },
+    workspace: {
+      getConfiguration: sinon.stub(),
+      onDidChangeConfiguration: sinon.stub(),
+    },
+    ExtensionMode: ExtensionMode,
     ProgressLocation: ProgressLocation,
     QuickInputButtons: TestQuickInputButtons,
     extensions: {
