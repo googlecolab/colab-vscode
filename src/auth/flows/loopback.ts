@@ -11,6 +11,7 @@ import * as path from "path";
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { CONFIG } from "../../colab-config";
+import { log } from "../../common/logging";
 import { LoopbackHandler, LoopbackServer } from "../../common/loopback-server";
 import { CodeManager } from "../code-manager";
 import {
@@ -124,8 +125,7 @@ class Handler implements LoopbackHandler {
         this.codeProvider.resolveCode(nonce, code);
 
         void this.redirectSuccessfulAuth(res).catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error(`Issue redirecting loopback request: ${msg}`);
+          log.error("Unable to redirect the successful auth request", err);
         });
         break;
       }
@@ -135,7 +135,7 @@ class Handler implements LoopbackHandler {
         break;
       }
       default: {
-        console.warn("Received unhandled request: ", req);
+        log.warn("Received unhandled request", req);
         res.writeHead(404);
         res.end("Not Found");
         break;
@@ -164,7 +164,7 @@ class Handler implements LoopbackHandler {
 function sendFile(res: http.ServerResponse, filepath: string): void {
   fs.readFile(filepath, (err, body) => {
     if (err) {
-      console.error(err);
+      log.error(`Unable to read file: ${filepath}`, err);
       res.writeHead(500);
       res.end("Internal Server Error");
     } else {

@@ -7,6 +7,7 @@
 import { UUID } from "crypto";
 import { Disposable } from "vscode";
 import vscode from "vscode";
+import { log } from "../common/logging";
 import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";
 import { Toggleable } from "../common/toggleable";
 import { AssignmentManager } from "../jupyter/assignments";
@@ -98,7 +99,7 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
       try {
         await this.keepServerAlive(a, signal);
       } catch (e: unknown) {
-        console.error(`Error keeping server alive: ${a.label}`, e);
+        log.error(`Unable to send server "keep alive" ping: ${a.label}`, e);
       }
     });
 

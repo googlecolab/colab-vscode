@@ -6,6 +6,7 @@
 
 import * as http from "http";
 import vscode from "vscode";
+import { log } from "./logging";
 
 const FAILED_TO_GET_PORT = new Error("Failed to acquire server port");
 
@@ -76,7 +77,7 @@ export class LoopbackServer implements vscode.Disposable {
     }
     this.server.close((err) => {
       if (err) {
-        console.error("Error closing server:", err);
+        log.error("Issue closing loopback server", err);
       }
     });
   }

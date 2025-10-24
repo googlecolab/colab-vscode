@@ -19,6 +19,7 @@ import { ConsumptionPoller } from "./colab/consumption/poller";
 import { ServerKeepAliveController } from "./colab/keep-alive";
 import { ServerPicker } from "./colab/server-picker";
 import { CONFIG } from "./colab-config";
+import { initializeLogger } from "./common/logging";
 import { Toggleable } from "./common/toggleable";
 import { getPackageInfo } from "./config/package-info";
 import { AssignmentManager } from "./jupyter/assignments";
@@ -29,6 +30,7 @@ import { ExtensionUriHandler } from "./system/uri-handler";
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
+  const logging = initializeLogger(vscode, context.extensionMode);
   const jupyter = await getJupyterApi(vscode);
   const uriHandler = new ExtensionUriHandler(vscode);
   const uriHandlerRegistration = vscode.window.registerUriHandler(uriHandler);
@@ -86,6 +88,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    logging,
     uriHandler,
     uriHandlerRegistration,
     disposeAll(authFlows),
