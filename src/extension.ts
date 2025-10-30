@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Jupyter } from "@vscode/jupyter-extension";
 import { OAuth2Client } from "google-auth-library";
 import vscode, { Disposable } from "vscode";
 import { GoogleAuthProvider } from "./auth/auth-provider";
@@ -19,7 +20,7 @@ import { ConsumptionPoller } from "./colab/consumption/poller";
 import { ServerKeepAliveController } from "./colab/keep-alive";
 import { ServerPicker } from "./colab/server-picker";
 import { CONFIG } from "./colab-config";
-import { initializeLogger } from "./common/logging";
+import { initializeLogger, log } from "./common/logging";
 import { Toggleable } from "./common/toggleable";
 import { getPackageInfo } from "./config/package-info";
 import { AssignmentManager } from "./jupyter/assignments";
@@ -32,6 +33,7 @@ import { ExtensionUriHandler } from "./system/uri-handler";
 export async function activate(context: vscode.ExtensionContext) {
   const logging = initializeLogger(vscode, context.extensionMode);
   const jupyter = await getJupyterApi(vscode);
+  logEnvInfo(jupyter);
   const uriHandler = new ExtensionUriHandler(vscode);
   const uriHandlerRegistration = vscode.window.registerUriHandler(uriHandler);
   const authClient = new OAuth2Client(
@@ -70,7 +72,7 @@ export async function activate(context: vscode.ExtensionContext) {
     assignmentManager,
     colabClient,
     new ServerPicker(vscode, assignmentManager),
-    jupyter,
+    jupyter.exports,
   );
   const keepServersAlive = new ServerKeepAliveController(
     vscode,
@@ -100,6 +102,14 @@ export async function activate(context: vscode.ExtensionContext) {
     whileAuthorizedToggle,
     ...registerCommands(assignmentManager),
   );
+}
+
+function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
+  log.info(`${vscode.env.appName}: ${vscode.version}`);
+  log.info(`Remote: ${vscode.env.remoteName ?? "N/A"}`);
+  log.info(`App Host: ${vscode.env.appHost}`);
+  const jupyterVersion = getPackageInfo(jupyter).version;
+  log.info(`Jupyter extension version: ${jupyterVersion}`);
 }
 
 /**

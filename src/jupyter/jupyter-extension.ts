@@ -14,7 +14,9 @@ const JUPYTER_SEMVER_RANGE = ">=2025.0.0";
 /**
  * Get the exported API from the Jupyter extension.
  */
-export async function getJupyterApi(vs: typeof vscode): Promise<Jupyter> {
+export async function getJupyterApi(
+  vs: typeof vscode,
+): Promise<vscode.Extension<Jupyter>> {
   const ext = vs.extensions.getExtension<Jupyter>("ms-toolsai.jupyter");
   if (!ext) {
     throw new Error("Jupyter Extension not installed");
@@ -23,7 +25,7 @@ export async function getJupyterApi(vs: typeof vscode): Promise<Jupyter> {
   if (!ext.isActive) {
     await ext.activate();
   }
-  return ext.exports;
+  return ext;
 }
 
 function validateJupyterVersion(jupyter: Extension<Jupyter>) {

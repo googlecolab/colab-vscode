@@ -85,10 +85,10 @@ describe("Jupyter Extension", () => {
       const result = await getJupyterApi(vsCodeStub.asVsCode());
 
       sinon.assert.calledOnce(activateStub);
-      expect(result).to.equal(ext.exports);
+      expect(result).to.equal(ext);
     });
 
-    it("returns the exports if the extension is already active", async () => {
+    it("returns the extension is already active", async () => {
       const ext = getJupyterExtension(ExtensionStatus.Active);
       vsCodeStub.extensions.getExtension.returns(
         ext as vscode.Extension<Jupyter>,
@@ -97,7 +97,7 @@ describe("Jupyter Extension", () => {
       const result = await getJupyterApi(vsCodeStub.asVsCode());
 
       sinon.assert.notCalled(activateStub);
-      expect(result).to.equal(ext.exports);
+      expect(result).to.equal(ext);
     });
   });
 });
