@@ -83,6 +83,8 @@ export class SequentialTaskRunner implements Disposable {
     abortCtrl: AbortController;
   };
   private taskInterval?: NodeJS.Timeout;
+  // A lock used to ensure execution is sequential.
+  private isRunning = false;
 
   constructor(
     private readonly config: Config,
@@ -107,12 +109,11 @@ export class SequentialTaskRunner implements Disposable {
       return;
     }
     if (mode === StartMode.Immediately) {
-      void this.run();
+      this.run();
     }
-    this.taskInterval = setInterval(
-      () => void this.run(),
-      this.config.intervalTimeoutMs,
-    );
+    this.taskInterval = setInterval(() => {
+      this.run();
+    }, this.config.intervalTimeoutMs);
   }
 
   /**
@@ -124,39 +125,44 @@ export class SequentialTaskRunner implements Disposable {
   stop(): void {
     clearInterval(this.taskInterval);
     this.taskInterval = undefined;
+    this.isRunning = false;
     this.inFlight?.abortCtrl.abort(new DisposedError(this.task.name));
   }
 
-  private async run(): Promise<void> {
-    if (this.inFlight) {
+  /**
+   * A synchronous and re-entrant entry point for triggering a task run.
+   */
+  private run(): void {
+    if (this.isRunning) {
+      // A task worker is already active.
       switch (this.overrun) {
         case OverrunPolicy.AllowToComplete:
+          // Do nothing, let the current task finish.
           return;
-
-        case OverrunPolicy.AbandonAndRun: {
-          const { abortCtrl, promise } = this.inFlight;
-          const abandonError = new OverrunAbandonError(this.task.name);
-          log.warn(abandonError.message);
-          abortCtrl.abort(abandonError);
-          try {
-            await promise;
-          } catch (err: unknown) {
-            if (err instanceof NonGracefulAbandonError) {
-              // The abandoned task failed to shut down cleanly.
-              log.error(err.message);
-            } else {
-              // The abandoned task threw an unexpected error.
-              log.error(
-                `Unexpected error from abandoned task "${this.task.name}":`,
-                err,
-              );
-            }
-          }
-          break;
-        }
+        case OverrunPolicy.AbandonAndRun:
+          // Signal the active task to abort.
+          //
+          // The active worker's `finally` block will see this abort reason and
+          // immediately start a new task.
+          log.warn(`Task "${this.task.name}" abandoned for a new run`);
+          this.inFlight?.abortCtrl.abort(
+            new OverrunAbandonError(this.task.name),
+          );
+          return;
       }
     }
 
+    // No worker is active. Acquire the lock and start one.
+    this.isRunning = true;
+    void this.runWorker();
+  }
+
+  /**
+   * The async worker that holds the lock and executes the task. This method
+   * should only be called by the synchronous {@link SequentialTaskRunner.run}
+   * method, which manages the lock.
+   */
+  private async runWorker(): Promise<void> {
     const abort = new AbortController();
     abort.signal.addEventListener(
       "abort",
@@ -187,6 +193,11 @@ export class SequentialTaskRunner implements Disposable {
 
       await this.inFlight.promise;
     } catch (err: unknown) {
+      // If the lock is lost while the worker runs, that's because we're
+      // disposing. Avoid logging errors in that case.
+      if (!this.isRunning) {
+        return;
+      }
       if (err instanceof NonGracefulAbandonError) {
         // Task failed to shut down cleanly after an abort.
         log.error(err.message);
@@ -200,6 +211,17 @@ export class SequentialTaskRunner implements Disposable {
     } finally {
       clearTimeout(timeout);
       this.inFlight = undefined;
+
+      const reason: unknown = abort.signal.reason;
+      if (reason instanceof OverrunAbandonError && this.isRunning) {
+        // Here the task holding the lock was told to abort. Once it has, loop
+        // immediately to run the new task.
+        void this.runWorker();
+      } else {
+        // Task finished normally, by timeout, or by dispose.
+        // Release the lock so a new interval can start one.
+        this.isRunning = false;
+      }
     }
   }
 

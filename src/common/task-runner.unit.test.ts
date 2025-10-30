@@ -278,45 +278,39 @@ describe("SequentialTaskRunner", () => {
       runner = buildRunner(OverrunPolicy.AbandonAndRun, {
         abandonGraceMs: ABANDON_GRACE_MS,
         intervalTimeoutMs: INTERVAL_TIMEOUT_MS,
-        taskTimeoutMs: INTERVAL_TIMEOUT_MS * 2,
+        // A task timeout longer than the interval so overruns happen.
+        taskTimeoutMs: INTERVAL_TIMEOUT_MS * 10,
       });
       firstRun = testTask.nextRun();
       runner.start(StartMode.Immediately);
       await expect(firstRun.started, "First run should start immediately").to
         .eventually.be.fulfilled;
       secondRun = testTask.nextRun();
-      // Don't resolve() the first run, to simulate it being in-flight and
-      // overrun by the second run.
-      await tickPast(INTERVAL_TIMEOUT_MS);
+      // Don't resolve the first run, to simulate it being in-flight and overrun
+      // by the second run.
+      await clock.tickAsync(INTERVAL_TIMEOUT_MS);
     });
 
     afterEach(() => {
       runner.dispose();
     });
 
-    it("aborts the in-flight task and does not start a new one within abandon grace period", async () => {
-      await tickPast(ABANDON_GRACE_MS / 2);
-
+    it("aborts the in-flight task and starts a new one after the abandon grace period", async () => {
       await expect(firstRun.aborted, "First run should be aborted").to
         .eventually.be.fulfilled;
+
+      await clock.tickAsync(ABANDON_GRACE_MS / 2);
       expect(secondRun.started, "Second run should not start yet").to.not.be
         .fulfilled;
       sinon.assert.calledOnce(testTask.run);
-    });
 
-    it("aborts the in-flight task and starts a new one after the abandon grace period", async () => {
-      await tickPast(ABANDON_GRACE_MS);
-
-      await expect(firstRun.aborted, "First run should be aborted").to
-        .eventually.be.fulfilled;
+      await clock.tickAsync(ABANDON_GRACE_MS);
       await expect(secondRun.started, "Second run should start").to.eventually
         .be.fulfilled;
       sinon.assert.calledTwice(testTask.run);
     });
 
-    it("logs a warning message for the abandoned task", async () => {
-      await tickPast(ABANDON_GRACE_MS / 2);
-
+    it("logs a warning message immediately", () => {
       expect(logs.output).to.match(
         new RegExp(`Warning.*${testTask.name}.*new run`),
       );
@@ -357,6 +351,44 @@ describe("SequentialTaskRunner", () => {
       expect(logs.output).to.match(
         new RegExp(`Error.*Task "${testTask.name}".*grace period`),
       );
+    });
+
+    it("handles multiple overruns", async () => {
+      // The beforeEach already triggered the *first* overrun.
+      await expect(firstRun.aborted).to.eventually.be.fulfilled;
+      await tickPast(ABANDON_GRACE_MS);
+      await expect(secondRun.started).to.eventually.be.fulfilled;
+
+      // Trigger a third run (second overrun).
+      const thirdRun = testTask.nextRun();
+      await tickPast(INTERVAL_TIMEOUT_MS);
+      await expect(secondRun.aborted).to.eventually.be.fulfilled;
+
+      await expect(thirdRun.started).to.eventually.be.fulfilled;
+
+      thirdRun.resolve();
+
+      sinon.assert.calledThrice(testTask.run);
+    });
+
+    it("does not start a new task if disposed during an overrun grace period", async () => {
+      // The beforeEach already triggered the overrun.
+      // firstRun is in its grace period.
+      await expect(firstRun.aborted).to.eventually.be.fulfilled;
+
+      // Dispose *during* the grace period.
+      await clock.tickAsync(ABANDON_GRACE_MS / 2);
+      runner.dispose();
+
+      // Let the rest of the grace period and any other timers finish
+      await clock.runAllAsync();
+
+      // The secondRun (which was queued) should never have started.
+      expect(secondRun.started, "Second run should not have started").to.not.be
+        .fulfilled;
+
+      // Only the very first run should have been called.
+      sinon.assert.calledOnce(testTask.run);
     });
   });
 
@@ -403,6 +435,33 @@ describe("SequentialTaskRunner", () => {
         new RegExp(`Error.*Task "${testTask.name}".*grace period`),
       );
     });
+
+    it("does not log non-graceful error if disposed during timeout grace period", async () => {
+      const runner = buildRunner();
+      const run = testTask.nextRun();
+      runner.start(StartMode.Immediately);
+      await expect(run.started).to.eventually.be.fulfilled;
+
+      // Trigger the timeout
+      await tickPast(TASK_TIMEOUT_MS);
+      await expect(run.aborted).to.eventually.be.fulfilled;
+
+      // Dispose *during* the grace period
+      await clock.tickAsync(ABANDON_GRACE_MS / 2);
+      runner.dispose();
+
+      // Let all timers finish
+      await clock.runAllAsync();
+
+      // The timeout error is expected
+      expect(logs.output).to.match(
+        new RegExp(`Error.*Task "${testTask.name}".*timed out`),
+      );
+      // The non-graceful error is *not* expected
+      expect(logs.output).to.not.match(
+        new RegExp(`Error.*Task "${testTask.name}".*grace period`),
+      );
+    });
   });
 
   describe("task errors", () => {
@@ -415,29 +474,56 @@ describe("SequentialTaskRunner", () => {
       runner.start(StartMode.Immediately);
       await expect(run.started, "First run should start immediately").to
         .eventually.be.fulfilled;
-
-      run.reject(new Error("🤮"));
     });
 
     afterEach(() => {
-      runner.dispose();
+      // Only dispose if the runner wasn't disposed in the test
+      if (testTask.run.callCount > 0) {
+        runner.dispose();
+      }
     });
 
     it("logs the unhandled error from the task", async () => {
-      await tickPast(ABANDON_GRACE_MS);
+      run.reject(new Error("🤮"));
+      await tickPast(ABANDON_GRACE_MS); // Allow promise to settle
 
       expect(logs.output).to.match(
         new RegExp(`Error.*Unhandled error.*"${testTask.name}"`),
       );
+      expect(logs.output).to.match(/🤮/);
     });
 
     it("continues to run the task on the next interval", async () => {
+      run.reject(new Error("🤮"));
       const secondRun = testTask.nextRun();
       await tickPast(INTERVAL_TIMEOUT_MS);
 
       await expect(secondRun.started, "Second run should start").to.eventually
         .be.fulfilled;
-      3;
+      sinon.assert.calledTwice(testTask.run);
+    });
+
+    it("logs unhandled error if task rejects during grace period", async () => {
+      // Trigger timeout to start grace period
+      await tickPast(TASK_TIMEOUT_MS);
+      await expect(run.aborted).to.eventually.be.fulfilled;
+
+      // Reject the task *during* the grace period
+      await clock.tickAsync(ABANDON_GRACE_MS / 2);
+      run.reject(new Error("Failed during cleanup"));
+
+      // Let all timers finish
+      await clock.tickAsync(ABANDON_GRACE_MS / 2);
+
+      expect(logs.output).to.match(
+        new RegExp(`Error.*Unhandled error.*"${testTask.name}"`),
+      );
+      expect(logs.output).to.match(/Failed during cleanup/);
+
+      // The non-graceful error is *not* expected, as the promise did settle.
+      expect(logs.output).to.not.match(
+        new RegExp(`Error.*Task "${testTask.name}".*grace period`),
+      );
     });
   });
 });
