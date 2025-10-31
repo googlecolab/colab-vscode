@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { GaxiosError } from "gaxios";
 import { OAuth2Client } from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
 import vscode, { AuthenticationSession, Disposable } from "vscode";
 import { z } from "zod";
 import { AUTHORIZATION_HEADER } from "../colab/headers";
+import { log } from "../common/logging";
 import { Toggleable } from "../common/toggleable";
 import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
@@ -120,7 +122,23 @@ export class GoogleAuthProvider
       token_type: "Bearer",
       scope: session.scopes.join(" "),
     });
-    await this.oAuth2Client.refreshAccessToken();
+    try {
+      await this.oAuth2Client.refreshAccessToken();
+    } catch (err: unknown) {
+      // This should only ever be the case when developer building from source
+      // switch the OAuth client ID / secret.
+      if (err instanceof GaxiosError && err.status === 401) {
+        log.warn(
+          "The configured OAuth client has changed. Clearing session.",
+          err,
+        );
+        await this.storage.removeSession(session.id);
+        await this.initialize();
+        return;
+      }
+      log.error("Unable to refresh access token", err);
+      throw err;
+    }
     const accessToken = this.oAuth2Client.credentials.access_token;
     if (!accessToken) {
       throw new Error("Failed to refresh Google OAuth token.");

@@ -5,6 +5,7 @@
  */
 
 import { expect } from "chai";
+import { GaxiosError } from "gaxios";
 import { OAuth2Client } from "google-auth-library";
 import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from "sinon";
@@ -218,6 +219,43 @@ describe("GoogleAuthProvider", () => {
             removed: [],
             changed: [DEFAULT_AUTH_SESSION],
           });
+        });
+
+        it("clears the session and re-initializes if refreshAccessToken throws a 401 GaxiosError", async () => {
+          const gaxiosError: GaxiosError = new GaxiosError(
+            "unauthorized_client",
+            {},
+            {
+              config: {},
+              data: undefined,
+              status: 401,
+              statusText: "Unauthorized",
+              headers: {},
+              request: { responseURL: "" },
+            },
+          );
+          sinon.stub(oauth2Client, "refreshAccessToken").throws(gaxiosError);
+          storageStub.getSession.onSecondCall().resolves(undefined);
+
+          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
+          await expect(
+            authProvider.getSessions(undefined, {}),
+          ).to.eventually.deep.equal([]);
+          sinon.assert.calledOnceWithExactly(
+            storageStub.removeSession,
+            DEFAULT_REFRESH_SESSION.id,
+          );
+        });
+
+        it("re-throws non 401 errors when refreshing the access token", async () => {
+          sinon
+            .stub(oauth2Client, "refreshAccessToken")
+            .throws(new Error("🤮"));
+
+          await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
+            /🤮/,
+          );
         });
       });
     });
