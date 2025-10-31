@@ -24,6 +24,7 @@ import {
   ColabClient,
   DenylistedError,
   InsufficientQuotaError,
+  NotFoundError,
   TooManyAssignmentsError,
 } from "../colab/client";
 import {
@@ -93,8 +94,10 @@ export class AssignmentManager implements vscode.Disposable {
    *
    * @returns A list of available server descriptors.
    */
-  async getAvailableServerDescriptors(): Promise<ColabServerDescriptor[]> {
-    const ccuInfo = await this.client.getCcuInfo();
+  async getAvailableServerDescriptors(
+    signal?: AbortSignal,
+  ): Promise<ColabServerDescriptor[]> {
+    const ccuInfo = await this.client.getCcuInfo(signal);
     const eligibleGpus = new Set(ccuInfo.eligibleGpus);
     const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
     const eligibleTpus = new Set(ccuInfo.eligibleTpus);
@@ -126,13 +129,13 @@ export class AssignmentManager implements vscode.Disposable {
    * managed list of assigned servers. In other words, assignments originating
    * from Colab-web will not show in VS Code.
    */
-  async reconcileAssignedServers(): Promise<void> {
+  async reconcileAssignedServers(signal?: AbortSignal): Promise<void> {
     const stored = await this.storage.list();
     if (stored.length === 0) {
       return;
     }
     const live = new Set(
-      (await this.client.listAssignments()).map((a) => a.endpoint),
+      (await this.client.listAssignments(signal)).map((a) => a.endpoint),
     );
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
@@ -159,8 +162,8 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Returns whether or not the user has at least one assigned server.
    */
-  async hasAssignedServer(): Promise<boolean> {
-    await this.reconcileAssignedServers();
+  async hasAssignedServer(signal?: AbortSignal): Promise<boolean> {
+    await this.reconcileAssignedServers(signal);
     return (await this.storage.list()).length > 0;
   }
 
@@ -170,8 +173,10 @@ export class AssignmentManager implements vscode.Disposable {
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
    */
-  async getAssignedServers(): Promise<ColabAssignedServer[]> {
-    await this.reconcileAssignedServers();
+  async getAssignedServers(
+    signal?: AbortSignal,
+  ): Promise<ColabAssignedServer[]> {
+    await this.reconcileAssignedServers(signal);
     return (await this.storage.list()).map((server) => ({
       ...server,
       connectionInformation: {
@@ -210,6 +215,7 @@ export class AssignmentManager implements vscode.Disposable {
    */
   async assignServer(
     descriptor: ColabServerDescriptor,
+    signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     const id = randomUUID();
     let assignment: Assignment;
@@ -218,6 +224,7 @@ export class AssignmentManager implements vscode.Disposable {
         id,
         descriptor.variant,
         descriptor.accelerator,
+        signal,
       ));
     } catch (error) {
       // TODO: Consider listing assignments to check if there are too many
@@ -255,8 +262,10 @@ export class AssignmentManager implements vscode.Disposable {
     return server;
   }
 
-  async latestOrAutoAssignServer(): Promise<ColabAssignedServer> {
-    const assigned = await this.getAssignedServers();
+  async latestOrAutoAssignServer(
+    signal?: AbortSignal,
+  ): Promise<ColabAssignedServer> {
+    const assigned = await this.getAssignedServers(signal);
     const latest = assigned.reduce<ColabAssignedServer | undefined>(
       (latest, server) => {
         return !latest || server.dateAssigned > latest.dateAssigned
@@ -266,7 +275,7 @@ export class AssignmentManager implements vscode.Disposable {
       undefined,
     );
     if (latest) {
-      await this.refreshConnection(latest.id);
+      await this.refreshConnection(latest.id, signal);
       return latest;
     }
     const alias = await this.getDefaultLabel(
@@ -277,7 +286,7 @@ export class AssignmentManager implements vscode.Disposable {
       ...DEFAULT_CPU_SERVER,
       label: alias,
     };
-    return this.assignServer(serverType);
+    return this.assignServer(serverType, signal);
   }
 
   /**
@@ -286,16 +295,21 @@ export class AssignmentManager implements vscode.Disposable {
    * @param id - The ID of the assigned server to refresh.
    * @returns The server with updated connection information: its token and
    * fetch implementation.
-   * @throws If there is no assigned server with the given ID.
+   * @throws {@link NotFoundError} if there is no assigned server with the given
+   * ID.
    */
-  async refreshConnection(id: UUID): Promise<ColabAssignedServer> {
-    await this.reconcileAssignedServers();
+  async refreshConnection(
+    id: UUID,
+    signal?: AbortSignal,
+  ): Promise<ColabAssignedServer> {
+    await this.reconcileAssignedServers(signal);
     const server = await this.storage.get(id);
     if (!server) {
-      throw new Error("Server is not assigned.");
+      throw new NotFoundError("Server is not assigned");
     }
     const newConnectionInfo = await this.client.refreshConnection(
       server.endpoint,
+      signal,
     );
     const updatedServer = this.toAssignedServer(
       server,
@@ -316,11 +330,11 @@ export class AssignmentManager implements vscode.Disposable {
    * Sets a context key indicating whether or not the user has at least one
    * assigned server originating from VS Code.
    */
-  async setHasAssignedServerContext(): Promise<void> {
+  async setHasAssignedServerContext(signal?: AbortSignal): Promise<void> {
     await this.vs.commands.executeCommand(
       "setContext",
       "colab.hasAssignedServer",
-      await this.hasAssignedServer(),
+      await this.hasAssignedServer(signal),
     );
   }
 
@@ -332,7 +346,10 @@ export class AssignmentManager implements vscode.Disposable {
    *
    * @param server - The server to remove.
    */
-  async unassignServer(server: ColabAssignedServer): Promise<void> {
+  async unassignServer(
+    server: ColabAssignedServer,
+    signal?: AbortSignal,
+  ): Promise<void> {
     const removed = await this.storage.remove(server.id);
     if (!removed) {
       return;
@@ -343,18 +360,19 @@ export class AssignmentManager implements vscode.Disposable {
       changed: [],
     });
     await Promise.all(
-      (await this.client.listSessions(server)).map((session) =>
-        this.client.deleteSession(server, session.id),
+      (await this.client.listSessions(server, signal)).map((session) =>
+        this.client.deleteSession(server, session.id, signal),
       ),
     );
-    await this.client.unassign(server.endpoint);
+    await this.client.unassign(server.endpoint, signal);
   }
 
   async getDefaultLabel(
     variant: Variant,
     accelerator?: Accelerator,
+    signal?: AbortSignal,
   ): Promise<string> {
-    const servers = await this.getAssignedServers();
+    const servers = await this.getAssignedServers(signal);
     const a =
       accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
     const v = variantToMachineType(variant);
@@ -387,6 +405,8 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   private async signalChange(e: AssignmentChangeEvent): Promise<void> {
+    // Since signalling a change happens after the change was actually
+    // committed, we don't specify an abort signal.
     await this.setHasAssignedServerContext();
     this.assignmentChange.fire(e);
   }

@@ -482,6 +482,9 @@ export class DenylistedError extends Error {}
 /** Error thrown when the user has insufficient quota. */
 export class InsufficientQuotaError extends Error {}
 
+/** Error thrown when the request resource cannot be found. */
+export class NotFoundError extends Error {}
+
 /**
  * If present, strip the XSSI busting prefix from v.
  */
