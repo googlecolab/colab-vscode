@@ -53,6 +53,7 @@ const DEFAULT_SERVER: ColabAssignedServer = {
   connectionInformation: {
     baseUrl: TestUri.parse("https://example.com"),
     token: "123",
+    tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
     headers: {
       [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: "123",
       [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,

@@ -52,6 +52,7 @@ describe("Server Commands", () => {
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),
         token: "123",
+        tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
         headers: { foo: "bar" },
       },
       dateAssigned: new Date(),

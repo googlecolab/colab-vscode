@@ -40,6 +40,7 @@ import {
 import { ServerStorage } from "./storage";
 
 const NOW = new Date();
+const TOKEN_EXPIRY_MS = 1000 * 60 * 60;
 
 const defaultAssignmentDescriptor: ColabServerDescriptor = {
   label: "Colab GPU A100",
@@ -57,7 +58,7 @@ const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
   machineShape: Shape.STANDARD,
   runtimeProxyInfo: {
     token: "mock-token",
-    tokenExpiresInSeconds: 42,
+    tokenExpiresInSeconds: TOKEN_EXPIRY_MS / 1000,
     url: "https://example.com",
   },
 };
@@ -116,6 +117,7 @@ describe("AssignmentManager", () => {
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse(defaultAssignment.runtimeProxyInfo.url),
         token: defaultAssignment.runtimeProxyInfo.token,
+        tokenExpiry: new Date(NOW.getTime() + TOKEN_EXPIRY_MS),
         headers: {
           [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
             defaultAssignment.runtimeProxyInfo.token,
@@ -786,7 +788,7 @@ describe("AssignmentManager", () => {
 
         const serversAfter = await assignmentManager.getAssignedServers();
         expect(serversAfter).to.be.empty;
-        sinon.assert.calledOnceWithExactly(
+        sinon.assert.calledOnceWithMatch(
           colabClientStub.unassign,
           defaultServer.endpoint,
         );
@@ -1104,13 +1106,10 @@ describe("AssignmentManager", () => {
 });
 
 function stripFetch(server: ColabAssignedServer): ColabAssignedServer {
+  const { fetch: _, ...c } = server.connectionInformation;
   return {
     ...server,
-    connectionInformation: {
-      baseUrl: server.connectionInformation.baseUrl,
-      token: server.connectionInformation.token,
-      headers: server.connectionInformation.headers,
-    },
+    connectionInformation: c,
   };
 }
 

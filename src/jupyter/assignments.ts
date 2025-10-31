@@ -412,6 +412,9 @@ export class AssignmentManager implements vscode.Disposable {
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
         token,
+        tokenExpiry: new Date(
+          Date.now() + connectionInfo.tokenExpiresInSeconds * 1000,
+        ),
         headers,
         fetch: colabProxyFetch(token),
       },

@@ -26,6 +26,7 @@ const AssignedServers = z.array(
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),
       token: z.string().nonempty(),
+      tokenExpiry: z.coerce.date(),
       headers: z
         .record(z.string().nonempty(), z.string().nonempty())
         .optional(),
@@ -68,6 +69,7 @@ export class ServerStorage {
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(server.connectionInformation.baseUrl),
         token: server.connectionInformation.token,
+        tokenExpiry: server.connectionInformation.tokenExpiry,
         headers: server.connectionInformation.headers,
       },
       dateAssigned: server.dateAssigned,
@@ -112,6 +114,7 @@ export class ServerStorage {
         connectionInformation: {
           baseUrl: server.connectionInformation.baseUrl.toString(),
           token: server.connectionInformation.token,
+          tokenExpiry: server.connectionInformation.tokenExpiry,
           headers: server.connectionInformation.headers,
         },
         dateAssigned,

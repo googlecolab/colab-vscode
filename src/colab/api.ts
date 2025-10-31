@@ -267,7 +267,7 @@ export const RuntimeProxyInfoSchema = z.object({
   /** Token for the runtime proxy. */
   token: z.string(),
   /** Token expiration time in seconds. */
-  tokenExpiresInSeconds: z.number().optional(),
+  tokenExpiresInSeconds: z.number(),
   /** URL of the runtime proxy. */
   url: z.string(),
 });

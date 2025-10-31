@@ -38,6 +38,7 @@ describe("ServerStorage", () => {
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),
         token: "123",
+        tokenExpiry: new Date(DEFAULT_ASSIGNED_DATE.getTime() + 1000 * 60 * 60),
         headers: { foo: "bar" },
       },
       dateAssigned: DEFAULT_ASSIGNED_DATE,
