@@ -15,6 +15,7 @@ import { ColabClient } from "./colab/client";
 import { COLAB_TOOLBAR, REMOVE_SERVER } from "./colab/commands/constants";
 import { notebookToolbar } from "./colab/commands/notebook";
 import { removeServer } from "./colab/commands/server";
+import { ConnectionRefreshController } from "./colab/connection-refresher";
 import { ConsumptionNotifier } from "./colab/consumption/notifier";
 import { ConsumptionPoller } from "./colab/consumption/poller";
 import { ServerKeepAliveController } from "./colab/keep-alive";
@@ -74,6 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
     new ServerPicker(vscode, assignmentManager),
     jupyter.exports,
   );
+  const connections = new ConnectionRefreshController(assignmentManager);
   const keepServersAlive = new ServerKeepAliveController(
     vscode,
     colabClient,
@@ -85,6 +87,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // user has signed in. We don't block extension activation on completing the
   // heavily asynchronous sign-in flow.
   const whileAuthorizedToggle = authProvider.whileAuthorized(
+    connections,
     keepServersAlive,
     consumptionMonitor.toggle,
   );
@@ -97,6 +100,7 @@ export async function activate(context: vscode.ExtensionContext) {
     authProvider,
     assignmentManager,
     serverProvider,
+    connections,
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
