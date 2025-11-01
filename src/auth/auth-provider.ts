@@ -126,7 +126,7 @@ export class GoogleAuthProvider
       await this.oAuth2Client.refreshAccessToken();
     } catch (err: unknown) {
       // This should only ever be the case when developer building from source
-      // switch the OAuth client ID / secret.
+      // switches the OAuth client ID / secret.
       if (err instanceof GaxiosError && err.status === 401) {
         log.warn(
           "The configured OAuth client has changed. Clearing session.",
