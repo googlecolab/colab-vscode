@@ -22,6 +22,7 @@ import {
   ColabClient,
   DenylistedError,
   InsufficientQuotaError,
+  NotFoundError,
   TooManyAssignmentsError,
 } from "../colab/client";
 import {
@@ -933,59 +934,69 @@ describe("AssignmentManager", () => {
   });
 
   describe("refreshConnection", () => {
-    const newToken = "new-token";
-    let refreshedServer: ColabAssignedServer;
-
-    beforeEach(async () => {
-      colabClientStub.listAssignments.resolves([defaultAssignment]);
-      await serverStorage.store([defaultServer]);
-      colabClientStub.refreshConnection
-        .withArgs(defaultServer.endpoint)
-        .resolves({
-          ...defaultAssignment.runtimeProxyInfo,
-          token: newToken,
-        });
-
-      refreshedServer = await assignmentManager.refreshConnection(
-        defaultServer.id,
-      );
+    it("throws a not found error when refreshing a server that's not tacked", async () => {
+      await expect(
+        assignmentManager.refreshConnection(defaultServer.id),
+      ).to.eventually.be.rejectedWith(NotFoundError);
     });
 
-    it("stores and returns the server with updated connection info", () => {
-      const expectedServer: ColabAssignedServer = {
-        ...defaultServer,
-        connectionInformation: {
-          ...defaultServer.connectionInformation,
-          headers: {
-            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
-            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-          },
-          token: newToken,
-        },
-      };
-      expect(stripFetch(refreshedServer)).to.deep.equal(expectedServer);
-    });
+    describe("with a refreshed connection", () => {
+      const newToken = "new-token";
+      let refreshedServer: ColabAssignedServer;
 
-    it("includes a fetch implementation that attaches Colab connection info", async () => {
-      assert.isDefined(refreshedServer.connectionInformation.fetch);
-      const fetchStub = sinon.stub(fetch, "default");
+      beforeEach(async () => {
+        colabClientStub.listAssignments.resolves([defaultAssignment]);
+        await serverStorage.store([defaultServer]);
+        colabClientStub.refreshConnection
+          .withArgs(defaultServer.endpoint)
+          .resolves({
+            ...defaultAssignment.runtimeProxyInfo,
+            token: newToken,
+          });
 
-      await refreshedServer.connectionInformation.fetch("https://example.com");
-
-      sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
-        headers: new Headers({
-          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-            refreshedServer.connectionInformation.token,
-          [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-        }),
+        refreshedServer = await assignmentManager.refreshConnection(
+          defaultServer.id,
+        );
       });
-    });
 
-    it("emits an assignment change event", () => {
-      sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-        added: [],
-        removed: [],
-        changed: [refreshedServer],
+      it("stores and returns the server with updated connection info", () => {
+        const expectedServer: ColabAssignedServer = {
+          ...defaultServer,
+          connectionInformation: {
+            ...defaultServer.connectionInformation,
+            headers: {
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
+              [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+            },
+            token: newToken,
+          },
+        };
+        expect(stripFetch(refreshedServer)).to.deep.equal(expectedServer);
+      });
+
+      it("includes a fetch implementation that attaches Colab connection info", async () => {
+        assert.isDefined(refreshedServer.connectionInformation.fetch);
+        const fetchStub = sinon.stub(fetch, "default");
+
+        await refreshedServer.connectionInformation.fetch(
+          "https://example.com",
+        );
+
+        sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
+          headers: new Headers({
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+              refreshedServer.connectionInformation.token,
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+          }),
+        });
+      });
+
+      it("emits an assignment change event", () => {
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [],
+          changed: [refreshedServer],
+        });
       });
     });
   });
