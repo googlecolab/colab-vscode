@@ -934,7 +934,7 @@ describe("AssignmentManager", () => {
   });
 
   describe("refreshConnection", () => {
-    it("throws a not found error when refreshing a server that's not tacked", async () => {
+    it("throws a not found error when refreshing a server that's not tracked", async () => {
       await expect(
         assignmentManager.refreshConnection(defaultServer.id),
       ).to.eventually.be.rejectedWith(NotFoundError);
