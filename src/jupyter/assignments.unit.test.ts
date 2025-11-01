@@ -29,6 +29,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from "../colab/headers";
+import { TestEventEmitter } from "../test/helpers/events";
 import { ServerStorageFake } from "../test/helpers/server-storage";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
@@ -1112,6 +1113,138 @@ describe("AssignmentManager", () => {
           defaultServer.accelerator,
         ),
       ).to.eventually.equal(defaultServer.label);
+    });
+  });
+
+  describe("onDidAssignmentsChange", () => {
+    let assignmentChangeEmitter: TestEventEmitter<AssignmentChangeEvent>;
+
+    beforeEach(() => {
+      /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
+      assignmentChangeEmitter = (assignmentManager as any)
+        .assignmentChange as TestEventEmitter<AssignmentChangeEvent>;
+      /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
+    });
+
+    it("does not notify the user to reload notebooks when 0 servers are removed", () => {
+      assignmentChangeEmitter.fire({
+        added: [],
+        removed: [],
+        changed: [],
+      });
+
+      sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
+    });
+
+    it("notifies the user to reload notebooks when 1 server is removed", () => {
+      assignmentChangeEmitter.fire({
+        added: [],
+        removed: [
+          {
+            server: { ...defaultServer, label: "server A" },
+            userInitiated: false,
+          },
+        ],
+        changed: [],
+      });
+
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showInformationMessage,
+        sinon.match(/notebooks server A was/),
+      );
+    });
+
+    it("notifies the user to reload notebooks when 2 servers are removed", () => {
+      assignmentChangeEmitter.fire({
+        added: [],
+        removed: [
+          {
+            server: { ...defaultServer, label: "server A" },
+            userInitiated: false,
+          },
+          {
+            server: { ...defaultServer, label: "server B" },
+            userInitiated: false,
+          },
+        ],
+        changed: [],
+      });
+
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showInformationMessage,
+        sinon.match(/notebooks server A and server B were/),
+      );
+    });
+
+    it("notifies the user to reload notebooks when several servers are removed", () => {
+      assignmentChangeEmitter.fire({
+        added: [],
+        removed: [
+          {
+            server: { ...defaultServer, label: "server A" },
+            userInitiated: false,
+          },
+          {
+            server: { ...defaultServer, label: "server B" },
+            userInitiated: false,
+          },
+          {
+            server: { ...defaultServer, label: "server C" },
+            userInitiated: false,
+          },
+        ],
+        changed: [],
+      });
+
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showInformationMessage,
+        sinon.match(/notebooks server A, server B and server C were/),
+      );
+    });
+
+    describe("and the notification to reload notebooks is shown", () => {
+      it("opens the Jupyter Github issue when the notification is clicked", async () => {
+        vsCodeStub.window.showInformationMessage.resolves({
+          title: "View Issue",
+        });
+
+        assignmentChangeEmitter.fire({
+          added: [],
+          removed: [
+            {
+              server: { ...defaultServer, label: "server A" },
+              userInitiated: false,
+            },
+          ],
+          changed: [],
+        });
+        await Promise.resolve();
+
+        sinon.assert.calledWithMatch(
+          vsCodeStub.env.openExternal,
+          vsCodeStub.Uri.parse(
+            "https://github.com/microsoft/vscode-jupyter/issues/17094",
+          ),
+        );
+      });
+
+      it("does not open the Jupyter Github issue when the notification is dismissed", async () => {
+        vsCodeStub.window.showInformationMessage.resolves(undefined);
+
+        assignmentChangeEmitter.fire({
+          added: [],
+          removed: [
+            {
+              server: { ...defaultServer, label: "server A" },
+              userInitiated: false,
+            },
+          ],
+          changed: [],
+        });
+        await Promise.resolve();
+
+        sinon.assert.notCalled(vsCodeStub.env.openExternal);
+      });
     });
   });
 });

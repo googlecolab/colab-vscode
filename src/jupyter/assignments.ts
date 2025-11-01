@@ -81,6 +81,10 @@ export class AssignmentManager implements vscode.Disposable {
     this.assignmentChange = new vs.EventEmitter<AssignmentChangeEvent>();
     this.disposables.push(this.assignmentChange);
     this.onDidAssignmentsChange = this.assignmentChange.event;
+    // TODO: Remove once https://github.com/microsoft/vscode-jupyter/issues/17094 is fixed.
+    this.onDidAssignmentsChange((e) => {
+      void this.notifyReloadNotebooks(e);
+    });
   }
 
   dispose() {
@@ -485,6 +489,30 @@ export class AssignmentManager implements vscode.Disposable {
     void this.vs.window.showErrorMessage(
       `Unable to assign server. ${error.message}`,
     );
+  }
+
+  private async notifyReloadNotebooks(e: AssignmentChangeEvent) {
+    const numRemoved = e.removed.length;
+    if (numRemoved === 0) {
+      return;
+    }
+
+    const removed = e.removed.map((r) => r.server.label);
+    const serverDescriptor =
+      removed.length === 1
+        ? `${removed[0]} was`
+        : `${removed.slice(0, numRemoved - 1).join(", ")} and ${removed[numRemoved - 1]} were`;
+    const viewIssue = await this.vs.window.showInformationMessage(
+      `Sorry for the inconvenience, to work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverDescriptor} previously connected to.`,
+      `View Issue`,
+    );
+    if (viewIssue) {
+      this.vs.env.openExternal(
+        this.vs.Uri.parse(
+          "https://github.com/microsoft/vscode-jupyter/issues/17094",
+        ),
+      );
+    }
   }
 }
 

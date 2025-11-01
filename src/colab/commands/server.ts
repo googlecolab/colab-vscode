@@ -88,20 +88,6 @@ export async function removeServer(
       },
       () => assignmentManager.unassignServer(selectedServer),
     );
-    // TODO: Remove once https://github.com/microsoft/vscode-jupyter/issues/17094 is fixed.
-    void notifyReloadNotebooks(vs, selectedServer.label);
     return undefined;
   });
-}
-
-async function notifyReloadNotebooks(vs: typeof vscode, serverLabel: string) {
-  const viewIssue = await vs.window.showInformationMessage(
-    `Sorry for the inconvenience, to work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverLabel} was previously connected to.`,
-    `View Issue`,
-  );
-  if (viewIssue) {
-    vs.env.openExternal(
-      vs.Uri.parse("https://github.com/microsoft/vscode-jupyter/issues/17094"),
-    );
-  }
 }

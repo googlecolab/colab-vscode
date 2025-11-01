@@ -226,39 +226,6 @@ describe("Server Commands", () => {
             sinon.match.func,
           );
         });
-
-        it("notifies the user to reload notebooks", async () => {
-          await expect(remove).to.eventually.be.fulfilled;
-
-          sinon.assert.calledWithMatch(
-            vsCodeStub.window.showInformationMessage,
-            sinon.match(/re-open notebooks foo was previously connected to/),
-            sinon.match.string,
-          );
-        });
-
-        it("opens the Jupyter Github issue when the notification is clicked", async () => {
-          vsCodeStub.window.showInformationMessage.resolves({
-            title: "View Issue",
-          });
-
-          await expect(remove).to.eventually.be.fulfilled;
-
-          sinon.assert.calledWithMatch(
-            vsCodeStub.env.openExternal,
-            vsCodeStub.Uri.parse(
-              "https://github.com/microsoft/vscode-jupyter/issues/17094",
-            ),
-          );
-        });
-
-        it("does not open the Jupyter Github issue when the notification is dismissed", async () => {
-          vsCodeStub.window.showInformationMessage.resolves(undefined);
-
-          await expect(remove).to.eventually.be.fulfilled;
-
-          sinon.assert.notCalled(vsCodeStub.env.openExternal);
-        });
       });
     });
   });
