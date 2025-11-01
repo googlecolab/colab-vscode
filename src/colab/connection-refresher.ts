@@ -18,7 +18,7 @@ import { NotFoundError } from "./client";
 /* The buffer we give to refresh the token, before it actually expires. */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes.
 
-/*
+/**
  * The buffer we give to schedule a token refresh retry, if the previous attempt
  * failed.
  *
@@ -119,6 +119,10 @@ export class ConnectionRefresher implements Disposable {
     });
   }
 
+  /**
+   * It's in handling the assignment change where we pickup servers that have
+   * had their token refreshed. This enables scheduling of the next refresh.
+   */
   private handleAssignmentChange(e: AssignmentChangeEvent) {
     // New servers.
     for (const s of e.added) {

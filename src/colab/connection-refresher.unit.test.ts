@@ -51,6 +51,13 @@ const DEFAULT_SERVER_TOKEN_EXPIRED: ColabAssignedServer = {
   },
 };
 
+function expiresInMs(s: ColabAssignedServer) {
+  return Math.max(
+    s.connectionInformation.tokenExpiry.getTime() - Date.now(),
+    0,
+  );
+}
+
 describe("ConnectionRefreshController", () => {
   let clock: SinonFakeTimers;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
@@ -217,12 +224,24 @@ describe("ConnectionRefresher", () => {
     });
 
     describe("dispose", () => {
-      it("aborts in-flight refreshes", async () => {
-        // TODO
+      let clock: SinonFakeTimers;
+
+      beforeEach(() => {
+        clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
       });
 
-      it("clears scheduled timeouts", async () => {
-        // TODO
+      afterEach(() => {
+        clock.restore();
+      });
+
+      it("clears scheduled refreshes", async () => {
+        assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+        const refresher = await ConnectionRefresher.initialize(assignmentStub);
+
+        refresher.dispose();
+
+        await clock.tickAsync(expiresInMs(DEFAULT_SERVER));
+        sinon.assert.notCalled(assignmentStub.refreshConnection);
       });
     });
 
@@ -257,13 +276,6 @@ describe("ConnectionRefresher", () => {
         clock.restore();
         sinon.restore();
       });
-
-      function expiresInMs(s: ColabAssignedServer) {
-        return Math.max(
-          s.connectionInformation.tokenExpiry.getTime() - Date.now(),
-          0,
-        );
-      }
 
       it("refreshes a connection before its expiry", async () => {
         await clock.tickAsync(expiresInMs(server) - 1);
