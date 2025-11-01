@@ -50,26 +50,7 @@ export abstract class AsyncToggleable<T extends Disposable>
       return;
     }
     this.inFlightTurnOn = new AbortController();
-    this.initializationComplete = this.initialize(this.inFlightTurnOn.signal)
-      .then((resource) => {
-        if (!this.inFlightTurnOn || this.inFlightTurnOn.signal.aborted) {
-          log.trace("Initialization aborted, disposing resource");
-          resource.dispose();
-          return;
-        }
-        this.resource = resource;
-      })
-      .catch((err: unknown) => {
-        if (!this.inFlightTurnOn || this.inFlightTurnOn.signal.aborted) {
-          log.trace("Initialization aborted by error");
-        } else {
-          log.error(`Unable to initialize ${this.constructor.name}`, err);
-        }
-        throw err;
-      })
-      .finally(() => {
-        this.inFlightTurnOn = undefined;
-      });
+    this.initializationComplete = this.doInit(this.inFlightTurnOn.signal);
   }
 
   /**
@@ -95,5 +76,28 @@ export abstract class AsyncToggleable<T extends Disposable>
    */
   dispose() {
     this.off();
+  }
+
+  private async doInit(signal: AbortSignal): Promise<void> {
+    try {
+      const resource = await this.initialize(signal);
+      if (!this.inFlightTurnOn || signal.aborted) {
+        log.trace(
+          `Initialization of ${this.constructor.name} aborted, disposing resource`,
+        );
+        resource.dispose();
+        return;
+      }
+      this.resource = resource;
+    } catch (err: unknown) {
+      if (!this.inFlightTurnOn || signal.aborted) {
+        log.trace(`Initialization of ${this.constructor.name} aborted`, err);
+      } else {
+        log.error(`Unable to initialize ${this.constructor.name}`, err);
+      }
+      throw err;
+    } finally {
+      this.inFlightTurnOn = undefined;
+    }
   }
 }

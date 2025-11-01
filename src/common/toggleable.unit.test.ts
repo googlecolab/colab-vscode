@@ -154,7 +154,7 @@ describe("AsyncToggleable", () => {
 
       await expect(toggleable.initializationComplete).to.eventually.be.rejected;
       // It should be treated as an abort, not an error
-      expect(logs.output).to.match(/Initialization aborted by error/);
+      expect(logs.output).to.match(/Initialization.+aborted/);
       expect(logs.output).to.not.match(/Unable to initialize/);
     });
   });
