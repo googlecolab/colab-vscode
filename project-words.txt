@@ -1,4 +1,5 @@
 authuser
+autorestarting
 chromedriver
 colab
 extest

@@ -44,6 +44,13 @@ const DEFAULT_CONFIG: Config = {
   idleExtensionMs: 1000 * 60 * 30, // 30 minutes.
 };
 
+const ACTIVE_KERNEL_STATES = new Set([
+  "starting",
+  "busy",
+  "restarting",
+  "autorestarting",
+]);
+
 /**
  * Keeps Colab servers alive while they are recently used, or if the user
  * explicitly extends their lifetime.
@@ -148,17 +155,7 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
     if (hasNoConnections) {
       return false;
     }
-    const lastActive = kernels
-      .map((k) => new Date(k.lastActivity))
-      .reduce((mostRecent, cur) => {
-        if (cur > mostRecent) {
-          return cur;
-        }
-        return mostRecent;
-      }, new Date(0));
-    const lastActiveFromNowMs = now.getTime() - lastActive.getTime();
-    const isActive = lastActiveFromNowMs < this.config.inactivityThresholdMs;
-    if (isActive) {
+    if (this.hasActiveKernel(now, kernels)) {
       // It's possible the assignment was tombstoned and we stopped sending
       // pings, but then the user started using it again before the Colab
       // backend disconnected the kernel.
@@ -184,6 +181,21 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
     }
 
     this.tombstones.add(assignment.id);
+    return false;
+  }
+
+  private hasActiveKernel(now: Date, kernels: Kernel[]): boolean {
+    for (const k of kernels) {
+      if (ACTIVE_KERNEL_STATES.has(k.executionState)) {
+        return true;
+      }
+
+      const lastActivity = new Date(k.lastActivity);
+      const lastActiveFromNowMs = now.getTime() - lastActivity.getTime();
+      if (lastActiveFromNowMs < this.config.inactivityThresholdMs) {
+        return true;
+      }
+    }
     return false;
   }
 
