@@ -8,6 +8,7 @@ import { UUID } from "crypto";
 import * as https from "https";
 import fetch, { Request, RequestInit, Headers } from "node-fetch";
 import { z } from "zod";
+import { traceMethod } from "../common/logging/decorators";
 import { ColabAssignedServer } from "../jupyter/servers";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
@@ -336,6 +337,7 @@ export class ColabClient {
    * @param endpoint - The assigned endpoint to keep alive.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    */
+  @traceMethod
   async sendKeepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
     await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.colabDomain),

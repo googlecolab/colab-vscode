@@ -8,6 +8,7 @@ import { UUID } from "crypto";
 import { Disposable } from "vscode";
 import vscode from "vscode";
 import { log } from "../common/logging";
+import { traceMethod } from "../common/logging/decorators";
 import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";
 import { Toggleable } from "../common/toggleable";
 import { AssignmentManager } from "../jupyter/assignments";
@@ -135,6 +136,7 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
    * If a server was previously not kept alive but there was recent activity on
    * it, it will be kept alive again according to the aforementioned rules.
    */
+  @traceMethod
   private async shouldKeepAlive(
     assignment: ColabAssignedServer,
     kernels: Kernel[],

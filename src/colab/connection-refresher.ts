@@ -113,6 +113,9 @@ export class ConnectionRefresher implements Disposable {
       }
       void this.refresh(s);
     }, delayMs);
+    log.trace(
+      `Scheduled connection refresh for "${s.label}" in ${delayMs.toString()}ms`,
+    );
     this.refreshes.set(s.id, {
       timeout,
       expiry: s.connectionInformation.tokenExpiry,

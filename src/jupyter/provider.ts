@@ -25,6 +25,7 @@ import {
 } from "../colab/commands/constants";
 import { openColabSignup, openColabWeb } from "../colab/commands/external";
 import { ServerPicker } from "../colab/server-picker";
+import { traceMethod } from "../common/logging/decorators";
 import { InputFlowAction } from "../common/multi-step-quickpick";
 import { Toggleable } from "../common/toggleable";
 import { isUUID } from "../utils/uuid";
@@ -83,6 +84,7 @@ export class ColabJupyterServerProvider
    * Provides the list of Colab {@link JupyterServer | Jupyter Servers} which
    * can be used.
    */
+  @traceMethod
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
@@ -95,6 +97,7 @@ export class ColabJupyterServerProvider
   /**
    * Resolves the connection for the provided Colab {@link JupyterServer}.
    */
+  @traceMethod
   resolveJupyterServer(
     server: JupyterServer,
     _token: CancellationToken,
@@ -114,6 +117,7 @@ export class ColabJupyterServerProvider
    * filtered down by the quick pick automatically.
    */
   // TODO: Integrate rename server alias and remove server commands.
+  @traceMethod
   async provideCommands(
     _value: string | undefined,
     _token: CancellationToken,
@@ -151,6 +155,7 @@ export class ColabJupyterServerProvider
    * create a new server.
    */
   // TODO: Consider popping a notification if the `openExternal` call fails.
+  @traceMethod
   async handleCommand(
     command: JupyterServerCommand,
     _token: CancellationToken,
