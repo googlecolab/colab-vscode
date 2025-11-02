@@ -82,6 +82,13 @@ export function initializeLogger(
 }
 
 /**
+ * Gets the current configured log level.
+ */
+export function getLevel(): LogLevel {
+  return level;
+}
+
+/**
  * The global logger instance.
  *
  * Can be used directly after calling `initializeLogger()`.

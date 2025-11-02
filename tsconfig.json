@@ -14,6 +14,7 @@
     "outDir": "out",
     "lib": ["ES2022", "dom"],
     "esModuleInterop": true,
+    "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,
