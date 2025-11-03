@@ -9,6 +9,7 @@ import { CodeChallengeMethod, GenerateAuthUrlOpts } from "google-auth-library";
 import { OAuth2Client } from "google-auth-library";
 import vscode from "vscode";
 import { PackageInfo } from "../../config/package-info";
+import { buildExtensionUri } from "../../system/uri";
 import { LocalServerFlow } from "./loopback";
 import { ProxiedRedirectFlow } from "./proxied";
 
@@ -59,12 +60,18 @@ export function getOAuth2Flows(
   packageInfo: PackageInfo,
   oAuth2Client: OAuth2Client,
 ): OAuth2Flow[] {
+  const extensionUri = buildExtensionUri(vs, packageInfo);
   const flows: OAuth2Flow[] = [];
   if (vs.env.uiKind === vs.UIKind.Desktop) {
     flows.push(
-      new LocalServerFlow(vs, path.join(__dirname, "auth/media"), oAuth2Client),
+      new LocalServerFlow(
+        vs,
+        path.join(__dirname, "auth/media"),
+        oAuth2Client,
+        extensionUri,
+      ),
     );
   }
-  flows.push(new ProxiedRedirectFlow(vs, packageInfo, oAuth2Client));
+  flows.push(new ProxiedRedirectFlow(vs, oAuth2Client, extensionUri));
   return flows;
 }

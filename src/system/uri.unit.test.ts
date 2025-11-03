@@ -4,11 +4,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { expect } from "chai";
 import * as sinon from "sinon";
 import { Uri } from "vscode";
+import { PackageInfo } from "../config/package-info";
 import { TestUri } from "../test/helpers/uri";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { ExtensionUriHandler } from "./uri-handler";
+import { buildExtensionUri, ExtensionUriHandler } from "./uri";
+
+it("buildExtensionUri", () => {
+  const vs = newVsCodeStub();
+  vs.env.uriScheme = "vscode-insiders";
+  const packageInfo: PackageInfo = {
+    publisher: "google",
+    name: "colab",
+    version: "0.0.1",
+  };
+
+  expect(buildExtensionUri(vs.asVsCode(), packageInfo)).to.equal(
+    "vscode-insiders://google.colab",
+  );
+});
 
 describe("ExtensionUriHandler", () => {
   let vs: VsCodeStub;

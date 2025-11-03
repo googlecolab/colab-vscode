@@ -5,6 +5,20 @@
  */
 
 import vscode from "vscode";
+import { PackageInfo } from "../config/package-info";
+
+/**
+ * Builds the extension URI that can be used to redirect users back to VS Code,
+ * to the extension's registered URI handler.
+ */
+export function buildExtensionUri(vs: typeof vscode, packageInfo: PackageInfo) {
+  {
+    const scheme = vs.env.uriScheme;
+    const pub = packageInfo.publisher;
+    const name = packageInfo.name;
+    return `${scheme}://${pub}.${name}`;
+  }
+}
 
 /**
  * A {@link vscode.UriHandler} for handling custom URI events within the

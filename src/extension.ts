@@ -28,7 +28,7 @@ import { AssignmentManager } from "./jupyter/assignments";
 import { getJupyterApi } from "./jupyter/jupyter-extension";
 import { ColabJupyterServerProvider } from "./jupyter/provider";
 import { ServerStorage } from "./jupyter/storage";
-import { ExtensionUriHandler } from "./system/uri-handler";
+import { ExtensionUriHandler } from "./system/uri";
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {

@@ -42,8 +42,14 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
     private readonly vs: typeof vscode,
     private readonly serveRoot: string,
     private readonly oAuth2Client: OAuth2Client,
+    extensionUri: string,
   ) {
-    this.handler = new Handler(vs, this.serveRoot, this.codeManager);
+    this.handler = new Handler(
+      vs,
+      this.serveRoot,
+      this.codeManager,
+      extensionUri,
+    );
   }
 
   dispose() {
@@ -98,6 +104,7 @@ class Handler implements LoopbackHandler {
     private readonly vs: typeof vscode,
     private readonly serveRoot: string,
     private readonly codeProvider: CodeManager,
+    private readonly extensionUri: string,
   ) {}
 
   handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -145,7 +152,7 @@ class Handler implements LoopbackHandler {
 
   async redirectSuccessfulAuth(res: http.ServerResponse): Promise<void> {
     const authSuccessUri = await this.vs.env.asExternalUri(
-      this.vs.Uri.parse("vscode://google.colab/auth-success"),
+      this.vs.Uri.parse(`${this.extensionUri}/auth-success`),
     );
     const successState = encodeURIComponent(authSuccessUri.toString());
     const redirectUri = `${CONFIG.ColabApiDomain}/vscode/auth-success?state=${successState}`;

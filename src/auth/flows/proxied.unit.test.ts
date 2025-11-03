@@ -9,8 +9,7 @@ import { OAuth2Client } from "google-auth-library";
 import * as sinon from "sinon";
 import { InputBox } from "vscode";
 import { CONFIG } from "../../colab-config";
-import { PackageInfo } from "../../config/package-info";
-import { ExtensionUriHandler } from "../../system/uri-handler";
+import { ExtensionUriHandler } from "../../system/uri";
 import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
 import {
   buildInputBoxStub,
@@ -21,11 +20,6 @@ import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { FlowResult, OAuth2TriggerOptions } from "./flows";
 import { ProxiedRedirectFlow } from "./proxied";
 
-const PACKAGE_INFO: PackageInfo = {
-  publisher: "google",
-  name: "colab",
-  version: "0.1.0",
-};
 const NONCE = "nonce";
 const CODE = "42";
 const EXTERNAL_CALLBACK_URI = `vscode://google.colab?nonce=${NONCE}&windowId=1`;
@@ -58,7 +52,11 @@ describe("ProxiedRedirectFlow", () => {
       scopes: SCOPES,
       pkceChallenge: "1 + 1 = ?",
     };
-    flow = new ProxiedRedirectFlow(vs.asVsCode(), PACKAGE_INFO, oauth2Client);
+    flow = new ProxiedRedirectFlow(
+      vs.asVsCode(),
+      oauth2Client,
+      "vscode://google.colab",
+    );
     vs.env.asExternalUri
       .withArgs(matchUri(/vscode:\/\/google\.colab\?nonce=nonce/))
       .resolves(vs.Uri.parse(EXTERNAL_CALLBACK_URI));

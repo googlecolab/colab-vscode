@@ -53,7 +53,12 @@ describe("LocalServerFlow", () => {
       pkceChallenge: "1 + 1 = ?",
     };
     resStub = sinon.createStubInstance(http.ServerResponse);
-    flow = new LocalServerFlow(vs.asVsCode(), "out/test/media", oauth2Client);
+    flow = new LocalServerFlow(
+      vs.asVsCode(),
+      "out/test/media",
+      oauth2Client,
+      "vscode://google.colab",
+    );
   });
 
   afterEach(() => {

@@ -11,7 +11,6 @@ import {
   MultiStepInput,
   InputFlowAction,
 } from "../../common/multi-step-quickpick";
-import { PackageInfo } from "../../config/package-info";
 import { CodeManager } from "../code-manager";
 import {
   DEFAULT_AUTH_URL_OPTS,
@@ -23,19 +22,13 @@ import {
 const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
 
 export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
-  private readonly baseUri: string;
   private readonly codeManager = new CodeManager();
 
   constructor(
     private readonly vs: typeof vscode,
-    private readonly packageInfo: PackageInfo,
     private readonly oAuth2Client: OAuth2Client,
-  ) {
-    const scheme = this.vs.env.uriScheme;
-    const pub = this.packageInfo.publisher;
-    const name = this.packageInfo.name;
-    this.baseUri = `${scheme}://${pub}.${name}`;
-  }
+    private readonly extensionUri: string,
+  ) {}
 
   dispose() {
     this.codeManager.dispose();
@@ -52,7 +45,7 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
         cancelTokenSource.token,
       );
       const vsCodeRedirectUri = this.vs.Uri.parse(
-        `${this.baseUri}?nonce=${options.nonce}`,
+        `${this.extensionUri}?nonce=${options.nonce}`,
       );
       const externalProxiedRedirectUri =
         await this.vs.env.asExternalUri(vsCodeRedirectUri);
