@@ -1116,7 +1116,7 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("onDidAssignmentsChange", () => {
+  describe("when assignments change", () => {
     let assignmentChangeEmitter: TestEventEmitter<AssignmentChangeEvent>;
 
     beforeEach(() => {
