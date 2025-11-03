@@ -220,6 +220,7 @@ describe("AssignmentManager", () => {
 
       sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
       sinon.assert.notCalled(assignmentChangeListener);
+      sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
     });
 
     it("does nothing when no servers need reconciling", async () => {
@@ -230,6 +231,7 @@ describe("AssignmentManager", () => {
 
       sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
       sinon.assert.notCalled(assignmentChangeListener);
+      sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
     });
 
     it("reconciles a single assigned server when it is the only one", async () => {
@@ -251,6 +253,10 @@ describe("AssignmentManager", () => {
         removed: [{ server: defaultServer, userInitiated: false }],
         changed: [],
       });
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showInformationMessage,
+        sinon.match(/notebooks Colab GPU A100 was/),
+      );
     });
 
     describe("with multiple servers", () => {
@@ -262,6 +268,7 @@ describe("AssignmentManager", () => {
           defaultServer,
           {
             ...defaultServer,
+            label: "Second Server",
             id: randomUUID(),
             endpoint: "m-s-bar",
             connectionInformation: {
@@ -302,10 +309,18 @@ describe("AssignmentManager", () => {
           removed: [{ server: servers[1], userInitiated: false }],
           changed: [],
         });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Second Server was/),
+        );
       });
 
       it("reconciles multiple assigned servers when all need reconciling", async () => {
-        await serverStorage.store(servers);
+        const threeServers = [
+          ...servers,
+          { ...defaultServer, label: "Third Server" },
+        ];
+        await serverStorage.store(threeServers);
         colabClientStub.listAssignments.resolves([]);
 
         await assignmentManager.reconcileAssignedServers();
@@ -320,14 +335,24 @@ describe("AssignmentManager", () => {
         );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
-          removed: servers.map((s) => ({ server: s, userInitiated: false })),
+          removed: threeServers.map((s) => ({
+            server: s,
+            userInitiated: false,
+          })),
           changed: [],
         });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(
+            /notebooks Colab GPU A100, Second Server and Third Server were/,
+          ),
+        );
       });
 
       it("reconciles multiple assigned servers when some need reconciling", async () => {
         const thirdServer: ColabAssignedServer = {
           ...defaultServer,
+          label: "Third Server",
           id: randomUUID(),
           endpoint: "m-s-baz",
           connectionInformation: {
@@ -358,6 +383,10 @@ describe("AssignmentManager", () => {
           removed: [{ server: thirdServer, userInitiated: false }],
           changed: [],
         });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Third Server was/),
+        );
       });
 
       it("reconciles ignoring assignments originating out of VS Code", async () => {
@@ -387,6 +416,10 @@ describe("AssignmentManager", () => {
           removed: servers.map((s) => ({ server: s, userInitiated: false })),
           changed: [],
         });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 and Second Server were/),
+        );
       });
     });
   });
@@ -805,6 +838,10 @@ describe("AssignmentManager", () => {
           removed: [{ server: defaultServer, userInitiated: true }],
           changed: [],
         });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 was/),
+        );
       });
     });
   });
@@ -1116,27 +1153,21 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("when assignments change", () => {
-    let assignmentChangeEmitter: TestEventEmitter<AssignmentChangeEvent>;
+  describe("when the notification to reload notebooks is shown", () => {
+    let showInfoMessageResolver: (value: MessageItem | undefined) => void;
+    let showInfoMessage: Promise<MessageItem | undefined>;
 
     beforeEach(() => {
       /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
-      assignmentChangeEmitter = (assignmentManager as any)
+      const assignmentChangeEmitter = (assignmentManager as any)
         .assignmentChange as TestEventEmitter<AssignmentChangeEvent>;
       /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
-    });
-
-    it("does not notify the user to reload notebooks when 0 servers are removed", () => {
-      assignmentChangeEmitter.fire({
-        added: [],
-        removed: [],
-        changed: [],
+      showInfoMessage = new Promise<MessageItem | undefined>((resolve) => {
+        showInfoMessageResolver = resolve;
       });
-
-      sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
-    });
-
-    it("notifies the user to reload notebooks when 1 server is removed", () => {
+      vsCodeStub.window.showInformationMessage.callsFake(() => {
+        return showInfoMessage;
+      });
       assignmentChangeEmitter.fire({
         added: [],
         removed: [
@@ -1147,104 +1178,27 @@ describe("AssignmentManager", () => {
         ],
         changed: [],
       });
+    });
 
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.window.showInformationMessage,
-        sinon.match(/notebooks server A was/),
+    it("opens the Jupyter Github issue when the notification is clicked", async () => {
+      showInfoMessageResolver({
+        title: "View Issue",
+      });
+
+      await expect(showInfoMessage).to.eventually.be.fulfilled;
+      sinon.assert.calledWithMatch(
+        vsCodeStub.env.openExternal,
+        vsCodeStub.Uri.parse(
+          "https://github.com/microsoft/vscode-jupyter/issues/17094",
+        ),
       );
     });
 
-    it("notifies the user to reload notebooks when 2 servers are removed", () => {
-      assignmentChangeEmitter.fire({
-        added: [],
-        removed: [
-          {
-            server: { ...defaultServer, label: "server A" },
-            userInitiated: false,
-          },
-          {
-            server: { ...defaultServer, label: "server B" },
-            userInitiated: false,
-          },
-        ],
-        changed: [],
-      });
+    it("does not open the Jupyter Github issue when the notification is dismissed", async () => {
+      showInfoMessageResolver(undefined);
 
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.window.showInformationMessage,
-        sinon.match(/notebooks server A and server B were/),
-      );
-    });
-
-    it("notifies the user to reload notebooks when several servers are removed", () => {
-      assignmentChangeEmitter.fire({
-        added: [],
-        removed: [
-          {
-            server: { ...defaultServer, label: "server A" },
-            userInitiated: false,
-          },
-          {
-            server: { ...defaultServer, label: "server B" },
-            userInitiated: false,
-          },
-          {
-            server: { ...defaultServer, label: "server C" },
-            userInitiated: false,
-          },
-        ],
-        changed: [],
-      });
-
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.window.showInformationMessage,
-        sinon.match(/notebooks server A, server B and server C were/),
-      );
-    });
-
-    describe("and the notification to reload notebooks is shown", () => {
-      let showInfoMessageResolver: (value: MessageItem | undefined) => void;
-      let showInfoMessage: Promise<MessageItem | undefined>;
-
-      beforeEach(() => {
-        showInfoMessage = new Promise<MessageItem | undefined>((resolve) => {
-          showInfoMessageResolver = resolve;
-        });
-        vsCodeStub.window.showInformationMessage.callsFake(() => {
-          return showInfoMessage;
-        });
-        assignmentChangeEmitter.fire({
-          added: [],
-          removed: [
-            {
-              server: { ...defaultServer, label: "server A" },
-              userInitiated: false,
-            },
-          ],
-          changed: [],
-        });
-      });
-
-      it("opens the Jupyter Github issue when the notification is clicked", async () => {
-        showInfoMessageResolver({
-          title: "View Issue",
-        });
-
-        await expect(showInfoMessage).to.eventually.be.fulfilled;
-        sinon.assert.calledWithMatch(
-          vsCodeStub.env.openExternal,
-          vsCodeStub.Uri.parse(
-            "https://github.com/microsoft/vscode-jupyter/issues/17094",
-          ),
-        );
-      });
-
-      it("does not open the Jupyter Github issue when the notification is dismissed", async () => {
-        showInfoMessageResolver(undefined);
-
-        await expect(showInfoMessage).to.eventually.be.fulfilled;
-        sinon.assert.notCalled(vsCodeStub.env.openExternal);
-      });
+      await expect(showInfoMessage).to.eventually.be.fulfilled;
+      sinon.assert.notCalled(vsCodeStub.env.openExternal);
     });
   });
 });
