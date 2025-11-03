@@ -8,7 +8,7 @@ import { randomUUID } from "crypto";
 import { assert, expect } from "chai";
 import fetch, { Headers } from "node-fetch";
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
-import { Uri } from "vscode";
+import { MessageItem, Uri } from "vscode";
 import {
   Accelerator,
   Assignment,
@@ -1203,11 +1203,16 @@ describe("AssignmentManager", () => {
     });
 
     describe("and the notification to reload notebooks is shown", () => {
-      it("opens the Jupyter Github issue when the notification is clicked", async () => {
-        vsCodeStub.window.showInformationMessage.resolves({
-          title: "View Issue",
-        });
+      let showInfoMessageResolver: (value: MessageItem | undefined) => void;
+      let showInfoMessage: Promise<MessageItem | undefined>;
 
+      beforeEach(() => {
+        showInfoMessage = new Promise<MessageItem | undefined>((resolve) => {
+          showInfoMessageResolver = resolve;
+        });
+        vsCodeStub.window.showInformationMessage.callsFake(() => {
+          return showInfoMessage;
+        });
         assignmentChangeEmitter.fire({
           added: [],
           removed: [
@@ -1218,8 +1223,14 @@ describe("AssignmentManager", () => {
           ],
           changed: [],
         });
-        await Promise.resolve();
+      });
 
+      it("opens the Jupyter Github issue when the notification is clicked", async () => {
+        showInfoMessageResolver({
+          title: "View Issue",
+        });
+
+        await expect(showInfoMessage).to.eventually.be.fulfilled;
         sinon.assert.calledWithMatch(
           vsCodeStub.env.openExternal,
           vsCodeStub.Uri.parse(
@@ -1229,20 +1240,9 @@ describe("AssignmentManager", () => {
       });
 
       it("does not open the Jupyter Github issue when the notification is dismissed", async () => {
-        vsCodeStub.window.showInformationMessage.resolves(undefined);
+        showInfoMessageResolver(undefined);
 
-        assignmentChangeEmitter.fire({
-          added: [],
-          removed: [
-            {
-              server: { ...defaultServer, label: "server A" },
-              userInitiated: false,
-            },
-          ],
-          changed: [],
-        });
-        await Promise.resolve();
-
+        await expect(showInfoMessage).to.eventually.be.fulfilled;
         sinon.assert.notCalled(vsCodeStub.env.openExternal);
       });
     });
