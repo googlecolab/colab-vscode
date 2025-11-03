@@ -503,7 +503,7 @@ export class AssignmentManager implements vscode.Disposable {
         ? `${removed[0]} was`
         : `${removed.slice(0, numRemoved - 1).join(", ")} and ${removed[numRemoved - 1]} were`;
     const viewIssue = await this.vs.window.showInformationMessage(
-      `Sorry for the inconvenience, to work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverDescriptor} previously connected to.`,
+      `To work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverDescriptor} previously connected to.`,
       `View Issue`,
     );
     if (viewIssue) {
