@@ -165,3 +165,9 @@ jobs:
         with:
           name: exthost log
           path: /tmp/test-resources/settings/logs/*/window1/exthost/exthost.log
+      - name: upload output logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output_logs
+          path: /tmp/test-resources/settings/logs/*/window1/exthost/output_logging_*/
