@@ -29,17 +29,15 @@ Guidelines](https://opensource.google/conduct/).
 
 #### Configure your environment
 
-Make a copy of the environment template:
-
-`cp .env.template .env`
+Make a copy of the environment template: `cp .env.template .env`
 
 Set the extension environment: `COLAB_EXTENSION_ENVIRONMENT="production"`
 
-Set the OAuth 2.0 client ID and secret, which can be obtained through following the instructions [here](https://developers.google.com/identity/protocols/oauth2):
+Create an OAuth client ID and secret ([instructions](https://developers.google.com/identity/protocols/oauth2)) and set the values:
 
 ```
-COLAB_EXTENSION_CLIENT_ID=<OAuth 2.0 client ID>
-COLAB_EXTENSION_CLIENT_NOT_SO_SECRET=<OAuth 2.0 client secret>
+COLAB_EXTENSION_CLIENT_ID=<TODO>
+COLAB_EXTENSION_CLIENT_NOT_SO_SECRET=<TODO>
 ```
 
 Then, execute `npm run generate:config`, which generates the static config file needed to run the extension.
