@@ -27,20 +27,41 @@ Guidelines](https://opensource.google/conduct/).
 
 ### Local Development
 
+#### Install dependencies
+
+Open the cloned repository folder:
+
+```
+git clone https://github.com/googlecolab/colab-vscode.git
+cd colab-vscode
+```
+
+Run `npm ci` to install dependencies.
+
 #### Configure your environment
 
 Make a copy of the environment template: `cp .env.template .env`
 
 Set the extension environment: `COLAB_EXTENSION_ENVIRONMENT="production"`
 
-Create an OAuth client ID and secret ([instructions](https://developers.google.com/identity/protocols/oauth2)) and set the values:
+Create an OAuth client ID and secret using the `Desktop app` client type ([instructions](https://developers.google.com/identity/protocols/oauth2)). Then, set the credentials below:
 
 ```
 COLAB_EXTENSION_CLIENT_ID=<TODO>
 COLAB_EXTENSION_CLIENT_NOT_SO_SECRET=<TODO>
 ```
 
-Then, execute `npm run generate:config`, which generates the static config file needed to run the extension.
+Finally, execute `npm run generate:config`, which generates the static config file needed to run the extension.
+
+#### Run the extension
+
+1. Open the repository in VS Code
+
+2. Launch the Extension Development Host by pressing `F5` or selecting `Run Extension` from VS Code's <b>Run and Debug</b> view.
+
+3. Open a notebook file (`.ipynb`). To create a new one, open the command palette (`Cmd/Ctrl + Shift + P`) and select `Create: New Jupyter Notebook`.
+
+4. Test and validate your changes.
 
 ### Code Reviews
 
