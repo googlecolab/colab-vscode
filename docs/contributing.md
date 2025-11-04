@@ -33,9 +33,7 @@ Make a copy of the environment template:
 
 `cp .env.template .env`
 
-Set the extension environment to `"production"`:
-
-`COLAB_EXTENSION_ENVIRONMENT="production"`
+Set the extension environment: `COLAB_EXTENSION_ENVIRONMENT="production"`
 
 Set the OAuth 2.0 client ID and secret, which can be obtained through following the instructions [here](https://developers.google.com/identity/protocols/oauth2):
 
