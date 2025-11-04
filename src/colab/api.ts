@@ -79,36 +79,6 @@ export enum Shape {
   // VERYHIGHMEM (2) is deprecated.
 }
 
-export enum Accelerator {
-  NONE = "NONE",
-  // GPU
-  // K80 is deprecated
-  // P100 is deprecated
-  // P4 is deprecated
-  T4 = "T4",
-  // V100 is deprecated
-  A100 = "A100",
-  L4 = "L4",
-  // TPU
-  V28 = "V28",
-  V5E1 = "V5E1",
-  V6E1 = "V6E1",
-}
-
-/**
- * Preprocess a native enum to get the enum value from a lower case string.
- *
- * @param enumObj - the native enum object schema to preprocess to.
- * @returns the zod effect to get the native enum from a lower case string.
- */
-function uppercaseEnum<T extends Record<string, string>>(
-  enumObj: T,
-): z.ZodType<T[keyof T]> {
-  return z
-    .string()
-    .transform((val) => val.toUpperCase())
-    .pipe(z.enum(Object.values(enumObj) as [T[keyof T], ...T[keyof T][]]));
-}
 /**
  * Normalize the similar but different representations of subscription tiers
  *
@@ -165,7 +135,7 @@ export const UserInfoSchema = z.object({
         /** The variant of the assignment. */
         variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
         /** The assigned accelerator. */
-        models: z.array(z.enum(Accelerator)),
+        models: z.array(z.string().toUpperCase()),
       }),
     )
     .optional(),
@@ -191,17 +161,17 @@ export const CcuInfoSchema = z.object({
    */
   assignmentsCount: z.number(),
   /** The list of eligible GPU accelerators. */
-  eligibleGpus: z.array(uppercaseEnum(Accelerator)),
+  eligibleGpus: z.array(z.string().toUpperCase()),
   /** The list of ineligible GPU accelerators. */
-  ineligibleGpus: z.array(uppercaseEnum(Accelerator)).optional(),
+  ineligibleGpus: z.array(z.string().toUpperCase()).optional(),
   /**
    * The list of eligible TPU accelerators.
    */
-  eligibleTpus: z.array(uppercaseEnum(Accelerator)),
+  eligibleTpus: z.array(z.string().toUpperCase()),
   /**
    * The list of ineligible TPU accelerators.
    */
-  ineligibleTpus: z.array(uppercaseEnum(Accelerator)).optional(),
+  ineligibleTpus: z.array(z.string().toUpperCase()).optional(),
   /** Free CCU quota information if applicable. */
   freeCcuQuotaInfo: z
     .object({
@@ -239,7 +209,7 @@ export type CcuInfo = z.infer<typeof CcuInfoSchema>;
 export const GetAssignmentResponseSchema = z
   .object({
     /** The pool's accelerator. */
-    acc: uppercaseEnum(Accelerator),
+    acc: z.string().toUpperCase(),
     /** The notebook ID hash. */
     nbh: z.string(),
     /** Whether or not Recaptcha should prompt. */
@@ -276,7 +246,7 @@ export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 /** The response when creating an assignment. */
 export const PostAssignmentResponseSchema = z.object({
   /** The assigned accelerator. */
-  accelerator: uppercaseEnum(Accelerator).optional(),
+  accelerator: z.string().toUpperCase().optional(),
   /** The endpoint URL. */
   endpoint: z.string().optional(),
   /** Frontend idle timeout in seconds. */

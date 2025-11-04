@@ -14,7 +14,6 @@ import fetch, {
 } from "node-fetch";
 import vscode from "vscode";
 import {
-  Accelerator,
   Assignment,
   RuntimeProxyInfo,
   Variant,
@@ -32,7 +31,6 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from "../colab/headers";
 import {
-  COLAB_SERVERS,
   ColabAssignedServer,
   ColabJupyterServer,
   ColabServerDescriptor,
@@ -98,30 +96,28 @@ export class AssignmentManager implements vscode.Disposable {
    *
    * @returns A list of available server descriptors.
    */
+  // TODO: Consider communicating which machines are available, but not to the
+  // user at their tier (in the "ineligible" list).
   async getAvailableServerDescriptors(
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
     const ccuInfo = await this.client.getCcuInfo(signal);
+
     const eligibleGpus = new Set(ccuInfo.eligibleGpus);
-    const ineligibleGpus = new Set(ccuInfo.ineligibleGpus);
+    const gpus: ColabServerDescriptor[] = Array.from(eligibleGpus).map((e) => ({
+      label: `Colab GPU ${e}`,
+      variant: Variant.GPU,
+      accelerator: e,
+    }));
+
     const eligibleTpus = new Set(ccuInfo.eligibleTpus);
-    const ineligibleTpus = new Set(ccuInfo.ineligibleTpus);
-    return Array.from(COLAB_SERVERS.values()).filter((server) => {
-      switch (server.variant) {
-        case Variant.DEFAULT:
-          return true;
-        case Variant.GPU:
-          return isAcceleratorAvailable(server.accelerator, {
-            eligible: eligibleGpus,
-            ineligible: ineligibleGpus,
-          });
-        case Variant.TPU:
-          return isAcceleratorAvailable(server.accelerator, {
-            eligible: eligibleTpus,
-            ineligible: ineligibleTpus,
-          });
-      }
-    });
+    const tpus: ColabServerDescriptor[] = Array.from(eligibleTpus).map((e) => ({
+      label: `Colab TPU ${e}`,
+      variant: Variant.TPU,
+      accelerator: e,
+    }));
+
+    return [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
   }
 
   /**
@@ -373,12 +369,11 @@ export class AssignmentManager implements vscode.Disposable {
 
   async getDefaultLabel(
     variant: Variant,
-    accelerator?: Accelerator,
+    accelerator?: string,
     signal?: AbortSignal,
   ): Promise<string> {
     const servers = await this.getAssignedServers(signal);
-    const a =
-      accelerator && accelerator !== Accelerator.NONE ? ` ${accelerator}` : "";
+    const a = accelerator && accelerator !== "NONE" ? ` ${accelerator}` : "";
     const v = variantToMachineType(variant);
     const labelBase = `Colab ${v}${a}`;
     const labelRegex = new RegExp(`^${labelBase}(?:\\s\\((\\d+)\\))?$`);
@@ -559,21 +554,4 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
-}
-
-// TODO: Provide a ⚠️ warning for the servers which are ineligible.
-function isAcceleratorAvailable(
-  accelerator: Accelerator | undefined,
-  availability: {
-    eligible: Set<Accelerator>;
-    ineligible?: Set<Accelerator>;
-  },
-): boolean {
-  if (!accelerator) {
-    return false;
-  }
-  return (
-    !availability.ineligible?.has(accelerator) &&
-    availability.eligible.has(accelerator)
-  );
 }

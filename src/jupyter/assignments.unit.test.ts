@@ -10,7 +10,6 @@ import fetch, { Headers } from "node-fetch";
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
 import { MessageItem, Uri } from "vscode";
 import {
-  Accelerator,
   Assignment,
   RuntimeProxyInfo,
   Shape,
@@ -35,9 +34,9 @@ import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
 import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 import {
-  COLAB_SERVERS,
   ColabAssignedServer,
   ColabServerDescriptor,
+  DEFAULT_CPU_SERVER,
 } from "./servers";
 import { ServerStorage } from "./storage";
 
@@ -47,11 +46,11 @@ const TOKEN_EXPIRY_MS = 1000 * 60 * 60;
 const defaultAssignmentDescriptor: ColabServerDescriptor = {
   label: "Colab GPU A100",
   variant: Variant.GPU,
-  accelerator: Accelerator.A100,
+  accelerator: "A100",
 };
 
 const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
-  accelerator: Accelerator.A100,
+  accelerator: "A100",
   endpoint: "m-s-foo",
   idleTimeoutSec: 30,
   subscriptionState: SubscriptionState.UNSUBSCRIBED,
@@ -91,7 +90,7 @@ describe("AssignmentManager", () => {
         (a): Assignment => ({
           ...defaultAssignment,
           variant: a.variant,
-          accelerator: a.accelerator ?? Accelerator.NONE,
+          accelerator: a.accelerator ?? "NONE",
         }),
       ),
     );
@@ -100,7 +99,7 @@ describe("AssignmentManager", () => {
         (a): ColabAssignedServer => ({
           ...defaultServer,
           variant: a.variant,
-          accelerator: a.accelerator ?? Accelerator.NONE,
+          accelerator: a.accelerator ?? "NONE",
           label: a.label,
         }),
       ),
@@ -143,14 +142,14 @@ describe("AssignmentManager", () => {
   });
 
   describe("getAvailableServerDescriptors", () => {
-    it("returns all servers when all are eligible", async () => {
+    it("returns the default CPU and the eligible servers", async () => {
       colabClientStub.getCcuInfo.resolves({
         currentBalance: 1,
         consumptionRateHourly: 2,
         assignmentsCount: 0,
-        eligibleGpus: [Accelerator.T4, Accelerator.A100, Accelerator.L4],
+        eligibleGpus: ["T4", "A100"],
         ineligibleGpus: [],
-        eligibleTpus: [Accelerator.V5E1, Accelerator.V6E1, Accelerator.V28],
+        eligibleTpus: ["V5E1", "V6E1"],
         ineligibleTpus: [],
         freeCcuQuotaInfo: {
           remainingTokens: 4,
@@ -160,57 +159,29 @@ describe("AssignmentManager", () => {
 
       const servers = await assignmentManager.getAvailableServerDescriptors();
 
-      expect(servers).to.deep.equal(Array.from(COLAB_SERVERS));
-    });
-
-    it("filters to only eligible servers", async () => {
-      colabClientStub.getCcuInfo.resolves({
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 0,
-        eligibleGpus: [Accelerator.T4, Accelerator.A100],
-        ineligibleGpus: [],
-        eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
-        ineligibleTpus: [],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
+      expect(servers).to.deep.equal([
+        DEFAULT_CPU_SERVER,
+        {
+          label: "Colab GPU T4",
+          variant: Variant.GPU,
+          accelerator: "T4",
         },
-      });
-
-      const servers = await assignmentManager.getAvailableServerDescriptors();
-
-      const expectedServers = Array.from(COLAB_SERVERS).filter(
-        (server) =>
-          server.accelerator !== Accelerator.L4 &&
-          server.accelerator !== Accelerator.V5E1,
-      );
-      expect(servers).to.deep.equal(expectedServers);
-    });
-
-    it("filters out ineligible servers", async () => {
-      colabClientStub.getCcuInfo.resolves({
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 0,
-        eligibleGpus: [Accelerator.T4, Accelerator.A100],
-        ineligibleGpus: [Accelerator.L4],
-        eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
-        ineligibleTpus: [Accelerator.V5E1],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
+        {
+          label: "Colab GPU A100",
+          variant: Variant.GPU,
+          accelerator: "A100",
         },
-      });
-
-      const servers = await assignmentManager.getAvailableServerDescriptors();
-
-      const expectedServers = Array.from(COLAB_SERVERS).filter(
-        (server) =>
-          server.accelerator !== Accelerator.L4 &&
-          server.accelerator !== Accelerator.V5E1,
-      );
-      expect(servers).to.deep.equal(expectedServers);
+        {
+          label: "Colab TPU V5E1",
+          variant: Variant.TPU,
+          accelerator: "V5E1",
+        },
+        {
+          label: "Colab TPU V6E1",
+          variant: Variant.TPU,
+          accelerator: "V6E1",
+        },
+      ]);
     });
   });
 
@@ -852,12 +823,12 @@ describe("AssignmentManager", () => {
       const defaultCpuAssignment = {
         ...defaultAssignment,
         variant: Variant.DEFAULT,
-        accelerator: Accelerator.NONE,
+        accelerator: "NONE",
       };
       const defaultCpuServer = {
         ...defaultServer,
         variant: Variant.DEFAULT,
-        accelerator: Accelerator.NONE,
+        accelerator: "NONE",
         label: "Colab CPU",
       };
       colabClientStub.assign
@@ -1042,13 +1013,13 @@ describe("AssignmentManager", () => {
   describe("getDefaultLabel", () => {
     it("returns a simple variant-accelerator pair when there are no assigned servers", async () => {
       await expect(
-        assignmentManager.getDefaultLabel(Variant.GPU, Accelerator.A100),
+        assignmentManager.getDefaultLabel(Variant.GPU, "A100"),
       ).to.eventually.equal("Colab GPU A100");
     });
 
     it("returns a simple variant-accelerator pair when there are only custom aliased servers", async () => {
       const variant = Variant.GPU;
-      const accelerator = Accelerator.A100;
+      const accelerator = "A100";
       await setupAssignments([{ variant, accelerator, label: "foo" }]);
 
       await expect(
@@ -1058,7 +1029,7 @@ describe("AssignmentManager", () => {
 
     it("returns the next sequential label with one matching assigned server", async () => {
       const variant = Variant.GPU;
-      const accelerator = Accelerator.A100;
+      const accelerator = "A100";
       await setupAssignments([
         { variant, accelerator, label: "Colab GPU A100" },
       ]);
@@ -1070,7 +1041,7 @@ describe("AssignmentManager", () => {
 
     it("returns the next sequential label with multiple assigned servers", async () => {
       const variant = Variant.GPU;
-      const accelerator = Accelerator.A100;
+      const accelerator = "A100";
       await setupAssignments([
         { variant, accelerator, label: "Colab GPU A100" },
         { variant, accelerator, label: "Colab GPU A100 (1)" },
@@ -1086,20 +1057,20 @@ describe("AssignmentManager", () => {
         { variant: Variant.DEFAULT, label: "Colab CPU" },
         {
           variant: Variant.GPU,
-          accelerator: Accelerator.A100,
+          accelerator: "A100",
           label: "Colab GPU A100",
         },
       ]);
 
       await expect(
-        assignmentManager.getDefaultLabel(Variant.GPU, Accelerator.A100),
+        assignmentManager.getDefaultLabel(Variant.GPU, "A100"),
       ).to.eventually.equal("Colab GPU A100 (1)");
     });
 
     // To ensure a string sort isn't used, which would put "10" before "2".
     it("uses the next sequential label with many assigned servers", async () => {
       const variant = Variant.GPU;
-      const accelerator = Accelerator.A100;
+      const accelerator = "A100";
       await setupAssignments(
         Array.from({ length: 10 }, (_, i) => i + 1)
           .map((i) => ({
@@ -1117,7 +1088,7 @@ describe("AssignmentManager", () => {
 
     it("uses the simple variant-accelerator label when the initial assignment is missing", async () => {
       const variant = Variant.GPU;
-      const accelerator = Accelerator.A100;
+      const accelerator = "A100";
       await setupAssignments([
         { variant, accelerator, label: "Colab GPU A100 (2)" },
       ]);
@@ -1129,7 +1100,7 @@ describe("AssignmentManager", () => {
 
     it("uses the next sequential label when there's an assigned server gap", async () => {
       const variant = Variant.GPU;
-      const accelerator = Accelerator.A100;
+      const accelerator = "A100";
       await setupAssignments([
         { variant, accelerator, label: "Colab GPU A100 (2)" },
         { variant, accelerator, label: "Colab GPU A100" },

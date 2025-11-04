@@ -8,16 +8,33 @@ import { expect } from "chai";
 import * as sinon from "sinon";
 import { InputBox, QuickPick, QuickPickItem } from "vscode";
 import { AssignmentManager } from "../jupyter/assignments";
-import { COLAB_SERVERS } from "../jupyter/servers";
+import { DEFAULT_CPU_SERVER } from "../jupyter/servers";
 import {
   buildInputBoxStub,
   buildQuickPickStub,
 } from "../test/helpers/quick-input";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { Accelerator, Variant } from "./api";
+import { Variant } from "./api";
 import { ServerPicker } from "./server-picker";
 
-const ALL_SERVERS = Array.from(COLAB_SERVERS);
+const AVAILABLE_SERVERS = [
+  DEFAULT_CPU_SERVER,
+  {
+    label: "Colab GPU T4",
+    variant: Variant.GPU,
+    accelerator: "T4",
+  },
+  {
+    label: "Colab GPU A100",
+    variant: Variant.GPU,
+    accelerator: "A100",
+  },
+  {
+    label: "Colab TPU V6E1",
+    variant: Variant.TPU,
+    accelerator: "V6E1",
+  },
+];
 
 describe("ServerPicker", () => {
   let vsCodeStub: VsCodeStub;
@@ -63,7 +80,7 @@ describe("ServerPicker", () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      const prompt = serverPicker.prompt(ALL_SERVERS);
+      const prompt = serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       variantQuickPickStub.onDidHide.yield();
 
@@ -75,7 +92,7 @@ describe("ServerPicker", () => {
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      const prompt = serverPicker.prompt(ALL_SERVERS);
+      const prompt = serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
@@ -93,7 +110,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      const prompt = serverPicker.prompt(ALL_SERVERS);
+      const prompt = serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
@@ -102,7 +119,7 @@ describe("ServerPicker", () => {
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: Accelerator.T4, label: "T4" },
+        { value: "T4", label: "T4" },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.onDidHide.yield();
@@ -116,7 +133,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      void serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
@@ -133,7 +150,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      const prompt = serverPicker.prompt(ALL_SERVERS);
+      const prompt = serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
@@ -142,7 +159,7 @@ describe("ServerPicker", () => {
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: Accelerator.T4, label: "T4" },
+        { value: "T4", label: "T4" },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.value = "foo";
@@ -152,7 +169,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.be.deep.equal({
         label: "foo",
         variant: Variant.GPU,
-        accelerator: Accelerator.T4,
+        accelerator: "T4",
       });
     });
 
@@ -161,7 +178,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      void serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
@@ -180,7 +197,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
-      const prompt = serverPicker.prompt(ALL_SERVERS);
+      const prompt = serverPicker.prompt(AVAILABLE_SERVERS);
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
@@ -188,11 +205,11 @@ describe("ServerPicker", () => {
       ]);
       await acceleratorPickerShown;
       assignmentStub.getDefaultLabel
-        .withArgs(Variant.GPU, Accelerator.T4)
+        .withArgs(Variant.GPU, "T4")
         .resolves("Colab GPU T4");
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: Accelerator.T4, label: "T4" },
+        { value: "T4", label: "T4" },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.onDidAccept.yield();
@@ -200,7 +217,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.be.deep.equal({
         label: "Colab GPU T4",
         variant: Variant.GPU,
-        accelerator: Accelerator.T4,
+        accelerator: "T4",
       });
     });
 
@@ -209,7 +226,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
 
-      void serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(AVAILABLE_SERVERS);
 
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
@@ -231,7 +248,7 @@ describe("ServerPicker", () => {
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
 
-      void serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(AVAILABLE_SERVERS);
 
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
@@ -241,7 +258,7 @@ describe("ServerPicker", () => {
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: Accelerator.T4, label: "T4" },
+        { value: "T4", label: "T4" },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.value = "foo";
@@ -256,7 +273,7 @@ describe("ServerPicker", () => {
       );
       await secondAcceleratorPickerShown;
       expect(secondAcceleratorQuickPickStub.activeItems).to.be.deep.equal([
-        { value: Accelerator.T4, label: "T4" },
+        { value: "T4", label: "T4" },
       ]);
       const secondVariantPickerShown = secondVariantQuickPickStub.nextShow();
       secondAcceleratorQuickPickStub.onDidTriggerButton.yield(
@@ -274,7 +291,7 @@ describe("ServerPicker", () => {
       const variantPickerShown = variantQuickPickStub.nextShow();
       const aliasInputShown = aliasInputBoxStub.nextShow();
 
-      void serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(AVAILABLE_SERVERS);
 
       await variantPickerShown;
       expect(variantQuickPickStub.step).to.equal(1);
@@ -297,7 +314,7 @@ describe("ServerPicker", () => {
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       const aliasInputShown = aliasInputBoxStub.nextShow();
 
-      void serverPicker.prompt(ALL_SERVERS);
+      void serverPicker.prompt(AVAILABLE_SERVERS);
 
       await variantPickerShown;
       expect(variantQuickPickStub.step).to.equal(1);
@@ -311,7 +328,7 @@ describe("ServerPicker", () => {
       expect(acceleratorQuickPickStub.totalSteps).to.equal(3);
 
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: Accelerator.T4, label: "T4" },
+        { value: "T4", label: "T4" },
       ]);
       await aliasInputShown;
       expect(aliasInputBoxStub.step).to.equal(3);

@@ -14,7 +14,7 @@ import {
 import { ColabAssignedServer } from "../jupyter/servers";
 import { TestEventEmitter } from "../test/helpers/events";
 import { TestUri } from "../test/helpers/uri";
-import { Accelerator, Variant } from "./api";
+import { Variant } from "./api";
 import { NotFoundError } from "./client";
 import {
   ConnectionRefreshController,
@@ -30,7 +30,7 @@ const DEFAULT_SERVER: ColabAssignedServer = {
   id: randomUUID(),
   label: "Colab GPU A100",
   variant: Variant.GPU,
-  accelerator: Accelerator.A100,
+  accelerator: "A100",
   endpoint: "m-s-foo",
   connectionInformation: {
     baseUrl: TestUri.parse("https://example.com"),

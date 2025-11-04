@@ -15,7 +15,7 @@ import { assert, expect } from "chai";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import { CancellationToken, CancellationTokenSource } from "vscode";
-import { Accelerator, SubscriptionTier, Variant } from "../colab/api";
+import { SubscriptionTier, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
   AUTO_CONNECT,
@@ -38,17 +38,13 @@ import {
 } from "../test/helpers/vscode";
 import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 import { ColabJupyterServerProvider } from "./provider";
-import {
-  COLAB_SERVERS,
-  ColabAssignedServer,
-  ColabServerDescriptor,
-} from "./servers";
+import { ColabAssignedServer, ColabServerDescriptor } from "./servers";
 
 const DEFAULT_SERVER: ColabAssignedServer = {
   id: randomUUID(),
   label: "Colab GPU A100",
   variant: Variant.GPU,
-  accelerator: Accelerator.A100,
+  accelerator: "A100",
   endpoint: "m-s-foo",
   connectionInformation: {
     baseUrl: TestUri.parse("https://example.com"),
@@ -461,7 +457,7 @@ describe("ColabJupyterServerProvider", () => {
         });
 
         it("completes assigning a server", async () => {
-          const availableServers = Array.from(COLAB_SERVERS);
+          const availableServers = [DEFAULT_SERVER];
           assignmentStub.getAvailableServerDescriptors.resolves(
             availableServers,
           );

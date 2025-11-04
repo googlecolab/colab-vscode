@@ -7,7 +7,7 @@
 import { UUID } from "crypto";
 import vscode from "vscode";
 import { z } from "zod";
-import { Accelerator, Variant } from "../colab/api";
+import { Variant } from "../colab/api";
 import { PROVIDER_ID } from "../config/constants";
 import { isUUID } from "../utils/uuid";
 import { ColabAssignedServer } from "./servers";
@@ -21,7 +21,7 @@ const AssignedServers = z.array(
       .transform((s) => s as UUID),
     label: z.string().nonempty(),
     variant: z.enum(Variant),
-    accelerator: z.enum(Accelerator).optional(),
+    accelerator: z.string().optional(),
     endpoint: z.string().nonempty(),
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),

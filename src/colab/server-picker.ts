@@ -8,7 +8,7 @@ import vscode, { QuickPickItem } from "vscode";
 import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabServerDescriptor } from "../jupyter/servers";
-import { Accelerator, Variant, variantToMachineType } from "./api";
+import { Variant, variantToMachineType } from "./api";
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -37,11 +37,11 @@ export class ServerPicker {
   async prompt(
     availableServers: ColabServerDescriptor[],
   ): Promise<ColabServerDescriptor | undefined> {
-    const variantToAccelerators = new Map<Variant, Set<Accelerator>>();
+    const variantToAccelerators = new Map<Variant, Set<string>>();
     for (const server of availableServers) {
       const accelerators =
         variantToAccelerators.get(server.variant) ?? new Set();
-      accelerators.add(server.accelerator ?? Accelerator.NONE);
+      accelerators.add(server.accelerator ?? "NONE");
       variantToAccelerators.set(server.variant, accelerators);
     }
     if (variantToAccelerators.size === 0) {
@@ -69,7 +69,7 @@ export class ServerPicker {
   private async promptForVariant(
     input: MultiStepInput,
     state: Partial<Server>,
-    acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
+    acceleratorsByVariant: Map<Variant, Set<string>>,
   ): Promise<InputStep | undefined> {
     const items: VariantPick[] = [];
     for (const variant of acceleratorsByVariant.keys()) {
@@ -93,7 +93,7 @@ export class ServerPicker {
     }
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
-      state.accelerator = Accelerator.NONE;
+      state.accelerator = "NONE";
       return (input: MultiStepInput) => this.promptForAlias(input, state);
     }
     return (input: MultiStepInput) =>
@@ -103,7 +103,7 @@ export class ServerPicker {
   private async promptForAccelerator(
     input: MultiStepInput,
     state: PartialServerWith<"variant">,
-    acceleratorsByVariant: Map<Variant, Set<Accelerator>>,
+    acceleratorsByVariant: Map<Variant, Set<string>>,
   ): Promise<InputStep | undefined> {
     const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
     const items: AcceleratorPick[] = [];
@@ -138,8 +138,7 @@ export class ServerPicker {
       state.variant,
       state.accelerator,
     );
-    const step =
-      state.accelerator && state.accelerator !== Accelerator.NONE ? 3 : 2;
+    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
     const alias = await input.showInputBox({
       title: "Alias your server",
       step,
@@ -157,7 +156,7 @@ export class ServerPicker {
 
 interface Server {
   variant: Variant;
-  accelerator: Accelerator;
+  accelerator: string;
   alias: string;
 }
 
@@ -184,5 +183,5 @@ interface VariantPick extends QuickPickItem {
 }
 
 interface AcceleratorPick extends QuickPickItem {
-  value: Accelerator;
+  value: string;
 }

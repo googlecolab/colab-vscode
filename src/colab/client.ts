@@ -15,7 +15,6 @@ import {
   Assignment,
   CcuInfo,
   Variant,
-  Accelerator,
   GetAssignmentResponse,
   CcuInfoSchema,
   AssignmentSchema,
@@ -120,7 +119,7 @@ export class ColabClient {
   async assign(
     notebookHash: UUID,
     variant: Variant,
-    accelerator?: Accelerator,
+    accelerator?: string,
     signal?: AbortSignal,
   ): Promise<{ assignment: Assignment; isNew: boolean }> {
     const assignment = await this.getAssignment(
@@ -352,7 +351,7 @@ export class ColabClient {
   private async getAssignment(
     notebookHash: UUID,
     variant: Variant,
-    accelerator?: Accelerator,
+    accelerator?: string,
     signal?: AbortSignal,
   ): Promise<AssignmentToken | AssignedAssignment> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
@@ -372,7 +371,7 @@ export class ColabClient {
     notebookHash: UUID,
     xsrfToken: string,
     variant: Variant,
-    accelerator?: Accelerator,
+    accelerator?: string,
     signal?: AbortSignal,
   ): Promise<PostAssignmentResponse> {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
@@ -390,7 +389,7 @@ export class ColabClient {
   private buildAssignUrl(
     notebookHash: UUID,
     variant: Variant,
-    accelerator?: Accelerator,
+    accelerator?: string,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));

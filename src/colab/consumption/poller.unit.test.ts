@@ -12,7 +12,7 @@ import {
   createStubInstance,
 } from "sinon";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
-import { Accelerator, CcuInfo } from "../api";
+import { CcuInfo } from "../api";
 import { ColabClient } from "../client";
 import { ConsumptionPoller } from "./poller";
 
@@ -22,10 +22,10 @@ const DEFAULT_CCU_INFO: CcuInfo = {
   currentBalance: 1,
   consumptionRateHourly: 2,
   assignmentsCount: 3,
-  eligibleGpus: [Accelerator.T4],
-  ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-  eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
-  ineligibleTpus: [Accelerator.V5E1],
+  eligibleGpus: ["T4"],
+  ineligibleGpus: ["A100", "L4"],
+  eligibleTpus: ["V6E1", "V28"],
+  ineligibleTpus: ["V5E1"],
   freeCcuQuotaInfo: {
     remainingTokens: 4,
     nextRefillTimestampSec: 5,

@@ -11,7 +11,7 @@ import { AssignmentManager } from "../jupyter/assignments";
 import { ColabAssignedServer } from "../jupyter/servers";
 import { TestCancellationTokenSource } from "../test/helpers/cancellation";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { Accelerator, Kernel, Variant } from "./api";
+import { Kernel, Variant } from "./api";
 import { ColabClient } from "./client";
 import {
   COLAB_CLIENT_AGENT_HEADER,
@@ -71,7 +71,7 @@ describe("ServerKeepAliveController", () => {
       id: randomUUID(),
       label: "Colab GPU A100",
       variant: Variant.GPU,
-      accelerator: Accelerator.A100,
+      accelerator: "A100",
       endpoint: "m-s-foo",
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse("https://example.com"),

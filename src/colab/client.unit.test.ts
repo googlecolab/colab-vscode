@@ -13,7 +13,6 @@ import { ColabAssignedServer } from "../jupyter/servers";
 import { TestUri } from "../test/helpers/uri";
 import { uuidToWebSafeBase64 } from "../utils/uuid";
 import {
-  Accelerator,
   CcuInfo,
   Assignment,
   Shape,
@@ -46,7 +45,7 @@ const GOOGLE_APIS_HOST = "colab.example.googleapis.com";
 const BEARER_TOKEN = "access-token";
 const NOTEBOOK_HASH = randomUUID();
 const DEFAULT_ASSIGNMENT_RESPONSE = {
-  accelerator: Accelerator.A100,
+  accelerator: "A100",
   endpoint: "mock-server",
   fit: 30,
   sub: SubscriptionState.UNSUBSCRIBED,
@@ -100,9 +99,7 @@ describe("ColabClient", () => {
     const mockResponse = {
       subscriptionTier: "SUBSCRIPTION_TIER_NONE",
       paidComputeUnitsBalance: 0,
-      eligibleAccelerators: [
-        { variant: "VARIANT_GPU", models: [Accelerator.T4] },
-      ],
+      eligibleAccelerators: [{ variant: "VARIANT_GPU", models: ["T4"] }],
     };
     fetchStub
       .withArgs(
@@ -129,10 +126,10 @@ describe("ColabClient", () => {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
-      eligibleGpus: [Accelerator.T4],
-      ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-      eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
-      ineligibleTpus: [Accelerator.V5E1],
+      eligibleGpus: ["T4"],
+      ineligibleGpus: ["A100", "L4"],
+      eligibleTpus: ["V6E1", "V28"],
+      ineligibleTpus: ["V5E1"],
       freeCcuQuotaInfo: {
         remainingTokens: "4",
         nextRefillTimestampSec: 5,
@@ -193,7 +190,7 @@ describe("ColabClient", () => {
         );
 
       await expect(
-        client.assign(NOTEBOOK_HASH, Variant.GPU, Accelerator.A100),
+        client.assign(NOTEBOOK_HASH, Variant.GPU, "A100"),
       ).to.eventually.deep.equal({
         assignment: DEFAULT_ASSIGNMENT,
         isNew: false,
@@ -205,7 +202,7 @@ describe("ColabClient", () => {
     describe("without an existing assignment", () => {
       beforeEach(() => {
         const mockGetResponse = {
-          acc: Accelerator.NONE,
+          acc: "NONE",
           nbh: wireNbh,
           p: false,
           token: "mock-xsrf-token",
@@ -227,10 +224,10 @@ describe("ColabClient", () => {
           );
       });
 
-      const assignmentTests: [Variant, Accelerator?][] = [
+      const assignmentTests: [Variant, string?][] = [
         [Variant.DEFAULT, undefined],
-        [Variant.GPU, Accelerator.T4],
-        [Variant.TPU, Accelerator.V28],
+        [Variant.GPU, "T4"],
+        [Variant.TPU, "V28"],
       ];
       for (const [variant, accelerator] of assignmentTests) {
         const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""}`;
@@ -248,7 +245,7 @@ describe("ColabClient", () => {
           const assignmentResponse = {
             ...DEFAULT_ASSIGNMENT_RESPONSE,
             variant,
-            accelerator: accelerator ?? Accelerator.NONE,
+            accelerator: accelerator ?? "NONE",
           };
           fetchStub
             .withArgs(
@@ -271,7 +268,7 @@ describe("ColabClient", () => {
           const expectedAssignment: Assignment = {
             ...DEFAULT_ASSIGNMENT,
             variant,
-            accelerator: accelerator ?? Accelerator.NONE,
+            accelerator: accelerator ?? "NONE",
           };
           await expect(
             client.assign(NOTEBOOK_HASH, variant, accelerator),
@@ -641,10 +638,10 @@ describe("ColabClient", () => {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
-      eligibleGpus: [Accelerator.T4],
-      ineligibleGpus: [Accelerator.A100, Accelerator.L4],
-      eligibleTpus: [Accelerator.V6E1, Accelerator.V28],
-      ineligibleTpus: [Accelerator.V5E1],
+      eligibleGpus: ["T4"],
+      ineligibleGpus: ["A100", "L4"],
+      eligibleTpus: ["V6E1", "V28"],
+      ineligibleTpus: ["V5E1"],
     };
     fetchStub
       .withArgs(
@@ -702,7 +699,7 @@ describe("ColabClient", () => {
     const mockResponse: Partial<CcuInfo> = {
       currentBalance: 1,
       consumptionRateHourly: 2,
-      eligibleGpus: [Accelerator.T4],
+      eligibleGpus: ["T4"],
     };
     fetchStub
       .withArgs(
