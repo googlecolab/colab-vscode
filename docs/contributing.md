@@ -55,13 +55,10 @@ Execute `npm run generate:config` to generate the required static config.
 
 #### Run the extension
 
-1. Open the repository in VS Code
-
-2. Launch the Extension Development Host by pressing `F5` or selecting `Run Extension` from VS Code's <b>Run and Debug</b> view.
-
-3. Open a notebook file (`.ipynb`). To create a new one, open the command palette (`Cmd/Ctrl + Shift + P`) and select `Create: New Jupyter Notebook`.
-
-4. Test and validate your changes.
+1. Open the repo root with VS Code
+1. Launch the extension by pressing `F5` or selecting `Run Extension` from VS Code's _Run and Debug_ view.
+1. Create or open a Jupyter notebook file (`.ipynb`).
+1. Test and validate your changes.
 
 ### Code Reviews
 
