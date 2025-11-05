@@ -45,6 +45,7 @@ Create OAuth 2.0 _Desktop_ client credentials ([instructions](https://developers
 Make a copy of the environment template: `cp .env.template .env`
 
 Set the values in the `.env` file:
+
 ```
 COLAB_EXTENSION_ENVIRONMENT="production"
 COLAB_EXTENSION_CLIENT_ID=<TODO>
@@ -55,7 +56,7 @@ Execute `npm run generate:config` to generate the required static config.
 
 #### Run the extension
 
-1. Open the repo root with VS Code
+1. Open the repo root with VS Code.
 1. Launch the extension by pressing `F5` or selecting `Run Extension` from VS Code's _Run and Debug_ view.
 1. Create or open a Jupyter notebook file (`.ipynb`).
 1. Test and validate your changes.
