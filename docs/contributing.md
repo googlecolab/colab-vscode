@@ -78,7 +78,7 @@ Unit tests can be debugged by launching _Debug Unit Tests_. The `"args"` can be 
 
 The unit tests rely extensively on a [Sinon](https://sinonjs.org/) stub of the `vscode` module. `vscode` is the _engine_ the Node app runs under and is not an installable npm package. While this stubbing is terse, it enables the entire unit test suite to run sub-1-second. Please peruse existing tests for reference when authoring new ones.
 
-While there are end-to-end tests, running them requires access to accounts with _automation_ exemptions that only Googlers can use. Pull request automation (once approved to be ran by a maintainer) will run them.
+While there are end-to-end tests, running them requires access to accounts with _automation_ exemptions that only Googlers can use. Pull request automation (once approved by a maintainer) will run them.
 
 ### Code Reviews
 
