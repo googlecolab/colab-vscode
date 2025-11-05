@@ -2,6 +2,6 @@
   "recommendations": [
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
-    "ms-vscode.extension-test-runner"
+    "ms-toolsai.jupyter"
   ]
 }

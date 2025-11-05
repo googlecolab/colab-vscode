@@ -25,41 +25,60 @@ Guidelines](https://opensource.google/conduct/).
 
 ## Contribution process
 
+### Prerequisites
+
+- [VS Code](https://code.visualstudio.com/)
+- If using `nvm` (**recommended**): `nvm use` at repo root to set the correct versions of `node` and `npm`.
+- If **not** using `nvm`:
+  - [Node.js](https://nodejs.org/) at the version listed in [.nvmrc](https://github.com/googlecolab/colab-vscode/blob/main/.nvmrc).
+  - The matching [npm](https://www.npmjs.com/) version (comes bundled with `node`).
+- The following extensions:
+  - [Jupyter](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter)
+  - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+  - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+- Configure your environment:
+  - Create an OAuth 2.0 _Desktop_ client credentials ([instructions](https://developers.google.com/identity/protocols/oauth2)).
+  - Make a copy of the environment template: `cp .env.template .env`
+  - Set the values in the `.env` file:
+    ```txt
+    COLAB_EXTENSION_CLIENT_ID=<TODO>
+    COLAB_EXTENSION_CLIENT_NOT_SO_SECRET=<TODO>
+    ```
+  - Execute `npm run generate:config` to generate the required static config.
+
 ### Local Development
 
-#### Install dependencies
-
-Open the cloned repository folder:
-
-```
-git clone https://github.com/googlecolab/colab-vscode.git
-cd colab-vscode
-```
-
-Run `npm ci` to install dependencies.
-
-#### Configure your environment
-
-Create OAuth 2.0 _Desktop_ client credentials ([instructions](https://developers.google.com/identity/protocols/oauth2)).
-
-Make a copy of the environment template: `cp .env.template .env`
-
-Set the values in the `.env` file:
-
-```
-COLAB_EXTENSION_ENVIRONMENT="production"
-COLAB_EXTENSION_CLIENT_ID=<TODO>
-COLAB_EXTENSION_CLIENT_NOT_SO_SECRET=<TODO>
-```
-
-Execute `npm run generate:config` to generate the required static config.
-
-#### Run the extension
-
 1. Open the repo root with VS Code.
+1. `npm ci` - install dependencies.
+1. `npm run generate:config` - generate the required static config. This only needs to be done when changes to `.env` are made.
 1. Launch the extension by pressing `F5` or selecting `Run Extension` from VS Code's _Run and Debug_ view.
 1. Create or open a Jupyter notebook file (`.ipynb`).
 1. Test and validate your changes.
+
+#### Incremental Build
+
+Launching the extension will automatically kick off the `watch:prod` build task. This can be ran without launching during development by [running the build task](https://code.visualstudio.com/docs/debugtest/tasks).
+
+Incremental build output can be found in the _Terminal_ VS Code panel.
+
+TypeScript errors and warnings can be found in the _Problems_ VS Code panel, provided a _typecheck_-ing build is running (see [`package.json`](https://github.com/googlecolab/colab-vscode/blob/main/package.json)).
+
+If you've removed files, you may need to `npm run clean`.
+
+#### Tests
+
+Unit tests must have the extension `.unit.test.ts`. To run them:
+
+```sh
+npm run test:unit
+npm run test:unit -- --grep='your-regex-filter'
+```
+
+Unit tests can be debugged by launching _Debug Unit Tests_. The `"args"` can be modified to filter with the `grep` field as outlined above.
+
+The unit tests rely extensively on a [Sinon](https://sinonjs.org/) stub of the `vscode` module. `vscode` is the _engine_ the Node app runs under and is not an installable npm package. While this stubbing is terse, it enables the entire unit test suite to run sub-1-second. Please peruse existing tests for reference when authoring new ones.
+
+End-to-end tests must have the extension `.e2e.test.ts`. Before they can be ran, the `TEST_ACCOUNT_EMAIL` and `TEST_ACCOUNT_PASSWORD` must be set (in the `.env` file). They can be ran with `npm run test:e2e` or `npm run test:e2e:headless` or debugged by launching _Debug E2E Tests_.
 
 ### Code Reviews
 
