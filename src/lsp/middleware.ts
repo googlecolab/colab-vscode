@@ -15,17 +15,15 @@ export function getMiddleware(vs: typeof vscode): Middleware {
     // diagnostics that are incorrect for notebooks. This is done for both
     // document and workspace diagnostics.
     async provideDiagnostics(document, previousResultId, token, next) {
-      const res = await next(document, previousResultId, token);
+      const report = await next(document, previousResultId, token);
       const doc = getDocument(vs, document);
-
-      if (isFullReport(res) && doc) {
-        res.items = res.items.filter((i) => {
-          const text = doc.getText(i.range);
-          const startOfLine = i.range.start.character === 0;
-          return !isPythonDiagnostic(i.message, text, startOfLine);
-        });
+      if (!isFullReport(report) || !doc) {
+        return report;
       }
-      return res;
+      return {
+        ...report,
+        items: report.items.filter((i) => !shouldStripDiagnostic(i, doc)),
+      };
     },
     async provideWorkspaceDiagnostics(resultIds, token, resultReporter, next) {
       const customReporter: vsdiag.ResultReporter = (chunk) => {
@@ -33,22 +31,15 @@ export function getMiddleware(vs: typeof vscode): Middleware {
           resultReporter(chunk);
           return;
         }
-        const filteredItems = chunk.items.map((item) => {
-          if (!isFullReport(item)) {
-            return item;
+        const filteredItems = chunk.items.map((report) => {
+          const doc = getDocument(vs, report.uri);
+          if (!isFullReport(report) || !doc) {
+            return report;
           }
-          const document = vs.workspace.textDocuments.find(
-            (doc) => doc.uri.toString() === item.uri.toString(),
-          );
-          let items = item.items;
-          if (document) {
-            items = items.filter((i) => {
-              const text = document.getText(i.range);
-              const startOfLine = i.range.start.character === 0;
-              return !isPythonDiagnostic(i.message, text, startOfLine);
-            });
-          }
-          return { ...item, items };
+          return {
+            ...report,
+            items: report.items.filter((i) => !shouldStripDiagnostic(i, doc)),
+          };
         });
         resultReporter({ items: filteredItems });
       };
@@ -76,11 +67,17 @@ function isFullReport(
   return r?.kind.toString() === "full";
 }
 
-export function isPythonDiagnostic(
-  diagnosticText: string,
-  text: string,
-  startOfLine: boolean,
+/**
+ * Returns whether the diagnostic is not applicable to IPython and should be
+ * stripped.
+ */
+function shouldStripDiagnostic(
+  diagnostic: vscode.Diagnostic,
+  document: vscode.TextDocument,
 ): boolean {
+  const text = document.getText(diagnostic.range);
+  const isStartOfLine = diagnostic.range.start.character === 0;
+
   // Bash commands are not recognized by Pyright, and will typically return the
   // error mentioned in https://github.com/microsoft/vscode-jupyter/issues/8055.
   if (text.startsWith("!")) {
@@ -93,9 +90,9 @@ export function isPythonDiagnostic(
   // IPython 7+ allows for calling await at the top level, outside of an async
   // function.
   if (
-    diagnosticText.includes("allowed only within async function") &&
+    diagnostic.message.includes("allowed only within async function") &&
     text.startsWith("await") &&
-    startOfLine
+    isStartOfLine
   ) {
     return true;
   }

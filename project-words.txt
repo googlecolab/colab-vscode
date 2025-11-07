@@ -16,6 +16,7 @@ KHTML
 milli
 mocharc
 pkce
+Pyright
 quickpick
 refreshable
 toggleable
@@ -27,5 +28,6 @@ unassignment
 unassigns
 veryhighmem
 vscode
+vsdiag
 vulnz
 xssi
