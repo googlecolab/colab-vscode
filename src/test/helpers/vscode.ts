@@ -92,6 +92,7 @@ export interface VsCodeStub {
     onDidChangeConfiguration: sinon.SinonStubbedMember<
       typeof vscode.workspace.onDidChangeConfiguration
     >;
+    textDocuments: vscode.TextDocument[];
   };
   ExtensionMode: typeof vscode.ExtensionMode;
   ProgressLocation: typeof ProgressLocation;
@@ -173,6 +174,7 @@ export function newVsCodeStub(): VsCodeStub {
     workspace: {
       getConfiguration: sinon.stub(),
       onDidChangeConfiguration: sinon.stub(),
+      textDocuments: [],
     },
     ExtensionMode: ExtensionMode,
     ProgressLocation: ProgressLocation,
