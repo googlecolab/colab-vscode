@@ -262,9 +262,35 @@ export class AssignmentManager implements vscode.Disposable {
     return server;
   }
 
+  /**
+   * @returns the latest currently assigned server. If there are none currently
+   * assigned, a new one is created and returned.
+   */
   async latestOrAutoAssignServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
+    const latest = await this.latestServer(signal);
+    if (latest) {
+      return latest;
+    }
+    const alias = await this.getDefaultLabel(
+      DEFAULT_CPU_SERVER.variant,
+      DEFAULT_CPU_SERVER.accelerator,
+    );
+    const serverType: ColabServerDescriptor = {
+      ...DEFAULT_CPU_SERVER,
+      label: alias,
+    };
+    return this.assignServer(serverType, signal);
+  }
+
+  /**
+   * @returns The latest currently assigned server, or undefined if there are
+   * currently none assigned.
+   */
+  async latestServer(
+    signal?: AbortSignal,
+  ): Promise<ColabAssignedServer | undefined> {
     const assigned = await this.getAssignedServers(signal);
     const latest = assigned.reduce<ColabAssignedServer | undefined>(
       (latest, server) => {
@@ -278,15 +304,7 @@ export class AssignmentManager implements vscode.Disposable {
       await this.refreshConnection(latest.id, signal);
       return latest;
     }
-    const alias = await this.getDefaultLabel(
-      DEFAULT_CPU_SERVER.variant,
-      DEFAULT_CPU_SERVER.accelerator,
-    );
-    const serverType: ColabServerDescriptor = {
-      ...DEFAULT_CPU_SERVER,
-      label: alias,
-    };
-    return this.assignServer(serverType, signal);
+    return;
   }
 
   /**
