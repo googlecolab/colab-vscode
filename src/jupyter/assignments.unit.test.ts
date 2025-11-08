@@ -942,6 +942,114 @@ describe("AssignmentManager", () => {
     });
   });
 
+  describe("latestServer", () => {
+    it("returns undefined when none have been assigned", async () => {
+      colabClientStub.listAssignments.resolves([]);
+
+      const server = await assignmentManager.latestServer();
+      expect(server).to.equal(undefined);
+    });
+
+    it("returns a refreshed connection to only assigned server", async () => {
+      await setupAssignments([defaultAssignmentDescriptor]);
+      const newToken = "new-token";
+      colabClientStub.refreshConnection
+        .withArgs(defaultServer.endpoint)
+        .resolves({
+          ...defaultAssignment.runtimeProxyInfo,
+          token: newToken,
+        });
+
+      const server = await assignmentManager.latestServer();
+
+      const want = {
+        ...defaultServer,
+        connectionInformation: {
+          ...defaultServer.connectionInformation,
+          headers: {
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+          },
+        },
+      };
+      expect(stripFetch(server!)).to.deep.equal(want);
+    });
+
+    it("returns a refreshed connection to most recently assigned server", async () => {
+      const olderServer: ColabAssignedServer = {
+        ...defaultServer,
+        id: randomUUID(),
+        endpoint: "m-s-bar",
+        label: "Older server",
+        dateAssigned: new Date(NOW.getTime() - 10000),
+      };
+      const olderAssignment: ColabServerDescriptor = {
+        ...defaultAssignmentDescriptor,
+        label: olderServer.label,
+      };
+      await setupAssignments([defaultAssignmentDescriptor, olderAssignment]);
+      const newToken = "new-token";
+      colabClientStub.refreshConnection
+        .withArgs(defaultServer.endpoint)
+        .resolves({
+          ...defaultAssignment.runtimeProxyInfo,
+          token: newToken,
+        });
+
+      const server = await assignmentManager.latestServer();
+
+      const want = {
+        ...defaultServer,
+        connectionInformation: {
+          ...defaultServer.connectionInformation,
+          headers: {
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+          },
+        },
+      };
+      expect(stripFetch(server!)).to.deep.equal(want);
+    });
+
+    it("reconciles servers before resolving", async () => {
+      const deadServer = defaultServer;
+      const olderActiveServer: ColabAssignedServer = {
+        ...defaultServer,
+        id: randomUUID(),
+        endpoint: "m-s-bar",
+        label: "Older server",
+        dateAssigned: new Date(NOW.getTime() - 10000),
+      };
+      const olderActiveAssignment: Assignment = {
+        ...defaultAssignment,
+        endpoint: olderActiveServer.endpoint,
+      };
+      colabClientStub.listAssignments.resolves([olderActiveAssignment]);
+      await serverStorage.store([deadServer, olderActiveServer]);
+      const newToken = "new-token";
+      colabClientStub.refreshConnection
+        .withArgs(olderActiveServer.endpoint)
+        .resolves({
+          ...olderActiveAssignment.runtimeProxyInfo,
+          token: newToken,
+        });
+
+      const server = await assignmentManager.latestServer();
+
+      const want = {
+        ...olderActiveServer,
+        connectionInformation: {
+          ...defaultServer.connectionInformation,
+          headers: {
+            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
+            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+          },
+        },
+      };
+      expect(stripFetch(server!)).to.deep.equal(want);
+    });
+  });
+
   describe("refreshConnection", () => {
     it("throws a not found error when refreshing a server that's not tracked", async () => {
       await expect(
