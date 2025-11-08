@@ -972,7 +972,7 @@ describe("AssignmentManager", () => {
           },
         },
       };
-      expect(stripFetch(server!)).to.deep.equal(want);
+      expect(server ? stripFetch(server) : null).to.deep.equal(want);
     });
 
     it("returns a refreshed connection to most recently assigned server", async () => {
@@ -1008,7 +1008,7 @@ describe("AssignmentManager", () => {
           },
         },
       };
-      expect(stripFetch(server!)).to.deep.equal(want);
+      expect(server ? stripFetch(server) : null).to.deep.equal(want);
     });
 
     it("reconciles servers before resolving", async () => {
@@ -1046,7 +1046,7 @@ describe("AssignmentManager", () => {
           },
         },
       };
-      expect(stripFetch(server!)).to.deep.equal(want);
+      expect(server ? stripFetch(server) : null).to.deep.equal(want);
     });
   });
 
