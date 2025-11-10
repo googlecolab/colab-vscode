@@ -6,57 +6,52 @@
 
 import { Transform } from "stream";
 
+const CONTENT_LENGTH = "content-length";
+
 /**
  * Transformer that adds a Content-Length header prefix to incoming LSP
  * messages. The Colab LSP server currently strips these out, but they are
  * required by the LSP spec, so we put them back in here.
  */
 export class ContentLengthTransformer extends Transform {
-  private buffer = "";
-
   override _transform(
-    chunk: Buffer,
-    _encoding: string,
+    chunk: string | Buffer | Uint8Array | DataView,
+    _encoding: BufferEncoding,
     callback: (error?: Error | null) => void,
   ): void {
-    this.buffer += chunk.toString("utf-8");
+    // Colab's language server only chunks by complete, utf-8 JSON objects.
+    let json: string;
+    if (typeof chunk === "string") {
+      json = chunk;
+    } else if (Buffer.isBuffer(chunk)) {
+      json = chunk.toString("utf-8");
+    } else if (chunk instanceof DataView) {
+      json = Buffer.from(
+        chunk.buffer,
+        chunk.byteOffset,
+        chunk.byteLength,
+      ).toString("utf-8");
+    } else {
+      // Uint8Array or other ArrayBufferView
+      json = Buffer.from(chunk).toString("utf-8");
+    }
 
-    let braceLevel = 0;
-    let messageStart = -1;
     // The Content-Length header is already present, skip.
-    if (this.buffer.length > 0 && this.buffer.startsWith("C")) {
-      this.push(this.buffer.toString());
+    if (
+      json.length > 0 &&
+      json.substring(0, CONTENT_LENGTH.length).toLowerCase() === CONTENT_LENGTH
+    ) {
+      this.push(json);
       callback();
       return;
     }
-    for (let i = 0; i < this.buffer.length; i++) {
-      const char = this.buffer[i];
-      if (char === "{") {
-        if (braceLevel === 0) {
-          messageStart = i;
-        }
-        braceLevel++;
-      } else if (char === "}") {
-        if (braceLevel > 0) {
-          braceLevel--;
-        }
 
-        if (braceLevel === 0 && messageStart !== -1) {
-          const message = this.buffer.substring(messageStart, i + 1);
-          this.push(
-            Buffer.from(
-              `Content-Length: ${Buffer.byteLength(
-                message,
-                "utf-8",
-              ).toString()}\r\n\r\n${message}`,
-            ),
-          );
-          this.buffer = this.buffer.substring(i + 1);
-          i = -1;
-          messageStart = -1;
-        }
-      }
-    }
+    this.push(
+      Buffer.from(
+        `Content-Length: ${Buffer.byteLength(json, "utf-8").toString()}\r\n\r\n${json}`,
+      ),
+    );
+
     callback();
   }
 }
