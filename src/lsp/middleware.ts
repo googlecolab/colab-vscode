@@ -7,13 +7,15 @@
 import vscode, { Uri, TextDocument } from "vscode";
 import { Middleware, vsdiag } from "vscode-languageclient/node";
 
-/** Returns middleware for the VS Code Language Client.  */
+/**
+ * Returns middleware for the VS Code Language Client.
+ *
+ * This strips out diagnostics that are not applicable to IPython notebooks.
+ * Since we use Pyright under the hood, there are a couple Python-only
+ * diagnostics that are irrelevant.
+ */
 export function getMiddleware(vs: typeof vscode): Middleware {
   return {
-    // Colab runtimes run Pyright as an LSP server, which does not
-    // understand the notebook syntax. Hook into middleware to filter out
-    // diagnostics that are incorrect for notebooks. This is done for both
-    // document and workspace diagnostics.
     async provideDiagnostics(document, previousResultId, token, next) {
       const report = await next(document, previousResultId, token);
       const doc = getDocument(vs, document);
@@ -22,7 +24,7 @@ export function getMiddleware(vs: typeof vscode): Middleware {
       }
       return {
         ...report,
-        items: report.items.filter((i) => !shouldStripDiagnostic(i, doc)),
+        items: report.items.filter((i) => shouldKeepDiagnostic(i, doc)),
       };
     },
     async provideWorkspaceDiagnostics(resultIds, token, resultReporter, next) {
@@ -38,7 +40,7 @@ export function getMiddleware(vs: typeof vscode): Middleware {
           }
           return {
             ...report,
-            items: report.items.filter((i) => !shouldStripDiagnostic(i, doc)),
+            items: report.items.filter((i) => shouldKeepDiagnostic(i, doc)),
           };
         });
         resultReporter({ items: filteredItems });
@@ -68,33 +70,33 @@ function isFullReport(
 }
 
 /**
- * Returns whether the diagnostic is not applicable to IPython and should be
- * stripped.
+ * Returns whether the diagnostic is applicable to IPython and should be
+ * kept.
  */
-function shouldStripDiagnostic(
+function shouldKeepDiagnostic(
   diagnostic: vscode.Diagnostic,
   document: vscode.TextDocument,
 ): boolean {
   const text = document.getText(diagnostic.range);
-  const isStartOfLine = diagnostic.range.start.character === 0;
 
   // Bash commands are not recognized by Pyright, and will typically return the
   // error mentioned in https://github.com/microsoft/vscode-jupyter/issues/8055.
   if (text.startsWith("!")) {
-    return true;
+    return false;
   }
   // Pyright does not recognize magics.
   if (text.startsWith("%")) {
-    return true;
+    return false;
   }
   // IPython 7+ allows for calling await at the top level, outside of an async
   // function.
+  const isStartOfLine = diagnostic.range.start.character === 0;
   if (
-    diagnostic.message.includes("allowed only within async function") &&
+    isStartOfLine &&
     text.startsWith("await") &&
-    isStartOfLine
+    diagnostic.message.includes("allowed only within async function")
   ) {
-    return true;
+    return false;
   }
-  return false;
+  return true;
 }

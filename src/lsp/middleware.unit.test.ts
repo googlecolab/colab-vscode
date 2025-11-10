@@ -12,13 +12,12 @@ import { TestCancellationToken } from "../test/helpers/cancellation";
 import { TestUri } from "../test/helpers/uri";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { getMiddleware } from "./middleware";
-import { en } from "zod/locales";
 
 describe("getMiddleware", () => {
   let vsCodeStub: VsCodeStub;
   let cancellationToken: TestCancellationToken;
   let middleware: Middleware;
-  let getText: sinon.SinonStub;
+  let getText: sinon.SinonStub<[Range | undefined], string>;
   let textDocument: vscode.TextDocument;
 
   beforeEach(() => {
@@ -26,17 +25,13 @@ describe("getMiddleware", () => {
     cancellationToken = new TestCancellationToken(
       new vsCodeStub.EventEmitter<void>(),
     );
-    middleware = getMiddleware(vsCodeStub.asVsCode());
     getText = sinon.stub();
     textDocument = {
       uri: new TestUri("file", "", "/path/to/notebook.ipynb", "", ""),
       getText,
     } as unknown as vscode.TextDocument;
     vsCodeStub.workspace.textDocuments = [textDocument];
-  });
-
-  it("should return middleware", () => {
-    expect(middleware).to.exist;
+    middleware = getMiddleware(vsCodeStub.asVsCode());
   });
 
   describe("provideDiagnostics", () => {
@@ -60,7 +55,7 @@ describe("getMiddleware", () => {
           ],
         };
         next.returns(report);
-        getText.withArgs(report.items[0].range).returns("!");
+        getText.withArgs(sinon.match(report.items[0].range)).returns("!");
 
         const result = await middleware.provideDiagnostics?.(
           textDocument.uri,
@@ -85,7 +80,7 @@ describe("getMiddleware", () => {
           ],
         };
         next.returns(report);
-        getText.withArgs(report.items[0].range).returns("%");
+        getText.withArgs(sinon.match(report.items[0].range)).returns("%");
 
         const result = await middleware.provideDiagnostics?.(
           textDocument.uri,
@@ -111,7 +106,7 @@ describe("getMiddleware", () => {
           ],
         };
         next.returns(report);
-        getText.withArgs(report.items[0].range).returns("await");
+        getText.withArgs(sinon.match(report.items[0].range)).returns("await");
 
         const result = await middleware.provideDiagnostics?.(
           textDocument.uri,
@@ -151,11 +146,11 @@ describe("getMiddleware", () => {
       };
       next.returns(report);
       getText
-        .withArgs(report.items[0].range)
+        .withArgs(sinon.match(report.items[0].range))
         .returns("!")
-        .withArgs(report.items[1].range)
+        .withArgs(sinon.match(report.items[1].range))
         .returns("#")
-        .withArgs(report.items[2].range)
+        .withArgs(sinon.match(report.items[2].range))
         .returns("!");
 
       const result = await middleware.provideDiagnostics?.(
@@ -222,7 +217,7 @@ describe("getMiddleware", () => {
         sinon.assert.notCalled(getText);
       });
 
-      it("when the report does not contain Python diagnostics", async () => {
+      it("when the report does not contain Python-only diagnostics", async () => {
         const report = {
           kind: "full",
           items: [
@@ -236,7 +231,9 @@ describe("getMiddleware", () => {
           ],
         };
         next.returns(report);
-        getText.withArgs(report.items[0].range).returns("print('error'");
+        getText
+          .withArgs(sinon.match(report.items[0].range))
+          .returns("print('error'");
 
         const result: vscode.ProviderResult<vsdiag.DocumentDiagnosticReport> =
           await middleware.provideDiagnostics?.(
@@ -281,7 +278,7 @@ describe("getMiddleware", () => {
           ],
           uri: textDocument.uri,
         };
-        getText.withArgs(report.items[0].range).returns("!");
+        getText.withArgs(sinon.match(report.items[0].range)).returns("!");
 
         customReporter({
           items: [report],
@@ -311,7 +308,7 @@ describe("getMiddleware", () => {
           ],
           uri: textDocument.uri,
         };
-        getText.withArgs(report.items[0].range).returns("%");
+        getText.withArgs(sinon.match(report.items[0].range)).returns("%");
 
         customReporter({
           items: [report],
@@ -342,7 +339,7 @@ describe("getMiddleware", () => {
           ],
           uri: textDocument.uri,
         };
-        getText.withArgs(report.items[0].range).returns("await");
+        getText.withArgs(sinon.match(report.items[0].range)).returns("await");
 
         customReporter({
           items: [report],
@@ -387,11 +384,11 @@ describe("getMiddleware", () => {
         uri: textDocument.uri,
       };
       getText
-        .withArgs(report.items[0].range)
+        .withArgs(sinon.match(report.items[0].range))
         .returns("!")
-        .withArgs(report.items[1].range)
+        .withArgs(sinon.match(report.items[1].range))
         .returns("#")
-        .withArgs(report.items[2].range)
+        .withArgs(sinon.match(report.items[2].range))
         .returns("!");
 
       customReporter({
@@ -434,9 +431,9 @@ describe("getMiddleware", () => {
         items: [report.items[1]],
       };
       getText
-        .withArgs(report.items[0].range)
+        .withArgs(sinon.match(report.items[0].range))
         .returns("!")
-        .withArgs(report.items[1].range)
+        .withArgs(sinon.match(report.items[1].range))
         .returns("#");
 
       customReporter({
@@ -507,7 +504,7 @@ describe("getMiddleware", () => {
         sinon.assert.notCalled(getText);
       });
 
-      it("when the report does not contain Python diagnostics", () => {
+      it("when the report does not contain Python-only diagnostics", () => {
         const report = {
           kind: "full",
           items: [
@@ -521,7 +518,9 @@ describe("getMiddleware", () => {
           ],
           uri: textDocument.uri,
         };
-        getText.withArgs(report.items[0].range).returns("print('error'");
+        getText
+          .withArgs(sinon.match(report.items[0].range))
+          .returns("print('error'");
 
         customReporter({
           items: [report],
