@@ -15,9 +15,9 @@ this extension exposes Colab servers directly in VS Code!
 ## Quick Start
 
 1. Install [VS Code](https://code.visualstudio.com).
-1. Install the [Colab
-   extension](https://marketplace.visualstudio.com/items?itemName=google.colab)
-   (and Jupyter if not already installed).
+1. Install the Colab extension from either the [Visual Studio
+   Marketplace](https://marketplace.visualstudio.com/items?itemName=google.colab)
+   or [Open VSX](https://open-vsx.org/extension/Google/colab).
 1. Open or create a notebook file.
 1. When prompted, sign in.
 1. Click `Select Kernel` > `Colab` > `New Colab Server`.
