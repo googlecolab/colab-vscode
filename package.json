@@ -17,7 +17,7 @@
   "qna": "https://github.com/googlecolab/colab-vscode/discussions",
   "type": "commonjs",
   "engines": {
-    "vscode": "^1.103.0"
+    "vscode": "^1.99.3"
   },
   "extensionDependencies": [
     "ms-toolsai.jupyter"
@@ -152,7 +152,7 @@
     "@types/semver": "^7.7.1",
     "@types/sinon": "^17.0.3",
     "@types/uuid": "^10.0.0",
-    "@types/vscode": "^1.100.0",
+    "@types/vscode": "^1.99.3",
     "@vscode/jupyter-extension": "1.0.93",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
