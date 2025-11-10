@@ -292,19 +292,13 @@ export class AssignmentManager implements vscode.Disposable {
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer | undefined> {
     const assigned = await this.getAssignedServers(signal);
-    const latest = assigned.reduce<ColabAssignedServer | undefined>(
-      (latest, server) => {
-        return !latest || server.dateAssigned > latest.dateAssigned
-          ? server
-          : latest;
-      },
-      undefined,
-    );
-    if (latest) {
-      await this.refreshConnection(latest.id, signal);
-      return latest;
+    let latest: ColabAssignedServer | undefined;
+    for (const server of assigned) {
+      if (!latest || server.dateAssigned > latest.dateAssigned) {
+        latest = server;
+      }
     }
-    return;
+    return latest;
   }
 
   /**
