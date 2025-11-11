@@ -6,12 +6,13 @@
 
 import { Transform } from "stream";
 
-const CONTENT_LENGTH = "content-length";
-
 /**
  * Transformer that adds a Content-Length header prefix to incoming LSP
- * messages. The Colab LSP server currently strips these out, but they are
- * required by the LSP spec, so we put them back in here.
+ * messages.
+ *
+ * This is a client-side workaround needed since the Colab language server is
+ * not spec-compliant. It returns the JSON object without the "Content-Length"
+ * header, which the spec requires and the LanguageClient expects.
  */
 export class ContentLengthTransformer extends Transform {
   override _transform(
@@ -19,39 +20,34 @@ export class ContentLengthTransformer extends Transform {
     _encoding: BufferEncoding,
     callback: (error?: Error | null) => void,
   ): void {
-    // Colab's language server only chunks by complete, utf-8 JSON objects.
-    let json: string;
-    if (typeof chunk === "string") {
-      json = chunk;
-    } else if (Buffer.isBuffer(chunk)) {
-      json = chunk.toString("utf-8");
-    } else if (chunk instanceof DataView) {
-      json = Buffer.from(
-        chunk.buffer,
-        chunk.byteOffset,
-        chunk.byteLength,
-      ).toString("utf-8");
-    } else {
-      // Uint8Array or other ArrayBufferView
-      json = Buffer.from(chunk).toString("utf-8");
-    }
+    const json = chunkToString(chunk);
 
     // The Content-Length header is already present, skip.
-    if (
-      json.length > 0 &&
-      json.substring(0, CONTENT_LENGTH.length).toLowerCase() === CONTENT_LENGTH
-    ) {
-      this.push(json);
-      callback();
-      return;
+    if (/^content-length/i.test(json)) {
+      this.push(chunk);
+    } else {
+      const l = Buffer.byteLength(json, "utf-8");
+      this.push(Buffer.from(`Content-Length: ${l.toString()}\r\n\r\n${json}`));
     }
-
-    this.push(
-      Buffer.from(
-        `Content-Length: ${Buffer.byteLength(json, "utf-8").toString()}\r\n\r\n${json}`,
-      ),
-    );
 
     callback();
   }
+}
+
+function chunkToString(chunk: string | Buffer | Uint8Array | DataView): string {
+  if (typeof chunk === "string") {
+    return chunk;
+  }
+  if (Buffer.isBuffer(chunk)) {
+    return chunk.toString("utf-8");
+  }
+  if (chunk instanceof DataView) {
+    return Buffer.from(
+      chunk.buffer,
+      chunk.byteOffset,
+      chunk.byteLength,
+    ).toString("utf-8");
+  }
+  // Uint8Array or other ArrayBufferView
+  return Buffer.from(chunk).toString("utf-8");
 }
