@@ -11,8 +11,10 @@ import * as chrome from "selenium-webdriver/chrome";
 import {
   Builder,
   By,
+  error,
   InputBox,
   Key,
+  Locator,
   ModalDialog,
   WebDriver,
   Workbench,
@@ -214,7 +216,7 @@ describe("Colab Extension", function () {
         until.urlContains("accounts.google.com/signin/oauth/id"),
         ELEMENT_WAIT_MS,
       );
-      await waitAndClick(
+      await safeClick(
         oauthDriver,
         By.xpath("//span[text()='Continue']"),
         '"Continue" button not visible on ID screen',
@@ -223,7 +225,7 @@ describe("Colab Extension", function () {
       // Click Allow or Continue to authorize the scope (handles both v1 and v2
       // consent screens).
       await oauthDriver.wait(until.urlContains("consent"), ELEMENT_WAIT_MS);
-      await waitAndClick(
+      await safeClick(
         oauthDriver,
         By.xpath("//span[text()='Allow' or text()='Continue']"),
         '"Allow" or "Continue" button not visible on consent screen',
@@ -281,31 +283,30 @@ async function notebookLoaded(driver: WebDriver): Promise<void> {
 }
 
 /**
- * Waits for an element to be visible and clicks it.
+ * Waits for an element to be displayed and enabled, then clicks it.
  */
-async function waitAndClick(
+async function safeClick(
   driver: WebDriver,
-  locator: By,
+  locator: Locator,
   errorMsg: string,
-): Promise<void> {
-  // Attempt up to 3 times to account for the page to settle.
-  let attempt = 0;
-  while (attempt < 3) {
-    attempt++;
-    try {
-      await driver.wait(
-        until.elementIsVisible(await driver.findElement(locator)),
-        ELEMENT_WAIT_MS,
-        errorMsg,
-      );
-      const element = await driver.findElement(locator);
-      await element.click();
-      break;
-    } catch (e) {
-      if (e instanceof Error && e.message.includes("stale element")) {
-        continue;
+): Promise<boolean> {
+  return driver.wait(
+    async () => {
+      try {
+        const element = await driver.findElement(locator);
+        if ((await element.isDisplayed()) && (await element.isEnabled())) {
+          await element.click();
+          return true;
+        }
+        return false;
+      } catch (e) {
+        if (e instanceof error.StaleElementReferenceError) {
+          return false;
+        }
+        return false;
       }
-      throw e;
-    }
-  }
+    },
+    ELEMENT_WAIT_MS,
+    errorMsg,
+  );
 }
