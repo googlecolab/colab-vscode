@@ -303,7 +303,7 @@ async function safeClick(
         if (e instanceof error.StaleElementReferenceError) {
           return false;
         }
-        return false;
+        throw e;
       }
     },
     ELEMENT_WAIT_MS,
