@@ -69,7 +69,7 @@ export class LanguageClientController extends AsyncToggleable<Disposable> {
     return {
       dispose: () => {
         listenDispose.dispose();
-        this.tearDownClient("Toggled off");
+        void this.tearDownClient("Toggled off");
       },
     };
   }

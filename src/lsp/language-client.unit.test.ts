@@ -45,7 +45,7 @@ class TestLanguageClient
     return true;
   }
 
-  async start(): Promise<void> {
+  start(): Promise<void> {
     this.connection = (
       this.serverOptions as () => Promise<MessageTransports>
     )();
@@ -64,6 +64,7 @@ class TestLanguageClient
         console.log(e);
       }
     }, 10);
+    return Promise.resolve();
   }
 
   async dispose(): Promise<void> {
@@ -87,6 +88,9 @@ function newTestLanguageClient(
 }
 
 const REFRESH_MS = 60000;
+const emptyFunc = () => {
+  // Empty intentionally.
+};
 
 describe("LanguageClientController", () => {
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
@@ -100,7 +104,7 @@ describe("LanguageClientController", () => {
     Object.defineProperty(assignmentStub, "onDidAssignmentsChange", {
       value: sinon.stub(),
     });
-    assignmentStub.onDidAssignmentsChange.returns({ dispose: () => {} });
+    assignmentStub.onDidAssignmentsChange.returns({ dispose: emptyFunc });
     server = new WebSocketServer({ port: 9876, host: "127.0.0.1" });
     // Wait for the server to be listening.
     await new Promise<void>((resolve) =>
@@ -176,7 +180,7 @@ describe("LanguageClientController", () => {
     assignmentStub.onDidAssignmentsChange.callsFake(
       (listener: (e: AssignmentChangeEvent) => {}) => {
         connectedCallback = listener;
-        return { dispose: () => {} };
+        return { dispose: emptyFunc };
       },
     );
     assignmentStub.latestServer.returns(Promise.resolve(latestServer));
@@ -225,7 +229,7 @@ describe("LanguageClientController", () => {
     assignmentStub.onDidAssignmentsChange.callsFake(
       (listener: (e: AssignmentChangeEvent) => {}) => {
         assignmentsChangedCallback = listener;
-        return { dispose: () => {} };
+        return { dispose: emptyFunc };
       },
     );
     assignmentStub.latestServer.returns(Promise.resolve(latestServer));
@@ -311,7 +315,7 @@ describe("LanguageClientController", () => {
     assignmentStub.onDidAssignmentsChange.callsFake(
       (listener: (e: AssignmentChangeEvent) => {}) => {
         assignmentsChangedCallback = listener;
-        return { dispose: () => {} };
+        return { dispose: emptyFunc };
       },
     );
     assignmentStub.latestServer.returns(Promise.resolve(latestServer));
@@ -348,7 +352,8 @@ describe("LanguageClientController", () => {
       removed: [{ server: removedServer, userInitiated: true }],
     });
 
-    // Listen for another message on the client to know that the connection is still live.
+    // Listen for another message on the client to know that the connection
+    // is still live.
     await new Promise<void>((resolve, reject) => {
       socket1.once("message", () => {
         resolve();
@@ -375,7 +380,7 @@ describe("LanguageClientController", () => {
     assignmentStub.onDidAssignmentsChange.callsFake(
       (listener: (e: AssignmentChangeEvent) => {}) => {
         assignmentsChangedCallback = listener;
-        return { dispose: () => {} };
+        return { dispose: emptyFunc };
       },
     );
     // Promise that resolves when the server receives a websocket connection.
