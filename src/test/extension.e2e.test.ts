@@ -288,11 +288,24 @@ async function waitAndClick(
   locator: By,
   errorMsg: string,
 ): Promise<void> {
-  await driver.wait(
-    until.elementIsVisible(await driver.findElement(locator)),
-    ELEMENT_WAIT_MS,
-    errorMsg,
-  );
-  const element = await driver.findElement(locator);
-  await element.click();
+  // Attempt up to 3 times to account for the page to settle.
+  let attempt = 0;
+  while (attempt < 3) {
+    attempt++;
+    try {
+      await driver.wait(
+        until.elementIsVisible(await driver.findElement(locator)),
+        ELEMENT_WAIT_MS,
+        errorMsg,
+      );
+      const element = await driver.findElement(locator);
+      await element.click();
+      break;
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("stale element")) {
+        continue;
+      }
+      throw e;
+    }
+  }
 }
