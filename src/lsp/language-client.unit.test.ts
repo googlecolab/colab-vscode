@@ -45,21 +45,25 @@ class TestLanguageClient
     return true;
   }
 
+  async ping() {
+    // The interface calls for passing an object, but the
+    // test implementation expects a stringified object.
+    (
+      (await this.connection).writer as unknown as {
+        write: (s: string) => void;
+      }
+    ).write(JSON.stringify({ jsonrpc: "{}" }));
+  }
+
   start(): Promise<void> {
     this.connection = (
       this.serverOptions as () => Promise<MessageTransports>
     )();
     // Periodically send empty ping messages so that tests
     // can verify that the connection is live.
-    this.sendPingHandle = setInterval(async () => {
+    this.sendPingHandle = setInterval(() => {
       try {
-        // The interface calls for passing an object, but the
-        // test implementation expects a stringified object.
-        (
-          (await this.connection).writer as unknown as {
-            write: (s: string) => void;
-          }
-        ).write(JSON.stringify({ jsonrpc: "{}" }));
+        void this.ping();
       } catch (e) {
         console.log(e);
       }
@@ -113,7 +117,9 @@ describe("LanguageClientController", () => {
       }),
     );
     const addr = server.address() as AddressInfo;
-    const baseUrl = TestUri.parse(`ws://${addr.address}:${addr.port}`);
+    const baseUrl = TestUri.parse(
+      `ws://${addr.address}:${addr.port.toString()}`,
+    );
     latestServer = {
       id: randomUUID(),
       label: "Colab GPU A100",
@@ -176,9 +182,11 @@ describe("LanguageClientController", () => {
   });
 
   it("disconnects when server is unassigned", async () => {
-    let connectedCallback = (_: AssignmentChangeEvent) => {};
+    let connectedCallback = (_: AssignmentChangeEvent) => {
+      // NoOp
+    };
     assignmentStub.onDidAssignmentsChange.callsFake(
-      (listener: (e: AssignmentChangeEvent) => {}) => {
+      (listener: (e: AssignmentChangeEvent) => void) => {
         connectedCallback = listener;
         return { dispose: emptyFunc };
       },
@@ -186,7 +194,9 @@ describe("LanguageClientController", () => {
     assignmentStub.latestServer.returns(Promise.resolve(latestServer));
     // Promise that resolves when the server receives a websocket connection.
     const connectionPromise = new Promise<WebSocket>((resolve, reject) => {
-      server.on("connection", (socket) => resolve(socket));
+      server.on("connection", (socket) => {
+        resolve(socket);
+      });
       // Avoid hanging the test forever.
       setTimeout(() => {
         reject(new Error("Timeout waiting for connection"));
@@ -225,9 +235,11 @@ describe("LanguageClientController", () => {
   });
 
   it("connects to a newer runtime", async () => {
-    let assignmentsChangedCallback = (_: AssignmentChangeEvent) => {};
+    let assignmentsChangedCallback = (_: AssignmentChangeEvent) => {
+      // NoOp
+    };
     assignmentStub.onDidAssignmentsChange.callsFake(
-      (listener: (e: AssignmentChangeEvent) => {}) => {
+      (listener: (e: AssignmentChangeEvent) => void) => {
         assignmentsChangedCallback = listener;
         return { dispose: emptyFunc };
       },
@@ -236,7 +248,9 @@ describe("LanguageClientController", () => {
 
     // Promise that resolves when the server receives a websocket connection.
     const connectionPromise1 = new Promise<WebSocket>((resolve, reject) => {
-      server.on("connection", (socket) => resolve(socket));
+      server.on("connection", (socket) => {
+        resolve(socket);
+      });
       // Avoid hanging the test forever.
       setTimeout(() => {
         reject(new Error("Timeout waiting for connection to server 1"));
@@ -252,7 +266,9 @@ describe("LanguageClientController", () => {
 
     // Promise that resolves when the server disconnects.
     const disconnectPromise1 = new Promise<void>((resolve, reject) => {
-      socket1.on("close", () => resolve());
+      socket1.on("close", () => {
+        resolve();
+      });
       setTimeout(() => {
         reject(new Error("Timeout waiting for close from server 1"));
       }, 5000);
@@ -264,10 +280,14 @@ describe("LanguageClientController", () => {
       server2.close();
     });
     await new Promise<void>((resolve) =>
-      server2.on("listening", () => resolve()),
+      server2.on("listening", () => {
+        resolve();
+      }),
     );
     const addr2 = server2.address() as AddressInfo;
-    const baseUrl2 = TestUri.parse(`ws://${addr2.address}:${addr2.port}`);
+    const baseUrl2 = TestUri.parse(
+      `ws://${addr2.address}:${addr2.port.toString()}`,
+    );
     const latestServer2: ColabAssignedServer = {
       ...latestServer,
       id: randomUUID(),
@@ -280,7 +300,9 @@ describe("LanguageClientController", () => {
     };
 
     const connectionPromise2 = new Promise<WebSocket>((resolve, reject) => {
-      server2.on("connection", (socket) => resolve(socket));
+      server2.on("connection", (socket) => {
+        resolve(socket);
+      });
       setTimeout(() => {
         reject(new Error("Timeout waiting for connection to server 2"));
       }, 2000);
@@ -311,9 +333,11 @@ describe("LanguageClientController", () => {
   });
 
   it("does not reconnect when an older server is removed", async () => {
-    let assignmentsChangedCallback = (_: AssignmentChangeEvent) => {};
+    let assignmentsChangedCallback = (_: AssignmentChangeEvent) => {
+      // NoOp
+    };
     assignmentStub.onDidAssignmentsChange.callsFake(
-      (listener: (e: AssignmentChangeEvent) => {}) => {
+      (listener: (e: AssignmentChangeEvent) => void) => {
         assignmentsChangedCallback = listener;
         return { dispose: emptyFunc };
       },
@@ -322,7 +346,9 @@ describe("LanguageClientController", () => {
 
     // Promise that resolves when the server receives a websocket connection.
     const connectionPromise1 = new Promise<WebSocket>((resolve, reject) => {
-      server.on("connection", (socket) => resolve(socket));
+      server.on("connection", (socket) => {
+        resolve(socket);
+      });
       // Avoid hanging the test forever.
       setTimeout(() => {
         reject(new Error("Timeout waiting for connection to server 1"));
@@ -376,9 +402,11 @@ describe("LanguageClientController", () => {
     assignmentStub.latestServer
       .onThirdCall()
       .returns(Promise.resolve(latestServer));
-    let assignmentsChangedCallback = (_: AssignmentChangeEvent) => {};
+    let assignmentsChangedCallback = (_: AssignmentChangeEvent) => {
+      // NoOp
+    };
     assignmentStub.onDidAssignmentsChange.callsFake(
-      (listener: (e: AssignmentChangeEvent) => {}) => {
+      (listener: (e: AssignmentChangeEvent) => void) => {
         assignmentsChangedCallback = listener;
         return { dispose: emptyFunc };
       },
