@@ -5,20 +5,76 @@
  */
 
 import vscode, { Uri, TextDocument } from "vscode";
-import { Middleware, vsdiag } from "vscode-languageclient/node";
+import {
+  ProvideDiagnosticSignature,
+  ProvideWorkspaceDiagnosticSignature,
+  vsdiag,
+} from "vscode-languageclient/node";
 
 /**
- * Returns middleware for the VS Code Language Client.
+ * Filters non IPython diagnostics.
  *
- * This strips out diagnostics that are not applicable to IPython notebooks.
- * Since we use Pyright under the hood, there are a couple Python-only
- * diagnostics that are irrelevant.
+ * A Python language server is not IPython-aware. This filters diagnostics
+ * raised what would be errors/warnings in Python, but are valid IPython.
+ *
+ * @param vs - The "vscode" module. Injected in order to be unit testable.
+ * @param document - The document or URI for which diagnostics are being
+ * provided.
+ * @param previousResultId - An identifier for the previous diagnostic report,
+ * used for incremental updates.
+ * @param token - A cancellation token to signal cancellation of the request.
+ * @param next - The next middleware function in the chain, or the language
+ * client's actual diagnostic provider.
+ * @returns A promise that resolves to the filtered document diagnostic report.
  */
-export function getMiddleware(vs: typeof vscode): Middleware {
+export async function filterNonIPythonDiagnostics(
+  vs: typeof vscode,
+  document: vscode.TextDocument | vscode.Uri,
+  previousResultId: string | undefined,
+  token: vscode.CancellationToken,
+  next: ProvideDiagnosticSignature,
+): Promise<vsdiag.DocumentDiagnosticReport | null | undefined> {
+  const report = await next(document, previousResultId, token);
+  const doc = getDocument(vs, document);
+  if (!isFullReport(report) || !doc) {
+    return report;
+  }
   return {
-    async provideDiagnostics(document, previousResultId, token, next) {
-      const report = await next(document, previousResultId, token);
-      const doc = getDocument(vs, document);
+    ...report,
+    items: report.items.filter((i) => shouldKeepDiagnostic(i, doc)),
+  };
+}
+
+/**
+ * Filters non IPython workspace diagnostics.
+ *
+ * A Python language server is not IPython-aware. This filters workspace
+ * diagnostics raised what would be errors/warnings in Python, but are valid
+ * IPython.
+ *
+ * @param vs - The "vscode" module. Injected in order to be unit testable.
+ * @param resultIds - An array of previous result identifiers for workspace
+ * diagnostics.
+ * @param token - A cancellation token to signal cancellation of the request.
+ * @param resultReporter - A function to report diagnostic results.
+ * @param next - The next middleware function in the chain, or the language
+ * client's actual workspace diagnostic provider.
+ * @returns A promise that resolves to the filtered workspace diagnostic report.
+ */
+export async function filterNonIPythonWorkspaceDiagnostics(
+  vs: typeof vscode,
+  resultIds: vsdiag.PreviousResultId[],
+  token: vscode.CancellationToken,
+  resultReporter: vsdiag.ResultReporter,
+  next: ProvideWorkspaceDiagnosticSignature,
+): Promise<vsdiag.WorkspaceDiagnosticReport | null | undefined> {
+  const customReporter: vsdiag.ResultReporter = (chunk) => {
+    if (!chunk) {
+      resultReporter(chunk);
+      return;
+    }
+    const filteredItems = chunk.items.map((report) => {
+      const doc = getDocument(vs, report.uri);
       if (!isFullReport(report) || !doc) {
         return report;
       }
@@ -26,28 +82,10 @@ export function getMiddleware(vs: typeof vscode): Middleware {
         ...report,
         items: report.items.filter((i) => shouldKeepDiagnostic(i, doc)),
       };
-    },
-    async provideWorkspaceDiagnostics(resultIds, token, resultReporter, next) {
-      const customReporter: vsdiag.ResultReporter = (chunk) => {
-        if (!chunk) {
-          resultReporter(chunk);
-          return;
-        }
-        const filteredItems = chunk.items.map((report) => {
-          const doc = getDocument(vs, report.uri);
-          if (!isFullReport(report) || !doc) {
-            return report;
-          }
-          return {
-            ...report,
-            items: report.items.filter((i) => shouldKeepDiagnostic(i, doc)),
-          };
-        });
-        resultReporter({ items: filteredItems });
-      };
-      return next(resultIds, token, customReporter);
-    },
+    });
+    resultReporter({ items: filteredItems });
   };
+  return next(resultIds, token, customReporter);
 }
 
 function getDocument(

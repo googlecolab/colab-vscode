@@ -7,530 +7,315 @@
 import { expect } from "chai";
 import * as sinon from "sinon";
 import type vscode from "vscode";
-import { type Middleware, type vsdiag } from "vscode-languageclient/node";
+import {
+  type ProvideDiagnosticSignature,
+  type ProvideWorkspaceDiagnosticSignature,
+  vsdiag,
+} from "vscode-languageclient/node";
 import { TestCancellationToken } from "../test/helpers/cancellation";
 import { TestUri } from "../test/helpers/uri";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { getMiddleware } from "./middleware";
+import {
+  DiagnosticSeverity,
+  newVsCodeStub,
+  VsCodeStub,
+} from "../test/helpers/vscode";
+import {
+  filterNonIPythonDiagnostics,
+  filterNonIPythonWorkspaceDiagnostics,
+} from "./middleware";
 
-describe("getMiddleware", () => {
+function createDiagnostic(
+  range: vscode.Range,
+  message = "",
+): vscode.Diagnostic {
+  return {
+    range,
+    message,
+    severity: DiagnosticSeverity.Error,
+    source: "Colab",
+    code: "",
+    tags: [],
+    relatedInformation: [],
+  };
+}
+
+function createReport(
+  uri: vscode.Uri,
+  items: vscode.Diagnostic[],
+  version = 0,
+  resultId = "1",
+): vsdiag.WorkspaceFullDocumentDiagnosticReport {
+  return {
+    uri,
+    kind: "full" as vsdiag.DocumentDiagnosticReportKind.full,
+    items,
+    version,
+    resultId,
+  };
+}
+
+function createUnchangedReport(
+  resultId = "1",
+): vsdiag.RelatedUnchangedDocumentDiagnosticReport {
+  return {
+    kind: "unChanged" as vsdiag.DocumentDiagnosticReportKind.unChanged,
+    resultId,
+  };
+}
+
+function createDocument(
+  uri: vscode.Uri,
+  getTextStub: sinon.SinonStub<[range?: vscode.Range], string>,
+): vscode.TextDocument {
+  return {
+    uri,
+    getText: getTextStub,
+  } as Partial<vscode.TextDocument> as vscode.TextDocument;
+}
+
+function createRange(
+  startLine: number,
+  startChar: number,
+  endLine: number,
+  endChar: number,
+): vscode.Range {
+  return {
+    start: { line: startLine, character: startChar },
+    end: { line: endLine, character: endChar },
+  } as Partial<vscode.Range> as vscode.Range;
+}
+
+describe("filterNonIPythonDiagnostics", () => {
   let vsCodeStub: VsCodeStub;
   let cancellationToken: TestCancellationToken;
-  let middleware: Middleware;
-  let getText: sinon.SinonStub<[Range | undefined], string>;
+  let next: sinon.SinonStub<
+    Parameters<ProvideDiagnosticSignature>,
+    ReturnType<ProvideDiagnosticSignature>
+  >;
+  let getText: sinon.SinonStub<[range?: vscode.Range], string>;
   let textDocument: vscode.TextDocument;
+  const docUri = new TestUri("file", "", "/path/to/notebook.ipynb", "", "");
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
     cancellationToken = new TestCancellationToken(
       new vsCodeStub.EventEmitter<void>(),
     );
+    next = sinon.stub();
     getText = sinon.stub();
-    textDocument = {
-      uri: new TestUri("file", "", "/path/to/notebook.ipynb", "", ""),
-      getText,
-    } as unknown as vscode.TextDocument;
+    textDocument = createDocument(docUri, getText);
     vsCodeStub.workspace.textDocuments = [textDocument];
-    middleware = getMiddleware(vsCodeStub.asVsCode());
   });
 
-  describe("provideDiagnostics", () => {
-    let next: sinon.SinonStub;
+  it("filters bash diagnostics", async () => {
+    const diagnostic = createDiagnostic(createRange(0, 0, 0, 1));
+    const report = createReport(docUri, [diagnostic]);
+    next.resolves(report);
+    getText.withArgs(diagnostic.range).returns("!");
 
-    beforeEach(() => {
-      next = sinon.stub();
-    });
+    const result = await filterNonIPythonDiagnostics(
+      vsCodeStub.asVsCode(),
+      docUri,
+      undefined,
+      cancellationToken,
+      next,
+    );
 
-    describe("filters diagnostics", () => {
-      it("for bash commands", async () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-        };
-        next.returns(report);
-        getText.withArgs(sinon.match(report.items[0].range)).returns("!");
+    expect(result).to.deep.equal({ ...report, items: [] });
+  });
 
-        const result = await middleware.provideDiagnostics?.(
-          textDocument.uri,
-          undefined,
-          cancellationToken,
-          next,
-        );
+  it("filters magic diagnostics", async () => {
+    const diagnostic = createDiagnostic(createRange(0, 0, 0, 1));
+    const report = createReport(docUri, [diagnostic]);
+    next.resolves(report);
+    getText.withArgs(diagnostic.range).returns("%");
 
-        expect(result).to.deep.equal({ ...report, items: [] });
-      });
+    const result = await filterNonIPythonDiagnostics(
+      vsCodeStub.asVsCode(),
+      docUri,
+      undefined,
+      cancellationToken,
+      next,
+    );
 
-      it("for magic commands", async () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-        };
-        next.returns(report);
-        getText.withArgs(sinon.match(report.items[0].range)).returns("%");
+    expect(result).to.deep.equal({ ...report, items: [] });
+  });
 
-        const result = await middleware.provideDiagnostics?.(
-          textDocument.uri,
-          undefined,
-          cancellationToken,
-          next,
-        );
+  it("filters top-level await diagnostics", async () => {
+    const diagnostic = createDiagnostic(
+      createRange(0, 0, 0, 5),
+      "await is allowed only within async function",
+    );
+    const report = createReport(docUri, [diagnostic]);
+    next.resolves(report);
+    getText.withArgs(diagnostic.range).returns("await");
 
-        expect(result).to.deep.equal({ ...report, items: [] });
-      });
+    const result = await filterNonIPythonDiagnostics(
+      vsCodeStub.asVsCode(),
+      docUri,
+      undefined,
+      cancellationToken,
+      next,
+    );
 
-      it("for awaits outside of an async function", async () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 5 },
-              },
-              message: "await is allowed only within async functions",
-            },
-          ],
-        };
-        next.returns(report);
-        getText.withArgs(sinon.match(report.items[0].range)).returns("await");
+    expect(result).to.deep.equal({ ...report, items: [] });
+  });
 
-        const result = await middleware.provideDiagnostics?.(
-          textDocument.uri,
-          undefined,
-          cancellationToken,
-          next,
-        );
+  it("retains valid diagnostics and filters invalid ones", async () => {
+    const d1 = createDiagnostic(createRange(0, 0, 0, 1)); // filter
+    const d2 = createDiagnostic(createRange(1, 0, 1, 5)); // keep
+    const d3 = createDiagnostic(createRange(2, 0, 2, 1)); // filter
+    const report = createReport(docUri, [d1, d2, d3]);
+    next.resolves(report);
+    getText.withArgs(d1.range).returns("!");
+    getText.withArgs(d2.range).returns("print()");
+    getText.withArgs(d3.range).returns("%");
 
-        expect(result).to.deep.equal({ ...report, items: [] });
-      });
-    });
+    const result = await filterNonIPythonDiagnostics(
+      vsCodeStub.asVsCode(),
+      docUri,
+      undefined,
+      cancellationToken,
+      next,
+    );
 
-    it("handles when some diagnostics should be filtered", async () => {
-      const report = {
-        kind: "full",
-        items: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 1 },
-            },
-          },
-          {
-            range: {
-              start: { line: 1, character: 0 },
-              end: { line: 1, character: 1 },
-            },
-            message: "should be kept!",
-          },
-          {
-            range: {
-              start: { line: 2, character: 0 },
-              end: { line: 2, character: 1 },
-            },
-          },
-        ],
-      };
-      next.returns(report);
-      getText
-        .withArgs(sinon.match(report.items[0].range))
-        .returns("!")
-        .withArgs(sinon.match(report.items[1].range))
-        .returns("#")
-        .withArgs(sinon.match(report.items[2].range))
-        .returns("!");
+    expect(result).to.deep.equal({ ...report, items: [d2] });
+  });
 
-      const result = await middleware.provideDiagnostics?.(
-        textDocument.uri,
-        undefined,
-        cancellationToken,
-        next,
-      );
+  it("does not filter non-full reports", async () => {
+    const report = createUnchangedReport();
+    next.resolves(report);
 
-      expect(result).to.deep.equal({ ...report, items: [report.items[1]] });
-    });
+    const result = await filterNonIPythonDiagnostics(
+      vsCodeStub.asVsCode(),
+      docUri,
+      undefined,
+      cancellationToken,
+      next,
+    );
 
-    describe("does not filter diagnostics", () => {
-      it("when the report kind is not full", async () => {
-        const report = {
-          kind: "unChanged",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-        };
-        next.returns(report);
+    expect(result).to.equal(report);
+    sinon.assert.notCalled(getText);
+  });
 
-        const result: vscode.ProviderResult<vsdiag.DocumentDiagnosticReport> =
-          await middleware.provideDiagnostics?.(
-            textDocument.uri,
-            undefined,
-            cancellationToken,
-            next,
-          );
+  it("does not filter if document is not found", async () => {
+    vsCodeStub.workspace.textDocuments = [];
+    const report = createReport(docUri, [
+      createDiagnostic(createRange(0, 0, 0, 1)),
+    ]);
+    next.resolves(report);
 
-        expect(result).to.deep.equal(report);
-        sinon.assert.notCalled(getText);
-      });
+    const result = await filterNonIPythonDiagnostics(
+      vsCodeStub.asVsCode(),
+      docUri,
+      undefined,
+      cancellationToken,
+      next,
+    );
 
-      it("when the document is not found", async () => {
-        vsCodeStub.workspace.textDocuments = [];
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-        };
-        next.returns(report);
+    expect(result).to.equal(report);
+    sinon.assert.notCalled(getText);
+  });
+});
 
-        const result: vscode.ProviderResult<vsdiag.DocumentDiagnosticReport> =
-          await middleware.provideDiagnostics?.(
-            textDocument.uri,
-            undefined,
-            cancellationToken,
-            next,
-          );
+describe("filterNonIPythonWorkspaceDiagnostics", () => {
+  let vsCodeStub: VsCodeStub;
+  let cancellationToken: TestCancellationToken;
+  let next: sinon.SinonStub<
+    Parameters<ProvideWorkspaceDiagnosticSignature>,
+    ReturnType<ProvideWorkspaceDiagnosticSignature>
+  >;
+  let resultReporter: sinon.SinonStub;
+  let getText: sinon.SinonStub<[range?: vscode.Range], string>;
+  let textDocument: vscode.TextDocument;
+  const docUri = new TestUri("file", "", "/path/to/notebook.ipynb", "", "");
 
-        expect(result).to.deep.equal(report);
-        sinon.assert.notCalled(getText);
-      });
+  async function getCustomReporter(): Promise<vsdiag.ResultReporter> {
+    await filterNonIPythonWorkspaceDiagnostics(
+      vsCodeStub.asVsCode(),
+      [],
+      cancellationToken,
+      resultReporter,
+      next,
+    );
+    return next.args[0][2];
+  }
 
-      it("when the report does not contain Python-only diagnostics", async () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 13 },
-                end: { line: 0, character: 13 },
-              },
-              message: "",
-            },
-          ],
-        };
-        next.returns(report);
-        getText
-          .withArgs(sinon.match(report.items[0].range))
-          .returns("print('error'");
+  beforeEach(() => {
+    vsCodeStub = newVsCodeStub();
+    cancellationToken = new TestCancellationToken(
+      new vsCodeStub.EventEmitter<void>(),
+    );
+    next = sinon.stub();
+    resultReporter = sinon.stub();
+    getText = sinon.stub();
+    textDocument = createDocument(docUri, getText);
+    vsCodeStub.workspace.textDocuments = [textDocument];
+  });
 
-        const result: vscode.ProviderResult<vsdiag.DocumentDiagnosticReport> =
-          await middleware.provideDiagnostics?.(
-            textDocument.uri,
-            undefined,
-            cancellationToken,
-            next,
-          );
+  it("filters diagnostics from the result reporter", async () => {
+    const d1 = createDiagnostic(createRange(0, 0, 0, 1)); // filter
+    const d2 = createDiagnostic(createRange(1, 0, 1, 5)); // keep
+    const report = createReport(docUri, [d1, d2]);
+    getText.withArgs(d1.range).returns("!");
+    getText.withArgs(d2.range).returns("print()");
 
-        expect(result).to.deep.equal(report);
-      });
+    const customReporter = await getCustomReporter();
+    customReporter({ items: [report] });
+
+    const expectedReport = { ...report, items: [d2] };
+    sinon.assert.calledOnceWithExactly(resultReporter, {
+      items: [expectedReport],
     });
   });
 
-  describe("provideWorkspaceDiagnostics", () => {
-    let customReporter: vsdiag.ResultReporter;
-    let resultReporter: sinon.SinonStub;
+  it("does not filter non-full reports", async () => {
+    const report: vsdiag.WorkspaceDocumentDiagnosticReport = {
+      ...createUnchangedReport(),
+      uri: docUri,
+      version: 0,
+    };
 
-    beforeEach(async () => {
-      resultReporter = sinon.stub();
-      const next = sinon.stub();
-      await middleware.provideWorkspaceDiagnostics?.(
-        [],
-        cancellationToken,
-        resultReporter,
-        next,
-      );
-      customReporter = next.args[0][2] as vsdiag.ResultReporter;
+    const customReporter = await getCustomReporter();
+    customReporter({ items: [report] });
+
+    sinon.assert.calledOnceWithExactly(resultReporter, { items: [report] });
+    sinon.assert.notCalled(getText);
+  });
+
+  it("does not filter if document is not found", async () => {
+    vsCodeStub.workspace.textDocuments = [];
+    const report: vsdiag.WorkspaceDocumentDiagnosticReport = {
+      ...createReport(docUri, [createDiagnostic(createRange(0, 0, 0, 1))]),
+      version: 0,
+    };
+
+    const customReporter = await getCustomReporter();
+    customReporter({ items: [report] });
+
+    sinon.assert.calledOnceWithExactly(resultReporter, { items: [report] });
+    sinon.assert.notCalled(getText);
+  });
+
+  it("should handle multiple reports in a single chunk", async () => {
+    const d1 = createDiagnostic(createRange(0, 0, 0, 1)); // filter
+    const d2 = createDiagnostic(createRange(1, 0, 1, 5)); // keep
+    const report1 = createReport(docUri, [d1]);
+    const report2 = createReport(docUri, [d2]);
+    getText.withArgs(d1.range).returns("!");
+    getText.withArgs(d2.range).returns("print()");
+
+    const customReporter = await getCustomReporter();
+    customReporter({ items: [report1, report2] });
+
+    sinon.assert.calledOnceWithExactly(resultReporter, {
+      items: [{ ...report1, items: [] }, report2],
     });
+  });
 
-    describe("filters diagnostics", () => {
-      it("for bash commands", () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-          uri: textDocument.uri,
-        };
-        getText.withArgs(sinon.match(report.items[0].range)).returns("!");
-
-        customReporter({
-          items: [report],
-        } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-        expect(resultReporter.calledOnce).to.be.true;
-        sinon.assert.calledWithExactly(resultReporter, {
-          items: [
-            {
-              ...report,
-              items: [],
-            },
-          ],
-        });
-      });
-
-      it("for magic commands", () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-          uri: textDocument.uri,
-        };
-        getText.withArgs(sinon.match(report.items[0].range)).returns("%");
-
-        customReporter({
-          items: [report],
-        } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-        expect(resultReporter.calledOnce).to.be.true;
-        sinon.assert.calledWithExactly(resultReporter, {
-          items: [
-            {
-              ...report,
-              items: [],
-            },
-          ],
-        });
-      });
-
-      it("for awaits outside of an async function", () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 5 },
-              },
-              message: "await is allowed only within async functions",
-            },
-          ],
-          uri: textDocument.uri,
-        };
-        getText.withArgs(sinon.match(report.items[0].range)).returns("await");
-
-        customReporter({
-          items: [report],
-        } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-        expect(resultReporter.calledOnce).to.be.true;
-        sinon.assert.calledWithExactly(resultReporter, {
-          items: [
-            {
-              ...report,
-              items: [],
-            },
-          ],
-        });
-      });
-    });
-
-    it("handles when some diagnostics should be filtered", () => {
-      const report = {
-        kind: "full",
-        items: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 1 },
-            },
-          },
-          {
-            range: {
-              start: { line: 1, character: 0 },
-              end: { line: 1, character: 1 },
-            },
-            message: "should be kept!",
-          },
-          {
-            range: {
-              start: { line: 2, character: 0 },
-              end: { line: 2, character: 1 },
-            },
-          },
-        ],
-        uri: textDocument.uri,
-      };
-      getText
-        .withArgs(sinon.match(report.items[0].range))
-        .returns("!")
-        .withArgs(sinon.match(report.items[1].range))
-        .returns("#")
-        .withArgs(sinon.match(report.items[2].range))
-        .returns("!");
-
-      customReporter({
-        items: [report],
-      } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-      expect(resultReporter.calledOnce).to.be.true;
-      sinon.assert.calledWithExactly(resultReporter, {
-        items: [
-          {
-            ...report,
-            items: [report.items[1]],
-          },
-        ],
-      });
-    });
-
-    it("handles when some reports should be filtered", () => {
-      const report = {
-        kind: "full",
-        items: [
-          {
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 1 },
-            },
-          },
-          {
-            range: {
-              start: { line: 1, character: 0 },
-              end: { line: 1, character: 1 },
-            },
-            message: "should be kept!",
-          },
-        ],
-        uri: textDocument.uri,
-      };
-      const unfilteredReport = {
-        ...report,
-        items: [report.items[1]],
-      };
-      getText
-        .withArgs(sinon.match(report.items[0].range))
-        .returns("!")
-        .withArgs(sinon.match(report.items[1].range))
-        .returns("#");
-
-      customReporter({
-        items: [report, unfilteredReport],
-      } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-      expect(resultReporter.calledOnce).to.be.true;
-      sinon.assert.calledWithExactly(resultReporter, {
-        items: [
-          {
-            ...report,
-            items: [report.items[1]],
-          },
-          unfilteredReport,
-        ],
-      });
-    });
-
-    describe("does not filter out diagnostics", () => {
-      it("when the report kind is not full", () => {
-        const report = {
-          kind: "unChanged",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-          uri: textDocument.uri,
-        };
-
-        customReporter({
-          items: [report],
-        } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-        expect(resultReporter.calledOnce).to.be.true;
-        sinon.assert.calledWithExactly(resultReporter, {
-          items: [report],
-        });
-        sinon.assert.notCalled(getText);
-      });
-
-      it("when the document is not found", () => {
-        vsCodeStub.workspace.textDocuments = [];
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-            },
-          ],
-          uri: textDocument.uri,
-        };
-
-        customReporter({
-          items: [report],
-        } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-        expect(resultReporter.calledOnce).to.be.true;
-        sinon.assert.calledWithExactly(resultReporter, {
-          items: [report],
-        });
-        sinon.assert.notCalled(getText);
-      });
-
-      it("when the report does not contain Python-only diagnostics", () => {
-        const report = {
-          kind: "full",
-          items: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 13 },
-              },
-              message: "",
-            },
-          ],
-          uri: textDocument.uri,
-        };
-        getText
-          .withArgs(sinon.match(report.items[0].range))
-          .returns("print('error'");
-
-        customReporter({
-          items: [report],
-        } as unknown as vsdiag.WorkspaceDiagnosticReport);
-
-        expect(resultReporter.calledOnce).to.be.true;
-        sinon.assert.calledWithExactly(resultReporter, {
-          items: [report],
-        });
-      });
-    });
+  it("should pass null chunks through to the reporter", async () => {
+    const customReporter = await getCustomReporter();
+    customReporter(null);
+    sinon.assert.calledOnceWithExactly(resultReporter, null);
   });
 });

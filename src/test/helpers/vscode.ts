@@ -42,6 +42,13 @@ enum QuickPickItemKind {
   Default = 0,
 }
 
+export enum DiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3,
+}
+
 export interface VsCodeStub {
   /**
    * Returns a stub of the vscode module typed as vscode.
@@ -51,6 +58,7 @@ export interface VsCodeStub {
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
   QuickPickItemKind: typeof QuickPickItemKind;
+  DiagnosticSeverity: typeof DiagnosticSeverity;
   commands: {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
@@ -151,6 +159,7 @@ export function newVsCodeStub(): VsCodeStub {
     CancellationTokenSource: TestCancellationTokenSource,
     EventEmitter: TestEventEmitter,
     QuickPickItemKind: QuickPickItemKind,
+    DiagnosticSeverity: DiagnosticSeverity,
     commands: {
       executeCommand: sinon.stub(),
     },
