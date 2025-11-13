@@ -43,6 +43,11 @@
     "configuration": {
       "title": "Colab",
       "properties": {
+        "colab.codeDiagnostics": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable code diagnostics powered by a connected Colab server."
+        },
         "colab.logging.level": {
           "type": "string",
           "default": "info",
