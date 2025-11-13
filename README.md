@@ -1,7 +1,7 @@
 # Google Colab VS Code Extension
 
 Colab is a hosted Jupyter Notebook service that requires no setup to use and
-provides free access to computing resources, including GPUs and TPUs. Built atop
+provides free access to computing resources, including GPUs and TPUs. Built on top of
 the [Jupyter
 extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter),
 this extension exposes Colab servers directly in VS Code!
