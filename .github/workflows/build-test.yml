@@ -20,6 +20,10 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   # See supported Node.js release schedule at https://nodejs.org/en/about/releases
   NODE_VERSION: 22.x
@@ -28,6 +32,8 @@ jobs:
   generateConfig:
     name: Generate Config
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     env:
       COLAB_EXTENSION_ENVIRONMENT: ${{ vars.COLAB_EXTENSION_ENVIRONMENT }}
       COLAB_EXTENSION_CLIENT_ID: ${{ secrets.COLAB_EXTENSION_CLIENT_ID }}
@@ -124,6 +130,8 @@ jobs:
 
   e2eTests:
     name: VS Code E2E Tests
+    permissions:
+      actions: write
     strategy:
       matrix:
         # macos-latest and windows-latest can be added as we work towards a release.
