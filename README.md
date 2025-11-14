@@ -32,7 +32,8 @@ Activate the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P` on Mac.
 
 | Command                | Description                                |
 | ---------------------- | ------------------------------------------ |
-| `Colab: Remove server` | Select an assigned Colab server to remove. |
+| `Colab: Remove Server` | Select an assigned Colab server to remove. |
+| `Colab: Sign Out`      | Sign out of Colab.                         |
 
 ## Contributing
 

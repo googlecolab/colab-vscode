@@ -72,6 +72,10 @@ export class GoogleAuthProvider
       this,
       { supportsMultipleAccounts: false },
     );
+
+    this.onDidChangeSessions(() => {
+      void this.setSignedInContext();
+    });
   }
 
   /**
@@ -309,6 +313,21 @@ export class GoogleAuthProvider
       removed: [removedSession],
       changed: [],
     });
+  }
+
+  async signOut() {
+    if (!this.session) {
+      return;
+    }
+    await this.removeSession(this.session.id);
+  }
+
+  private async setSignedInContext() {
+    await this.vs.commands.executeCommand(
+      "setContext",
+      "colab.isSignedIn",
+      !!this.session,
+    );
   }
 
   private async refreshSessionIfNeeded(): Promise<void> {

@@ -85,6 +85,17 @@ describe("GoogleAuthProvider", () => {
   >;
   let authProvider: GoogleAuthProvider;
 
+  function signedInContextCalledWith(): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      vsCodeStub.commands.executeCommand
+        .withArgs("setContext", "colab.isSignedIn")
+        .callsFake((_command: string, _contextKey: string, value: boolean) => {
+          resolve(value);
+          return Promise.resolve();
+        });
+    });
+  }
+
   beforeEach(() => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vsCodeStub = newVsCodeStub();
@@ -214,6 +225,7 @@ describe("GoogleAuthProvider", () => {
           });
 
           await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
           sinon.assert.calledOnceWithExactly(onDidChangeSessionsStub, {
             added: [],
             removed: [],
@@ -256,6 +268,44 @@ describe("GoogleAuthProvider", () => {
             );
           });
         }
+
+        it("sets the signed in context", async () => {
+          sinon.stub(oauth2Client, "refreshAccessToken").callsFake(() => {
+            oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+          });
+          const signedInContext = signedInContextCalledWith();
+
+          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
+          await expect(signedInContext).to.eventually.be.true;
+        });
+
+        it("clears the session and re-initializes if refreshAccessToken throws a 401 GaxiosError", async () => {
+          const gaxiosError: GaxiosError = new GaxiosError(
+            "unauthorized_client",
+            {},
+            {
+              config: {},
+              data: undefined,
+              status: 401,
+              statusText: "Unauthorized",
+              headers: {},
+              request: { responseURL: "" },
+            },
+          );
+          sinon.stub(oauth2Client, "refreshAccessToken").throws(gaxiosError);
+          storageStub.getSession.onSecondCall().resolves(undefined);
+
+          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
+          await expect(
+            authProvider.getSessions(undefined, {}),
+          ).to.eventually.deep.equal([]);
+          sinon.assert.calledOnceWithExactly(
+            storageStub.removeSession,
+            DEFAULT_REFRESH_SESSION.id,
+          );
+        });
 
         it("re-throws non handled errors when refreshing the access token", async () => {
           sinon
@@ -569,6 +619,7 @@ describe("GoogleAuthProvider", () => {
       });
 
       it("creates a new session", async () => {
+        const signedInContext = signedInContextCalledWith();
         const session = await authProvider.createSession(SCOPES);
 
         const newSession = {
@@ -585,6 +636,7 @@ describe("GoogleAuthProvider", () => {
           removed: [],
           changed: [],
         });
+        await expect(signedInContext).to.eventually.be.true;
       });
 
       it("replaces an existing session", async () => {
@@ -662,12 +714,14 @@ describe("GoogleAuthProvider", () => {
 
       it("removes the session", async () => {
         sinon.stub(oauth2Client, "revokeToken").resolves();
+        const signedInContext = signedInContextCalledWith();
 
         await authProvider.removeSession(DEFAULT_REFRESH_SESSION.id);
 
         await expect(
           authProvider.getSessions(undefined, {}),
         ).to.eventually.deep.equal([]);
+        await expect(signedInContext).to.eventually.be.false;
       });
 
       it("notifies of the removed session", async () => {
