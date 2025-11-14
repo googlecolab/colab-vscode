@@ -221,32 +221,41 @@ describe("GoogleAuthProvider", () => {
           });
         });
 
-        it("clears the session and re-initializes if refreshAccessToken throws a 401 GaxiosError", async () => {
-          const gaxiosError: GaxiosError = new GaxiosError(
-            "unauthorized_client",
-            {},
-            {
-              config: {},
-              data: undefined,
-              status: 401,
-              statusText: "Unauthorized",
-              headers: {},
-              request: { responseURL: "" },
-            },
-          );
-          sinon.stub(oauth2Client, "refreshAccessToken").throws(gaxiosError);
-          storageStub.getSession.onSecondCall().resolves(undefined);
+        const gaxiosErrors: { message: string; status: number }[] = [
+          {
+            message: "invalid_grant",
+            status: 400,
+          },
+          { message: "unauthorized_client", status: 401 },
+        ];
+        for (const { message, status } of gaxiosErrors) {
+          it(`clears the session and re-initializes if refreshAccessToken throws a ${status.toString()} GaxiosError`, async () => {
+            const gaxiosError: GaxiosError = new GaxiosError(
+              message,
+              {},
+              {
+                config: {},
+                data: undefined,
+                status,
+                statusText: "Unauthorized",
+                headers: {},
+                request: { responseURL: "" },
+              },
+            );
+            sinon.stub(oauth2Client, "refreshAccessToken").throws(gaxiosError);
+            storageStub.getSession.onSecondCall().resolves(undefined);
 
-          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+            await expect(authProvider.initialize()).to.eventually.be.fulfilled;
 
-          await expect(
-            authProvider.getSessions(undefined, {}),
-          ).to.eventually.deep.equal([]);
-          sinon.assert.calledOnceWithExactly(
-            storageStub.removeSession,
-            DEFAULT_REFRESH_SESSION.id,
-          );
-        });
+            await expect(
+              authProvider.getSessions(undefined, {}),
+            ).to.eventually.deep.equal([]);
+            sinon.assert.calledOnceWithExactly(
+              storageStub.removeSession,
+              DEFAULT_REFRESH_SESSION.id,
+            );
+          });
+        }
 
         it("re-throws non 401 errors when refreshing the access token", async () => {
           sinon

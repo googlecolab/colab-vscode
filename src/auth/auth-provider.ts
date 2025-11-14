@@ -125,13 +125,21 @@ export class GoogleAuthProvider
     try {
       await this.oAuth2Client.refreshAccessToken();
     } catch (err: unknown) {
-      // This should only ever be the case when developer building from source
-      // switches the OAuth client ID / secret.
-      if (err instanceof GaxiosError && err.status === 401) {
-        log.warn(
-          "The configured OAuth client has changed. Clearing session.",
-          err,
-        );
+      let shouldClearSession = false;
+      let reason = "";
+
+      if (err instanceof GaxiosError && err.status === 400) {
+        reason = "OAuth app access to Colab was revoked";
+        shouldClearSession = true;
+      } else if (err instanceof GaxiosError && err.status === 401) {
+        // This should only ever be the case when developer building from source
+        // switches the OAuth client ID / secret.
+        reason = "The configured OAuth client has changed";
+        shouldClearSession = true;
+      }
+
+      if (shouldClearSession) {
+        log.warn(`${reason}. Clearing session.`, err);
         await this.storage.removeSession(session.id);
         await this.initialize();
         return;
