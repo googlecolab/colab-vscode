@@ -24,6 +24,12 @@ export const COLAB_TOOLBAR: RegisteredCommand = {
   label: "Colab",
 };
 
+/** Command to sign out. */
+export const SIGN_OUT: RegisteredCommand = {
+  id: "colab.signOut",
+  label: "Sign Out",
+};
+
 /** Command to trigger the sign-in flow, to view existing Colab servers. */
 export const SIGN_IN_VIEW_EXISTING: Command = {
   label: "$(sign-in)  View Existing Servers",

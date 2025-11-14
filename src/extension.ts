@@ -12,7 +12,11 @@ import { getOAuth2Flows } from "./auth/flows/flows";
 import { login } from "./auth/login";
 import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
-import { COLAB_TOOLBAR, REMOVE_SERVER } from "./colab/commands/constants";
+import {
+  COLAB_TOOLBAR,
+  REMOVE_SERVER,
+  SIGN_OUT,
+} from "./colab/commands/constants";
 import { notebookToolbar } from "./colab/commands/notebook";
 import { removeServer } from "./colab/commands/server";
 import { ConnectionRefreshController } from "./colab/connection-refresher";
@@ -104,7 +108,7 @@ export async function activate(context: vscode.ExtensionContext) {
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
-    ...registerCommands(assignmentManager),
+    ...registerCommands(assignmentManager, authProvider),
   );
 }
 
@@ -139,8 +143,14 @@ function watchConsumption(colab: ColabClient): {
   return { toggle: poller, disposables };
 }
 
-function registerCommands(assignmentManager: AssignmentManager): Disposable[] {
+function registerCommands(
+  assignmentManager: AssignmentManager,
+  authProvider: GoogleAuthProvider,
+): Disposable[] {
   return [
+    vscode.commands.registerCommand(SIGN_OUT.id, async () => {
+      await authProvider.signOut();
+    }),
     // TODO: Register the rename server alias command once rename is reflected
     // in the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     vscode.commands.registerCommand(

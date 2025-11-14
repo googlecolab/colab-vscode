@@ -80,6 +80,12 @@
         "title": "Remove Server"
       },
       {
+        "category": "Colab",
+        "command": "colab.signOut",
+        "enablement": "colab.isSignedIn",
+        "title": "Sign Out"
+      },
+      {
         "command": "colab.toolbarCommand",
         "category": "Colab",
         "title": "Colab",
