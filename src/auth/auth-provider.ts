@@ -128,7 +128,11 @@ export class GoogleAuthProvider
       let shouldClearSession = false;
       let reason = "";
 
-      if (err instanceof GaxiosError && err.status === 400) {
+      if (
+        err instanceof GaxiosError &&
+        err.status === 400 &&
+        err.message.includes("invalid_grant")
+      ) {
         reason = "OAuth app access to Colab was revoked";
         shouldClearSession = true;
       } else if (err instanceof GaxiosError && err.status === 401) {

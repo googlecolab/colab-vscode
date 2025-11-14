@@ -257,7 +257,7 @@ describe("GoogleAuthProvider", () => {
           });
         }
 
-        it("re-throws non 401 errors when refreshing the access token", async () => {
+        it("re-throws non handled errors when refreshing the access token", async () => {
           sinon
             .stub(oauth2Client, "refreshAccessToken")
             .throws(new Error("🤮"));
