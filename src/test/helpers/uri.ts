@@ -24,7 +24,7 @@ export class TestUri implements vscode.Uri {
     const url = new URL(stringUri);
     return new TestUri(
       url.protocol.replace(/:$/, ""),
-      url.hostname,
+      url.hostname + (url.port.length > 0 ? `:${url.port}` : ""),
       url.pathname,
       url.search.replace(/^\?/, ""),
       url.hash.replace(/^#/, ""),
