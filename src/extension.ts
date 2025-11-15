@@ -14,11 +14,12 @@ import { AuthStorage } from "./auth/storage";
 import { ColabClient } from "./colab/client";
 import {
   COLAB_TOOLBAR,
+  REMOVE_ALL_SERVERS,
   REMOVE_SERVER,
   SIGN_OUT,
 } from "./colab/commands/constants";
 import { notebookToolbar } from "./colab/commands/notebook";
-import { removeServer } from "./colab/commands/server";
+import { removeAllServers, removeServer } from "./colab/commands/server";
 import { ConnectionRefreshController } from "./colab/connection-refresher";
 import { ConsumptionNotifier } from "./colab/consumption/notifier";
 import { ConsumptionPoller } from "./colab/consumption/poller";
@@ -159,6 +160,9 @@ function registerCommands(
         await removeServer(vscode, assignmentManager, withBackButton);
       },
     ),
+    vscode.commands.registerCommand(REMOVE_ALL_SERVERS.id, async () => {
+      await removeAllServers(vscode, assignmentManager);
+    }),
     vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
     }),

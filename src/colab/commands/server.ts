@@ -5,6 +5,7 @@
  */
 
 import vscode from "vscode";
+import { log } from "../../common/logging";
 import { MultiStepInput } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
 import { ServerStorage } from "../../jupyter/storage";
@@ -90,4 +91,37 @@ export async function removeServer(
     );
     return undefined;
   });
+}
+
+/**
+ * Removes all assigned Colab servers.
+ */
+export async function removeAllServers(
+  vs: typeof vscode,
+  assignmentManager: AssignmentManager,
+) {
+  try {
+    const servers = await assignmentManager.getAssignedServers();
+    if (servers.length === 0) {
+      return;
+    }
+    await vs.window.withProgress(
+      {
+        cancellable: false,
+        location: vs.ProgressLocation.Notification,
+        title: `Removing all servers"...`,
+      },
+      async () => {
+        const removals = servers.map((s) =>
+          assignmentManager.unassignServer(s),
+        );
+        await Promise.all(removals);
+      },
+    );
+  } catch (err) {
+    log.warn(
+      "Issue removing all servers in Colab, regardless - local state cleared",
+      err,
+    );
+  }
 }

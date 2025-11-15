@@ -81,6 +81,12 @@
       },
       {
         "category": "Colab",
+        "command": "colab.removeAllServers",
+        "enablement": "colab.hasAssignedServer",
+        "title": "Remove All Servers"
+      },
+      {
+        "category": "Colab",
         "command": "colab.signOut",
         "enablement": "colab.isSignedIn",
         "title": "Sign Out"

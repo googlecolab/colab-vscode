@@ -7,7 +7,12 @@
 import vscode, { QuickPickItem } from "vscode";
 import { InputFlowAction } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
-import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from "./constants";
+import {
+  OPEN_COLAB_WEB,
+  REMOVE_ALL_SERVERS,
+  REMOVE_SERVER,
+  UPGRADE_TO_PRO,
+} from "./constants";
 import { openColabSignup, openColabWeb } from "./external";
 
 /**
@@ -74,6 +79,15 @@ async function getAvailableCommands(
         return vs.commands.executeCommand(
           REMOVE_SERVER.id,
           /* withBackButton= */ true,
+        );
+      },
+    },
+    {
+      label: REMOVE_ALL_SERVERS.label,
+      invoke: () => {
+        return vs.commands.executeCommand(
+          REMOVE_ALL_SERVERS.id,
+          /* withBackButton= */ false,
         );
       },
     },

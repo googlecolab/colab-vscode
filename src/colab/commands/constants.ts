@@ -60,6 +60,12 @@ export const REMOVE_SERVER: RegisteredCommand = {
   label: "Remove Server",
 };
 
+/** Command to remove a server. */
+export const REMOVE_ALL_SERVERS: RegisteredCommand = {
+  id: "colab.removeAllServers",
+  label: "Remove All Servers",
+};
+
 /** Command to rename a server alias. */
 export const RENAME_SERVER_ALIAS: RegisteredCommand = {
   id: "colab.renameServerAlias",

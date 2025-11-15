@@ -83,6 +83,8 @@ export class AssignmentManager implements vscode.Disposable {
     this.onDidAssignmentsChange((e) => {
       void this.notifyReloadNotebooks(e);
     });
+    // TODO: revert after testing
+    void this.setHasAssignedServerContext();
   }
 
   dispose() {
