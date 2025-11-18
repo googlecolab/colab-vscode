@@ -187,7 +187,7 @@
     "vscode-extension-tester": "^8.14.1"
   },
   "dependencies": {
-    "glob": "^11.0.0",
+    "glob": "^11.1.0",
     "google-auth-library": "^9.15.0",
     "node-fetch": "^2.6.7",
     "semver": "^7.7.3",
