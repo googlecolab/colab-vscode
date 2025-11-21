@@ -30,6 +30,7 @@ import {
   DenylistedError,
   InsufficientQuotaError,
   TooManyAssignmentsError,
+  TEST_ONLY,
 } from "./client";
 import {
   ACCEPT_JSON_HEADER,
@@ -532,7 +533,7 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("successfully lists sessions", async () => {
+    it("successfully lists sessions by server", async () => {
       const last_activity = new Date().toISOString();
       fetchStub
         .withArgs(
@@ -585,6 +586,60 @@ describe("ColabClient", () => {
 
       await expect(
         client.listSessions(assignedServer),
+      ).to.eventually.deep.equal([session]);
+
+      sinon.assert.calledOnce(fetchStub);
+    });
+
+    it("successfully lists sessions by assignment endpoint", async () => {
+      const last_activity = new Date().toISOString();
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: "GET",
+            host: COLAB_HOST,
+            path: `${TEST_ONLY.TUN_ENDPOINT}/${assignedServer.endpoint}/api/sessions`,
+            withAuthUser: false,
+          }),
+        )
+        .resolves(
+          new Response(
+            withXSSI(
+              JSON.stringify([
+                {
+                  id: "mock-session-id",
+                  kernel: {
+                    id: "mock-kernel-id",
+                    name: "mock-kernel-name",
+                    last_activity,
+                    execution_state: "idle",
+                    connections: 1,
+                  },
+                  name: "mock-session-name",
+                  path: "/mock-path",
+                  type: "notebook",
+                },
+              ]),
+            ),
+            { status: 200 },
+          ),
+        );
+      const session: Session = {
+        id: "mock-session-id",
+        kernel: {
+          id: "mock-kernel-id",
+          name: "mock-kernel-name",
+          lastActivity: last_activity,
+          executionState: "idle",
+          connections: 1,
+        },
+        name: "mock-session-name",
+        path: "/mock-path",
+        type: "notebook",
+      };
+
+      await expect(
+        client.listSessions(assignedServer.endpoint),
       ).to.eventually.deep.equal([session]);
 
       sinon.assert.calledOnce(fetchStub);

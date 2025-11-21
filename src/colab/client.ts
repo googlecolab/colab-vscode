@@ -276,28 +276,36 @@ export class ColabClient {
   }
 
   /**
-   * Lists all sessions for a given server.
+   * Lists all sessions for a given server or assignment endpoint.
    *
-   * @param server - The server to list sessions for.
+   * @param serverOrEndpoint - The server or assignment endpoint to list
+   *   sessions for.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The list of sessions.
    */
   async listSessions(
-    server: ColabAssignedServer,
+    serverOrEndpoint: ColabAssignedServer | string,
     signal?: AbortSignal,
   ): Promise<Session[]> {
-    const url = new URL(
-      "api/sessions",
-      server.connectionInformation.baseUrl.toString(),
-    );
+    let url: URL;
+    let headers: fetch.HeadersInit | undefined;
+    if (typeof serverOrEndpoint === "string") {
+      url = new URL(
+        `${TUN_ENDPOINT}/${serverOrEndpoint}/api/sessions`,
+        this.colabDomain,
+      );
+    } else {
+      const connectionInfo = serverOrEndpoint.connectionInformation;
+      url = new URL("api/sessions", connectionInfo.baseUrl.toString());
+      headers = {
+        [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: connectionInfo.token,
+      };
+    }
     return await this.issueRequest(
       url,
       {
         method: "GET",
-        headers: {
-          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-            server.connectionInformation.token,
-        },
+        headers,
         signal,
       },
       z.array(SessionSchema),
@@ -519,3 +527,7 @@ class ColabRequestError extends Error {
     this.responseBody = responseBody;
   }
 }
+
+export const TEST_ONLY = {
+  TUN_ENDPOINT,
+};
