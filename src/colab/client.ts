@@ -315,25 +315,36 @@ export class ColabClient {
   /**
    * Deletes the given session
    *
-   * @param server - The server with the session to delete.
+   * @param serverOrEndpoint - The server or assignment endpoint with the
+   *   session to delete.
    * @param sessionId - The ID of the session to delete.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    */
   async deleteSession(
-    server: ColabAssignedServer,
+    serverOrEndpoint: ColabAssignedServer | string,
     sessionId: string,
     signal?: AbortSignal,
   ) {
-    const url = new URL(
-      `api/sessions/${sessionId}`,
-      server.connectionInformation.baseUrl.toString(),
-    );
+    let url: URL;
+    let headers: fetch.HeadersInit | undefined;
+    if (typeof serverOrEndpoint === "string") {
+      url = new URL(
+        `${TUN_ENDPOINT}/${serverOrEndpoint}/api/sessions/${sessionId}`,
+        this.colabDomain,
+      );
+    } else {
+      const connectionInfo = serverOrEndpoint.connectionInformation;
+      url = new URL(
+        `api/sessions/${sessionId}`,
+        connectionInfo.baseUrl.toString(),
+      );
+      headers = {
+        [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: connectionInfo.token,
+      };
+    }
     await this.issueRequest(url, {
       method: "DELETE",
-      headers: {
-        [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-          server.connectionInformation.token,
-      },
+      headers,
       signal,
     });
   }

@@ -645,7 +645,7 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it("successfully deletes a session", async () => {
+    it("successfully deletes a session by server", async () => {
       const sessionId = "mock-session-id";
       fetchStub
         .withArgs(
@@ -663,6 +663,25 @@ describe("ColabClient", () => {
         .resolves(new Response(undefined, { status: 200 }));
 
       await expect(client.deleteSession(assignedServer, sessionId)).to
+        .eventually.be.fulfilled;
+
+      sinon.assert.calledOnce(fetchStub);
+    });
+
+    it("successfully deletes a session by assignment endpoint", async () => {
+      const sessionId = "mock-session-id";
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: "DELETE",
+            host: COLAB_HOST,
+            path: `${TEST_ONLY.TUN_ENDPOINT}/${assignedServer.endpoint}/api/sessions/${sessionId}`,
+            withAuthUser: false,
+          }),
+        )
+        .resolves(new Response(undefined, { status: 200 }));
+
+      await expect(client.deleteSession(assignedServer.endpoint, sessionId)).to
         .eventually.be.fulfilled;
 
       sinon.assert.calledOnce(fetchStub);
