@@ -32,6 +32,7 @@ import {
 } from "../colab/headers";
 import {
   ColabAssignedServer,
+  ColabRemoteServer,
   ColabJupyterServer,
   ColabServerDescriptor,
   DEFAULT_CPU_SERVER,
@@ -168,7 +169,7 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves the list of servers that have been assigned.
+   * Retrieves the list of servers that have been assigned in VS Code.
    *
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
@@ -184,6 +185,34 @@ export class AssignmentManager implements vscode.Disposable {
         fetch: colabProxyFetch(server.connectionInformation.token),
       },
     }));
+  }
+
+  /**
+   * Retrieves the list of servers that have been created remotely (outside VS
+   * Code).
+   */
+  async getRemoteServers(signal?: AbortSignal): Promise<ColabRemoteServer[]> {
+    const stored = new Set(
+      (await this.storage.list()).map((server) => server.endpoint),
+    );
+    return Promise.all(
+      (await this.client.listAssignments(signal))
+        .filter((assignment) => !stored.has(assignment.endpoint))
+        .map(async (assignment) => {
+          // For any remote servers created in Colab web UI, assuming there is
+          // only one session per assignment.
+          const sessions = await this.client.listSessions(
+            assignment.endpoint,
+            signal,
+          );
+          return {
+            label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
+            endpoint: assignment.endpoint,
+            variant: assignment.variant,
+            accelerator: assignment.accelerator,
+          };
+        }),
+    );
   }
 
   /**
@@ -530,6 +559,8 @@ enum AssignmentsExceededActions {
 
 const LEARN_MORE = "Learn More";
 
+const UNKNOWN_REMOTE_SERVER_NAME = "Untitled";
+
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
  *
@@ -567,3 +598,7 @@ function colabProxyFetch(
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
 }
+
+export const TEST_ONLY = {
+  UNKNOWN_REMOTE_SERVER_NAME,
+};

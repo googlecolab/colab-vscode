@@ -31,6 +31,11 @@ export interface ColabJupyterServer
   readonly id: UUID;
 }
 
+/** A Colab remote server assigned outside VS Code. */
+export interface ColabRemoteServer extends ColabServerDescriptor {
+  readonly endpoint: string;
+}
+
 /**
  * A Colab Jupyter server which has been assigned, thus including the required
  * connection information.

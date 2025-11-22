@@ -32,7 +32,11 @@ import { TestEventEmitter } from "../test/helpers/events";
 import { ServerStorageFake } from "../test/helpers/server-storage";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
-import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
+import {
+  AssignmentChangeEvent,
+  AssignmentManager,
+  TEST_ONLY,
+} from "./assignments";
 import {
   ColabAssignedServer,
   ColabServerDescriptor,
@@ -474,6 +478,112 @@ describe("AssignmentManager", () => {
           }),
         });
       });
+    });
+  });
+
+  describe("getRemoteServers", () => {
+    const endpointWithName = "test-endpoint-with-name";
+    const endpointWithoutName = "test-endpoint-without-name";
+    const endpointWithoutSession = "test-endpoint-without-session";
+    const allAssignments = [
+      {
+        endpoint: endpointWithName,
+        variant: Variant.DEFAULT,
+        machineShape: Shape.STANDARD,
+        accelerator: "",
+      },
+      {
+        endpoint: endpointWithoutName,
+        variant: Variant.DEFAULT,
+        machineShape: Shape.STANDARD,
+        accelerator: "",
+      },
+      {
+        endpoint: endpointWithoutSession,
+        variant: Variant.DEFAULT,
+        machineShape: Shape.STANDARD,
+        accelerator: "",
+      },
+    ];
+    const defaultSession = {
+      id: "",
+      path: "",
+      type: "",
+      kernel: {
+        lastActivity: "",
+        executionState: "",
+        id: "",
+        name: "",
+        connections: 1,
+      },
+    };
+
+    beforeEach(() => {
+      colabClientStub.listAssignments.resolves(allAssignments);
+      colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+        {
+          ...defaultSession,
+          name: "test-session-name",
+        },
+      ]);
+      colabClientStub.listSessions.withArgs(endpointWithoutName).resolves([
+        {
+          ...defaultSession,
+          name: "",
+        },
+      ]);
+      colabClientStub.listSessions
+        .withArgs(endpointWithoutSession)
+        .resolves([]);
+    });
+
+    it("returns all assignments when no server is assigned in VS Code", async () => {
+      const results = await assignmentManager.getRemoteServers();
+
+      expect(results).to.deep.equal([
+        {
+          label: "test-session-name",
+          endpoint: endpointWithName,
+          variant: Variant.DEFAULT,
+          accelerator: "",
+        },
+        {
+          label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+          endpoint: endpointWithoutName,
+          variant: Variant.DEFAULT,
+          accelerator: "",
+        },
+        {
+          label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+          endpoint: endpointWithoutSession,
+          variant: Variant.DEFAULT,
+          accelerator: "",
+        },
+      ]);
+    });
+
+    it("returns only remote assignments assigned outside VS Code", async () => {
+      await serverStorage.store([
+        {
+          ...defaultServer,
+          endpoint: endpointWithoutName,
+        },
+        {
+          ...defaultServer,
+          endpoint: endpointWithoutSession,
+        },
+      ]);
+
+      const results = await assignmentManager.getRemoteServers();
+
+      expect(results).to.deep.equal([
+        {
+          label: "test-session-name",
+          endpoint: endpointWithName,
+          variant: Variant.DEFAULT,
+          accelerator: "",
+        },
+      ]);
     });
   });
 
