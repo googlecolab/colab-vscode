@@ -36,6 +36,7 @@ import {
   ColabJupyterServer,
   ColabServerDescriptor,
   DEFAULT_CPU_SERVER,
+  isInstanceOfColabAssignedServer,
 } from "./servers";
 import { ServerStorage } from "./storage";
 
@@ -206,6 +207,7 @@ export class AssignmentManager implements vscode.Disposable {
             signal,
           );
           return {
+            sessionId: sessions[0]?.id,
             label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
             endpoint: assignment.endpoint,
             variant: assignment.variant,
@@ -388,24 +390,14 @@ export class AssignmentManager implements vscode.Disposable {
    * @param server - The server to remove.
    */
   async unassignServer(
-    server: ColabAssignedServer,
+    server: ColabAssignedServer | ColabRemoteServer,
     signal?: AbortSignal,
   ): Promise<void> {
-    const removed = await this.storage.remove(server.id);
-    if (!removed) {
-      return;
+    if (isInstanceOfColabAssignedServer(server)) {
+      await this.unassignVsCodeServer(server, signal);
+    } else {
+      await this.unassignRemoteColabServer(server, signal);
     }
-    await this.signalChange({
-      added: [],
-      removed: [{ server, userInitiated: true }],
-      changed: [],
-    });
-    await Promise.all(
-      (await this.client.listSessions(server, signal)).map((session) =>
-        this.client.deleteSession(server, session.id, signal),
-      ),
-    );
-    await this.client.unassign(server.endpoint, signal);
   }
 
   async getDefaultLabel(
@@ -442,6 +434,41 @@ export class AssignmentManager implements vscode.Disposable {
       return labelBase;
     }
     return `${labelBase} (${placeholderIdx.toString()})`;
+  }
+
+  private async unassignVsCodeServer(
+    server: ColabAssignedServer,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const removed = await this.storage.remove(server.id);
+    if (!removed) {
+      return;
+    }
+    await this.signalChange({
+      added: [],
+      removed: [{ server, userInitiated: true }],
+      changed: [],
+    });
+    await Promise.all(
+      (await this.client.listSessions(server, signal)).map((session) =>
+        this.client.deleteSession(server, session.id, signal),
+      ),
+    );
+    await this.client.unassign(server.endpoint, signal);
+  }
+
+  private async unassignRemoteColabServer(
+    server: ColabRemoteServer,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (server.sessionId) {
+      await this.client.deleteSession(
+        server.endpoint,
+        server.sessionId,
+        signal,
+      );
+    }
+    await this.client.unassign(server.endpoint, signal);
   }
 
   private async signalChange(e: AssignmentChangeEvent): Promise<void> {

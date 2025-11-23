@@ -34,6 +34,7 @@ export interface ColabJupyterServer
 /** A Colab remote server assigned outside VS Code. */
 export interface ColabRemoteServer extends ColabServerDescriptor {
   readonly endpoint: string;
+  readonly sessionId?: string;
 }
 
 /**
@@ -53,3 +54,9 @@ export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
   label: "Colab CPU",
   variant: Variant.DEFAULT,
 };
+
+export function isInstanceOfColabAssignedServer(
+  obj: unknown,
+): obj is ColabAssignedServer {
+  return "connectionInformation" in (obj as ColabAssignedServer);
+}

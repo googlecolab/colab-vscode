@@ -506,7 +506,7 @@ describe("AssignmentManager", () => {
       },
     ];
     const defaultSession = {
-      id: "",
+      id: "test-session-id",
       path: "",
       type: "",
       kernel: {
@@ -546,18 +546,21 @@ describe("AssignmentManager", () => {
           endpoint: endpointWithName,
           variant: Variant.DEFAULT,
           accelerator: "",
+          sessionId: defaultSession.id,
         },
         {
           label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
           endpoint: endpointWithoutName,
           variant: Variant.DEFAULT,
           accelerator: "",
+          sessionId: defaultSession.id,
         },
         {
           label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
           endpoint: endpointWithoutSession,
           variant: Variant.DEFAULT,
           accelerator: "",
+          sessionId: undefined,
         },
       ]);
     });
@@ -582,6 +585,7 @@ describe("AssignmentManager", () => {
           endpoint: endpointWithName,
           variant: Variant.DEFAULT,
           accelerator: "",
+          sessionId: defaultSession.id,
         },
       ]);
     });
@@ -847,7 +851,7 @@ describe("AssignmentManager", () => {
       sinon.assert.notCalled(assignmentChangeListener);
     });
 
-    describe("when the server exists", () => {
+    describe("when VS Code server exists", () => {
       beforeEach(async () => {
         await serverStorage.store([defaultServer]);
       });
@@ -923,6 +927,41 @@ describe("AssignmentManager", () => {
           vsCodeStub.window.showInformationMessage,
           sinon.match(/notebooks Colab GPU A100 was/),
         );
+      });
+    });
+
+    describe("when a remote Colab server exists", () => {
+      it("deletes session and unassigns server", async () => {
+        const remoteServer = {
+          endpoint: "test-endpoint",
+          sessionId: "test-session",
+          label: "name",
+          variant: Variant.DEFAULT,
+        };
+
+        await assignmentManager.unassignServer(remoteServer);
+
+        sinon.assert.calledOnceWithMatch(
+          colabClientStub.deleteSession,
+          remoteServer.endpoint,
+          remoteServer.sessionId,
+        );
+        sinon.assert.calledOnceWithMatch(
+          colabClientStub.unassign,
+          remoteServer.endpoint,
+        );
+      });
+
+      it("does not delete session when there is none", async () => {
+        const remoteServerWithoutSessionId = {
+          endpoint: "test-endpoint",
+          label: "name",
+          variant: Variant.DEFAULT,
+        };
+
+        await assignmentManager.unassignServer(remoteServerWithoutSessionId);
+
+        sinon.assert.notCalled(colabClientStub.deleteSession);
       });
     });
   });
