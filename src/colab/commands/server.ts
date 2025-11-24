@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
+import vscode, { QuickPickItem } from "vscode";
 import { MultiStepInput } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
+import { ColabAssignedServer, ColabRemoteServer } from "../../jupyter/servers";
 import { ServerStorage } from "../../jupyter/storage";
 import { PROMPT_SERVER_ALIAS, validateServerAlias } from "../server-picker";
 import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./constants";
@@ -67,19 +68,39 @@ export async function removeServer(
   assignmentManager: AssignmentManager,
   withBackButton?: boolean,
 ) {
-  const servers = await assignmentManager.getAssignedServers();
-  if (servers.length === 0) {
+  const vsCodeServers = await assignmentManager.getAssignedServers();
+  const colabRemoteServers = await assignmentManager.getRemoteServers();
+  if (vsCodeServers.length === 0 && colabRemoteServers.length === 0) {
     return;
   }
 
   await MultiStepInput.run(vs, async (input) => {
+    const items: RemoveServerItem[] = vsCodeServers.map((s) => ({
+      label: s.label,
+      description: ServerCategory.VS_CODE,
+      value: s,
+    }));
+    if (vsCodeServers.length > 0 && colabRemoteServers.length > 0) {
+      items.push({ label: "separator", kind: -1 });
+    }
+    items.push(
+      ...colabRemoteServers.map((s) => ({
+        label: s.label,
+        description: ServerCategory.COLAB_WEB,
+        value: s,
+      })),
+    );
     const selectedServer = (
       await input.showQuickPick({
         title: REMOVE_SERVER.label,
         buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
-        items: servers.map((s) => ({ label: s.label, value: s })),
+        items,
       })
     ).value;
+    if (!selectedServer) {
+      return;
+    }
+
     await vs.window.withProgress(
       {
         cancellable: false,
@@ -91,3 +112,16 @@ export async function removeServer(
     return undefined;
   });
 }
+
+enum ServerCategory {
+  VS_CODE = "VS Code Server",
+  COLAB_WEB = "Colab Web Server",
+}
+
+interface RemoveServerItem extends QuickPickItem {
+  value?: ColabAssignedServer | ColabRemoteServer;
+}
+
+export const TEST_ONLY = {
+  ServerCategory,
+};

@@ -26,6 +26,7 @@ import {
   NotFoundError,
   TooManyAssignmentsError,
 } from "../colab/client";
+import { REMOVE_SERVER } from "../colab/commands/constants";
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -511,22 +512,13 @@ export class AssignmentManager implements vscode.Disposable {
 
   private async notifyMaxAssignmentsExceeded() {
     // TODO: Account for subscription tiers in actions.
-    // TODO: Account for the number of assignments from the VS Code and Colab
-    // UIs in the error message and actions.
     const selectedAction = await this.vs.window.showErrorMessage(
       "Unable to assign server. You have too many, remove one to continue.",
-      (await this.hasAssignedServer())
-        ? AssignmentsExceededActions.REMOVE_SERVER
-        : AssignmentsExceededActions.REMOVE_SERVER_COLAB_WEB,
+      AssignmentsExceededActions.REMOVE_SERVER,
     );
     switch (selectedAction) {
       case AssignmentsExceededActions.REMOVE_SERVER:
-        this.vs.commands.executeCommand("colab.removeServer");
-        return;
-      case AssignmentsExceededActions.REMOVE_SERVER_COLAB_WEB:
-        this.vs.env.openExternal(
-          this.vs.Uri.parse("https://colab.research.google.com/"),
-        );
+        this.vs.commands.executeCommand(REMOVE_SERVER.id);
         return;
       default:
         return;
@@ -581,7 +573,6 @@ export class AssignmentManager implements vscode.Disposable {
 
 enum AssignmentsExceededActions {
   REMOVE_SERVER = "Remove Server",
-  REMOVE_SERVER_COLAB_WEB = "Remove Server at Colab Web",
 }
 
 const LEARN_MORE = "Learn More";
