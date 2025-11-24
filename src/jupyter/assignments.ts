@@ -18,6 +18,8 @@ import {
   RuntimeProxyInfo,
   Variant,
   variantToMachineType,
+  SubscriptionTier,
+  Shape,
 } from "../colab/api";
 import {
   ColabClient,
@@ -99,6 +101,7 @@ export class AssignmentManager implements vscode.Disposable {
   // TODO: Consider communicating which machines are available, but not to the
   // user at their tier (in the "ineligible" list).
   async getAvailableServerDescriptors(
+    subscriptionTier = SubscriptionTier.NONE,
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
     const ccuInfo = await this.client.getCcuInfo(signal);
@@ -117,7 +120,23 @@ export class AssignmentManager implements vscode.Disposable {
       accelerator: e,
     }));
 
-    return [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
+    if (subscriptionTier === SubscriptionTier.NONE) {
+        return [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
+    }
+
+    const descriptors = [];
+    for (let descriptor of [DEFAULT_CPU_SERVER, ...gpus, ...tpus]) {
+      const isHighMemOnlyAccelerator = descriptor.accelerator === 'L4' ||
+        descriptor.accelerator === 'V28' ||
+        descriptor.accelerator === 'V5E1' ||
+        descriptor.accelerator === 'V6E1';
+      if (!isHighMemOnlyAccelerator) {
+        descriptors.push({ ...descriptor, shape: Shape.STANDARD })
+      }
+      descriptors.push({ ...descriptor, shape: Shape.HIGHMEM })
+    }
+    return descriptors;
+
   }
 
   /**
@@ -224,6 +243,7 @@ export class AssignmentManager implements vscode.Disposable {
         id,
         descriptor.variant,
         descriptor.accelerator,
+        descriptor.shape,
         signal,
       ));
     } catch (error) {

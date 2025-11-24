@@ -391,3 +391,18 @@ export function variantToMachineType(variant: Variant): string {
       return "TPU";
   }
 }
+/**
+ * Maps a Colab {@link Shape} to a human-friendly machine shape name.
+ *
+ * @param shape - The Colab {@link Shape}.
+ * @returns The human-friendly machine shape name.
+ */
+export function shapeToMachineShape(shape: Shape): string {
+  switch (shape) {
+    case Shape.HIGHMEM:
+      return 'High-RAM';
+    case Shape.STANDARD:
+    default:
+      return 'Standard';
+  }
+}

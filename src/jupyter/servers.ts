@@ -9,7 +9,7 @@ import {
   JupyterServer,
   JupyterServerConnectionInformation,
 } from "@vscode/jupyter-extension";
-import { Variant } from "../colab/api";
+import { Variant, Shape } from "../colab/api";
 
 /**
  * Colab's Jupyter server descriptor which includes machine-specific
@@ -19,6 +19,7 @@ export interface ColabServerDescriptor {
   readonly label: string;
   readonly variant: Variant;
   readonly accelerator?: string;
+  readonly shape?: Shape;
 }
 
 /**
