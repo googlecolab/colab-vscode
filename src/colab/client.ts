@@ -406,9 +406,8 @@ export class ColabClient {
     if (accelerator) {
       url.searchParams.append("accelerator", accelerator);
     }
-    if (shape === Shape.HIGHMEM){
-      //TODO: snmsomisetty use helper function
-      url.searchParams.append("shape", "hm");
+    if (shape !== undefined && shape !== Shape.STANDARD) {
+      url.searchParams.append("shape", mapShapeToURLParam(shape));
     }
     return url;
   }
@@ -528,5 +527,14 @@ class ColabRequestError extends Error {
     this.request = request;
     this.response = response;
     this.responseBody = responseBody;
+  }
+}
+
+function mapShapeToURLParam(shape: Shape): string {
+  switch (shape) {
+    case Shape.HIGHMEM:
+      return "hm";
+    default:
+      return "";
   }
 }

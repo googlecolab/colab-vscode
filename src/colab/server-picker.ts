@@ -63,6 +63,7 @@ export class ServerPicker {
     if (
       state.variant === undefined ||
       state.accelerator === undefined ||
+      state.shape === undefined ||
       !state.alias
     ) {
       return undefined;
@@ -71,6 +72,7 @@ export class ServerPicker {
       label: state.alias,
       variant: state.variant,
       accelerator: state.accelerator,
+      shape: state.shape,
     };
   }
 
@@ -156,10 +158,11 @@ export class ServerPicker {
         label: shapeToMachineShape(shape),
       });
     }
+    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
     const pick = await input.showQuickPick({
       title: "Select a machine shape",
-      step: 3,
-      totalSteps: 4,
+      step,
+      totalSteps: step + 1,
       items,
       activeItem: items.find((item) => item.value === state.shape),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -180,7 +183,7 @@ export class ServerPicker {
       state.variant,
       state.accelerator,
     );
-    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
+    const step = state.accelerator && state.accelerator !== "NONE" ? 4 : 3;
     const alias = await input.showInputBox({
       title: "Alias your server",
       step,

@@ -20,6 +20,7 @@ import {
   variantToMachineType,
   SubscriptionTier,
   Shape,
+  isHighMemOnlyAccelerator,
 } from "../colab/api";
 import {
   ColabClient,
@@ -120,22 +121,19 @@ export class AssignmentManager implements vscode.Disposable {
       accelerator: e,
     }));
 
+    const defaultDescriptors = [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
     if (subscriptionTier === SubscriptionTier.NONE) {
-        return [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
+      return defaultDescriptors;
     }
 
-    const descriptors = [];
-    for (let descriptor of [DEFAULT_CPU_SERVER, ...gpus, ...tpus]) {
-      const isHighMemOnlyAccelerator = descriptor.accelerator === 'L4' ||
-        descriptor.accelerator === 'V28' ||
-        descriptor.accelerator === 'V5E1' ||
-        descriptor.accelerator === 'V6E1';
-      if (!isHighMemOnlyAccelerator) {
-        descriptors.push({ ...descriptor, shape: Shape.STANDARD })
+    const proDescriptors = [];
+    for (let descriptor of defaultDescriptors) {
+      if (!isHighMemOnlyAccelerator(descriptor.accelerator)) {
+        proDescriptors.push({ ...descriptor, shape: Shape.STANDARD })
       }
-      descriptors.push({ ...descriptor, shape: Shape.HIGHMEM })
+      proDescriptors.push({ ...descriptor, shape: Shape.HIGHMEM })
     }
-    return descriptors;
+    return proDescriptors;
 
   }
 

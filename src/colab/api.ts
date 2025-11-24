@@ -406,3 +406,25 @@ export function shapeToMachineShape(shape: Shape): string {
       return 'Standard';
   }
 }
+
+const HIGHMEM_ONLY_ACCELERATORS: Set<string> = new Set([
+  'L4',
+  'V28',
+  'V5E1',
+  'V6E1',
+]);
+
+/**
+ * Determines if the provided accelerator is one that requires a high-memory
+ * machine shape.
+ *
+ * @param accelerator - The accelerator to check.
+ * @returns Whether the accelerator requires a high-memory machine shape.
+ */
+export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
+  if (!accelerator) {
+    return false;
+  }
+
+  return HIGHMEM_ONLY_ACCELERATORS.has(accelerator);
+}
