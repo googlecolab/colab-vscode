@@ -10,8 +10,7 @@ import { QuickPickItem, Uri } from "vscode";
 import { InputFlowAction } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
-import { OPEN_COLAB_WEB, UPGRADE_TO_PRO } from "./constants";
-import { REMOVE_SERVER } from "./constants";
+import { OPEN_COLAB_WEB, UPGRADE_TO_PRO, REMOVE_SERVER } from "./constants";
 import { notebookToolbar } from "./notebook";
 
 describe("notebookToolbar", () => {
@@ -37,7 +36,7 @@ describe("notebookToolbar", () => {
   it("re-invokes the notebook toolbar when a command flows back", async () => {
     assignmentManager.hasAssignedServer.resolves(true);
     vsCodeStub.commands.executeCommand
-      .withArgs("colab.removeServer")
+      .withArgs(REMOVE_SERVER.id)
       .onFirstCall()
       .rejects(InputFlowAction.back);
     vsCodeStub.window.showQuickPick
@@ -131,7 +130,7 @@ describe("notebookToolbar", () => {
 
     sinon.assert.calledOnceWithMatch(
       vsCodeStub.commands.executeCommand,
-      "colab.removeServer",
+      REMOVE_SERVER.id,
     );
   });
 });

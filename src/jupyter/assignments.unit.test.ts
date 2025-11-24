@@ -24,6 +24,7 @@ import {
   NotFoundError,
   TooManyAssignmentsError,
 } from "../colab/client";
+import { REMOVE_SERVER } from "../colab/commands/constants";
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -751,8 +752,7 @@ describe("AssignmentManager", () => {
         );
       });
 
-      it("presents an action to remove servers from VS Code when theres at least 1 VS Code assignment", async () => {
-        sinon.stub(assignmentManager, "hasAssignedServer").resolves(true);
+      it("presents an action to remove servers", async () => {
         (vsCodeStub.window.showErrorMessage as sinon.SinonStub).resolves(
           "Remove Server",
         );
@@ -763,25 +763,7 @@ describe("AssignmentManager", () => {
 
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.commands.executeCommand,
-          "colab.removeServer",
-        );
-      });
-
-      it("presents an action to remove servers from Colab when there are 0 VS Code assignments", async () => {
-        sinon.stub(assignmentManager, "hasAssignedServer").resolves(false);
-        (vsCodeStub.window.showErrorMessage as sinon.SinonStub).resolves(
-          "Remove Server at Colab Web",
-        );
-
-        await expect(
-          assignmentManager.assignServer(defaultAssignmentDescriptor),
-        ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
-
-        sinon.assert.calledOnceWithMatch(
-          vsCodeStub.env.openExternal,
-          sinon.match(function (url: Uri) {
-            return url.toString() === "https://colab.research.google.com/";
-          }),
+          REMOVE_SERVER.id,
         );
       });
     });
