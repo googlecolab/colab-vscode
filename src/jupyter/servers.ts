@@ -34,7 +34,6 @@ export interface ColabJupyterServer
 /** A Colab remote server assigned outside VS Code. */
 export interface ColabRemoteServer extends ColabServerDescriptor {
   readonly endpoint: string;
-  readonly sessionId?: string;
 }
 
 /**

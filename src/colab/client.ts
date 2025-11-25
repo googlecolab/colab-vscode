@@ -288,12 +288,13 @@ export class ColabClient {
     signal?: AbortSignal,
   ): Promise<Session[]> {
     let url: URL;
-    let headers: fetch.HeadersInit | undefined;
+    let headers: fetch.HeadersInit;
     if (typeof serverOrEndpoint === "string") {
       url = new URL(
         `${TUN_ENDPOINT}/${serverOrEndpoint}/api/sessions`,
         this.colabDomain,
       );
+      headers = { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value };
     } else {
       const connectionInfo = serverOrEndpoint.connectionInformation;
       url = new URL("api/sessions", connectionInfo.baseUrl.toString());
@@ -326,12 +327,13 @@ export class ColabClient {
     signal?: AbortSignal,
   ) {
     let url: URL;
-    let headers: fetch.HeadersInit | undefined;
+    let headers: fetch.HeadersInit;
     if (typeof serverOrEndpoint === "string") {
       url = new URL(
         `${TUN_ENDPOINT}/${serverOrEndpoint}/api/sessions/${sessionId}`,
         this.colabDomain,
       );
+      headers = { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value };
     } else {
       const connectionInfo = serverOrEndpoint.connectionInformation;
       url = new URL(

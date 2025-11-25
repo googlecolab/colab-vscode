@@ -205,7 +205,7 @@ describe("Server Commands", () => {
             value: additionalVsCodeServer,
             description: TEST_ONLY.ServerCategory.VS_CODE,
           },
-          { label: "separator", kind: -1 },
+          { label: "", kind: -1 },
           {
             label: colabRemoteServer.label,
             value: colabRemoteServer,
