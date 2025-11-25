@@ -34,10 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
-    env:
-      COLAB_EXTENSION_ENVIRONMENT: ${{ vars.COLAB_EXTENSION_ENVIRONMENT }}
-      COLAB_EXTENSION_CLIENT_ID: ${{ secrets.COLAB_EXTENSION_CLIENT_ID }}
-      COLAB_EXTENSION_CLIENT_NOT_SO_SECRET: ${{ secrets.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ env.NODE_VERSION }}
@@ -46,7 +42,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
-      - run: npm run generate:config
+      - name: Generate dummy config
+        run: npm run generate:config
+        env:
+          COLAB_EXTENSION_ENVIRONMENT: "production"
+          COLAB_EXTENSION_CLIENT_ID: "client-id"
+          COLAB_EXTENSION_CLIENT_NOT_SO_SECRET: "client-not-so-secret"
       - name: Upload generated config
         uses: actions/upload-artifact@v4
         with:
@@ -132,16 +133,25 @@ jobs:
     name: VS Code E2E Tests
     permissions:
       actions: write
+    # This environment is protected and requires approval for PRs from forks.
+    # It provides the necessary variables and secrets to run the end-to-end
+    # tests.
+    environment: E2E Tests
     strategy:
       matrix:
         # macos-latest and windows-latest can be added as we work towards a release.
         # For now, there's no sense acruing the cost of the runners.
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    needs: generateConfig
+    # Limit running the E2E tests until unit tests pass to save on resources.
+    needs: unitTests
     env:
+      # Secrets and variables are sourced from the "E2E Tests" environment.
       TEST_ACCOUNT_EMAIL: ${{ secrets.TEST_ACCOUNT_EMAIL }}
       TEST_ACCOUNT_PASSWORD: ${{ secrets.TEST_ACCOUNT_PASSWORD }}
+      COLAB_EXTENSION_ENVIRONMENT: ${{ vars.COLAB_EXTENSION_ENVIRONMENT }}
+      COLAB_EXTENSION_CLIENT_ID: ${{ secrets.COLAB_EXTENSION_CLIENT_ID }}
+      COLAB_EXTENSION_CLIENT_NOT_SO_SECRET: ${{ secrets.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ env.NODE_VERSION }}
@@ -150,11 +160,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
       - run: npm ci
-      - name: Download generated config
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-config
-          path: src
+      - name: Generate production config
+        run: npm run generate:config
       - name: npm run test:e2e:headless (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: npm run test:e2e:headless
