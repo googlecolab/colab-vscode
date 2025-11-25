@@ -208,7 +208,6 @@ export class AssignmentManager implements vscode.Disposable {
             signal,
           );
           return {
-            sessionId: sessions[0]?.id,
             label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
             endpoint: assignment.endpoint,
             variant: assignment.variant,
@@ -385,8 +384,13 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Unassigns the given server.
    *
-   * Deletes all kernel sessions for the specified server before
-   * unassigning. Only unassigns if all session deletions succeed.
+   * For VS Code initiated servers, deletes all kernel sessions for the
+   * specified server before unassigning. Only unassigns if all session
+   * deletions succeed.
+   *
+   * For servers assigned outside VS Code, simply unassigns the server without
+   * deleting the sessions. This is because we don't have access to delete
+   * those sessions and it's not mandatory to do so.
    *
    * @param server - The server to remove.
    */
@@ -395,10 +399,23 @@ export class AssignmentManager implements vscode.Disposable {
     signal?: AbortSignal,
   ): Promise<void> {
     if (isInstanceOfColabAssignedServer(server)) {
-      await this.unassignVsCodeServer(server, signal);
-    } else {
-      await this.unassignRemoteColabServer(server, signal);
+      const removed = await this.storage.remove(server.id);
+      if (!removed) {
+        return;
+      }
+      await this.signalChange({
+        added: [],
+        removed: [{ server, userInitiated: true }],
+        changed: [],
+      });
+      await Promise.all(
+        (await this.client.listSessions(server, signal)).map((session) =>
+          this.client.deleteSession(server, session.id, signal),
+        ),
+      );
     }
+
+    await this.client.unassign(server.endpoint, signal);
   }
 
   async getDefaultLabel(
@@ -435,41 +452,6 @@ export class AssignmentManager implements vscode.Disposable {
       return labelBase;
     }
     return `${labelBase} (${placeholderIdx.toString()})`;
-  }
-
-  private async unassignVsCodeServer(
-    server: ColabAssignedServer,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    const removed = await this.storage.remove(server.id);
-    if (!removed) {
-      return;
-    }
-    await this.signalChange({
-      added: [],
-      removed: [{ server, userInitiated: true }],
-      changed: [],
-    });
-    await Promise.all(
-      (await this.client.listSessions(server, signal)).map((session) =>
-        this.client.deleteSession(server, session.id, signal),
-      ),
-    );
-    await this.client.unassign(server.endpoint, signal);
-  }
-
-  private async unassignRemoteColabServer(
-    server: ColabRemoteServer,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    if (server.sessionId) {
-      await this.client.deleteSession(
-        server.endpoint,
-        server.sessionId,
-        signal,
-      );
-    }
-    await this.client.unassign(server.endpoint, signal);
   }
 
   private async signalChange(e: AssignmentChangeEvent): Promise<void> {

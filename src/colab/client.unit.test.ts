@@ -599,6 +599,9 @@ describe("ColabClient", () => {
             method: "GET",
             host: COLAB_HOST,
             path: `${TEST_ONLY.TUN_ENDPOINT}/${assignedServer.endpoint}/api/sessions`,
+            otherHeaders: {
+              [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
+            },
             withAuthUser: false,
           }),
         )
@@ -676,6 +679,9 @@ describe("ColabClient", () => {
             method: "DELETE",
             host: COLAB_HOST,
             path: `${TEST_ONLY.TUN_ENDPOINT}/${assignedServer.endpoint}/api/sessions/${sessionId}`,
+            otherHeaders: {
+              [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
+            },
             withAuthUser: false,
           }),
         )

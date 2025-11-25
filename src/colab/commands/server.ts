@@ -81,7 +81,7 @@ export async function removeServer(
       value: s,
     }));
     if (vsCodeServers.length > 0 && colabRemoteServers.length > 0) {
-      items.push({ label: "separator", kind: -1 });
+      items.push({ label: "", kind: -1 });
     }
     items.push(
       ...colabRemoteServers.map((s) => ({
