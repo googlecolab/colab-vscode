@@ -20,7 +20,7 @@ this extension exposes Colab servers directly in VS Code!
    or [Open VSX](https://open-vsx.org/extension/Google/colab).
 1. Open or create a notebook file.
 1. When prompted, sign in.
-1. Click `Select Kernel` > `Colab` > `Auto Connect`.
+1. Click `Select Kernel` > `Colab` > `⚡︎ Auto Connect`.
 1. 😎 Enjoy!
 
 ![Connecting to a new Colab server and executing a code
