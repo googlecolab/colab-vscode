@@ -37,7 +37,7 @@ import {
   ColabJupyterServer,
   ColabServerDescriptor,
   DEFAULT_CPU_SERVER,
-  isInstanceOfColabAssignedServer,
+  isColabAssignedServer,
 } from "./servers";
 import { ServerStorage } from "./storage";
 
@@ -398,7 +398,7 @@ export class AssignmentManager implements vscode.Disposable {
     server: ColabAssignedServer | ColabRemoteServer,
     signal?: AbortSignal,
   ): Promise<void> {
-    if (isInstanceOfColabAssignedServer(server)) {
+    if (isColabAssignedServer(server)) {
       const removed = await this.storage.remove(server.id);
       if (!removed) {
         return;

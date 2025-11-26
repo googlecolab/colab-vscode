@@ -54,8 +54,6 @@ export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
   variant: Variant.DEFAULT,
 };
 
-export function isInstanceOfColabAssignedServer(
-  obj: object,
-): obj is ColabAssignedServer {
+export function isColabAssignedServer(obj: object): obj is ColabAssignedServer {
   return "connectionInformation" in obj;
 }
