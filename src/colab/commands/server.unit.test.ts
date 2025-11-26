@@ -170,7 +170,7 @@ describe("Server Commands", () => {
 
     it("does not open the Quick Pick when no servers are assigned", async () => {
       assignmentManagerStub.getAssignedServers.resolves([]);
-      assignmentManagerStub.getRemoteServers.resolves([]);
+      assignmentManagerStub.getUnownedServers.resolves([]);
 
       await removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
 
@@ -184,12 +184,12 @@ describe("Server Commands", () => {
           defaultServer,
           additionalVsCodeServer,
         ]);
-        const colabRemoteServer = {
+        const nonVsCodeServer = {
           label: "test.ipynb",
           endpoint: "test-endpoint",
           variant: Variant.DEFAULT,
         };
-        assignmentManagerStub.getRemoteServers.resolves([colabRemoteServer]);
+        assignmentManagerStub.getUnownedServers.resolves([nonVsCodeServer]);
 
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
         await quickPickStub.nextShow();
@@ -207,8 +207,8 @@ describe("Server Commands", () => {
           },
           { label: "", kind: -1 },
           {
-            label: colabRemoteServer.label,
-            value: colabRemoteServer,
+            label: nonVsCodeServer.label,
+            value: nonVsCodeServer,
             description: TEST_ONLY.ServerCategory.COLAB_WEB,
           },
         ]);
@@ -220,7 +220,7 @@ describe("Server Commands", () => {
           defaultServer,
           additionalVsCodeServer,
         ]);
-        assignmentManagerStub.getRemoteServers.resolves([]);
+        assignmentManagerStub.getUnownedServers.resolves([]);
 
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
         await quickPickStub.nextShow();
@@ -240,12 +240,12 @@ describe("Server Commands", () => {
       });
 
       it("lists Colab web servers without separator", async () => {
-        const colabRemoteServer = {
+        const nonVsCodeServer = {
           label: "test.ipynb",
           endpoint: "test-endpoint",
           variant: Variant.DEFAULT,
         };
-        assignmentManagerStub.getRemoteServers.resolves([colabRemoteServer]);
+        assignmentManagerStub.getUnownedServers.resolves([nonVsCodeServer]);
         assignmentManagerStub.getAssignedServers.resolves([]);
 
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
@@ -253,8 +253,8 @@ describe("Server Commands", () => {
 
         expect(quickPickStub.items).to.deep.equal([
           {
-            label: colabRemoteServer.label,
-            value: colabRemoteServer,
+            label: nonVsCodeServer.label,
+            value: nonVsCodeServer,
             description: TEST_ONLY.ServerCategory.COLAB_WEB,
           },
         ]);
@@ -265,7 +265,7 @@ describe("Server Commands", () => {
 
         beforeEach(async () => {
           assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
-          assignmentManagerStub.getRemoteServers.resolves([]);
+          assignmentManagerStub.getUnownedServers.resolves([]);
           remove = removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
           await quickPickStub.nextShow();
           quickPickStub.onDidChangeSelection.yield([

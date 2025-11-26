@@ -7,7 +7,7 @@
 import vscode, { QuickPickItem } from "vscode";
 import { MultiStepInput } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
-import { ColabAssignedServer, ColabRemoteServer } from "../../jupyter/servers";
+import { ColabAssignedServer, ColabUnownedServer } from "../../jupyter/servers";
 import { ServerStorage } from "../../jupyter/storage";
 import { PROMPT_SERVER_ALIAS, validateServerAlias } from "../server-picker";
 import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./constants";
@@ -69,8 +69,8 @@ export async function removeServer(
   withBackButton?: boolean,
 ) {
   const vsCodeServers = await assignmentManager.getAssignedServers();
-  const colabRemoteServers = await assignmentManager.getRemoteServers();
-  if (vsCodeServers.length === 0 && colabRemoteServers.length === 0) {
+  const nonVsCodeServers = await assignmentManager.getUnownedServers();
+  if (vsCodeServers.length === 0 && nonVsCodeServers.length === 0) {
     return;
   }
 
@@ -80,11 +80,11 @@ export async function removeServer(
       description: ServerCategory.VS_CODE,
       value: s,
     }));
-    if (vsCodeServers.length > 0 && colabRemoteServers.length > 0) {
+    if (vsCodeServers.length > 0 && nonVsCodeServers.length > 0) {
       items.push({ label: "", kind: -1 });
     }
     items.push(
-      ...colabRemoteServers.map((s) => ({
+      ...nonVsCodeServers.map((s) => ({
         label: s.label,
         description: ServerCategory.COLAB_WEB,
         value: s,
@@ -119,7 +119,7 @@ enum ServerCategory {
 }
 
 interface RemoveServerItem extends QuickPickItem {
-  value?: ColabAssignedServer | ColabRemoteServer;
+  value?: ColabAssignedServer | ColabUnownedServer;
 }
 
 export const TEST_ONLY = {

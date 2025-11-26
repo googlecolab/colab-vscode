@@ -482,7 +482,7 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("getRemoteServers", () => {
+  describe("getUnownedServers", () => {
     const endpointWithName = "test-endpoint-with-name";
     const endpointWithoutName = "test-endpoint-without-name";
     const endpointWithoutSession = "test-endpoint-without-session";
@@ -539,7 +539,7 @@ describe("AssignmentManager", () => {
     });
 
     it("returns all assignments when no server is assigned in VS Code", async () => {
-      const results = await assignmentManager.getRemoteServers();
+      const results = await assignmentManager.getUnownedServers();
 
       expect(results).to.deep.equal([
         {
@@ -563,7 +563,7 @@ describe("AssignmentManager", () => {
       ]);
     });
 
-    it("returns only remote assignments assigned outside VS Code", async () => {
+    it("returns only assignments assigned outside VS Code", async () => {
       await serverStorage.store([
         {
           ...defaultServer,
@@ -575,7 +575,7 @@ describe("AssignmentManager", () => {
         },
       ]);
 
-      const results = await assignmentManager.getRemoteServers();
+      const results = await assignmentManager.getUnownedServers();
 
       expect(results).to.deep.equal([
         {

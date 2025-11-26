@@ -33,7 +33,7 @@ import {
 } from "../colab/headers";
 import {
   ColabAssignedServer,
-  ColabRemoteServer,
+  ColabUnownedServer,
   ColabJupyterServer,
   ColabServerDescriptor,
   DEFAULT_CPU_SERVER,
@@ -190,10 +190,10 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves the list of servers that have been created remotely (outside VS
-   * Code).
+   * Retrieves the list of servers that have been assigned outside and not owned
+   * by VS Code.
    */
-  async getRemoteServers(signal?: AbortSignal): Promise<ColabRemoteServer[]> {
+  async getUnownedServers(signal?: AbortSignal): Promise<ColabUnownedServer[]> {
     const stored = new Set(
       (await this.storage.list()).map((server) => server.endpoint),
     );
@@ -384,18 +384,18 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Unassigns the given server.
    *
-   * For VS Code initiated servers, deletes all kernel sessions for the
-   * specified server before unassigning. Only unassigns if all session
+   * For `ColabAssignedServer` assigned by VS Code, deletes all kernel sessions
+   * for the specified server before unassigning. Only unassigns if all session
    * deletions succeed.
    *
-   * For servers assigned outside VS Code, simply unassigns the server without
-   * deleting the sessions. This is because we don't have access to delete
-   * those sessions and it's not mandatory to do so.
+   * For `ColabUnownedServer` assigned outside VS Code, simply unassigns the
+   * server without deleting the sessions. This is because we don't have access
+   * to delete those sessions and it's not mandatory to do so.
    *
    * @param server - The server to remove.
    */
   async unassignServer(
-    server: ColabAssignedServer | ColabRemoteServer,
+    server: ColabAssignedServer | ColabUnownedServer,
     signal?: AbortSignal,
   ): Promise<void> {
     if (isColabAssignedServer(server)) {
