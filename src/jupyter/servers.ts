@@ -57,8 +57,5 @@ export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
 export function isInstanceOfColabAssignedServer(
   obj: object,
 ): obj is ColabAssignedServer {
-  // `connectionInformation` currently only exists in `ColabAssignedServer` but
-  // not in `ColabRemoteServer`, hence using it to identify if an object is
-  // `ColabAssignedServer`.
-  return "connectionInformation" in (obj as ColabAssignedServer);
+  return "connectionInformation" in obj;
 }
