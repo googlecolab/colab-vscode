@@ -904,7 +904,7 @@ describe("AssignmentManager", () => {
       sinon.assert.notCalled(assignmentChangeListener);
     });
 
-    describe("when VS Code server exists", () => {
+    describe("when a server created in VS Code exists", () => {
       beforeEach(async () => {
         await serverStorage.store([defaultServer]);
       });
@@ -983,7 +983,7 @@ describe("AssignmentManager", () => {
       });
     });
 
-    describe("when a remote Colab server exists", () => {
+    describe("when an unowned server exists", () => {
       it("unassigns the server", async () => {
         const remoteServer = {
           endpoint: "test-endpoint",
