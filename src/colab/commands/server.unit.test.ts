@@ -169,8 +169,10 @@ describe("Server Commands", () => {
     });
 
     it("does not open the Quick Pick when no servers are assigned", async () => {
-      assignmentManagerStub.getAssignedServers.resolves([]);
-      assignmentManagerStub.getUnownedServers.resolves([]);
+      assignmentManagerStub.getAllServers.resolves({
+        assigned: [],
+        unowned: [],
+      });
 
       await removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
 
@@ -180,16 +182,15 @@ describe("Server Commands", () => {
     describe("when servers are assigned", () => {
       it("lists mixed servers with a separator", async () => {
         const additionalVsCodeServer = { ...defaultServer, label: "bar" };
-        assignmentManagerStub.getAssignedServers.resolves([
-          defaultServer,
-          additionalVsCodeServer,
-        ]);
         const nonVsCodeServer = {
           label: "test.ipynb",
           endpoint: "test-endpoint",
           variant: Variant.DEFAULT,
         };
-        assignmentManagerStub.getUnownedServers.resolves([nonVsCodeServer]);
+        assignmentManagerStub.getAllServers.resolves({
+          assigned: [defaultServer, additionalVsCodeServer],
+          unowned: [nonVsCodeServer],
+        });
 
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
         await quickPickStub.nextShow();
@@ -216,11 +217,10 @@ describe("Server Commands", () => {
 
       it("lists VS Code servers without separator", async () => {
         const additionalVsCodeServer = { ...defaultServer, label: "bar" };
-        assignmentManagerStub.getAssignedServers.resolves([
-          defaultServer,
-          additionalVsCodeServer,
-        ]);
-        assignmentManagerStub.getUnownedServers.resolves([]);
+        assignmentManagerStub.getAllServers.resolves({
+          assigned: [defaultServer, additionalVsCodeServer],
+          unowned: [],
+        });
 
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
         await quickPickStub.nextShow();
@@ -245,8 +245,10 @@ describe("Server Commands", () => {
           endpoint: "test-endpoint",
           variant: Variant.DEFAULT,
         };
-        assignmentManagerStub.getUnownedServers.resolves([nonVsCodeServer]);
-        assignmentManagerStub.getAssignedServers.resolves([]);
+        assignmentManagerStub.getAllServers.resolves({
+          assigned: [],
+          unowned: [nonVsCodeServer],
+        });
 
         void removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
         await quickPickStub.nextShow();
@@ -264,8 +266,10 @@ describe("Server Commands", () => {
         let remove: Promise<void>;
 
         beforeEach(async () => {
-          assignmentManagerStub.getAssignedServers.resolves([defaultServer]);
-          assignmentManagerStub.getUnownedServers.resolves([]);
+          assignmentManagerStub.getAllServers.resolves({
+            assigned: [defaultServer],
+            unowned: [],
+          });
           remove = removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
           await quickPickStub.nextShow();
           quickPickStub.onDidChangeSelection.yield([

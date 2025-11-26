@@ -15,6 +15,7 @@ import fetch, {
 import vscode from "vscode";
 import {
   Assignment,
+  ListedAssignment,
   RuntimeProxyInfo,
   Variant,
   variantToMachineType,
@@ -32,12 +33,13 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from "../colab/headers";
 import {
+  AllServers,
   ColabAssignedServer,
-  UnownedServer,
   ColabJupyterServer,
   ColabServerDescriptor,
   DEFAULT_CPU_SERVER,
   isColabAssignedServer,
+  UnownedServer,
 } from "./servers";
 import { ServerStorage } from "./storage";
 
@@ -137,29 +139,8 @@ export class AssignmentManager implements vscode.Disposable {
     if (stored.length === 0) {
       return;
     }
-    const live = new Set(
-      (await this.client.listAssignments(signal)).map((a) => a.endpoint),
-    );
-    const removed: ColabAssignedServer[] = [];
-    const reconciled: ColabAssignedServer[] = [];
-    for (const s of stored) {
-      if (live.has(s.endpoint)) {
-        reconciled.push(s);
-      } else {
-        removed.push(s);
-      }
-    }
-    if (stored.length === reconciled.length) {
-      return;
-    }
-
-    await this.storage.clear();
-    await this.storage.store(reconciled);
-    await this.signalChange({
-      added: [],
-      removed: removed.map((s) => ({ server: s, userInitiated: false })),
-      changed: [],
-    });
+    const live = await this.client.listAssignments(signal);
+    await this.reconcileStoredServers(stored, live);
   }
 
   /**
@@ -190,31 +171,47 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves the list of servers that have been assigned outside and not owned
-   * by VS Code.
+   * Retrieves the list of all servers that are assigned both in and outside VS
+   * Code.
    */
-  async getUnownedServers(signal?: AbortSignal): Promise<UnownedServer[]> {
-    const stored = new Set(
-      (await this.storage.list()).map((server) => server.endpoint),
-    );
-    return Promise.all(
-      (await this.client.listAssignments(signal))
-        .filter((assignment) => !stored.has(assignment.endpoint))
-        .map(async (assignment) => {
+  async getAllServers(signal?: AbortSignal): Promise<AllServers> {
+    const allAssignments = await this.client.listAssignments(signal);
+
+    let storedServers = await this.storage.list();
+    if (storedServers.length > 0) {
+      storedServers = await this.reconcileStoredServers(
+        storedServers,
+        allAssignments,
+      );
+    }
+
+    const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
+    const unownedServers = await Promise.all(
+      allAssignments
+        .filter((a) => !storedEndpointSet.has(a.endpoint))
+        .map(async (a) => {
           // For any remote servers created in Colab web UI, assuming there is
           // only one session per assignment.
-          const sessions = await this.client.listSessions(
-            assignment.endpoint,
-            signal,
-          );
+          const sessions = await this.client.listSessions(a.endpoint, signal);
           return {
             label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
-            endpoint: assignment.endpoint,
-            variant: assignment.variant,
-            accelerator: assignment.accelerator,
+            endpoint: a.endpoint,
+            variant: a.variant,
+            accelerator: a.accelerator,
           };
         }),
     );
+
+    return {
+      assigned: storedServers.map((server) => ({
+        ...server,
+        connectionInformation: {
+          ...server.connectionInformation,
+          fetch: colabProxyFetch(server.connectionInformation.token),
+        },
+      })),
+      unowned: unownedServers,
+    };
   }
 
   /**
@@ -452,6 +449,34 @@ export class AssignmentManager implements vscode.Disposable {
       return labelBase;
     }
     return `${labelBase} (${placeholderIdx.toString()})`;
+  }
+
+  private async reconcileStoredServers(
+    storedServers: ColabAssignedServer[],
+    liveAssignments: ListedAssignment[],
+  ): Promise<ColabAssignedServer[]> {
+    const liveEndpointSet = new Set(liveAssignments.map((a) => a.endpoint));
+    const removed: ColabAssignedServer[] = [];
+    const reconciled: ColabAssignedServer[] = [];
+    for (const s of storedServers) {
+      if (liveEndpointSet.has(s.endpoint)) {
+        reconciled.push(s);
+      } else {
+        removed.push(s);
+      }
+    }
+    if (storedServers.length === reconciled.length) {
+      return reconciled;
+    }
+
+    await this.storage.clear();
+    await this.storage.store(reconciled);
+    await this.signalChange({
+      added: [],
+      removed: removed.map((s) => ({ server: s, userInitiated: false })),
+      changed: [],
+    });
+    return reconciled;
   }
 
   private async signalChange(e: AssignmentChangeEvent): Promise<void> {

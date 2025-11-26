@@ -68,8 +68,9 @@ export async function removeServer(
   assignmentManager: AssignmentManager,
   withBackButton?: boolean,
 ) {
-  const vsCodeServers = await assignmentManager.getAssignedServers();
-  const nonVsCodeServers = await assignmentManager.getUnownedServers();
+  const allServers = await assignmentManager.getAllServers();
+  const vsCodeServers = allServers.assigned;
+  const nonVsCodeServers = allServers.unowned;
   if (vsCodeServers.length === 0 && nonVsCodeServers.length === 0) {
     return;
   }

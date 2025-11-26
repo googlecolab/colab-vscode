@@ -482,7 +482,7 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("getUnownedServers", () => {
+  describe("getAllServers", () => {
     const endpointWithName = "test-endpoint-with-name";
     const endpointWithoutName = "test-endpoint-without-name";
     const endpointWithoutSession = "test-endpoint-without-session";
@@ -538,19 +538,22 @@ describe("AssignmentManager", () => {
         .resolves([]);
     });
 
-    it("returns all assignments when no server is assigned in VS Code", async () => {
-      const results = await assignmentManager.getUnownedServers();
+    it("returns both assigned and unowned servers", async () => {
+      const assignedServer = {
+        ...defaultServer,
+        endpoint: endpointWithoutName,
+      };
+      await serverStorage.store([assignedServer]);
 
-      expect(results).to.deep.equal([
+      const results = await assignmentManager.getAllServers();
+
+      expect(stripFetches([...results.assigned])).to.deep.equal([
+        assignedServer,
+      ]);
+      expect(results.unowned).to.deep.equal([
         {
           label: "test-session-name",
           endpoint: endpointWithName,
-          variant: Variant.DEFAULT,
-          accelerator: "",
-        },
-        {
-          label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
-          endpoint: endpointWithoutName,
           variant: Variant.DEFAULT,
           accelerator: "",
         },
@@ -563,27 +566,78 @@ describe("AssignmentManager", () => {
       ]);
     });
 
-    it("returns only assignments assigned outside VS Code", async () => {
+    it("returns only unowned servers when no server is assigned in VS Code", async () => {
+      const results = await assignmentManager.getAllServers();
+
+      expect(results).to.deep.equal({
+        assigned: [],
+        unowned: [
+          {
+            label: "test-session-name",
+            endpoint: endpointWithName,
+            variant: Variant.DEFAULT,
+            accelerator: "",
+          },
+          {
+            label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+            endpoint: endpointWithoutName,
+            variant: Variant.DEFAULT,
+            accelerator: "",
+          },
+          {
+            label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+            endpoint: endpointWithoutSession,
+            variant: Variant.DEFAULT,
+            accelerator: "",
+          },
+        ],
+      });
+    });
+
+    it("returns only assigned servers when no server is unowned", async () => {
+      const assignedServer1 = {
+        ...defaultServer,
+        endpoint: endpointWithName,
+      };
+      const assignedServer2 = {
+        ...defaultServer,
+        endpoint: endpointWithoutName,
+      };
+      const assignedServer3 = {
+        ...defaultServer,
+        endpoint: endpointWithoutSession,
+      };
       await serverStorage.store([
-        {
-          ...defaultServer,
-          endpoint: endpointWithoutName,
-        },
-        {
-          ...defaultServer,
-          endpoint: endpointWithoutSession,
-        },
+        assignedServer1,
+        assignedServer2,
+        assignedServer3,
       ]);
 
-      const results = await assignmentManager.getUnownedServers();
+      const results = await assignmentManager.getAllServers();
 
-      expect(results).to.deep.equal([
-        {
-          label: "test-session-name",
-          endpoint: endpointWithName,
-          variant: Variant.DEFAULT,
-          accelerator: "",
-        },
+      expect(stripFetches([...results.assigned])).to.deep.equal([
+        assignedServer1,
+        assignedServer2,
+        assignedServer3,
+      ]);
+      expect(results.unowned).to.be.empty;
+    });
+
+    it("reconciles assigned servers before returning", async () => {
+      const assignedServer = {
+        ...defaultServer,
+        endpoint: endpointWithoutName,
+      };
+      const noLongerAssignedServer = {
+        ...defaultServer,
+        endpoint: "no-longer-assigned",
+      };
+      await serverStorage.store([assignedServer, noLongerAssignedServer]);
+
+      const results = await assignmentManager.getAllServers();
+
+      expect(stripFetches([...results.assigned])).to.deep.equal([
+        assignedServer,
       ]);
     });
   });

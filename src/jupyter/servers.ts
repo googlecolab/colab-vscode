@@ -31,11 +31,6 @@ export interface ColabJupyterServer
   readonly id: UUID;
 }
 
-/** A Colab server assigned outside and not owned by VS Code. */
-export interface UnownedServer extends ColabServerDescriptor {
-  readonly endpoint: string;
-}
-
 /**
  * A Colab Jupyter server which has been assigned in and owned by VS Code, thus
  * including the required connection information.
@@ -49,11 +44,25 @@ export type ColabAssignedServer = ColabJupyterServer & {
   readonly dateAssigned: Date;
 };
 
+export function isColabAssignedServer(obj: object): obj is ColabAssignedServer {
+  return "connectionInformation" in obj;
+}
+
 export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
   label: "Colab CPU",
   variant: Variant.DEFAULT,
 };
 
-export function isColabAssignedServer(obj: object): obj is ColabAssignedServer {
-  return "connectionInformation" in obj;
+/** A Colab server assigned outside and not owned by VS Code. */
+export interface UnownedServer extends ColabServerDescriptor {
+  readonly endpoint: string;
+}
+
+/** Consists of all servers that are assigned in and outside VS Code. */
+export interface AllServers {
+  /** Servers assigned in VS Code. */
+  readonly assigned: readonly ColabAssignedServer[];
+
+  /** Servers assigned outside and not owned by VS Code. */
+  readonly unowned: readonly UnownedServer[];
 }
