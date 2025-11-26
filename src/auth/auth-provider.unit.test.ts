@@ -18,7 +18,11 @@ import {
 import { Toggleable } from "../common/toggleable";
 import { PROVIDER_ID } from "../config/constants";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { GoogleAuthProvider, REQUIRED_SCOPES } from "./auth-provider";
+import {
+  AuthChangeEvent,
+  GoogleAuthProvider,
+  REQUIRED_SCOPES,
+} from "./auth-provider";
 import { Credentials } from "./login";
 import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
 
@@ -80,9 +84,7 @@ describe("GoogleAuthProvider", () => {
    * compromise, but it seems like the best middle ground.
    */
   let oauth2Client: OAuth2Client;
-  let onDidChangeSessionsStub: sinon.SinonStub<
-    [vscode.AuthenticationProviderAuthenticationSessionsChangeEvent]
-  >;
+  let onDidChangeSessionsStub: sinon.SinonStub<[AuthChangeEvent]>;
   let authProvider: GoogleAuthProvider;
 
   function signedInContextCalledWith(): Promise<boolean> {
@@ -230,6 +232,7 @@ describe("GoogleAuthProvider", () => {
             added: [],
             removed: [],
             changed: [DEFAULT_AUTH_SESSION],
+            hasValidSession: true,
           });
         });
 
@@ -635,6 +638,7 @@ describe("GoogleAuthProvider", () => {
           added: [newSession],
           removed: [],
           changed: [],
+          hasValidSession: true,
         });
         await expect(signedInContext).to.eventually.be.true;
       });
@@ -652,6 +656,7 @@ describe("GoogleAuthProvider", () => {
           added: [],
           removed: [],
           changed: [session],
+          hasValidSession: true,
         });
       });
     });
@@ -735,6 +740,7 @@ describe("GoogleAuthProvider", () => {
           added: [],
           removed: [session[0]],
           changed: [],
+          hasValidSession: false,
         });
       });
     });

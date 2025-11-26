@@ -8,7 +8,15 @@ import { GaxiosError } from "gaxios";
 import { OAuth2Client } from "google-auth-library";
 import fetch from "node-fetch";
 import { v4 as uuid } from "uuid";
-import vscode, { AuthenticationSession, Disposable } from "vscode";
+import vscode, {
+  AuthenticationProvider,
+  AuthenticationProviderAuthenticationSessionsChangeEvent,
+  AuthenticationProviderSessionOptions,
+  AuthenticationSession,
+  Disposable,
+  Event,
+  EventEmitter,
+} from "vscode";
 import { z } from "zod";
 import { AUTHORIZATION_HEADER } from "../colab/headers";
 import { log } from "../common/logging";
@@ -25,6 +33,11 @@ const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 
+export interface AuthChangeEvent
+  extends AuthenticationProviderAuthenticationSessionsChangeEvent {
+  hasValidSession: boolean;
+}
+
 /**
  * Provides authentication using Google OAuth2.
  *
@@ -34,13 +47,11 @@ const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
  * Session access tokens are refreshed JIT upon access if they are near or past
  * their expiry.
  */
-export class GoogleAuthProvider
-  implements vscode.AuthenticationProvider, vscode.Disposable
-{
-  readonly onDidChangeSessions: vscode.Event<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
+export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
+  readonly onDidChangeSessions: Event<AuthChangeEvent>;
   private isInitialized = false;
-  private readonly authProvider: vscode.Disposable;
-  private readonly emitter: vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>;
+  private readonly authProvider: Disposable;
+  private readonly emitter: EventEmitter<AuthChangeEvent>;
   private session?: Readonly<AuthenticationSession>;
   private readonly disposeController = new AbortController();
   private readonly disposeSignal: AbortSignal = this.disposeController.signal;
@@ -62,8 +73,7 @@ export class GoogleAuthProvider
     private readonly oAuth2Client: OAuth2Client,
     private readonly login: (scopes: string[]) => Promise<Credentials>,
   ) {
-    this.emitter =
-      new vs.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
+    this.emitter = new vs.EventEmitter<AuthChangeEvent>();
     this.onDidChangeSessions = this.emitter.event;
 
     this.authProvider = this.vs.authentication.registerAuthenticationProvider(
@@ -86,7 +96,7 @@ export class GoogleAuthProvider
    */
   static async getOrCreateSession(
     vs: typeof vscode,
-  ): Promise<vscode.AuthenticationSession> {
+  ): Promise<AuthenticationSession> {
     const session = await vs.authentication.getSession(
       PROVIDER_ID,
       REQUIRED_SCOPES,
@@ -170,6 +180,7 @@ export class GoogleAuthProvider
       added: [],
       removed: [],
       changed: [this.session],
+      hasValidSession: !!this.session,
     });
   }
 
@@ -212,8 +223,8 @@ export class GoogleAuthProvider
    */
   async getSessions(
     scopes: readonly string[] | undefined,
-    options: vscode.AuthenticationProviderSessionOptions,
-  ): Promise<vscode.AuthenticationSession[]> {
+    options: AuthenticationProviderSessionOptions,
+  ): Promise<AuthenticationSession[]> {
     this.assertReady();
     if (scopes && !matchesRequiredScopes(scopes)) {
       return [];
@@ -233,7 +244,7 @@ export class GoogleAuthProvider
    * @returns The created session.
    * @throws An error if login fails.
    */
-  async createSession(scopes: string[]): Promise<vscode.AuthenticationSession> {
+  async createSession(scopes: string[]): Promise<AuthenticationSession> {
     this.assertReady();
     try {
       const sortedScopes = scopes.sort();
@@ -268,12 +279,14 @@ export class GoogleAuthProvider
           added: [],
           removed: [],
           changed: [this.session],
+          hasValidSession: !!this.session,
         });
       } else {
         this.emitter.fire({
           added: [this.session],
           removed: [],
           changed: [],
+          hasValidSession: !!this.session,
         });
       }
       this.vs.window.showInformationMessage("Signed in to Google!");
@@ -312,6 +325,7 @@ export class GoogleAuthProvider
       added: [],
       removed: [removedSession],
       changed: [],
+      hasValidSession: !!this.session,
     });
   }
 
