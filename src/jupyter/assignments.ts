@@ -152,7 +152,7 @@ export class AssignmentManager implements vscode.Disposable {
 
     await this.storage.clear();
     await this.storage.store(reconciled);
-    await this.signalChange({
+    this.assignmentChange.fire({
       added: [],
       removed: removed.map((s) => ({ server: s, userInitiated: false })),
       changed: [],
@@ -254,7 +254,7 @@ export class AssignmentManager implements vscode.Disposable {
       new Date(),
     );
     await this.storage.store([server]);
-    await this.signalChange({
+    this.assignmentChange.fire({
       added: [server],
       removed: [],
       changed: [],
@@ -330,26 +330,13 @@ export class AssignmentManager implements vscode.Disposable {
       server.dateAssigned,
     );
     await this.storage.store([updatedServer]);
-    await this.signalChange({
+    this.assignmentChange.fire({
       added: [],
       removed: [],
       changed: [updatedServer],
     });
     return updatedServer;
   }
-
-  /**
-   * Sets a context key indicating whether or not the user has at least one
-   * assigned server originating from VS Code.
-   */
-  async setHasAssignedServerContext(signal?: AbortSignal): Promise<void> {
-    await this.vs.commands.executeCommand(
-      "setContext",
-      "colab.hasAssignedServer",
-      await this.hasAssignedServer(signal),
-    );
-  }
-
   /**
    * Unassigns the given server.
    *
@@ -366,7 +353,7 @@ export class AssignmentManager implements vscode.Disposable {
     if (!removed) {
       return;
     }
-    await this.signalChange({
+    this.assignmentChange.fire({
       added: [],
       removed: [{ server, userInitiated: true }],
       changed: [],
@@ -413,13 +400,6 @@ export class AssignmentManager implements vscode.Disposable {
       return labelBase;
     }
     return `${labelBase} (${placeholderIdx.toString()})`;
-  }
-
-  private async signalChange(e: AssignmentChangeEvent): Promise<void> {
-    // Since signalling a change happens after the change was actually
-    // committed, we don't specify an abort signal.
-    await this.setHasAssignedServerContext();
-    this.assignmentChange.fire(e);
   }
 
   private toAssignedServer(
