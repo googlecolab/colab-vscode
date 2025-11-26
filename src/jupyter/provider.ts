@@ -12,8 +12,9 @@ import {
   JupyterServerCommandProvider,
   JupyterServerProvider,
 } from "@vscode/jupyter-extension";
-import { CancellationToken, Disposable, ProviderResult } from "vscode";
+import { CancellationToken, Disposable, Event, ProviderResult } from "vscode";
 import vscode from "vscode";
+import { AuthChangeEvent } from "../auth/auth-provider";
 import { SubscriptionTier } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
@@ -25,9 +26,9 @@ import {
 } from "../colab/commands/constants";
 import { openColabSignup, openColabWeb } from "../colab/commands/external";
 import { ServerPicker } from "../colab/server-picker";
+import { LatestCancelable } from "../common/async";
 import { traceMethod } from "../common/logging/decorators";
 import { InputFlowAction } from "../common/multi-step-quickpick";
-import { Toggleable } from "../common/toggleable";
 import { isUUID } from "../utils/uuid";
 import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 
@@ -49,10 +50,14 @@ export class ColabJupyterServerProvider
   private readonly serverChangeEmitter: vscode.EventEmitter<void>;
   private isAuthorized = false;
   private authorizedListener: Disposable;
+  private setServerContextRunner = new LatestCancelable(
+    "hasAssignedServer",
+    this.setHasAssignedServerContext.bind(this),
+  );
 
   constructor(
     private readonly vs: typeof vscode,
-    whileAuthorized: (...toggles: Toggleable[]) => Disposable,
+    authEvent: Event<AuthChangeEvent>,
     private readonly assignmentManager: AssignmentManager,
     private readonly client: ColabClient,
     private readonly serverPicker: ServerPicker,
@@ -60,11 +65,9 @@ export class ColabJupyterServerProvider
   ) {
     this.serverChangeEmitter = new this.vs.EventEmitter<void>();
     this.onDidChangeServers = this.serverChangeEmitter.event;
+    this.authorizedListener = authEvent(this.handleAuthChange.bind(this));
     this.assignmentManager.onDidAssignmentsChange(
       this.handleAssignmentsChange.bind(this),
-    );
-    this.authorizedListener = whileAuthorized(
-      this.toggleAuthorizationState.bind(this)(),
     );
     this.serverCollection = jupyter.createJupyterServerCollection(
       "colab",
@@ -200,26 +203,6 @@ export class ColabJupyterServerProvider
     }
   }
 
-  private toggleAuthorizationState(): Toggleable {
-    const toggle = (to: boolean) => {
-      const didChange = this.isAuthorized !== to;
-      if (!didChange) {
-        return;
-      }
-      this.isAuthorized = to;
-      this.serverChangeEmitter.fire();
-    };
-
-    return {
-      on: () => {
-        toggle(true);
-      },
-      off: () => {
-        toggle(false);
-      },
-    };
-  }
-
   private async assignServer(): Promise<JupyterServer> {
     const serverType = await this.serverPicker.prompt(
       await this.assignmentManager.getAvailableServerDescriptors(),
@@ -230,6 +213,33 @@ export class ColabJupyterServerProvider
     return this.assignmentManager.assignServer(serverType);
   }
 
+  /**
+   * Sets a context key indicating whether or not the user has at least one
+   * assigned server originating from VS Code. Set to false when not authorized
+   * since we can't determine if servers exist or not.
+   */
+  private async setHasAssignedServerContext(
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const value = this.isAuthorized
+      ? await this.assignmentManager.hasAssignedServer(signal)
+      : false;
+    await this.vs.commands.executeCommand(
+      "setContext",
+      "colab.hasAssignedServer",
+      value,
+    );
+  }
+
+  private handleAuthChange(e: AuthChangeEvent): void {
+    if (this.isAuthorized === e.hasValidSession) {
+      return;
+    }
+    this.isAuthorized = e.hasValidSession;
+    this.serverChangeEmitter.fire();
+    void this.setServerContextRunner.run();
+  }
+
   private handleAssignmentsChange(e: AssignmentChangeEvent): void {
     const externalRemovals = e.removed.filter((s) => !s.userInitiated);
     for (const { server: s } of externalRemovals) {
@@ -238,5 +248,6 @@ export class ColabJupyterServerProvider
       );
     }
     this.serverChangeEmitter.fire();
+    void this.setServerContextRunner.run();
   }
 }
