@@ -486,26 +486,24 @@ describe("AssignmentManager", () => {
     const endpointWithName = "test-endpoint-with-name";
     const endpointWithoutName = "test-endpoint-without-name";
     const endpointWithoutSession = "test-endpoint-without-session";
-    const allAssignments = [
-      {
-        endpoint: endpointWithName,
-        variant: Variant.DEFAULT,
-        machineShape: Shape.STANDARD,
-        accelerator: "",
-      },
-      {
-        endpoint: endpointWithoutName,
-        variant: Variant.DEFAULT,
-        machineShape: Shape.STANDARD,
-        accelerator: "",
-      },
-      {
-        endpoint: endpointWithoutSession,
-        variant: Variant.DEFAULT,
-        machineShape: Shape.STANDARD,
-        accelerator: "",
-      },
-    ];
+    const assignmentWithName = {
+      endpoint: endpointWithName,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      accelerator: "",
+    };
+    const assignmentWithoutName = {
+      endpoint: endpointWithoutName,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      accelerator: "",
+    };
+    const assignmentWithoutSession = {
+      endpoint: endpointWithoutSession,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      accelerator: "",
+    };
     const defaultSession = {
       id: "",
       path: "",
@@ -519,26 +517,21 @@ describe("AssignmentManager", () => {
       },
     };
 
-    beforeEach(() => {
-      colabClientStub.listAssignments.resolves(allAssignments);
+    it("returns both assigned and unowned servers", async () => {
+      colabClientStub.listAssignments.resolves([
+        assignmentWithName,
+        assignmentWithoutName,
+        assignmentWithoutSession,
+      ]);
       colabClientStub.listSessions.withArgs(endpointWithName).resolves([
         {
           ...defaultSession,
           name: "test-session-name",
         },
       ]);
-      colabClientStub.listSessions.withArgs(endpointWithoutName).resolves([
-        {
-          ...defaultSession,
-          name: "",
-        },
-      ]);
       colabClientStub.listSessions
         .withArgs(endpointWithoutSession)
         .resolves([]);
-    });
-
-    it("returns both assigned and unowned servers", async () => {
       const assignedServer = {
         ...defaultServer,
         endpoint: endpointWithoutName,
@@ -567,6 +560,28 @@ describe("AssignmentManager", () => {
     });
 
     it("returns only unowned servers when no server is assigned in VS Code", async () => {
+      colabClientStub.listAssignments.resolves([
+        assignmentWithName,
+        assignmentWithoutName,
+        assignmentWithoutSession,
+      ]);
+      colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+        {
+          ...defaultSession,
+          name: "test-session-name",
+        },
+      ]);
+      colabClientStub.listSessions.withArgs(endpointWithoutName).resolves([
+        {
+          ...defaultSession,
+          name: "",
+        },
+      ]);
+      colabClientStub.listSessions
+        .withArgs(endpointWithoutSession)
+        .resolves([]);
+      await serverStorage.store([]);
+
       const results = await assignmentManager.getAllServers();
 
       expect(results).to.deep.equal({
@@ -595,6 +610,11 @@ describe("AssignmentManager", () => {
     });
 
     it("returns only assigned servers when no server is unowned", async () => {
+      colabClientStub.listAssignments.resolves([
+        assignmentWithName,
+        assignmentWithoutName,
+        assignmentWithoutSession,
+      ]);
       const assignedServer1 = {
         ...defaultServer,
         endpoint: endpointWithName,
@@ -624,9 +644,10 @@ describe("AssignmentManager", () => {
     });
 
     it("reconciles assigned servers before returning", async () => {
+      colabClientStub.listAssignments.resolves([assignmentWithName]);
       const assignedServer = {
         ...defaultServer,
-        endpoint: endpointWithoutName,
+        endpoint: endpointWithName,
       };
       const noLongerAssignedServer = {
         ...defaultServer,
