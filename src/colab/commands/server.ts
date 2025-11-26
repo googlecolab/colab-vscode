@@ -7,7 +7,7 @@
 import vscode, { QuickPickItem } from "vscode";
 import { MultiStepInput } from "../../common/multi-step-quickpick";
 import { AssignmentManager } from "../../jupyter/assignments";
-import { ColabAssignedServer, ColabUnownedServer } from "../../jupyter/servers";
+import { ColabAssignedServer, UnownedServer } from "../../jupyter/servers";
 import { ServerStorage } from "../../jupyter/storage";
 import { PROMPT_SERVER_ALIAS, validateServerAlias } from "../server-picker";
 import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from "./constants";
@@ -119,7 +119,7 @@ enum ServerCategory {
 }
 
 interface RemoveServerItem extends QuickPickItem {
-  value?: ColabAssignedServer | ColabUnownedServer;
+  value?: ColabAssignedServer | UnownedServer;
 }
 
 export const TEST_ONLY = {

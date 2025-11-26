@@ -32,7 +32,7 @@ export interface ColabJupyterServer
 }
 
 /** A Colab server assigned outside and not owned by VS Code. */
-export interface ColabUnownedServer extends ColabServerDescriptor {
+export interface UnownedServer extends ColabServerDescriptor {
   readonly endpoint: string;
 }
 

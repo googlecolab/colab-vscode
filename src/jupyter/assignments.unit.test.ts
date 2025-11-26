@@ -909,7 +909,7 @@ describe("AssignmentManager", () => {
     });
 
     describe("when a remote Colab server exists", () => {
-      it("unassigns server", async () => {
+      it("unassigns the server", async () => {
         const remoteServer = {
           endpoint: "test-endpoint",
           label: "name",
