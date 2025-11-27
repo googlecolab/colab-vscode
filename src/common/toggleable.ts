@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Disposable } from "vscode";
-import { log } from "./logging";
+import { LatestCancelable } from "./async";
 
 /**
  * An entity which can be turned "on" and "off".
@@ -22,82 +21,41 @@ export interface Toggleable {
   off(): void;
 }
 
+type ToggleDirection = Lowercase<keyof Toggleable>;
+
 /**
- * Manages a resource that is created asynchronously and can be turned on and
- * off. It handles the race condition between initialization and toggling on and
- * off.
+ * Manages toggling on and off asynchronously.
+ *
+ * Derived classes are responsible for object lifecycle of any resources created
+ * when toggling.
  */
-export abstract class AsyncToggleable<T extends Disposable>
-  implements Toggleable, Disposable
-{
-  private resource: T | undefined = undefined;
-  private inFlightTurnOn: AbortController | undefined;
-  protected initializationComplete: Promise<void> | undefined;
-
-  /**
-   * The asynchronous operation that creates and initializes the resource.
-   * @param signal - Aborts if off is called during initialization.
-   */
-  protected abstract initialize(signal: AbortSignal): Promise<T>;
-
-  /**
-   * Toggles the component on by initializing the resource.
-   * No-ops if already on.
-   * If `off()` is called during initialization, it is aborted.
-   */
-  on() {
-    if (this.inFlightTurnOn) {
-      return;
-    }
-    this.inFlightTurnOn = new AbortController();
-    this.initializationComplete = this.doInit(this.inFlightTurnOn.signal);
-  }
-
-  /**
-   * Turns the component off.
-   * If initialization is in progress, it aborts it.
-   * Any existing resource is disposed.
-   */
-  off() {
-    if (this.inFlightTurnOn) {
-      this.inFlightTurnOn.abort(
-        new Error(
-          `${this.constructor.name} turned off while it was turning on`,
-        ),
-      );
-      this.inFlightTurnOn = undefined;
-    }
-    this.resource?.dispose();
-    this.resource = undefined;
-  }
-
-  /**
-   * Disposes the component by turning it off.
-   */
-  dispose() {
-    this.off();
-  }
-
-  private async doInit(signal: AbortSignal): Promise<void> {
-    try {
-      const resource = await this.initialize(signal);
-      if (!this.inFlightTurnOn || signal.aborted) {
-        log.trace(
-          `Initialization of ${this.constructor.name} aborted, disposing resource`,
-        );
-        resource.dispose();
+export abstract class AsyncToggle implements Toggleable {
+  private lastToggle?: "on" | "off";
+  private runner = new LatestCancelable<[ToggleDirection]>(
+    "AsyncToggle",
+    async (to, signal) => {
+      if (this.lastToggle === to) {
         return;
       }
-      this.resource = resource;
-    } catch (err: unknown) {
-      if (!this.inFlightTurnOn || signal.aborted) {
-        log.trace(`Initialization of ${this.constructor.name} aborted`, err);
-      } else {
-        log.error(`Unable to initialize ${this.constructor.name}`, err);
+      this.lastToggle = to;
+      switch (to) {
+        case "on":
+          await this.turnOn(signal);
+          break;
+        case "off":
+          await this.turnOff(signal);
+          break;
       }
-      throw err;
-    } finally {
-      this.inFlightTurnOn = undefined;
-    }
+    },
+  );
+
+  on(): void {
+    void this.runner.run("on");
   }
+  off(): void {
+    void this.runner.run("off");
+  }
+
+  protected abstract turnOn(signal: AbortSignal): Promise<void>;
+  protected abstract turnOff(signal: AbortSignal): Promise<void>;
 }

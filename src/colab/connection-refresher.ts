@@ -7,7 +7,7 @@
 import { UUID } from "crypto";
 import { Disposable } from "vscode";
 import { log } from "../common/logging";
-import { AsyncToggleable } from "../common/toggleable";
+import { AsyncToggle } from "../common/toggleable";
 import {
   AssignmentChangeEvent,
   AssignmentManager,
@@ -27,13 +27,49 @@ const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes.
  */
 const RETRY_BUFFER_MS = 30 * 1000; // 30 seconds.
 
-export class ConnectionRefreshController extends AsyncToggleable<ConnectionRefresher> {
+/**
+ * Controls toggling the refreshing of connections.
+ */
+export class ConnectionRefreshController
+  extends AsyncToggle
+  implements Disposable
+{
+  private refresher?: ConnectionRefresher;
+
   constructor(private readonly assignments: AssignmentManager) {
     super();
   }
 
-  protected initialize(signal: AbortSignal): Promise<ConnectionRefresher> {
-    return ConnectionRefresher.initialize(this.assignments, signal);
+  dispose() {
+    // Called not only to reduce duplicate logic, but more importantly to avoid
+    // a memory leak if `dispose()` is called while `turnOn` is in progress. In
+    // that case, the `refresher` would not yet be assigned, `dispose` would do
+    // nothing and the `turnOn` operation would complete - leaving an undisposed
+    // refresher.
+    this.off();
+  }
+
+  protected override async turnOn(signal: AbortSignal): Promise<void> {
+    const refresher = await ConnectionRefresher.initialize(
+      this.assignments,
+      signal,
+    );
+
+    // If signalled to abort during initialization, dispose the newly created
+    // refresher.
+    if (signal.aborted) {
+      refresher.dispose();
+      return;
+    }
+
+    this.refresher?.dispose();
+    this.refresher = refresher;
+  }
+
+  protected override turnOff(_signal: AbortSignal): Promise<void> {
+    this.refresher?.dispose();
+    this.refresher = undefined;
+    return Promise.resolve();
   }
 }
 

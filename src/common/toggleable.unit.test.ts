@@ -4,199 +4,176 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
 import sinon from "sinon";
-import { Disposable } from "vscode";
+import { ControllableAsyncToggle, Deferred } from "../test/helpers/async";
 import { ColabLogWatcher } from "../test/helpers/logging";
 import { newVsCodeStub } from "../test/helpers/vscode";
 import { LogLevel } from "./logging";
-import { AsyncToggleable } from "./toggleable";
+import { AsyncToggle } from "./toggleable";
 
-interface TestInitialization {
-  started: Promise<void>;
-  resolve: (disposable: Disposable) => void;
-  reject: (reason: unknown) => void;
-  aborted: Promise<void>;
-}
+/**
+ * A derived class with the abstract methods of the SUT (AsyncToggle) stubbed.
+ */
+class TestToggle extends AsyncToggle {
+  readonly turnOnStub: sinon.SinonStub<[AbortSignal], Promise<void>> =
+    sinon.stub();
+  readonly turnOffStub: sinon.SinonStub<[AbortSignal], Promise<void>> =
+    sinon.stub();
 
-class TestToggleable extends AsyncToggleable<Disposable> {
-  readonly initializeStub = sinon.stub<[AbortSignal], Promise<Disposable>>();
-  // Promote to public for async hooks in tests.
-  declare initializationComplete;
+  override turnOn = this.turnOnStub;
+  override turnOff = this.turnOffStub;
 
-  nextInitialization(): TestInitialization {
-    let abortResolver: () => void;
-    const aborted = new Promise<void>((resolve) => {
-      abortResolver = resolve;
-    });
-
-    const callIndex = this.initializeStub.callCount;
-    let resolveInit: (disposable: Disposable) => void = () => {
-      throw new Error("Test setup error: cannot resolve before start");
-    };
-    let rejectInit: (reason: unknown) => void = () => {
-      throw new Error("Test setup error: cannot reject before start");
-    };
-
-    const started = new Promise<void>((resolveStarted) => {
-      this.initializeStub.onCall(callIndex).callsFake((signal) => {
-        signal.addEventListener("abort", () => {
-          abortResolver();
-        });
-
-        return new Promise<Disposable>((res, rej) => {
-          resolveInit = res;
-          rejectInit = rej;
-          resolveStarted();
-        });
+  /**
+   * Gate the completion of the asynchronous `turnOn` or `turnOff` method.
+   *
+   * @param turning - the direction to gate.
+   */
+  gate(
+    turning: "turnOn" | "turnOff",
+    call: number,
+  ): { resolve: () => void; aborted: Promise<void> } {
+    const turn = turning === "turnOn" ? this.turnOnStub : this.turnOffStub;
+    const d = new Deferred<void>();
+    const aborted = new Deferred<void>();
+    turn.onCall(call).callsFake(async (signal: AbortSignal) => {
+      signal.addEventListener("abort", () => {
+        aborted.resolve();
       });
+      if (signal.aborted) {
+        aborted.resolve();
+      }
+      await d.promise;
     });
-
-    return {
-      started,
-      resolve: (disposable) => {
-        resolveInit(disposable);
-      },
-      reject: (reason) => {
-        rejectInit(reason);
-      },
-      aborted,
-    };
-  }
-
-  protected initialize(signal: AbortSignal): Promise<Disposable> {
-    return this.initializeStub(signal);
+    return { resolve: d.resolve, aborted: aborted.promise };
   }
 }
 
-describe("AsyncToggleable", () => {
+describe("AsyncToggle", () => {
   let logs: ColabLogWatcher;
-  let toggleable: TestToggleable;
-  let stubResource: { dispose: sinon.SinonStub<[]> };
+  let toggle: TestToggle;
+  let toggleSpy: ControllableAsyncToggle;
 
   beforeEach(() => {
     logs = new ColabLogWatcher(newVsCodeStub(), LogLevel.Trace);
-    toggleable = new TestToggleable();
-    stubResource = {
-      dispose: sinon.stub(),
-    };
+    toggle = new TestToggle();
+    toggleSpy = new ControllableAsyncToggle(toggle);
+    toggle.turnOnStub.resolves();
+    toggle.turnOffStub.resolves();
   });
 
   afterEach(() => {
-    toggleable.dispose();
     logs.dispose();
   });
 
   describe("on", () => {
-    it("should initialize the resource when called", async () => {
-      const init = toggleable.nextInitialization();
+    it("should turn on when called", async () => {
+      toggle.on();
 
-      toggleable.on();
-
-      await expect(init.started).to.eventually.be.fulfilled;
-      init.resolve(stubResource);
-      await expect(toggleable.initializationComplete).to.eventually.be
-        .fulfilled;
+      await toggleSpy.turnOn.call(0).waitForCompletion();
     });
 
-    it("should not re-initialize if called while already turning on", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
+    it("should not turn on if already turning on", async () => {
+      const first = toggle.gate("turnOn", 0);
+      toggle.on();
+      await toggleSpy.turnOn.call(0).waitForStart();
 
-      toggleable.on();
+      toggle.on();
+      await first.aborted;
 
-      sinon.assert.calledOnce(toggleable.initializeStub);
-      init.resolve(stubResource);
-      await expect(toggleable.initializationComplete).to.eventually.be
-        .fulfilled;
+      sinon.assert.calledOnce(toggle.turnOnStub);
     });
 
-    it("should cancel initialization if off is called", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
+    it("should not turn on if already on", async () => {
+      toggle.on();
+      await toggleSpy.turnOn.call(0).waitForCompletion();
 
-      toggleable.off();
+      toggle.on();
+      // Fire a different event and wait for it to complete to ensure
+      // the no-op had a chance to run.
+      toggle.off();
+      await toggleSpy.turnOff.call(0).waitForCompletion();
 
-      await expect(init.aborted).to.eventually.be.fulfilled;
-      // Resolving the promise should result in the resource being disposed.
-      init.resolve(stubResource);
-      await expect(toggleable.initializationComplete).to.eventually.be
-        .fulfilled;
-      sinon.assert.calledOnce(stubResource.dispose);
+      sinon.assert.calledOnce(toggle.turnOnStub);
     });
 
-    it("should handle initialization failure gracefully", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
+    it("should be cancelled if off is called", async () => {
+      const turnOn = toggle.gate("turnOn", 0);
+      toggle.on();
+      await toggleSpy.turnOn.call(0).waitForStart();
 
-      init.reject(new Error("🤮"));
+      toggle.off();
+      await turnOn.aborted;
+      turnOn.resolve();
 
-      await expect(toggleable.initializationComplete).to.eventually.be.rejected;
-      expect(logs.output).to.match(/initialize/);
-      // Verify it can be turned on again
-      const secondInit = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(secondInit.started).to.eventually.be.fulfilled;
-    });
-
-    it("should handle cancellation before a failure", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
-
-      toggleable.off();
-      await expect(init.aborted).to.eventually.be.fulfilled;
-
-      init.reject(new Error("🤮"));
-
-      await expect(toggleable.initializationComplete).to.eventually.be.rejected;
-      // It should be treated as an abort, not an error
-      expect(logs.output).to.match(/Initialization.+aborted/);
-      expect(logs.output).to.not.match(/Unable to initialize/);
+      await toggleSpy.turnOff.call(0).waitForCompletion();
     });
   });
 
   describe("off", () => {
-    it("should dispose the resource when called", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
-      init.resolve(stubResource);
-      await expect(toggleable.initializationComplete).to.eventually.be
-        .fulfilled;
-      sinon.assert.notCalled(stubResource.dispose);
+    it("should turn off when called", async () => {
+      toggle.off();
 
-      toggleable.off();
-
-      sinon.assert.calledOnce(stubResource.dispose);
+      await toggleSpy.turnOff.call(0).waitForCompletion();
     });
 
-    it("should abort in-flight initialization if called when toggling on", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
+    it("should not turn off if already turning off", async () => {
+      const first = toggle.gate("turnOff", 0);
+      toggle.off();
+      await toggleSpy.turnOff.call(0).waitForStart();
 
-      toggleable.off();
+      toggle.off();
+      await first.aborted;
 
-      await expect(init.aborted).to.eventually.be.fulfilled;
+      sinon.assert.calledOnce(toggle.turnOffStub);
+    });
+
+    it("should not turn off if already off", async () => {
+      toggle.off();
+      await toggleSpy.turnOff.call(0).waitForCompletion();
+
+      toggle.off();
+      // Fire a different event and wait for it to complete to ensure
+      // the no-op had a chance to run.
+      toggle.on();
+      await toggleSpy.turnOn.call(0).waitForCompletion();
+
+      sinon.assert.calledOnce(toggle.turnOffStub);
+    });
+
+    it("should be cancelled if on is called", async () => {
+      const turnOff = toggle.gate("turnOff", 0);
+      toggle.off();
+      await toggleSpy.turnOff.call(0).waitForStart();
+
+      toggle.on();
+      await turnOff.aborted;
+      turnOff.resolve();
+
+      await toggleSpy.turnOn.call(0).waitForCompletion();
     });
   });
 
-  describe("dispose", () => {
-    it("should dispose the resource", async () => {
-      const init = toggleable.nextInitialization();
-      toggleable.on();
-      await expect(init.started).to.eventually.be.fulfilled;
-      init.resolve(stubResource);
-      await expect(toggleable.initializationComplete).to.eventually.be
-        .fulfilled;
+  it("should handle rapid toggling", async () => {
+    // Start toggling on but gate it from completing.
+    const turnOn1 = toggle.gate("turnOn", 0);
+    toggle.on();
+    await toggleSpy.turnOn.call(0).waitForStart();
 
-      toggleable.off();
+    // Toggle off before on completes.
+    const turnOff1 = toggle.gate("turnOff", 0);
+    toggle.off();
+    await toggleSpy.turnOff.call(0).waitForStart();
+    await turnOn1.aborted;
+    turnOn1.resolve();
 
-      sinon.assert.calledOnce(stubResource.dispose);
-    });
+    // Toggle on to completion before off completes.
+    const turnOn2 = toggle.gate("turnOn", 1);
+    toggle.on();
+    await toggleSpy.turnOn.call(1).waitForStart();
+    await turnOff1.aborted;
+    turnOff1.resolve();
+
+    turnOn2.resolve();
+    await toggleSpy.turnOn.call(1).waitForCompletion();
   });
 });

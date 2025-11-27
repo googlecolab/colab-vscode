@@ -12,6 +12,7 @@ import {
   AssignmentManager,
 } from "../jupyter/assignments";
 import { ColabAssignedServer } from "../jupyter/servers";
+import { ControllableAsyncToggle } from "../test/helpers/async";
 import { TestEventEmitter } from "../test/helpers/events";
 import { TestUri } from "../test/helpers/uri";
 import { Variant } from "./api";
@@ -62,11 +63,13 @@ describe("ConnectionRefreshController", () => {
   let clock: SinonFakeTimers;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let controller: ConnectionRefreshController;
+  let controllerSpy: ControllableAsyncToggle;
 
   beforeEach(() => {
     clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     controller = new ConnectionRefreshController(assignmentStub);
+    controllerSpy = new ControllableAsyncToggle(controller);
   });
 
   afterEach(() => {
@@ -74,28 +77,30 @@ describe("ConnectionRefreshController", () => {
     clock.restore();
   });
 
-  it("refreshes connections while turned on", async () => {
-    assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+  describe("turned on", () => {
+    beforeEach(async () => {
+      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
 
-    controller.on();
+      controller.on();
+      await controllerSpy.turnOn.call(0).waitForCompletion();
+    });
 
-    await clock.tickAsync(REFRESH_MS + 1);
-    sinon.assert.calledOnce(assignmentStub.refreshConnection);
-  });
+    it("refreshes connections ", async () => {
+      await clock.tickAsync(REFRESH_MS + 1);
+      sinon.assert.calledOnce(assignmentStub.refreshConnection);
+    });
 
-  it("stops refreshing connections when turned off", async () => {
-    assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+    it("stops refreshing connections when turned off", async () => {
+      await clock.tickAsync(REFRESH_MS + 1);
+      sinon.assert.calledOnce(assignmentStub.refreshConnection);
+      assignmentStub.refreshConnection.resetHistory();
 
-    controller.on();
+      controller.off();
 
-    await clock.tickAsync(REFRESH_MS + 1);
-    sinon.assert.calledOnce(assignmentStub.refreshConnection);
-    assignmentStub.refreshConnection.resetHistory();
-
-    controller.off();
-
-    await clock.tickAsync(REFRESH_MS + 1);
-    sinon.assert.notCalled(assignmentStub.refreshConnection);
+      await controllerSpy.turnOff.call(0).waitForCompletion();
+      await clock.tickAsync(REFRESH_MS + 1);
+      sinon.assert.notCalled(assignmentStub.refreshConnection);
+    });
   });
 });
 
@@ -274,7 +279,6 @@ describe("ConnectionRefresher", () => {
       afterEach(() => {
         refresher.dispose();
         clock.restore();
-        sinon.restore();
       });
 
       it("refreshes a connection before its expiry", async () => {
