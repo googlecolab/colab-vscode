@@ -33,8 +33,16 @@ const PROVIDER_ID = "google";
 const PROVIDER_LABEL = "Google";
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 
+/**
+ * An {@link Event} which fires when an authentication session is added,
+ * removed, or changed.
+ */
 export interface AuthChangeEvent
   extends AuthenticationProviderAuthenticationSessionsChangeEvent {
+  /**
+   * True when there is a valid {@link AuthenticationSession} for the
+   * {@link AuthenticationProvider}.
+   */
   hasValidSession: boolean;
 }
 
@@ -180,7 +188,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       added: [],
       removed: [],
       changed: [this.session],
-      hasValidSession: !!this.session,
+      hasValidSession: true,
     });
   }
 
@@ -279,14 +287,14 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
           added: [],
           removed: [],
           changed: [this.session],
-          hasValidSession: !!this.session,
+          hasValidSession: true,
         });
       } else {
         this.emitter.fire({
           added: [this.session],
           removed: [],
           changed: [],
-          hasValidSession: !!this.session,
+          hasValidSession: true,
         });
       }
       this.vs.window.showInformationMessage("Signed in to Google!");
@@ -325,7 +333,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       added: [],
       removed: [removedSession],
       changed: [],
-      hasValidSession: !!this.session,
+      hasValidSession: false,
     });
   }
 
