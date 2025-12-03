@@ -218,12 +218,6 @@ describe("AssignmentManager", () => {
 
       await expect(assignmentManager.getAssignedServers()).to.eventually.be
         .empty;
-      sinon.assert.calledOnceWithExactly(
-        vsCodeStub.commands.executeCommand,
-        "setContext",
-        "colab.hasAssignedServer",
-        false,
-      );
       sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
         added: [],
         removed: [{ server: defaultServer, userInitiated: false }],
@@ -274,12 +268,6 @@ describe("AssignmentManager", () => {
 
         const serversAfter = await assignmentManager.getAssignedServers();
         expect(stripFetches(serversAfter)).to.deep.equal([servers[0]]);
-        sinon.assert.calledOnceWithExactly(
-          vsCodeStub.commands.executeCommand,
-          "setContext",
-          "colab.hasAssignedServer",
-          true,
-        );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
           removed: [{ server: servers[1], userInitiated: false }],
@@ -303,12 +291,6 @@ describe("AssignmentManager", () => {
 
         await expect(assignmentManager.getAssignedServers()).to.eventually.be
           .empty;
-        sinon.assert.calledOnceWithExactly(
-          vsCodeStub.commands.executeCommand,
-          "setContext",
-          "colab.hasAssignedServer",
-          false,
-        );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
           removed: threeServers.map((s) => ({
@@ -348,12 +330,6 @@ describe("AssignmentManager", () => {
           servers[0],
           servers[1],
         ]);
-        sinon.assert.calledOnceWithExactly(
-          vsCodeStub.commands.executeCommand,
-          "setContext",
-          "colab.hasAssignedServer",
-          true,
-        );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
           removed: [{ server: thirdServer, userInitiated: false }],
@@ -381,12 +357,6 @@ describe("AssignmentManager", () => {
 
         await expect(assignmentManager.getAssignedServers()).to.eventually.be
           .empty;
-        sinon.assert.calledOnceWithExactly(
-          vsCodeStub.commands.executeCommand,
-          "setContext",
-          "colab.hasAssignedServer",
-          false,
-        );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
           removed: servers.map((s) => ({ server: s, userInitiated: false })),
@@ -773,15 +743,6 @@ describe("AssignmentManager", () => {
         expect(assignedId).to.satisfy(isUUID);
       });
 
-      it("sets the hasAssignedServer context to true", () => {
-        sinon.assert.calledOnceWithExactly(
-          vsCodeStub.commands.executeCommand,
-          "setContext",
-          "colab.hasAssignedServer",
-          true,
-        );
-      });
-
       it("emits an assignment change event", () => {
         const { id: defaultId, ...want } = defaultServer;
         sinon.assert.calledOnceWithMatch(assignmentChangeListener, {
@@ -964,12 +925,6 @@ describe("AssignmentManager", () => {
         sinon.assert.calledOnceWithMatch(
           colabClientStub.unassign,
           defaultServer.endpoint,
-        );
-        sinon.assert.calledOnceWithExactly(
-          vsCodeStub.commands.executeCommand,
-          "setContext",
-          "colab.hasAssignedServer",
-          false,
         );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],

@@ -15,6 +15,7 @@ import { assert, expect } from "chai";
 import { SinonStubbedInstance } from "sinon";
 import * as sinon from "sinon";
 import { CancellationToken, CancellationTokenSource } from "vscode";
+import { AuthChangeEvent } from "../auth/auth-provider";
 import { SubscriptionTier, Variant } from "../colab/api";
 import { ColabClient } from "../colab/client";
 import {
@@ -30,7 +31,7 @@ import {
 } from "../colab/headers";
 import { ServerPicker } from "../colab/server-picker";
 import { InputFlowAction } from "../common/multi-step-quickpick";
-import { Toggleable } from "../common/toggleable";
+import { TestEventEmitter } from "../test/helpers/events";
 import { TestUri } from "../test/helpers/uri";
 import {
   newVsCodeStub as newVsCodeStub,
@@ -67,32 +68,56 @@ describe("ColabJupyterServerProvider", () => {
   >;
   let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
   let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
-  let whileAuthorizedToggles: Toggleable[];
-  let whileAuthorizedDisposeStub: sinon.SinonStub<[], void>;
+  let authChangeEmitter: TestEventEmitter<AuthChangeEvent>;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverPickerStub: SinonStubbedInstance<ServerPicker>;
   let serverProvider: ColabJupyterServerProvider;
 
-  enum AuthStatus {
+  // Resolves the value used when "setContext" is called for the
+  // "colab.hasAssignedServer" key.
+  function stubHasAssignedServerSet(): Promise<boolean> {
+    return new Promise<boolean>((r) => {
+      vsCodeStub.commands.executeCommand
+        .withArgs("setContext", "colab.hasAssignedServer")
+        .callsFake((_command, _context, value: boolean) => {
+          r(value);
+          return Promise.resolve();
+        });
+    });
+  }
+
+  enum AuthState {
     SIGNED_OUT,
     SIGNED_IN,
   }
 
-  function toggleAuth(s: AuthStatus) {
-    for (const t of whileAuthorizedToggles) {
-      switch (s) {
-        case AuthStatus.SIGNED_OUT:
-          t.off();
-          break;
-        case AuthStatus.SIGNED_IN:
-          t.on();
-          break;
-      }
-    }
+  /**
+   * Fires the auth change event emitter, simply toggling whether there's an
+   * active session or not.
+   */
+  function toggleAuth(s: AuthState): void {
+    authChangeEmitter.fire({
+      added: [],
+      changed: [],
+      removed: [],
+      hasValidSession: s === AuthState.SIGNED_IN ? true : false,
+    });
   }
 
-  beforeEach(() => {
+  /**
+   * Fires the auth change event emitter, both toggling whether there's an
+   * active session or not and waiting for the assigned server context to be
+   * set. This hangs if it doesn't result in a context change.
+   */
+  async function toggleAuthCtxSettled(s: AuthState): Promise<void> {
+    const setContext = stubHasAssignedServerSet();
+    toggleAuth(s);
+    await setContext;
+    vsCodeStub.commands.executeCommand.reset();
+  }
+
+  beforeEach(async () => {
     vsCodeStub = newVsCodeStub();
     cancellationTokenSource = new vsCodeStub.CancellationTokenSource();
     cancellationToken = cancellationTokenSource.token;
@@ -120,15 +145,7 @@ describe("ColabJupyterServerProvider", () => {
         return serverCollectionStub;
       },
     );
-    whileAuthorizedToggles = [];
-    whileAuthorizedDisposeStub = sinon.stub();
-    const whileAuthorized = (...toggles: Toggleable[]) => {
-      whileAuthorizedToggles.push(...toggles);
-
-      return {
-        dispose: whileAuthorizedDisposeStub,
-      };
-    };
+    authChangeEmitter = new TestEventEmitter<AuthChangeEvent>();
 
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     Object.defineProperty(assignmentStub, "onDidAssignmentsChange", {
@@ -139,13 +156,13 @@ describe("ColabJupyterServerProvider", () => {
 
     serverProvider = new ColabJupyterServerProvider(
       vsCodeStub.asVsCode(),
-      whileAuthorized,
+      authChangeEmitter.event,
       assignmentStub,
       colabClientStub,
       serverPickerStub,
       jupyterStub as Partial<Jupyter> as Jupyter,
     );
-    toggleAuth(AuthStatus.SIGNED_IN);
+    await toggleAuthCtxSettled(AuthState.SIGNED_IN);
   });
 
   afterEach(() => {
@@ -162,10 +179,10 @@ describe("ColabJupyterServerProvider", () => {
       );
     });
 
-    it("disposes the authorization toggle listener", () => {
+    it("disposes the auth change event listener", () => {
       serverProvider.dispose();
 
-      sinon.assert.calledOnce(whileAuthorizedDisposeStub);
+      expect(authChangeEmitter.hasListeners()).to.be.false;
     });
 
     it('disposes the "Colab" Jupyter server collection', () => {
@@ -208,7 +225,7 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     it("returns no servers when not signed in", async () => {
-      toggleAuth(AuthStatus.SIGNED_OUT);
+      toggleAuth(AuthState.SIGNED_OUT);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -252,7 +269,7 @@ describe("ColabJupyterServerProvider", () => {
     describe("provideCommands", () => {
       describe("when signed in", () => {
         beforeEach(() => {
-          toggleAuth(AuthStatus.SIGNED_IN);
+          toggleAuth(AuthState.SIGNED_IN);
         });
 
         it("excludes upgrade to pro command when getting the subscription tier fails", async () => {
@@ -325,7 +342,7 @@ describe("ColabJupyterServerProvider", () => {
 
       describe("when signed out", () => {
         beforeEach(() => {
-          toggleAuth(AuthStatus.SIGNED_OUT);
+          toggleAuth(AuthState.SIGNED_OUT);
         });
 
         it("includes command to sign-in and view existing servers if there previously were some", async () => {
@@ -377,7 +394,7 @@ describe("ColabJupyterServerProvider", () => {
           ),
         ).to.eventually.be.rejectedWith(/barf/);
 
-        sinon.assert.calledOnceWithExactly(
+        sinon.assert.calledWithExactly(
           vsCodeStub.commands.executeCommand,
           "workbench.action.closeQuickOpen",
         );
@@ -487,7 +504,7 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  describe("onDidChangeServers", () => {
+  describe("server changes", () => {
     const events: Map<"added" | "removed" | "changed", AssignmentChangeEvent> =
       new Map<"added" | "removed" | "changed", AssignmentChangeEvent>([
         ["added", { added: [DEFAULT_SERVER], removed: [], changed: [] }],
@@ -510,12 +527,81 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     for (const [label, event] of events) {
-      it(`fires when servers are ${label}`, () => {
+      it(`fires onDidChangeServers when servers are ${label}`, () => {
         assignmentStub.onDidAssignmentsChange.yield(event);
 
         sinon.assert.calledOnce(listener);
       });
     }
+
+    // The provider setup starts signed-in, so no need to toggle to it.
+    describe("when signed in", () => {
+      it("sets colab.hasAssignedServer to true when there are assigned servers", async () => {
+        assignmentStub.hasAssignedServer.resolves(true);
+        const setContext = stubHasAssignedServerSet();
+
+        assignmentStub.onDidAssignmentsChange.yield({
+          added: [],
+          removed: [],
+          changed: [DEFAULT_SERVER],
+        });
+
+        await expect(setContext).to.eventually.be.true;
+      });
+
+      it("sets colab.hasAssignedServer to false when there are no assigned servers", async () => {
+        assignmentStub.hasAssignedServer.resolves(false);
+        const setContext = stubHasAssignedServerSet();
+
+        assignmentStub.onDidAssignmentsChange.yield({
+          added: [],
+          removed: [{ server: DEFAULT_SERVER, userInitiated: true }],
+          changed: [],
+        });
+
+        await expect(setContext).to.eventually.be.false;
+      });
+    });
+
+    // In practice it should never be the case where we get server change events
+    // while signed out, since determining that requires authorization. These
+    // tests are added defensively in the case that there's a race condition
+    // respecting an auth state change or we add other pruning mechanisms in the
+    // future which don't require credentials.
+    describe("when signed out", () => {
+      beforeEach(async () => {
+        await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
+
+        // Reset so tests can assert it's not called when we're signed out.
+        assignmentStub.hasAssignedServer.reset();
+      });
+
+      it("sets colab.hasAssignedServer to false even when there are assigned servers", async () => {
+        const setContext = stubHasAssignedServerSet();
+
+        assignmentStub.onDidAssignmentsChange.yield({
+          added: [],
+          removed: [],
+          changed: [DEFAULT_SERVER],
+        });
+
+        await expect(setContext).to.eventually.be.false;
+        sinon.assert.notCalled(assignmentStub.hasAssignedServer);
+      });
+
+      it("sets colab.hasAssignedServer to false when there are no assigned servers", async () => {
+        const setContext = stubHasAssignedServerSet();
+
+        assignmentStub.onDidAssignmentsChange.yield({
+          added: [],
+          removed: [{ server: DEFAULT_SERVER, userInitiated: true }],
+          changed: [],
+        });
+
+        await expect(setContext).to.eventually.be.false;
+        sinon.assert.notCalled(assignmentStub.hasAssignedServer);
+      });
+    });
 
     it("warns of server removal when not initiated by the user", () => {
       assignmentStub.onDidAssignmentsChange.yield(events.get("removed"));
@@ -524,6 +610,94 @@ describe("ColabJupyterServerProvider", () => {
         vsCodeStub.window.showWarningMessage,
         sinon.match(new RegExp(`"${DEFAULT_SERVER.label}" .+ removed`)),
       );
+    });
+  });
+
+  describe("auth changes", () => {
+    let listener: sinon.SinonStub<[]>;
+
+    beforeEach(() => {
+      listener = sinon.stub();
+      serverProvider.onDidChangeServers(listener);
+    });
+
+    describe("with assigned servers", () => {
+      beforeEach(() => {
+        assignmentStub.hasAssignedServer.resolves(true);
+      });
+
+      it("sets colab.hasAssignedServer to true after signing in", async () => {
+        // Start signed out.
+        await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
+        const setContext = stubHasAssignedServerSet();
+
+        toggleAuth(AuthState.SIGNED_IN);
+
+        await expect(setContext).to.eventually.be.true;
+      });
+
+      it("sets colab.hasAssignedServer to false after signing out", async () => {
+        const setContext = stubHasAssignedServerSet();
+
+        toggleAuth(AuthState.SIGNED_OUT);
+
+        await expect(setContext).to.eventually.be.false;
+      });
+
+      it("fires onDidChangeServers as auth state changes", async () => {
+        await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
+        sinon.assert.calledOnce(listener);
+
+        await toggleAuthCtxSettled(AuthState.SIGNED_IN);
+        sinon.assert.calledTwice(listener);
+      });
+    });
+
+    describe("without assigned servers", () => {
+      beforeEach(() => {
+        assignmentStub.hasAssignedServer.resolves(false);
+      });
+
+      it("sets colab.hasAssignedServer to false after signing in", async () => {
+        // Start signed out.
+        await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
+        const setContext = stubHasAssignedServerSet();
+
+        toggleAuth(AuthState.SIGNED_IN);
+
+        await expect(setContext).to.eventually.be.false;
+      });
+
+      it("sets colab.hasAssignedServer to false after signing out", async () => {
+        const setContext = stubHasAssignedServerSet();
+
+        toggleAuth(AuthState.SIGNED_OUT);
+
+        await expect(setContext).to.eventually.be.false;
+      });
+
+      it("fires onDidChangeServers as auth state changes", async () => {
+        await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
+        sinon.assert.calledOnce(listener);
+
+        await toggleAuthCtxSettled(AuthState.SIGNED_IN);
+        sinon.assert.calledTwice(listener);
+      });
+    });
+
+    it("ignores auth changes which don't alter the tracked signed in authorization state", () => {
+      toggleAuth(AuthState.SIGNED_IN);
+
+      sinon.assert.notCalled(listener);
+    });
+
+    it("ignores auth changes which don't alter the tracked signed out authorization state", async () => {
+      await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
+      listener.reset();
+
+      toggleAuth(AuthState.SIGNED_OUT);
+
+      sinon.assert.notCalled(listener);
     });
   });
 });
