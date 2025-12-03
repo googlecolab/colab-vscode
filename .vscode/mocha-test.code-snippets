@@ -1,0 +1,26 @@
+{
+  "beforeEach": {
+    "scope": "typescript",
+    "prefix": ["beforeEach", "be"],
+    "body": ["beforeEach(() => {", "  ${0:// TODO}", "});"],
+    "description": "Mocha beforeEach block",
+  },
+  "afterEach": {
+    "scope": "typescript",
+    "prefix": ["afterEach", "ae"],
+    "body": ["afterEach(() => {", "  ${0:// TODO}", "});"],
+    "description": "Mocha afterEach block",
+  },
+  "describe": {
+    "scope": "typescript",
+    "prefix": ["describe", "d"],
+    "body": ["describe(\"${1:title}\", () => {", "  ${0:// TODO}", "});"],
+    "description": "Mocha describe block",
+  },
+  "it": {
+    "scope": "typescript",
+    "prefix": ["it", "i"],
+    "body": ["it(\"${1:title}\", () => {", "  ${0:// TODO}", "});"],
+    "description": "Mocha it case",
+  },
+}
