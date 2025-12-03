@@ -122,7 +122,3 @@ enum ServerCategory {
 interface RemoveServerItem extends QuickPickItem {
   value?: ColabAssignedServer | UnownedServer;
 }
-
-export const TEST_ONLY = {
-  ServerCategory,
-};

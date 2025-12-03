@@ -44,8 +44,10 @@ export type ColabAssignedServer = ColabJupyterServer & {
   readonly dateAssigned: Date;
 };
 
-export function isColabAssignedServer(obj: object): obj is ColabAssignedServer {
-  return "connectionInformation" in obj;
+export function isColabAssignedServer(
+  s: ColabAssignedServer | UnownedServer,
+): s is ColabAssignedServer {
+  return "connectionInformation" in s;
 }
 
 export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {

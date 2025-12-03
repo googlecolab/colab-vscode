@@ -457,7 +457,7 @@ export class AssignmentManager implements vscode.Disposable {
 
     await this.storage.clear();
     await this.storage.store(reconciled);
-    await this.assignmentChange.fire({
+    this.assignmentChange.fire({
       added: [],
       removed: removed.map((s) => ({ server: s, userInitiated: false })),
       changed: [],
@@ -602,7 +602,3 @@ function colabProxyFetch(
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
 }
-
-export const TEST_ONLY = {
-  UNKNOWN_REMOTE_SERVER_NAME,
-};

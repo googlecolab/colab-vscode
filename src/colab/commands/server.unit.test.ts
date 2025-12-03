@@ -19,7 +19,7 @@ import {
 } from "../../test/helpers/quick-input";
 import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
 import { Variant } from "../api";
-import { removeServer, renameServerAlias, TEST_ONLY } from "./server";
+import { removeServer, renameServerAlias } from "./server";
 
 describe("Server Commands", () => {
   let vsCodeStub: VsCodeStub;
@@ -199,18 +199,18 @@ describe("Server Commands", () => {
           {
             label: defaultServer.label,
             value: defaultServer,
-            description: TEST_ONLY.ServerCategory.VS_CODE,
+            description: "VS Code Server",
           },
           {
             label: additionalVsCodeServer.label,
             value: additionalVsCodeServer,
-            description: TEST_ONLY.ServerCategory.VS_CODE,
+            description: "VS Code Server",
           },
           { label: "", kind: -1 },
           {
             label: nonVsCodeServer.label,
             value: nonVsCodeServer,
-            description: TEST_ONLY.ServerCategory.COLAB_WEB,
+            description: "Colab Web Server",
           },
         ]);
       });
@@ -229,12 +229,12 @@ describe("Server Commands", () => {
           {
             label: defaultServer.label,
             value: defaultServer,
-            description: TEST_ONLY.ServerCategory.VS_CODE,
+            description: "VS Code Server",
           },
           {
             label: additionalVsCodeServer.label,
             value: additionalVsCodeServer,
-            description: TEST_ONLY.ServerCategory.VS_CODE,
+            description: "VS Code Server",
           },
         ]);
       });
@@ -257,7 +257,7 @@ describe("Server Commands", () => {
           {
             label: nonVsCodeServer.label,
             value: nonVsCodeServer,
-            description: TEST_ONLY.ServerCategory.COLAB_WEB,
+            description: "Colab Web Server",
           },
         ]);
       });

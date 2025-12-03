@@ -33,11 +33,7 @@ import { TestEventEmitter } from "../test/helpers/events";
 import { ServerStorageFake } from "../test/helpers/server-storage";
 import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { isUUID } from "../utils/uuid";
-import {
-  AssignmentChangeEvent,
-  AssignmentManager,
-  TEST_ONLY,
-} from "./assignments";
+import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
 import {
   ColabAssignedServer,
   ColabServerDescriptor,
@@ -521,7 +517,7 @@ describe("AssignmentManager", () => {
           accelerator: "",
         },
         {
-          label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+          label: "Untitled",
           endpoint: endpointWithoutSession,
           variant: Variant.DEFAULT,
           accelerator: "",
@@ -564,13 +560,13 @@ describe("AssignmentManager", () => {
             accelerator: "",
           },
           {
-            label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+            label: "Untitled",
             endpoint: endpointWithoutName,
             variant: Variant.DEFAULT,
             accelerator: "",
           },
           {
-            label: TEST_ONLY.UNKNOWN_REMOTE_SERVER_NAME,
+            label: "Untitled",
             endpoint: endpointWithoutSession,
             variant: Variant.DEFAULT,
             accelerator: "",

@@ -528,7 +528,3 @@ class ColabRequestError extends Error {
     this.responseBody = responseBody;
   }
 }
-
-export const TEST_ONLY = {
-  TUN_ENDPOINT,
-};

@@ -30,7 +30,6 @@ import {
   DenylistedError,
   InsufficientQuotaError,
   TooManyAssignmentsError,
-  TEST_ONLY,
 } from "./client";
 import {
   ACCEPT_JSON_HEADER,
@@ -595,7 +594,7 @@ describe("ColabClient", () => {
             urlMatcher({
               method: "GET",
               host: COLAB_HOST,
-              path: `${TEST_ONLY.TUN_ENDPOINT}/${assignedServer.endpoint}/api/sessions`,
+              path: `/tun/m/${assignedServer.endpoint}/api/sessions`,
               otherHeaders: {
                 [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
               },
