@@ -107,7 +107,10 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
   }
 
   private async keepServersAlive(signal: AbortSignal): Promise<void> {
-    const assignments = await this.assignmentManager.getAssignedServers();
+    const assignments = await this.assignmentManager.getServers(
+      "extension",
+      signal,
+    );
     const keepAliveSignals = assignments.map(async (a) => {
       try {
         await this.keepServerAlive(a, signal);

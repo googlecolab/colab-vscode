@@ -46,7 +46,10 @@ describe("ServerPicker", () => {
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     serverPicker = new ServerPicker(vsCodeStub.asVsCode(), assignmentStub);
 
-    assignmentStub.getAssignedServers.resolves([]);
+    // Type assertion needed due to overloading on getServers
+    (assignmentStub.getServers as sinon.SinonStub)
+      .withArgs("extension", sinon.match.any)
+      .resolves([]);
   });
 
   afterEach(() => {

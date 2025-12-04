@@ -79,8 +79,10 @@ describe("ConnectionRefreshController", () => {
 
   describe("turned on", () => {
     beforeEach(async () => {
-      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
-
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension", sinon.match.any)
+        .resolves([DEFAULT_SERVER]);
       controller.on();
       await controllerSpy.turnOn.call(0).waitForCompletion();
     });
@@ -123,7 +125,10 @@ describe("ConnectionRefresher", () => {
   describe("lifecycle", () => {
     describe("initialize", () => {
       it("creates a new connection refresher when there are no servers", async () => {
-        assignmentStub.getAssignedServers.resolves([]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([]);
 
         const initialization = ConnectionRefresher.initialize(assignmentStub);
         await expect(initialization).to.eventually.be.fulfilled;
@@ -132,7 +137,10 @@ describe("ConnectionRefresher", () => {
       });
 
       it("creates a new connection refresher with a single server not needing refreshing", async () => {
-        assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([DEFAULT_SERVER]);
 
         const initialization = ConnectionRefresher.initialize(assignmentStub);
         await expect(initialization).to.eventually.be.fulfilled;
@@ -141,10 +149,10 @@ describe("ConnectionRefresher", () => {
       });
 
       it("creates a new connection refresher with a multiple servers not needing refreshing", async () => {
-        assignmentStub.getAssignedServers.resolves([
-          DEFAULT_SERVER,
-          { ...DEFAULT_SERVER, id: randomUUID() },
-        ]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([DEFAULT_SERVER, { ...DEFAULT_SERVER, id: randomUUID() }]);
 
         const initialization = ConnectionRefresher.initialize(assignmentStub);
         await expect(initialization).to.eventually.be.fulfilled;
@@ -153,9 +161,10 @@ describe("ConnectionRefresher", () => {
       });
 
       it("refreshes a single server before creating a new connection refresher", async () => {
-        assignmentStub.getAssignedServers.resolves([
-          DEFAULT_SERVER_TOKEN_EXPIRED,
-        ]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([DEFAULT_SERVER_TOKEN_EXPIRED]);
 
         const initialization = ConnectionRefresher.initialize(assignmentStub);
         await expect(initialization).to.eventually.be.fulfilled;
@@ -170,7 +179,10 @@ describe("ConnectionRefresher", () => {
       it("refreshes multiple servers before creating a new connection refresher", async () => {
         const server1 = DEFAULT_SERVER_TOKEN_EXPIRED;
         const server2 = { ...server1, id: randomUUID() };
-        assignmentStub.getAssignedServers.resolves([server1, server2]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([server1, server2]);
 
         const initialization = ConnectionRefresher.initialize(assignmentStub);
         await expect(initialization).to.eventually.be.fulfilled;
@@ -186,7 +198,10 @@ describe("ConnectionRefresher", () => {
           ...DEFAULT_SERVER_TOKEN_EXPIRED,
           id: randomUUID(),
         };
-        assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER, server2]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([DEFAULT_SERVER, server2]);
 
         const initialization = ConnectionRefresher.initialize(assignmentStub);
         await expect(initialization).to.eventually.be.fulfilled;
@@ -200,10 +215,13 @@ describe("ConnectionRefresher", () => {
 
       it("aborts initialization when signalled", async () => {
         let getAbortSignal: AbortSignal | undefined;
-        assignmentStub.getAssignedServers.callsFake((signal) => {
-          getAbortSignal = signal;
-          return Promise.resolve([DEFAULT_SERVER_TOKEN_EXPIRED]);
-        });
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub).callsFake(
+          (_, signal: AbortSignal) => {
+            getAbortSignal = signal;
+            return Promise.resolve([DEFAULT_SERVER_TOKEN_EXPIRED]);
+          },
+        );
         let refreshAbortSignal: AbortSignal | undefined;
         const cancel = new AbortController();
         assignmentStub.refreshConnection.callsFake((_id, signal) => {
@@ -240,7 +258,10 @@ describe("ConnectionRefresher", () => {
       });
 
       it("clears scheduled refreshes", async () => {
-        assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([DEFAULT_SERVER]);
         const refresher = await ConnectionRefresher.initialize(assignmentStub);
 
         refresher.dispose();
@@ -257,7 +278,10 @@ describe("ConnectionRefresher", () => {
 
       beforeEach(async () => {
         clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
-        assignmentStub.getAssignedServers.resolves([server]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([server]);
         refresher = await ConnectionRefresher.initialize(assignmentStub);
         assignmentStub.refreshConnection.callsFake(() => {
           server = {

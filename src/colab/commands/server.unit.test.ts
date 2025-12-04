@@ -169,7 +169,7 @@ describe("Server Commands", () => {
     });
 
     it("does not open the Quick Pick when no servers are assigned", async () => {
-      assignmentManagerStub.getAllServers.resolves({
+      assignmentManagerStub.getServers.withArgs("all").resolves({
         assigned: [],
         unowned: [],
       });
@@ -187,7 +187,7 @@ describe("Server Commands", () => {
           endpoint: "test-endpoint",
           variant: Variant.DEFAULT,
         };
-        assignmentManagerStub.getAllServers.resolves({
+        assignmentManagerStub.getServers.withArgs("all").resolves({
           assigned: [defaultServer, additionalVsCodeServer],
           unowned: [nonVsCodeServer],
         });
@@ -217,7 +217,7 @@ describe("Server Commands", () => {
 
       it("lists VS Code servers without separator", async () => {
         const additionalVsCodeServer = { ...defaultServer, label: "bar" };
-        assignmentManagerStub.getAllServers.resolves({
+        assignmentManagerStub.getServers.withArgs("all").resolves({
           assigned: [defaultServer, additionalVsCodeServer],
           unowned: [],
         });
@@ -245,7 +245,7 @@ describe("Server Commands", () => {
           endpoint: "test-endpoint",
           variant: Variant.DEFAULT,
         };
-        assignmentManagerStub.getAllServers.resolves({
+        assignmentManagerStub.getServers.withArgs("all").resolves({
           assigned: [],
           unowned: [nonVsCodeServer],
         });
@@ -266,7 +266,7 @@ describe("Server Commands", () => {
         let remove: Promise<void>;
 
         beforeEach(async () => {
-          assignmentManagerStub.getAllServers.resolves({
+          assignmentManagerStub.getServers.withArgs("all").resolves({
             assigned: [defaultServer],
             unowned: [],
           });
