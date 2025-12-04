@@ -276,7 +276,7 @@ describe("ColabClient", () => {
             ...DEFAULT_ASSIGNMENT,
             variant,
             accelerator: accelerator ?? "NONE",
-            ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {})
+            ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           await expect(
             client.assign(NOTEBOOK_HASH, variant, accelerator, shape),

@@ -400,18 +400,18 @@ export function variantToMachineType(variant: Variant): string {
 export function shapeToMachineShape(shape: Shape): string {
   switch (shape) {
     case Shape.HIGHMEM:
-      return 'High-RAM';
+      return "High-RAM";
     case Shape.STANDARD:
     default:
-      return 'Standard';
+      return "Standard";
   }
 }
 
 const HIGHMEM_ONLY_ACCELERATORS: Set<string> = new Set<string>([
-  'L4',
-  'V28',
-  'V5E1',
-  'V6E1',
+  "L4",
+  "V28",
+  "V5E1",
+  "V6E1",
 ]);
 
 /**

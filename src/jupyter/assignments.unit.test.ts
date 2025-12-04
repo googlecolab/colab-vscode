@@ -199,7 +199,7 @@ describe("AssignmentManager", () => {
       colabClientStub.getCcuInfo.resolves(mockCcuInfo);
 
       const tier = SubscriptionTier.PRO;
-      const servers = 
+      const servers =
         await assignmentManager.getAvailableServerDescriptors(tier);
 
       expect(servers).to.deep.equal([

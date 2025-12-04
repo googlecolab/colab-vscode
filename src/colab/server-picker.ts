@@ -8,7 +8,12 @@ import vscode, { QuickPickItem } from "vscode";
 import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabServerDescriptor } from "../jupyter/servers";
-import { Variant, variantToMachineType, Shape, shapeToMachineShape } from "./api";
+import {
+  Variant,
+  variantToMachineType,
+  Shape,
+  shapeToMachineShape,
+} from "./api";
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -25,7 +30,7 @@ export class ServerPicker {
   constructor(
     private readonly vs: typeof vscode,
     private readonly assignments: AssignmentManager,
-  ) { }
+  ) {}
 
   /**
    * Prompt the user through a multi-step series of inputs to pick a Colab
@@ -47,9 +52,7 @@ export class ServerPicker {
       accelerators.add(serverAccelerator);
       variantToAccelerators.set(server.variant, accelerators);
 
-
-      const shapes =
-        acceleratorsToShapes.get(serverAccelerator) ?? new Set();
+      const shapes = acceleratorsToShapes.get(serverAccelerator) ?? new Set();
       shapes.add(server.shape ?? Shape.STANDARD);
       acceleratorsToShapes.set(serverAccelerator, shapes);
     }
@@ -59,8 +62,12 @@ export class ServerPicker {
 
     const state: Partial<Server> = {};
     await MultiStepInput.run(this.vs, (input) =>
-      this.promptForVariant(input, state, variantToAccelerators,
-        acceleratorsToShapes),
+      this.promptForVariant(
+        input,
+        state,
+        variantToAccelerators,
+        acceleratorsToShapes,
+      ),
     );
     if (
       state.variant === undefined ||
@@ -111,8 +118,12 @@ export class ServerPicker {
         this.promptForMachineShape(input, state, shapesByAccelerators);
     }
     return (input: MultiStepInput) =>
-      this.promptForAccelerator(input, state, acceleratorsByVariant,
-        shapesByAccelerators);
+      this.promptForAccelerator(
+        input,
+        state,
+        acceleratorsByVariant,
+        shapesByAccelerators,
+      );
   }
 
   private async promptForAccelerator(

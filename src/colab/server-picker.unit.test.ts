@@ -17,7 +17,6 @@ import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
 import { Variant, Shape } from "./api";
 import { ServerPicker } from "./server-picker";
 
-
 const STANDARD_T4_SERVER = {
   label: "Colab GPU T4",
   variant: Variant.GPU,
@@ -462,7 +461,6 @@ describe("ServerPicker", () => {
       shapeQuickPickStub.onDidChangeSelection.yield([
         { value: Shape.STANDARD, label: "Standard" },
       ]);
-
 
       await aliasInputShown;
       expect(aliasInputBoxStub.step).to.equal(4);
