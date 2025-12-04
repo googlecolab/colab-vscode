@@ -123,7 +123,7 @@ export class ConnectionRefresher implements Disposable {
     assignments: AssignmentManager,
     cancel?: AbortSignal,
   ): Promise<ConnectionRefresher> {
-    const servers = await assignments.getAssignedServers(cancel);
+    const servers = await assignments.getServers("extension", cancel);
     const toRefresh = servers.filter(shouldRefresh);
     const refreshing: Promise<ColabAssignedServer>[] = [];
     for (const s of toRefresh) {
@@ -135,7 +135,7 @@ export class ConnectionRefresher implements Disposable {
       throw new Error("Connection refresher initialization aborted");
     }
 
-    const refreshedServers = await assignments.getAssignedServers(cancel);
+    const refreshedServers = await assignments.getServers("extension", cancel);
     return new ConnectionRefresher(assignments, refreshedServers);
   }
 

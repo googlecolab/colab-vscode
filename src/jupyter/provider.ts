@@ -94,7 +94,7 @@ export class ColabJupyterServerProvider
     if (!this.isAuthorized) {
       return [];
     }
-    return this.assignmentManager.getAssignedServers();
+    return this.assignmentManager.getServers("extension");
   }
 
   /**

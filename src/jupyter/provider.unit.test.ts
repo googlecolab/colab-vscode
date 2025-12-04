@@ -194,7 +194,10 @@ describe("ColabJupyterServerProvider", () => {
 
   describe("provideJupyterServers", () => {
     it("returns no servers when none are assigned", async () => {
-      assignmentStub.getAssignedServers.resolves([]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension")
+        .resolves([]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -203,7 +206,10 @@ describe("ColabJupyterServerProvider", () => {
     });
 
     it("returns a single server when one is assigned", async () => {
-      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension")
+        .resolves([DEFAULT_SERVER]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -216,7 +222,10 @@ describe("ColabJupyterServerProvider", () => {
         DEFAULT_SERVER,
         { ...DEFAULT_SERVER, id: randomUUID() },
       ];
-      assignmentStub.getAssignedServers.resolves(assignedServers);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension")
+        .resolves(assignedServers);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -233,7 +242,7 @@ describe("ColabJupyterServerProvider", () => {
       expect(servers).to.have.lengthOf(0);
       // Assert the call was never made, which requires the user to be signed
       // in.
-      sinon.assert.notCalled(assignmentStub.getAssignedServers);
+      sinon.assert.notCalled(assignmentStub.getServers);
     });
   });
 
@@ -254,7 +263,10 @@ describe("ColabJupyterServerProvider", () => {
           token: "456",
         },
       };
-      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension")
+        .resolves([DEFAULT_SERVER]);
       assignmentStub.refreshConnection
         .withArgs(DEFAULT_SERVER.id)
         .resolves(refreshedServer);

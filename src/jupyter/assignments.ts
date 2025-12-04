@@ -152,66 +152,85 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves the list of servers that have been assigned in VS Code.
+   * Retrieves the list of servers that have been assigned in VS Code extension.
    *
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
    */
-  async getAssignedServers(
+  async getServers(
+    from: "extension",
     signal?: AbortSignal,
-  ): Promise<ColabAssignedServer[]> {
-    await this.reconcileAssignedServers(signal);
-    return (await this.storage.list()).map((server) => ({
-      ...server,
-      connectionInformation: {
-        ...server.connectionInformation,
-        fetch: colabProxyFetch(server.connectionInformation.token),
-      },
-    }));
-  }
+  ): Promise<ColabAssignedServer[]>;
+
+  /**
+   * Retrieves the list of servers that have been assigned externally outside VS
+   * Code extension.
+   */
+  async getServers(
+    from: "external",
+    signal?: AbortSignal,
+  ): Promise<UnownedServer[]>;
 
   /**
    * Retrieves the list of all servers that are assigned both in and outside VS
    * Code.
    */
-  async getAllServers(signal?: AbortSignal): Promise<AllServers> {
-    const allAssignments = await this.client.listAssignments(signal);
+  async getServers(from: "all", signal?: AbortSignal): Promise<AllServers>;
 
+  async getServers(
+    from: "extension" | "external" | "all",
+    signal?: AbortSignal,
+  ): Promise<ColabAssignedServer[] | UnownedServer[] | AllServers> {
     let storedServers = await this.storage.list();
-    if (storedServers.length > 0) {
-      storedServers = await this.reconcileStoredServers(
-        storedServers,
-        allAssignments,
-      );
+    if (from === "extension" && storedServers.length === 0) {
+      return storedServers;
     }
 
-    const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
-    const unownedServers = await Promise.all(
-      allAssignments
-        .filter((a) => !storedEndpointSet.has(a.endpoint))
-        .map(async (a) => {
-          // For any remote servers created in Colab web UI, assuming there is
-          // only one session per assignment.
-          const sessions = await this.client.listSessions(a.endpoint, signal);
-          return {
-            label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
-            endpoint: a.endpoint,
-            variant: a.variant,
-            accelerator: a.accelerator,
-          };
-        }),
-    );
+    const allAssignments = await this.client.listAssignments(signal);
 
-    return {
-      assigned: storedServers.map((server) => ({
+    if (from === "extension" || from === "all") {
+      storedServers = (
+        await this.reconcileStoredServers(storedServers, allAssignments)
+      ).map((server) => ({
         ...server,
         connectionInformation: {
           ...server.connectionInformation,
           fetch: colabProxyFetch(server.connectionInformation.token),
         },
-      })),
-      unowned: unownedServers,
-    };
+      }));
+    }
+
+    let unownedServers: UnownedServer[] = [];
+    if (from === "external" || from === "all") {
+      const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
+      unownedServers = await Promise.all(
+        allAssignments
+          .filter((a) => !storedEndpointSet.has(a.endpoint))
+          .map(async (a) => {
+            // For any remote servers created in Colab web UI, assuming there is
+            // only one session per assignment.
+            const sessions = await this.client.listSessions(a.endpoint, signal);
+            return {
+              label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
+              endpoint: a.endpoint,
+              variant: a.variant,
+              accelerator: a.accelerator,
+            };
+          }),
+      );
+    }
+
+    switch (from) {
+      case "extension":
+        return storedServers;
+      case "external":
+        return unownedServers;
+      default:
+        return {
+          assigned: storedServers,
+          unowned: unownedServers,
+        };
+    }
   }
 
   /**
@@ -319,7 +338,7 @@ export class AssignmentManager implements vscode.Disposable {
   async latestServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer | undefined> {
-    const assigned = await this.getAssignedServers(signal);
+    const assigned = await this.getServers("extension", signal);
     let latest: ColabAssignedServer | undefined;
     for (const server of assigned) {
       if (!latest || server.dateAssigned > latest.dateAssigned) {
@@ -406,7 +425,7 @@ export class AssignmentManager implements vscode.Disposable {
     accelerator?: string,
     signal?: AbortSignal,
   ): Promise<string> {
-    const servers = await this.getAssignedServers(signal);
+    const servers = await this.getServers("extension", signal);
     const a = accelerator && accelerator !== "NONE" ? ` ${accelerator}` : "";
     const v = variantToMachineType(variant);
     const labelBase = `Colab ${v}${a}`;

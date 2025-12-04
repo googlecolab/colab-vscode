@@ -212,7 +212,7 @@ describe("AssignmentManager", () => {
 
       await assignmentManager.reconcileAssignedServers();
 
-      await expect(assignmentManager.getAssignedServers()).to.eventually.be
+      await expect(assignmentManager.getServers("extension")).to.eventually.be
         .empty;
       sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
         added: [],
@@ -262,7 +262,7 @@ describe("AssignmentManager", () => {
 
         await assignmentManager.reconcileAssignedServers();
 
-        const serversAfter = await assignmentManager.getAssignedServers();
+        const serversAfter = await assignmentManager.getServers("extension");
         expect(stripFetches(serversAfter)).to.deep.equal([servers[0]]);
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
@@ -285,7 +285,7 @@ describe("AssignmentManager", () => {
 
         await assignmentManager.reconcileAssignedServers();
 
-        await expect(assignmentManager.getAssignedServers()).to.eventually.be
+        await expect(assignmentManager.getServers("extension")).to.eventually.be
           .empty;
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
@@ -321,7 +321,7 @@ describe("AssignmentManager", () => {
 
         await assignmentManager.reconcileAssignedServers();
 
-        const serversAfter = await assignmentManager.getAssignedServers();
+        const serversAfter = await assignmentManager.getServers("extension");
         expect(stripFetches(serversAfter)).to.deep.equal([
           servers[0],
           servers[1],
@@ -351,7 +351,7 @@ describe("AssignmentManager", () => {
 
         await assignmentManager.reconcileAssignedServers();
 
-        await expect(assignmentManager.getAssignedServers()).to.eventually.be
+        await expect(assignmentManager.getServers("extension")).to.eventually.be
           .empty;
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
@@ -397,58 +397,58 @@ describe("AssignmentManager", () => {
     });
   });
 
-  describe("getAssignedServers", () => {
-    it("returns an empty list when no servers are assigned", async () => {
-      const servers = await assignmentManager.getAssignedServers();
+  describe("getServers", () => {
+    describe("from extension", () => {
+      it("returns an empty list when no servers are assigned", async () => {
+        const servers = await assignmentManager.getServers("extension");
 
-      expect(servers).to.deep.equal([]);
-    });
-
-    describe("when a server is assigned", () => {
-      beforeEach(async () => {
-        colabClientStub.listAssignments.resolves([defaultAssignment]);
-        await serverStorage.store([defaultServer]);
+        expect(servers).to.deep.equal([]);
       });
 
-      it("returns the assigned server when there is one", async () => {
-        const servers = await assignmentManager.getAssignedServers();
+      describe("when a server is assigned", () => {
+        beforeEach(async () => {
+          colabClientStub.listAssignments.resolves([defaultAssignment]);
+          await serverStorage.store([defaultServer]);
+        });
 
-        expect(stripFetches(servers)).to.deep.equal([defaultServer]);
-      });
+        it("returns the assigned server when there is one", async () => {
+          const servers = await assignmentManager.getServers("extension");
 
-      it("returns multiple assigned servers when there are some", async () => {
-        const storedServers = [
-          { ...defaultServer, id: randomUUID() },
-          { ...defaultServer, id: randomUUID() },
-        ];
-        await serverStorage.store(storedServers);
+          expect(stripFetches(servers)).to.deep.equal([defaultServer]);
+        });
 
-        const servers = await assignmentManager.getAssignedServers();
+        it("returns multiple assigned servers when there are some", async () => {
+          const storedServers = [
+            { ...defaultServer, id: randomUUID() },
+            { ...defaultServer, id: randomUUID() },
+          ];
+          await serverStorage.store(storedServers);
 
-        expect(stripFetches(servers)).to.deep.equal(storedServers);
-      });
+          const servers = await assignmentManager.getServers("extension");
 
-      it("includes a fetch implementation that attaches Colab connection info", async () => {
-        const servers = await assignmentManager.getAssignedServers();
-        assert.lengthOf(servers, 1);
-        const server = servers[0];
-        assert.isDefined(server.connectionInformation.fetch);
-        const fetchStub = sinon.stub(fetch, "default");
+          expect(stripFetches(servers)).to.deep.equal(storedServers);
+        });
 
-        await server.connectionInformation.fetch("https://example.com");
+        it("includes a fetch implementation that attaches Colab connection info", async () => {
+          const servers = await assignmentManager.getServers("extension");
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, "default");
 
-        sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
-          headers: new Headers({
-            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-              server.connectionInformation.token,
-            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-          }),
+          await server.connectionInformation.fetch("https://example.com");
+
+          sinon.assert.calledOnceWithMatch(fetchStub, "https://example.com", {
+            headers: new Headers({
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                server.connectionInformation.token,
+              [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+            }),
+          });
         });
       });
     });
-  });
 
-  describe("getAllServers", () => {
     const endpointWithName = "test-endpoint-with-name";
     const endpointWithoutName = "test-endpoint-without-name";
     const endpointWithoutSession = "test-endpoint-without-session";
@@ -483,85 +483,38 @@ describe("AssignmentManager", () => {
       },
     };
 
-    it("returns both assigned and unowned servers", async () => {
-      colabClientStub.listAssignments.resolves([
-        assignmentWithName,
-        assignmentWithoutName,
-        assignmentWithoutSession,
-      ]);
-      colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-        {
-          ...defaultSession,
-          name: "test-session-name",
-        },
-      ]);
-      colabClientStub.listSessions
-        .withArgs(endpointWithoutSession)
-        .resolves([]);
-      const assignedServer = {
-        ...defaultServer,
-        endpoint: endpointWithoutName,
-      };
-      await serverStorage.store([assignedServer]);
+    describe("from external", () => {
+      it("returns unowned servers", async () => {
+        // Given 3 total assignments
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutName,
+          assignmentWithoutSession,
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+          {
+            ...defaultSession,
+            name: "test-session-name",
+          },
+        ]);
+        colabClientStub.listSessions
+          .withArgs(endpointWithoutSession)
+          .resolves([]);
+        // One of the assignments was assigned within VS Code extension
+        const assignedServer = {
+          ...defaultServer,
+          endpoint: endpointWithoutName,
+        };
+        await serverStorage.store([assignedServer]);
 
-      const results = await assignmentManager.getAllServers();
+        // When we get servers from external
+        const results = await assignmentManager.getServers("external");
 
-      expect(stripFetches([...results.assigned])).to.deep.equal([
-        assignedServer,
-      ]);
-      expect(results.unowned).to.deep.equal([
-        {
-          label: "test-session-name",
-          endpoint: endpointWithName,
-          variant: Variant.DEFAULT,
-          accelerator: "",
-        },
-        {
-          label: "Untitled",
-          endpoint: endpointWithoutSession,
-          variant: Variant.DEFAULT,
-          accelerator: "",
-        },
-      ]);
-    });
-
-    it("returns only unowned servers when no server is assigned in VS Code", async () => {
-      colabClientStub.listAssignments.resolves([
-        assignmentWithName,
-        assignmentWithoutName,
-        assignmentWithoutSession,
-      ]);
-      colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-        {
-          ...defaultSession,
-          name: "test-session-name",
-        },
-      ]);
-      colabClientStub.listSessions.withArgs(endpointWithoutName).resolves([
-        {
-          ...defaultSession,
-          name: "",
-        },
-      ]);
-      colabClientStub.listSessions
-        .withArgs(endpointWithoutSession)
-        .resolves([]);
-      await serverStorage.store([]);
-
-      const results = await assignmentManager.getAllServers();
-
-      expect(results).to.deep.equal({
-        assigned: [],
-        unowned: [
+        // Then only 2 unowned external servers are returned
+        expect(results).to.deep.equal([
           {
             label: "test-session-name",
             endpoint: endpointWithName,
-            variant: Variant.DEFAULT,
-            accelerator: "",
-          },
-          {
-            label: "Untitled",
-            endpoint: endpointWithoutName,
             variant: Variant.DEFAULT,
             accelerator: "",
           },
@@ -571,61 +524,159 @@ describe("AssignmentManager", () => {
             variant: Variant.DEFAULT,
             accelerator: "",
           },
-        ],
+        ]);
       });
     });
 
-    it("returns only assigned servers when no server is unowned", async () => {
-      colabClientStub.listAssignments.resolves([
-        assignmentWithName,
-        assignmentWithoutName,
-        assignmentWithoutSession,
-      ]);
-      const assignedServer1 = {
-        ...defaultServer,
-        endpoint: endpointWithName,
-      };
-      const assignedServer2 = {
-        ...defaultServer,
-        endpoint: endpointWithoutName,
-      };
-      const assignedServer3 = {
-        ...defaultServer,
-        endpoint: endpointWithoutSession,
-      };
-      await serverStorage.store([
-        assignedServer1,
-        assignedServer2,
-        assignedServer3,
-      ]);
+    describe("from all", () => {
+      it("returns both assigned and unowned servers", async () => {
+        // Given 3 total assignments
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutName,
+          assignmentWithoutSession,
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+          {
+            ...defaultSession,
+            name: "test-session-name",
+          },
+        ]);
+        colabClientStub.listSessions
+          .withArgs(endpointWithoutSession)
+          .resolves([]);
+        // One of the assignments was assigned within VS Code extension
+        const assignedServer = {
+          ...defaultServer,
+          endpoint: endpointWithoutName,
+        };
+        await serverStorage.store([assignedServer]);
 
-      const results = await assignmentManager.getAllServers();
+        // When we get servers from all
+        const results = await assignmentManager.getServers("all");
 
-      expect(stripFetches([...results.assigned])).to.deep.equal([
-        assignedServer1,
-        assignedServer2,
-        assignedServer3,
-      ]);
-      expect(results.unowned).to.be.empty;
-    });
+        // Then 1 assigned server and 2 unowned servers are returned
+        expect(stripFetches([...results.assigned])).to.deep.equal([
+          assignedServer,
+        ]);
+        expect(results.unowned).to.deep.equal([
+          {
+            label: "test-session-name",
+            endpoint: endpointWithName,
+            variant: Variant.DEFAULT,
+            accelerator: "",
+          },
+          {
+            label: "Untitled",
+            endpoint: endpointWithoutSession,
+            variant: Variant.DEFAULT,
+            accelerator: "",
+          },
+        ]);
+      });
 
-    it("reconciles assigned servers before returning", async () => {
-      colabClientStub.listAssignments.resolves([assignmentWithName]);
-      const assignedServer = {
-        ...defaultServer,
-        endpoint: endpointWithName,
-      };
-      const noLongerAssignedServer = {
-        ...defaultServer,
-        endpoint: "no-longer-assigned",
-      };
-      await serverStorage.store([assignedServer, noLongerAssignedServer]);
+      it("returns only unowned servers when no server is assigned in VS Code", async () => {
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutName,
+          assignmentWithoutSession,
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+          {
+            ...defaultSession,
+            name: "test-session-name",
+          },
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithoutName).resolves([
+          {
+            ...defaultSession,
+            name: "",
+          },
+        ]);
+        colabClientStub.listSessions
+          .withArgs(endpointWithoutSession)
+          .resolves([]);
+        await serverStorage.store([]);
 
-      const results = await assignmentManager.getAllServers();
+        const results = await assignmentManager.getServers("all");
 
-      expect(stripFetches([...results.assigned])).to.deep.equal([
-        assignedServer,
-      ]);
+        expect(results).to.deep.equal({
+          assigned: [],
+          unowned: [
+            {
+              label: "test-session-name",
+              endpoint: endpointWithName,
+              variant: Variant.DEFAULT,
+              accelerator: "",
+            },
+            {
+              label: "Untitled",
+              endpoint: endpointWithoutName,
+              variant: Variant.DEFAULT,
+              accelerator: "",
+            },
+            {
+              label: "Untitled",
+              endpoint: endpointWithoutSession,
+              variant: Variant.DEFAULT,
+              accelerator: "",
+            },
+          ],
+        });
+      });
+
+      it("returns only assigned servers when no server is unowned", async () => {
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutName,
+          assignmentWithoutSession,
+        ]);
+        const assignedServer1 = {
+          ...defaultServer,
+          endpoint: endpointWithName,
+        };
+        const assignedServer2 = {
+          ...defaultServer,
+          endpoint: endpointWithoutName,
+        };
+        const assignedServer3 = {
+          ...defaultServer,
+          endpoint: endpointWithoutSession,
+        };
+        await serverStorage.store([
+          assignedServer1,
+          assignedServer2,
+          assignedServer3,
+        ]);
+
+        const results = await assignmentManager.getServers("all");
+
+        expect(stripFetches([...results.assigned])).to.deep.equal([
+          assignedServer1,
+          assignedServer2,
+          assignedServer3,
+        ]);
+        expect(results.unowned).to.be.empty;
+      });
+
+      it("reconciles assigned servers before returning", async () => {
+        colabClientStub.listAssignments.resolves([assignmentWithName]);
+        const assignedServer = {
+          ...defaultServer,
+          endpoint: endpointWithName,
+        };
+        const noLongerAssignedServer = {
+          ...defaultServer,
+          endpoint: "no-longer-assigned",
+        };
+        await serverStorage.store([assignedServer, noLongerAssignedServer]);
+
+        const results = await assignmentManager.getServers("all");
+
+        expect(stripFetches([...results.assigned])).to.deep.equal([
+          assignedServer,
+        ]);
+      });
     });
   });
 
@@ -916,7 +967,7 @@ describe("AssignmentManager", () => {
 
         await assignmentManager.unassignServer(defaultServer);
 
-        const serversAfter = await assignmentManager.getAssignedServers();
+        const serversAfter = await assignmentManager.getServers("extension");
         expect(serversAfter).to.be.empty;
         sinon.assert.calledOnceWithMatch(
           colabClientStub.unassign,

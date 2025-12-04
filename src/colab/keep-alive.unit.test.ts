@@ -125,7 +125,10 @@ describe("ServerKeepAliveController", () => {
     });
 
     it("skips when a keep-alive is already in flight", async () => {
-      assignmentStub.getAssignedServers.resolves([defaultServer]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension", sinon.match.any)
+        .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
         .resolves([DEFAULT_KERNEL]);
@@ -150,7 +153,10 @@ describe("ServerKeepAliveController", () => {
     });
 
     it("can be toggled on and off", async () => {
-      assignmentStub.getAssignedServers.resolves([defaultServer]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension", sinon.match.any)
+        .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
         .resolves([DEFAULT_KERNEL]);
@@ -178,7 +184,10 @@ describe("ServerKeepAliveController", () => {
     });
 
     it("aborts slow keep-alive attempts", async () => {
-      assignmentStub.getAssignedServers.resolves([defaultServer]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs("extension", sinon.match.any)
+        .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
         .resolves([DEFAULT_KERNEL]);
@@ -197,11 +206,14 @@ describe("ServerKeepAliveController", () => {
 
     describe("with no assigned servers", () => {
       it("does nothing", async () => {
-        assignmentStub.getAssignedServers.resolves([]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([]);
 
         await tickPast(CONFIG.keepAliveIntervalMs);
 
-        sinon.assert.calledOnce(assignmentStub.getAssignedServers);
+        sinon.assert.calledOnce(assignmentStub.getServers);
         sinon.assert.notCalled(colabClientStub.listKernels);
         sinon.assert.notCalled(colabClientStub.sendKeepAlive);
       });
@@ -209,7 +221,10 @@ describe("ServerKeepAliveController", () => {
 
     describe('"active" server', () => {
       beforeEach(() => {
-        assignmentStub.getAssignedServers.resolves([defaultServer]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([defaultServer]);
       });
 
       it("sends a keep-alive request for a server with recent activity", async () => {
@@ -273,7 +288,10 @@ describe("ServerKeepAliveController", () => {
       >;
 
       beforeEach(() => {
-        assignmentStub.getAssignedServers.resolves([defaultServer]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([defaultServer]);
         colabClientStub.listKernels
           .withArgs(defaultServer)
           .resolves([idleKernel]);
@@ -442,9 +460,10 @@ describe("ServerKeepAliveController", () => {
         for (const { server, kernel } of servers) {
           colabClientStub.listKernels.withArgs(server).resolves([kernel]);
         }
-        assignmentStub.getAssignedServers.resolves(
-          servers.map((s) => s.server),
-        );
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves(servers.map((s) => s.server));
       });
 
       it('only prompts to "idle" servers', async () => {
@@ -525,7 +544,10 @@ describe("ServerKeepAliveController", () => {
 
     describe("with a server that has multiple kernels", () => {
       it("respects the most recent kernel activity", async () => {
-        assignmentStub.getAssignedServers.resolves([defaultServer]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([defaultServer]);
         const kernels: Kernel[] = [
           DEFAULT_KERNEL,
           // An "idle" kernel.
@@ -547,7 +569,10 @@ describe("ServerKeepAliveController", () => {
       });
 
       it("does not send a keep-alive request if all kernels are idle", async () => {
-        assignmentStub.getAssignedServers.resolves([defaultServer]);
+        // Type assertion needed due to overloading on getServers
+        (assignmentStub.getServers as sinon.SinonStub)
+          .withArgs("extension", sinon.match.any)
+          .resolves([defaultServer]);
         const kernels: Kernel[] = [
           {
             ...DEFAULT_KERNEL,
