@@ -19,10 +19,10 @@ jobs:
       # CRITICAL: pull_request_target defaults to the BASE commit.
       # We must explicitly checkout the HEAD (the PR code) to test the changes.
       ref: ${{ github.event.pull_request.head.sha }}
-      
+
       # Turn on the E2E job
       run_e2e: true
-      
+
       # Logic: Owners/Members -> Trusted (Fast) | Others -> Protected (Approval)
       environment_name: >-
         ${{ 

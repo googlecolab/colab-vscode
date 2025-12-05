@@ -49,9 +49,9 @@ on:
         description: "Environment to use"
         required: true
         type: choice # Provides a dropdown in the UI
-        options: 
-         - "E2E Tests (Trusted)"   # Default for debugging (skips approval)
-         - "E2E Tests (Protected)"
+        options:
+          - "E2E Tests (Trusted)" # Default for debugging (skips approval)
+          - "E2E Tests (Protected)"
         default: "E2E Tests (Trusted)"
 
 permissions:
