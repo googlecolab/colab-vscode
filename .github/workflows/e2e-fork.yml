@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   call_e2e_tests:
@@ -27,7 +26,7 @@ jobs:
       environment_name: >-
         ${{ 
           contains(fromJson('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)
-          && 'E2E Tests (Trusted)' 
-          || 'E2E Tests (Protected)'
+          && 'E2E Tests' 
+          || 'E2E Tests (from forks)'
         }}
     secrets: inherit
