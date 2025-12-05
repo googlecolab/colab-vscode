@@ -5,6 +5,7 @@
  */
 
 import { randomUUID, UUID } from "crypto";
+import WebSocketIsomorphic from "isomorphic-ws";
 import fetch, {
   Headers,
   Request,
@@ -196,6 +197,10 @@ export class AssignmentManager implements vscode.Disposable {
         connectionInformation: {
           ...server.connectionInformation,
           fetch: colabProxyFetch(server.connectionInformation.token),
+          WebSocket: colabProxyWebSocket(
+            this.vs,
+            server.connectionInformation.token,
+          ),
         },
       }));
     }
@@ -510,6 +515,7 @@ export class AssignmentManager implements vscode.Disposable {
         ),
         headers,
         fetch: colabProxyFetch(token),
+        WebSocket: colabProxyWebSocket(this.vs, token),
       },
       dateAssigned,
     };
@@ -620,4 +626,110 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
+}
+
+const DRIVE_MOUNT_PATTERN = /drive\.mount\(.*\)/;
+const DRIVE_MOUNT_ISSUE_LINK =
+  "https://github.com/googlecolab/colab-vscode/issues/223";
+const DRIVE_MOUNT_WIKI_LINK =
+  "https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount";
+
+enum DriveMountUnsupportedAction {
+  VIEW_ISSUE = "View Issue",
+  VIEW_WORKAROUND = "View Workaround",
+}
+
+/**
+ * Returns a `WebSocket` class which extends `WebSocketIsomorphic`, adds our
+ * custom headers, and intercepts `WebSocket.send` to notify users when
+ * `drive.mount` is executed.
+ */
+function colabProxyWebSocket(vs: typeof vscode, token: string) {
+  // These custom headers are required for our proxy WebSocket to work.
+  const colabHeaders: Record<string, string> = {};
+  colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
+  colabHeaders[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
+
+  const addOurHeaders = (
+    options?: WebSocketIsomorphic.ClientOptions,
+  ): WebSocketIsomorphic.ClientOptions => {
+    options ??= {};
+    options.headers ??= {};
+    const headers: Record<string, string> = {
+      ...options.headers,
+      ...colabHeaders,
+    };
+    return {
+      ...options,
+      headers,
+    };
+  };
+
+  const notifyDriveMountUnsupported = async () => {
+    const selectedAction = await vs.window.showWarningMessage(
+      `drive.mount() is not supported by Colab VS Code extension at the moment, and we are actively working on supporting it. Please see [our wiki](${DRIVE_MOUNT_WIKI_LINK}) for workaround and [this issue](${DRIVE_MOUNT_ISSUE_LINK}) for progress.`,
+      DriveMountUnsupportedAction.VIEW_WORKAROUND,
+      DriveMountUnsupportedAction.VIEW_ISSUE,
+    );
+    switch (selectedAction) {
+      case DriveMountUnsupportedAction.VIEW_WORKAROUND:
+        vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_WIKI_LINK));
+        break;
+      case DriveMountUnsupportedAction.VIEW_ISSUE:
+        vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_ISSUE_LINK));
+        break;
+    }
+  };
+
+  return class OurWebSocket extends WebSocketIsomorphic {
+    constructor(
+      url: string | URL,
+      protocols?: string | string[],
+      options?: WebSocketIsomorphic.ClientOptions,
+    ) {
+      super(url, protocols, addOurHeaders(options));
+    }
+
+    override send(data: string, cb?: (err?: Error) => void): void;
+    override send(
+      data: string,
+      options: {
+        mask?: boolean;
+        binary?: boolean;
+        compress?: boolean;
+        fin?: boolean;
+      },
+      cb?: (err?: Error) => void,
+    ): void;
+    override send(
+      data: string,
+      options:
+        | {
+            mask?: boolean;
+            binary?: boolean;
+            compress?: boolean;
+            fin?: boolean;
+          }
+        | ((err?: Error) => void)
+        | undefined,
+      cb?: (err?: Error) => void,
+    ) {
+      const jupyterMessage = JSON.parse(data) as {
+        header: { msg_type: string };
+        content: { code: string };
+      };
+      if (
+        jupyterMessage.header.msg_type === "execute_request" &&
+        DRIVE_MOUNT_PATTERN.exec(jupyterMessage.content.code)
+      ) {
+        void notifyDriveMountUnsupported();
+      }
+
+      if (options === undefined || typeof options === "function") {
+        cb = options;
+        options = {};
+      }
+      super.send(data, options, cb);
+    }
+  };
 }
