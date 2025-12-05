@@ -32,6 +32,7 @@ import {
   ListedAssignment,
   RuntimeProxyInfo,
   RuntimeProxyInfoSchema,
+  Shape,
 } from "./api";
 import {
   ACCEPT_JSON_HEADER,
@@ -120,12 +121,14 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: string,
+    shape?: Shape,
     signal?: AbortSignal,
   ): Promise<{ assignment: Assignment; isNew: boolean }> {
     const assignment = await this.getAssignment(
       notebookHash,
       variant,
       accelerator,
+      shape,
       signal,
     );
     switch (assignment.kind) {
@@ -143,6 +146,7 @@ export class ColabClient {
             assignment.xsrfToken,
             variant,
             accelerator,
+            shape,
             signal,
           );
         } catch (error) {
@@ -361,9 +365,10 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: string,
+    shape?: Shape,
     signal?: AbortSignal,
   ): Promise<AssignmentToken | AssignedAssignment> {
-    const url = this.buildAssignUrl(notebookHash, variant, accelerator);
+    const url = this.buildAssignUrl(notebookHash, variant, accelerator, shape);
     const response = await this.issueRequest(
       url,
       { method: "GET", signal },
@@ -381,9 +386,10 @@ export class ColabClient {
     xsrfToken: string,
     variant: Variant,
     accelerator?: string,
+    shape?: Shape,
     signal?: AbortSignal,
   ): Promise<PostAssignmentResponse> {
-    const url = this.buildAssignUrl(notebookHash, variant, accelerator);
+    const url = this.buildAssignUrl(notebookHash, variant, accelerator, shape);
     return await this.issueRequest(
       url,
       {
@@ -399,6 +405,7 @@ export class ColabClient {
     notebookHash: UUID,
     variant: Variant,
     accelerator?: string,
+    shape?: Shape,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
@@ -407,6 +414,9 @@ export class ColabClient {
     }
     if (accelerator) {
       url.searchParams.append("accelerator", accelerator);
+    }
+    if (shape !== undefined && shape !== Shape.STANDARD) {
+      url.searchParams.append("shape", mapShapeToURLParam(shape));
     }
     return url;
   }
@@ -526,5 +536,14 @@ class ColabRequestError extends Error {
     this.request = request;
     this.response = response;
     this.responseBody = responseBody;
+  }
+}
+
+function mapShapeToURLParam(shape: Shape): string {
+  switch (shape) {
+    case Shape.HIGHMEM:
+      return "hm";
+    default:
+      return "";
   }
 }

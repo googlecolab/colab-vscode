@@ -143,45 +143,74 @@ describe("AssignmentManager", () => {
   });
 
   describe("getAvailableServerDescriptors", () => {
+    const mockCcuInfo = {
+      currentBalance: 1,
+      consumptionRateHourly: 2,
+      assignmentsCount: 0,
+      eligibleGpus: ["T4", "A100"],
+      ineligibleGpus: [],
+      eligibleTpus: ["V5E1", "V6E1"],
+      ineligibleTpus: [],
+      freeCcuQuotaInfo: {
+        remainingTokens: 4,
+        nextRefillTimestampSec: 5,
+      },
+    };
+
+    const defaultGpuT4Descriptor = {
+      label: "Colab GPU T4",
+      variant: Variant.GPU,
+      accelerator: "T4",
+    };
+
+    const defaultGpuA100Descriptor = {
+      label: "Colab GPU A100",
+      variant: Variant.GPU,
+      accelerator: "A100",
+    };
+
+    const defaultTpuV5E1Descriptor = {
+      label: "Colab TPU V5E1",
+      variant: Variant.TPU,
+      accelerator: "V5E1",
+    };
+
+    const defaultTpuV6E1Descriptor = {
+      label: "Colab TPU V6E1",
+      variant: Variant.TPU,
+      accelerator: "V6E1",
+    };
+
     it("returns the default CPU and the eligible servers", async () => {
-      colabClientStub.getCcuInfo.resolves({
-        currentBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 0,
-        eligibleGpus: ["T4", "A100"],
-        ineligibleGpus: [],
-        eligibleTpus: ["V5E1", "V6E1"],
-        ineligibleTpus: [],
-        freeCcuQuotaInfo: {
-          remainingTokens: 4,
-          nextRefillTimestampSec: 5,
-        },
-      });
+      colabClientStub.getCcuInfo.resolves(mockCcuInfo);
 
       const servers = await assignmentManager.getAvailableServerDescriptors();
 
       expect(servers).to.deep.equal([
         DEFAULT_CPU_SERVER,
-        {
-          label: "Colab GPU T4",
-          variant: Variant.GPU,
-          accelerator: "T4",
-        },
-        {
-          label: "Colab GPU A100",
-          variant: Variant.GPU,
-          accelerator: "A100",
-        },
-        {
-          label: "Colab TPU V5E1",
-          variant: Variant.TPU,
-          accelerator: "V5E1",
-        },
-        {
-          label: "Colab TPU V6E1",
-          variant: Variant.TPU,
-          accelerator: "V6E1",
-        },
+        defaultGpuT4Descriptor,
+        defaultGpuA100Descriptor,
+        defaultTpuV5E1Descriptor,
+        defaultTpuV6E1Descriptor,
+      ]);
+    });
+
+    it("returns the default CPU and the eligible servers for pro users", async () => {
+      colabClientStub.getCcuInfo.resolves(mockCcuInfo);
+
+      const tier = SubscriptionTier.PRO;
+      const servers =
+        await assignmentManager.getAvailableServerDescriptors(tier);
+
+      expect(servers).to.deep.equal([
+        { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD },
+        { ...DEFAULT_CPU_SERVER, shape: Shape.HIGHMEM },
+        { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
+        { ...defaultGpuT4Descriptor, shape: Shape.HIGHMEM },
+        { ...defaultGpuA100Descriptor, shape: Shape.STANDARD },
+        { ...defaultGpuA100Descriptor, shape: Shape.HIGHMEM },
+        { ...defaultTpuV5E1Descriptor, shape: Shape.HIGHMEM },
+        { ...defaultTpuV6E1Descriptor, shape: Shape.HIGHMEM },
       ]);
     });
   });

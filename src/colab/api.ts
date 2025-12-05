@@ -391,3 +391,40 @@ export function variantToMachineType(variant: Variant): string {
       return "TPU";
   }
 }
+/**
+ * Maps a Colab {@link Shape} to a human-friendly machine shape name.
+ *
+ * @param shape - The Colab {@link Shape}.
+ * @returns The human-friendly machine shape name.
+ */
+export function shapeToMachineShape(shape: Shape): string {
+  switch (shape) {
+    case Shape.HIGHMEM:
+      return "High-RAM";
+    case Shape.STANDARD:
+    default:
+      return "Standard";
+  }
+}
+
+const HIGHMEM_ONLY_ACCELERATORS: Set<string> = new Set<string>([
+  "L4",
+  "V28",
+  "V5E1",
+  "V6E1",
+]);
+
+/**
+ * Determines if the provided accelerator is one that requires a high-memory
+ * machine shape.
+ *
+ * @param accelerator - The accelerator to check.
+ * @returns Whether the accelerator requires a high-memory machine shape.
+ */
+export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
+  if (!accelerator) {
+    return false;
+  }
+
+  return HIGHMEM_ONLY_ACCELERATORS.has(accelerator);
+}

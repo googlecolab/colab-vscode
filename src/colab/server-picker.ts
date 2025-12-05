@@ -8,7 +8,12 @@ import vscode, { QuickPickItem } from "vscode";
 import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
 import { AssignmentManager } from "../jupyter/assignments";
 import { ColabServerDescriptor } from "../jupyter/servers";
-import { Variant, variantToMachineType } from "./api";
+import {
+  Variant,
+  variantToMachineType,
+  Shape,
+  shapeToMachineShape,
+} from "./api";
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -38,23 +43,36 @@ export class ServerPicker {
     availableServers: ColabServerDescriptor[],
   ): Promise<ColabServerDescriptor | undefined> {
     const variantToAccelerators = new Map<Variant, Set<string>>();
+    const acceleratorsToShapes = new Map<string, Set<Shape>>();
     for (const server of availableServers) {
+      const serverAccelerator = server.accelerator ?? "NONE";
+
       const accelerators =
         variantToAccelerators.get(server.variant) ?? new Set();
-      accelerators.add(server.accelerator ?? "NONE");
+      accelerators.add(serverAccelerator);
       variantToAccelerators.set(server.variant, accelerators);
+
+      const shapes = acceleratorsToShapes.get(serverAccelerator) ?? new Set();
+      shapes.add(server.shape ?? Shape.STANDARD);
+      acceleratorsToShapes.set(serverAccelerator, shapes);
     }
-    if (variantToAccelerators.size === 0) {
+    if (variantToAccelerators.size === 0 || acceleratorsToShapes.size === 0) {
       return;
     }
 
     const state: Partial<Server> = {};
     await MultiStepInput.run(this.vs, (input) =>
-      this.promptForVariant(input, state, variantToAccelerators),
+      this.promptForVariant(
+        input,
+        state,
+        variantToAccelerators,
+        acceleratorsToShapes,
+      ),
     );
     if (
       state.variant === undefined ||
       state.accelerator === undefined ||
+      state.shape === undefined ||
       !state.alias
     ) {
       return undefined;
@@ -63,6 +81,7 @@ export class ServerPicker {
       label: state.alias,
       variant: state.variant,
       accelerator: state.accelerator,
+      shape: state.shape,
     };
   }
 
@@ -70,6 +89,7 @@ export class ServerPicker {
     input: MultiStepInput,
     state: Partial<Server>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
+    shapesByAccelerators: Map<string, Set<Shape>>,
   ): Promise<InputStep | undefined> {
     const items: VariantPick[] = [];
     for (const variant of acceleratorsByVariant.keys()) {
@@ -82,7 +102,7 @@ export class ServerPicker {
     const pick = await input.showQuickPick({
       title: "Select a variant",
       step: 1,
-      totalSteps: 2,
+      totalSteps: 3,
       items,
       activeItem: items.find((item) => item.value === state.variant),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -94,16 +114,23 @@ export class ServerPicker {
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
       state.accelerator = "NONE";
-      return (input: MultiStepInput) => this.promptForAlias(input, state);
+      return (input: MultiStepInput) =>
+        this.promptForMachineShape(input, state, shapesByAccelerators);
     }
     return (input: MultiStepInput) =>
-      this.promptForAccelerator(input, state, acceleratorsByVariant);
+      this.promptForAccelerator(
+        input,
+        state,
+        acceleratorsByVariant,
+        shapesByAccelerators,
+      );
   }
 
   private async promptForAccelerator(
     input: MultiStepInput,
     state: PartialServerWith<"variant">,
     acceleratorsByVariant: Map<Variant, Set<string>>,
+    shapesByAccelerators: Map<string, Set<Shape>>,
   ): Promise<InputStep | undefined> {
     const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
     const items: AcceleratorPick[] = [];
@@ -117,13 +144,47 @@ export class ServerPicker {
       title: "Select an accelerator",
       step: 2,
       // Since we have to pick an accelerator, we've added a step.
-      totalSteps: 3,
+      totalSteps: 4,
       items,
       activeItem: items.find((item) => item.value === state.accelerator),
       buttons: [input.vs.QuickInputButtons.Back],
     });
     state.accelerator = pick.value;
     if (!isAcceleratorDefined(state)) {
+      return;
+    }
+
+    return (input: MultiStepInput) =>
+      this.promptForMachineShape(input, state, shapesByAccelerators);
+  }
+
+  private async promptForMachineShape(
+    input: MultiStepInput,
+    state: PartialServerWith<"variant">,
+    shapesByAccelerators: Map<string, Set<Shape>>,
+  ) {
+    if (!isAcceleratorDefined(state)) {
+      return;
+    }
+    const shapes = shapesByAccelerators.get(state.accelerator) ?? new Set();
+    const items: ShapePick[] = [];
+    for (const shape of shapes) {
+      items.push({
+        value: shape,
+        label: shapeToMachineShape(shape),
+      });
+    }
+    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
+    const pick = await input.showQuickPick({
+      title: "Select a machine shape",
+      step,
+      totalSteps: step + 1,
+      items,
+      activeItem: items.find((item) => item.value === state.shape),
+      buttons: [input.vs.QuickInputButtons.Back],
+    });
+    state.shape = pick.value;
+    if (!isShapeDefined(state)) {
       return;
     }
 
@@ -138,7 +199,7 @@ export class ServerPicker {
       state.variant,
       state.accelerator,
     );
-    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
+    const step = state.accelerator && state.accelerator !== "NONE" ? 4 : 3;
     const alias = await input.showInputBox({
       title: "Alias your server",
       step,
@@ -157,6 +218,7 @@ export class ServerPicker {
 interface Server {
   variant: Variant;
   accelerator: string;
+  shape: Shape;
   alias: string;
 }
 
@@ -178,10 +240,20 @@ function isAcceleratorDefined(
   return state.accelerator !== undefined;
 }
 
+function isShapeDefined(
+  state: Partial<Server>,
+): state is PartialServerWith<"shape"> {
+  return state.shape !== undefined;
+}
+
 interface VariantPick extends QuickPickItem {
   value: Variant;
 }
 
 interface AcceleratorPick extends QuickPickItem {
   value: string;
+}
+
+interface ShapePick extends QuickPickItem {
+  value: Shape;
 }

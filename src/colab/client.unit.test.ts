@@ -224,13 +224,16 @@ describe("ColabClient", () => {
           );
       });
 
-      const assignmentTests: [Variant, string?][] = [
+      const assignmentTests: [Variant, string?, Shape?][] = [
         [Variant.DEFAULT, undefined],
         [Variant.GPU, "T4"],
-        [Variant.TPU, "V28"],
+        [Variant.TPU, "V28", Shape.STANDARD],
+        [Variant.DEFAULT, undefined, Shape.HIGHMEM],
+        [Variant.GPU, "A100", Shape.HIGHMEM],
+        [Variant.TPU, "V6E1", Shape.HIGHMEM],
       ];
-      for (const [variant, accelerator] of assignmentTests) {
-        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""}`;
+      for (const [variant, accelerator, shape] of assignmentTests) {
+        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""} with shape ${String(shape ?? Shape.STANDARD)}`;
 
         it(`creates a new ${assignment}`, async () => {
           const postQueryParams: Record<string, string | RegExp> = {
@@ -242,10 +245,14 @@ describe("ColabClient", () => {
           if (accelerator) {
             postQueryParams.accelerator = accelerator;
           }
+          if (shape === Shape.HIGHMEM) {
+            postQueryParams.shape = "hm";
+          }
           const assignmentResponse = {
             ...DEFAULT_ASSIGNMENT_RESPONSE,
             variant,
             accelerator: accelerator ?? "NONE",
+            ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           fetchStub
             .withArgs(
@@ -269,9 +276,10 @@ describe("ColabClient", () => {
             ...DEFAULT_ASSIGNMENT,
             variant,
             accelerator: accelerator ?? "NONE",
+            ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           await expect(
-            client.assign(NOTEBOOK_HASH, variant, accelerator),
+            client.assign(NOTEBOOK_HASH, variant, accelerator, shape),
           ).to.eventually.deep.equal({
             assignment: expectedAssignment,
             isNew: true,
