@@ -32,6 +32,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from "../colab/headers";
+import { log } from "../common/logging";
 import {
   AllServers,
   ColabAssignedServer,
@@ -275,6 +276,7 @@ export class AssignmentManager implements vscode.Disposable {
         signal,
       ));
     } catch (error) {
+      log.error(`Failed assigning server ${id}`, error);
       // TODO: Consider listing assignments to check if there are too many
       // before the user goes through the assignment flow. This handling logic
       // would still be needed for the rare race condition where an assignment
