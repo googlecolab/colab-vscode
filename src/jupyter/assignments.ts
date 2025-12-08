@@ -152,7 +152,8 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves the list of servers that have been assigned in VS Code extension.
+   * Retrieves the list of servers that have been assigned in the VS Code
+   * extension.
    *
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
@@ -163,8 +164,8 @@ export class AssignmentManager implements vscode.Disposable {
   ): Promise<ColabAssignedServer[]>;
 
   /**
-   * Retrieves the list of servers that have been assigned externally outside VS
-   * Code extension.
+   * Retrieves the list of servers that have been assigned externally outside
+   * the VS Code extension.
    */
   async getServers(
     from: "external",
