@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
-import { ColabAssignedServer } from "../../jupyter/servers";
-import { ServerStorage } from "../../jupyter/storage";
+import { UUID } from 'crypto';
+import { ColabAssignedServer } from '../../jupyter/servers';
+import { ServerStorage } from '../../jupyter/storage';
 
 /**
  * An in memory fake implementation of {@link ServerStorage}.
  */
 export class ServerStorageFake
-  implements Pick<ServerStorage, "list" | "get" | "store" | "remove" | "clear">
+  implements Pick<ServerStorage, 'list' | 'get' | 'store' | 'remove' | 'clear'>
 {
   private servers?: ColabAssignedServer[];
 

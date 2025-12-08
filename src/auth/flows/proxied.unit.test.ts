@@ -4,29 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import { OAuth2Client } from "google-auth-library";
-import * as sinon from "sinon";
-import { InputBox } from "vscode";
-import { CONFIG } from "../../colab-config";
-import { ExtensionUriHandler } from "../../system/uri";
-import { TestCancellationTokenSource } from "../../test/helpers/cancellation";
+import { expect } from 'chai';
+import { OAuth2Client } from 'google-auth-library';
+import * as sinon from 'sinon';
+import { InputBox } from 'vscode';
+import { CONFIG } from '../../colab-config';
+import { ExtensionUriHandler } from '../../system/uri';
+import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import {
   buildInputBoxStub,
   InputBoxStub,
-} from "../../test/helpers/quick-input";
-import { matchUri, TestUri } from "../../test/helpers/uri";
-import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
-import { FlowResult, OAuth2TriggerOptions } from "./flows";
-import { ProxiedRedirectFlow } from "./proxied";
+} from '../../test/helpers/quick-input';
+import { matchUri, TestUri } from '../../test/helpers/uri';
+import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { FlowResult, OAuth2TriggerOptions } from './flows';
+import { ProxiedRedirectFlow } from './proxied';
 
-const NONCE = "nonce";
-const CODE = "42";
+const NONCE = 'nonce';
+const CODE = '42';
 const EXTERNAL_CALLBACK_URI = `vscode://google.colab?nonce=${NONCE}&windowId=1`;
 const REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
-const SCOPES = ["foo"];
+const SCOPES = ['foo'];
 
-describe("ProxiedRedirectFlow", () => {
+describe('ProxiedRedirectFlow', () => {
   let vs: VsCodeStub;
   let oauth2Client: OAuth2Client;
   let uriHandler: ExtensionUriHandler;
@@ -43,19 +43,19 @@ describe("ProxiedRedirectFlow", () => {
     vs.window.createInputBox.returns(
       inputBoxStub as Partial<InputBox> as InputBox,
     );
-    oauth2Client = new OAuth2Client("testClientId", "testClientSecret");
+    oauth2Client = new OAuth2Client('testClientId', 'testClientSecret');
     uriHandler = new ExtensionUriHandler(vs.asVsCode());
     cancellationTokenSource = new TestCancellationTokenSource();
     defaultTriggerOpts = {
       cancel: cancellationTokenSource.token,
       nonce: NONCE,
       scopes: SCOPES,
-      pkceChallenge: "1 + 1 = ?",
+      pkceChallenge: '1 + 1 = ?',
     };
     flow = new ProxiedRedirectFlow(
       vs.asVsCode(),
       oauth2Client,
-      "vscode://google.colab",
+      'vscode://google.colab',
     );
     vs.env.asExternalUri
       .withArgs(matchUri(/vscode:\/\/google\.colab\?nonce=nonce/))
@@ -67,22 +67,22 @@ describe("ProxiedRedirectFlow", () => {
     sinon.restore();
   });
 
-  it("ignores requests missing a nonce", () => {
+  it('ignores requests missing a nonce', () => {
     void flow.trigger(defaultTriggerOpts);
-    const uri = TestUri.parse("vscode://google.colab");
+    const uri = TestUri.parse('vscode://google.colab');
 
     expect(() => uriHandler.handleUri(uri)).not.to.throw();
   });
 
-  it("ignores requests missing a code", () => {
+  it('ignores requests missing a code', () => {
     void flow.trigger(defaultTriggerOpts);
     const uri = TestUri.parse(`${EXTERNAL_CALLBACK_URI}&code=`);
 
     expect(() => uriHandler.handleUri(uri)).not.to.throw();
   });
 
-  it("throws an error when the code exchange times out", async () => {
-    const clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
+  it('throws an error when the code exchange times out', async () => {
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
 
     const trigger = flow.trigger(defaultTriggerOpts);
     clock.tick(60_001);
@@ -91,22 +91,22 @@ describe("ProxiedRedirectFlow", () => {
     clock.restore();
   });
 
-  it("validates the input authentication code", async () => {
+  it('validates the input authentication code', async () => {
     void flow.trigger(defaultTriggerOpts);
 
     await inputBoxStub.nextShow();
-    inputBoxStub.value = "";
+    inputBoxStub.value = '';
     inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
     expect(inputBoxStub.validationMessage).equal(
-      "Authorization code cannot be empty",
+      'Authorization code cannot be empty',
     );
 
-    inputBoxStub.value = "s".repeat(10);
+    inputBoxStub.value = 's'.repeat(10);
     inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
     expect(inputBoxStub.validationMessage).equal(undefined);
   });
 
-  it("cancels auth when the user dismisses the input box", async () => {
+  it('cancels auth when the user dismisses the input box', async () => {
     const trigger = flow.trigger(defaultTriggerOpts);
 
     await inputBoxStub.nextShow();
@@ -115,7 +115,7 @@ describe("ProxiedRedirectFlow", () => {
     await expect(trigger).to.eventually.be.rejectedWith(/cancelled/);
   });
 
-  it("triggers and resolves the authentication flow", async () => {
+  it('triggers and resolves the authentication flow', async () => {
     const trigger = flow.trigger(defaultTriggerOpts);
 
     await inputBoxStub.nextShow();

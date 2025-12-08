@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
-import { z } from "zod";
-import { PROVIDER_ID } from "../config/constants";
+import vscode from 'vscode';
+import { z } from 'zod';
+import { PROVIDER_ID } from '../config/constants';
 
 const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
 

@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Uri, TextDocument } from "vscode";
+import vscode, { Uri, TextDocument } from 'vscode';
 import {
   ProvideDiagnosticSignature,
   ProvideWorkspaceDiagnosticSignature,
   vsdiag,
-} from "vscode-languageclient/node";
+} from 'vscode-languageclient/node';
 
 /**
  * Filters non IPython diagnostics.
@@ -104,7 +104,7 @@ function isFullReport(
   r?: vsdiag.DocumentDiagnosticReport | null,
 ): r is vsdiag.RelatedFullDocumentDiagnosticReport {
   // Avoid depending on language client which transitively depends on vscode.
-  return r?.kind.toString() === "full";
+  return r?.kind.toString() === 'full';
 }
 
 /**
@@ -119,11 +119,11 @@ function shouldKeepDiagnostic(
 
   // Bash commands are not recognized by Pyright, and will typically return the
   // error mentioned in https://github.com/microsoft/vscode-jupyter/issues/8055.
-  if (text.startsWith("!")) {
+  if (text.startsWith('!')) {
     return false;
   }
   // Pyright does not recognize magics.
-  if (text.startsWith("%")) {
+  if (text.startsWith('%')) {
     return false;
   }
   // IPython 7+ allows for calling await at the top level, outside of an async
@@ -131,8 +131,8 @@ function shouldKeepDiagnostic(
   const isStartOfLine = diagnostic.range.start.character === 0;
   if (
     isStartOfLine &&
-    text.startsWith("await") &&
-    diagnostic.message.includes("allowed only within async function")
+    text.startsWith('await') &&
+    diagnostic.message.includes('allowed only within async function')
   ) {
     return false;
   }

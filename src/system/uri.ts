@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
-import { PackageInfo } from "../config/package-info";
+import vscode from 'vscode';
+import { PackageInfo } from '../config/package-info';
 
 /**
  * Builds the extension URI that can be used to redirect users back to VS Code,

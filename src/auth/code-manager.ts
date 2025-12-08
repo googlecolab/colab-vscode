@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
+import vscode from 'vscode';
 
 const EXCHANGE_TIMEOUT_MS = 60_000;
 
@@ -31,7 +31,7 @@ export class CodeManager implements vscode.Disposable {
    * when the class instance is no longer needed to prevent resource leaks.
    */
   dispose(): void {
-    const error = new Error("Authentication provider has been disposed.");
+    const error = new Error('Authentication provider has been disposed.');
     for (const promiseHandlers of this.inFlightPromises.values()) {
       promiseHandlers.reject(error);
     }
@@ -85,7 +85,7 @@ export class CodeManager implements vscode.Disposable {
   resolveCode(nonce: string, code: string): void {
     const inFlight = this.inFlightPromises.get(nonce);
     if (!inFlight) {
-      throw new Error("Unexpected code exchange received");
+      throw new Error('Unexpected code exchange received');
     }
 
     inFlight.resolve(code);
@@ -102,7 +102,7 @@ function waitForCancellation(
   let listener: vscode.Disposable;
   const promise = new Promise<never>((_, reject) => {
     listener = token.onCancellationRequested(() => {
-      reject(new Error("Authentication was cancelled by the user"));
+      reject(new Error('Authentication was cancelled by the user'));
     });
   });
 
@@ -121,7 +121,7 @@ function waitForTimeout(ms: number): DisposablePromise<never> {
   let timeoutId: NodeJS.Timeout;
   const promise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new Error("Exchange timeout exceeded"));
+      reject(new Error('Exchange timeout exceeded'));
     }, ms);
   });
 

@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
-import { Disposable } from "vscode";
-import { log } from "../common/logging";
-import { AsyncToggle } from "../common/toggleable";
+import { UUID } from 'crypto';
+import { Disposable } from 'vscode';
+import { log } from '../common/logging';
+import { AsyncToggle } from '../common/toggleable';
 import {
   AssignmentChangeEvent,
   AssignmentManager,
-} from "../jupyter/assignments";
-import { ColabAssignedServer } from "../jupyter/servers";
-import { NotFoundError } from "./client";
+} from '../jupyter/assignments';
+import { ColabAssignedServer } from '../jupyter/servers';
+import { NotFoundError } from './client';
 
 /* The buffer we give to refresh the token, before it actually expires. */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes.
@@ -123,7 +123,7 @@ export class ConnectionRefresher implements Disposable {
     assignments: AssignmentManager,
     cancel?: AbortSignal,
   ): Promise<ConnectionRefresher> {
-    const servers = await assignments.getServers("extension", cancel);
+    const servers = await assignments.getServers('extension', cancel);
     const toRefresh = servers.filter(shouldRefresh);
     const refreshing: Promise<ColabAssignedServer>[] = [];
     for (const s of toRefresh) {
@@ -132,10 +132,10 @@ export class ConnectionRefresher implements Disposable {
     await Promise.all(refreshing);
 
     if (cancel?.aborted) {
-      throw new Error("Connection refresher initialization aborted");
+      throw new Error('Connection refresher initialization aborted');
     }
 
-    const refreshedServers = await assignments.getServers("extension", cancel);
+    const refreshedServers = await assignments.getServers('extension', cancel);
     return new ConnectionRefresher(assignments, refreshedServers);
   }
 
@@ -173,7 +173,7 @@ export class ConnectionRefresher implements Disposable {
       const r = this.refreshes.get(s.id);
       // This would be a programming error.
       if (!r) {
-        log.error("Connection watcher received change for an untracked server");
+        log.error('Connection watcher received change for an untracked server');
         return;
       }
       // If the change wasn't to the token expiry, ignore it.

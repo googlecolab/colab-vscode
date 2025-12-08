@@ -4,22 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import assert from "assert";
-import * as fs from "fs";
-import * as http from "http";
-import * as path from "path";
-import { OAuth2Client } from "google-auth-library";
-import vscode from "vscode";
-import { CONFIG } from "../../colab-config";
-import { log } from "../../common/logging";
-import { LoopbackHandler, LoopbackServer } from "../../common/loopback-server";
-import { CodeManager } from "../code-manager";
+import assert from 'assert';
+import * as fs from 'fs';
+import * as http from 'http';
+import * as path from 'path';
+import { OAuth2Client } from 'google-auth-library';
+import vscode from 'vscode';
+import { CONFIG } from '../../colab-config';
+import { log } from '../../common/logging';
+import { LoopbackHandler, LoopbackServer } from '../../common/loopback-server';
+import { CodeManager } from '../code-manager';
 import {
   DEFAULT_AUTH_URL_OPTS,
   OAuth2Flow,
   OAuth2TriggerOptions,
   FlowResult,
-} from "./flows";
+} from './flows';
 
 /**
  * An OAuth2 flow that uses a local server to handle the redirect URI.
@@ -112,39 +112,39 @@ class Handler implements LoopbackHandler {
     assert(req.url);
     assert(req.headers.host);
     const url = new URL(req.url, `http://${req.headers.host}`);
-    if (req.method !== "GET") {
-      res.writeHead(405, { Allow: "GET" });
-      res.end("Method Not Allowed");
+    if (req.method !== 'GET') {
+      res.writeHead(405, { Allow: 'GET' });
+      res.end('Method Not Allowed');
       return;
     }
     switch (url.pathname) {
-      case "/": {
-        const state = url.searchParams.get("state");
+      case '/': {
+        const state = url.searchParams.get('state');
         if (!state) {
-          throw new Error("Missing state in redirect URL");
+          throw new Error('Missing state in redirect URL');
         }
         const parsedState = new URLSearchParams(state);
-        const nonce = parsedState.get("nonce");
-        const code = url.searchParams.get("code");
+        const nonce = parsedState.get('nonce');
+        const code = url.searchParams.get('code');
         if (!nonce || !code) {
-          throw new Error("Missing nonce or code in redirect URI");
+          throw new Error('Missing nonce or code in redirect URI');
         }
         this.codeProvider.resolveCode(nonce, code);
 
         void this.redirectSuccessfulAuth(res).catch((err: unknown) => {
-          log.error("Unable to redirect the successful auth request", err);
+          log.error('Unable to redirect the successful auth request', err);
         });
         break;
       }
-      case "/favicon.ico": {
+      case '/favicon.ico': {
         const assetPath = url.pathname.substring(1);
         sendFile(res, path.join(this.serveRoot, assetPath));
         break;
       }
       default: {
-        log.warn("Received unhandled request", req);
+        log.warn('Received unhandled request', req);
         res.writeHead(404);
-        res.end("Not Found");
+        res.end('Not Found');
         break;
       }
     }
@@ -173,9 +173,9 @@ function sendFile(res: http.ServerResponse, filepath: string): void {
     if (err) {
       log.error(`Unable to read file: ${filepath}`, err);
       res.writeHead(500);
-      res.end("Internal Server Error");
+      res.end('Internal Server Error');
     } else {
-      res.setHeader("content-length", body.length);
+      res.setHeader('content-length', body.length);
       res.writeHead(200);
       res.end(body);
     }

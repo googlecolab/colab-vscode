@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as sinon from "sinon";
-import { OutputChannel } from "vscode";
+import * as sinon from 'sinon';
+import { OutputChannel } from 'vscode';
 
 export class FakeLogOutputChannel implements OutputChannel {
-  readonly name = "fake";
+  readonly name = 'fake';
   readonly append = sinon.stub();
   readonly appendLine = sinon.stub<[string]>();
   readonly replace = sinon.stub();
@@ -26,6 +26,6 @@ export class FakeLogOutputChannel implements OutputChannel {
   }
 
   get content(): string {
-    return this.lines.join("\n");
+    return this.lines.join('\n');
   }
 }

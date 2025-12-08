@@ -4,20 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID } from "crypto";
-import { expect } from "chai";
-import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
-import { AssignmentManager } from "../jupyter/assignments";
-import { ColabAssignedServer } from "../jupyter/servers";
-import { TestCancellationTokenSource } from "../test/helpers/cancellation";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { Kernel, Variant } from "./api";
-import { ColabClient } from "./client";
+import { randomUUID } from 'crypto';
+import { expect } from 'chai';
+import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
+import { AssignmentManager } from '../jupyter/assignments';
+import { ColabAssignedServer } from '../jupyter/servers';
+import { TestCancellationTokenSource } from '../test/helpers/cancellation';
+import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
+import { Kernel, Variant } from './api';
+import { ColabClient } from './client';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-} from "./headers";
-import { ServerKeepAliveController } from "./keep-alive";
+} from './headers';
+import { ServerKeepAliveController } from './keep-alive';
 
 const NOW = new Date();
 const ONE_SECOND_MS = 1000;
@@ -27,8 +27,8 @@ const ABORTING_KEEP_ALIVE = async (
   signal?: AbortSignal,
 ): Promise<void> =>
   new Promise((_, reject) => {
-    signal?.addEventListener("abort", () => {
-      reject(new Error("Aborted"));
+    signal?.addEventListener('abort', () => {
+      reject(new Error('Aborted'));
     });
   });
 
@@ -40,14 +40,14 @@ const CONFIG = {
 };
 
 const DEFAULT_KERNEL: Kernel = {
-  id: "456",
-  name: "Kermit the Kernel",
+  id: '456',
+  name: 'Kermit the Kernel',
   lastActivity: new Date(NOW.getTime() - ONE_MINUTE_MS).toString(),
-  executionState: "idle",
+  executionState: 'idle',
   connections: 1,
 };
 
-describe("ServerKeepAliveController", () => {
+describe('ServerKeepAliveController', () => {
   let clock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
@@ -61,7 +61,7 @@ describe("ServerKeepAliveController", () => {
 
   beforeEach(() => {
     clock = sinon.useFakeTimers({
-      toFake: ["setInterval", "clearInterval", "setTimeout"],
+      toFake: ['setInterval', 'clearInterval', 'setTimeout'],
     });
     clock.setSystemTime(NOW);
     vsCodeStub = newVsCodeStub();
@@ -69,16 +69,16 @@ describe("ServerKeepAliveController", () => {
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     defaultServer = {
       id: randomUUID(),
-      label: "Colab GPU A100",
+      label: 'Colab GPU A100',
       variant: Variant.GPU,
-      accelerator: "A100",
-      endpoint: "m-s-foo",
+      accelerator: 'A100',
+      endpoint: 'm-s-foo',
       connectionInformation: {
-        baseUrl: vsCodeStub.Uri.parse("https://example.com"),
-        token: "123",
+        baseUrl: vsCodeStub.Uri.parse('https://example.com'),
+        token: '123',
         tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
         headers: {
-          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: "123",
+          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: '123',
           [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
         },
       },
@@ -98,15 +98,15 @@ describe("ServerKeepAliveController", () => {
     keepAlive.dispose();
   });
 
-  describe("lifecycle", () => {
-    it("disposes the runner", async () => {
+  describe('lifecycle', () => {
+    it('disposes the runner', async () => {
       keepAlive.dispose();
 
       await tickPast(CONFIG.keepAliveIntervalMs);
       sinon.assert.notCalled(colabClientStub.sendKeepAlive);
     });
 
-    it("throws when disposed", () => {
+    it('throws when disposed', () => {
       keepAlive.dispose();
 
       expect(() => {
@@ -117,17 +117,17 @@ describe("ServerKeepAliveController", () => {
       }).to.throw(/disposed/);
     });
 
-    it("throws if used after being disposed", () => {
+    it('throws if used after being disposed', () => {
       keepAlive.dispose();
 
       expect(keepAlive.on).to.throw();
       expect(keepAlive.off).to.throw();
     });
 
-    it("skips when a keep-alive is already in flight", async () => {
+    it('skips when a keep-alive is already in flight', async () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
-        .withArgs("extension")
+        .withArgs('extension')
         .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
@@ -152,10 +152,10 @@ describe("ServerKeepAliveController", () => {
       sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
     });
 
-    it("can be toggled on and off", async () => {
+    it('can be toggled on and off', async () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
-        .withArgs("extension")
+        .withArgs('extension')
         .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
@@ -178,15 +178,15 @@ describe("ServerKeepAliveController", () => {
     });
   });
 
-  describe("toggled on", () => {
+  describe('toggled on', () => {
     beforeEach(() => {
       keepAlive.on();
     });
 
-    it("aborts slow keep-alive attempts", async () => {
+    it('aborts slow keep-alive attempts', async () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
-        .withArgs("extension")
+        .withArgs('extension')
         .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
@@ -204,11 +204,11 @@ describe("ServerKeepAliveController", () => {
         .true;
     });
 
-    describe("with no assigned servers", () => {
-      it("does nothing", async () => {
+    describe('with no assigned servers', () => {
+      it('does nothing', async () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension")
+          .withArgs('extension')
           .resolves([]);
 
         await tickPast(CONFIG.keepAliveIntervalMs);
@@ -223,11 +223,11 @@ describe("ServerKeepAliveController", () => {
       beforeEach(() => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension")
+          .withArgs('extension')
           .resolves([defaultServer]);
       });
 
-      it("sends a keep-alive request for a server with recent activity", async () => {
+      it('sends a keep-alive request for a server with recent activity', async () => {
         colabClientStub.listKernels
           .withArgs(defaultServer)
           .resolves([DEFAULT_KERNEL]);
@@ -242,9 +242,9 @@ describe("ServerKeepAliveController", () => {
       });
 
       for (const state of [
-        "starting",
-        "restarting",
-        "autorestarting",
+        'starting',
+        'restarting',
+        'autorestarting',
       ] as const) {
         it(`sends a keep-alive request for a server with a "${state}" kernel`, async () => {
           const busyKernel: Kernel = {
@@ -290,7 +290,7 @@ describe("ServerKeepAliveController", () => {
       beforeEach(() => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension")
+          .withArgs('extension')
           .resolves([defaultServer]);
         colabClientStub.listKernels
           .withArgs(defaultServer)
@@ -311,13 +311,13 @@ describe("ServerKeepAliveController", () => {
           );
       });
 
-      it("prompts the user to keep it running", async () => {
+      it('prompts the user to keep it running', async () => {
         await tickPast(CONFIG.keepAliveIntervalMs);
 
         sinon.assert.calledOnce(vsCodeStub.window.withProgress);
       });
 
-      it("counts down the time to extend", async () => {
+      it('counts down the time to extend', async () => {
         const increment =
           100 / (CONFIG.idleExtensionPromptTimeMs / ONE_SECOND_MS);
         await tickPast(CONFIG.keepAliveIntervalMs);
@@ -341,17 +341,17 @@ describe("ServerKeepAliveController", () => {
         });
       });
 
-      describe("which the user does not extend", () => {
+      describe('which the user does not extend', () => {
         beforeEach(async () => {
           await tickPast(CONFIG.keepAliveIntervalMs);
           await tickPast(CONFIG.idleExtensionPromptTimeMs);
         });
 
-        it("does not send keep-alive requests", () => {
+        it('does not send keep-alive requests', () => {
           sinon.assert.notCalled(colabClientStub.sendKeepAlive);
         });
 
-        it("does not prompt for extension again", async () => {
+        it('does not prompt for extension again', async () => {
           sinon.assert.calledOnce(vsCodeStub.window.withProgress);
           vsCodeStub.window.withProgress.resetHistory();
 
@@ -362,7 +362,7 @@ describe("ServerKeepAliveController", () => {
           sinon.assert.notCalled(colabClientStub.sendKeepAlive);
         });
 
-        it("starts sending keep-alive requests when used again", async () => {
+        it('starts sending keep-alive requests when used again', async () => {
           sinon.assert.notCalled(colabClientStub.sendKeepAlive);
           const activeKernel: Kernel = {
             ...idleKernel,
@@ -378,7 +378,7 @@ describe("ServerKeepAliveController", () => {
         });
       });
 
-      describe("which the user extends", () => {
+      describe('which the user extends', () => {
         beforeEach(async () => {
           await tickPast(CONFIG.keepAliveIntervalMs);
           sinon.assert.calledOnce(reportStub);
@@ -387,12 +387,12 @@ describe("ServerKeepAliveController", () => {
           await clock.runToLastAsync();
         });
 
-        it("sends a keep-alive request", () => {
+        it('sends a keep-alive request', () => {
           // Once before the extension prompt, and once after.
           sinon.assert.calledTwice(colabClientStub.sendKeepAlive);
         });
 
-        describe("and then uses", () => {
+        describe('and then uses', () => {
           beforeEach(async () => {
             const activeKernel: Kernel = {
               ...idleKernel,
@@ -404,13 +404,13 @@ describe("ServerKeepAliveController", () => {
             await tickPast(CONFIG.keepAliveIntervalMs);
           });
 
-          it("sends a keep-alive request", () => {
+          it('sends a keep-alive request', () => {
             // Once before the extension prompt, once after and again after
             // using the kernel.
             sinon.assert.calledThrice(colabClientStub.sendKeepAlive);
           });
 
-          it("does not prompt to keep it running", () => {
+          it('does not prompt to keep it running', () => {
             // Only the first prompt.
             sinon.assert.calledOnce(vsCodeStub.window.withProgress);
           });
@@ -421,7 +421,7 @@ describe("ServerKeepAliveController", () => {
     describe('with a mix of "active" and "idle" servers', () => {
       function createServerWithKernel(
         n: number,
-        activity: "idle" | "active",
+        activity: 'idle' | 'active',
       ): { server: ColabAssignedServer; kernel: Kernel } {
         const server = {
           ...defaultServer,
@@ -433,14 +433,14 @@ describe("ServerKeepAliveController", () => {
 
       function createKernel(
         assignment: ColabAssignedServer,
-        activity: "idle" | "active",
+        activity: 'idle' | 'active',
       ): Kernel {
         return {
           ...DEFAULT_KERNEL,
           id: assignment.id,
           lastActivity: new Date(
             NOW.getTime() +
-              (activity === "active" ? 1 : -1) * CONFIG.inactivityThresholdMs -
+              (activity === 'active' ? 1 : -1) * CONFIG.inactivityThresholdMs -
               1,
           ).toString(),
         };
@@ -452,17 +452,17 @@ describe("ServerKeepAliveController", () => {
       let idle2: { server: ColabAssignedServer; kernel: Kernel };
 
       beforeEach(() => {
-        active1 = createServerWithKernel(1, "active");
-        active2 = createServerWithKernel(2, "active");
-        idle1 = createServerWithKernel(3, "idle");
-        idle2 = createServerWithKernel(4, "idle");
+        active1 = createServerWithKernel(1, 'active');
+        active2 = createServerWithKernel(2, 'active');
+        idle1 = createServerWithKernel(3, 'idle');
+        idle2 = createServerWithKernel(4, 'idle');
         const servers = [active1, active2, idle1, idle2];
         for (const { server, kernel } of servers) {
           colabClientStub.listKernels.withArgs(server).resolves([kernel]);
         }
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension")
+          .withArgs('extension')
           .resolves(servers.map((s) => s.server));
       });
 
@@ -523,7 +523,7 @@ describe("ServerKeepAliveController", () => {
 
       // This is important to validate that keep-alive requests continue to
       // get sent to all servers, even if one is failing.
-      it("swallows keep-alive failures", async () => {
+      it('swallows keep-alive failures', async () => {
         colabClientStub.sendKeepAlive
           .withArgs(active1.server.endpoint)
           .rejects();
@@ -542,18 +542,18 @@ describe("ServerKeepAliveController", () => {
       });
     });
 
-    describe("with a server that has multiple kernels", () => {
-      it("respects the most recent kernel activity", async () => {
+    describe('with a server that has multiple kernels', () => {
+      it('respects the most recent kernel activity', async () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension")
+          .withArgs('extension')
           .resolves([defaultServer]);
         const kernels: Kernel[] = [
           DEFAULT_KERNEL,
           // An "idle" kernel.
           {
             ...DEFAULT_KERNEL,
-            id: "789",
+            id: '789',
             lastActivity: new Date(42).toString(),
           },
         ];
@@ -568,20 +568,20 @@ describe("ServerKeepAliveController", () => {
         );
       });
 
-      it("does not send a keep-alive request if all kernels are idle", async () => {
+      it('does not send a keep-alive request if all kernels are idle', async () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension")
+          .withArgs('extension')
           .resolves([defaultServer]);
         const kernels: Kernel[] = [
           {
             ...DEFAULT_KERNEL,
-            id: "789",
+            id: '789',
             lastActivity: new Date(42).toString(),
           },
           {
             ...DEFAULT_KERNEL,
-            id: "987",
+            id: '987',
             lastActivity: new Date(43).toString(),
           },
         ];

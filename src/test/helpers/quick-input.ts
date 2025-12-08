@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as sinon from "sinon";
-import { Disposable, InputBox, QuickPick, QuickPickItem } from "vscode";
+import * as sinon from 'sinon';
+import { Disposable, InputBox, QuickPick, QuickPickItem } from 'vscode';
 
 /**
  * Convenience type used for stubbing the input event listeners.
@@ -24,19 +24,19 @@ type Listener = [
 export type QuickPickStub = sinon.SinonStubbedInstance<
   Pick<
     QuickPick<QuickPickItem>,
-    | "title"
-    | "step"
-    | "totalSteps"
-    | "ignoreFocusOut"
-    | "placeholder"
-    | "items"
-    | "activeItems"
-    | "buttons"
-    | "onDidTriggerButton"
-    | "onDidHide"
-    | "onDidChangeSelection"
-    | "show"
-    | "dispose"
+    | 'title'
+    | 'step'
+    | 'totalSteps'
+    | 'ignoreFocusOut'
+    | 'placeholder'
+    | 'items'
+    | 'activeItems'
+    | 'buttons'
+    | 'onDidTriggerButton'
+    | 'onDidHide'
+    | 'onDidChangeSelection'
+    | 'show'
+    | 'dispose'
   >
 >;
 
@@ -96,21 +96,21 @@ export function buildQuickPickStub(
 export type InputBoxStub = sinon.SinonStubbedInstance<
   Pick<
     InputBox,
-    | "title"
-    | "step"
-    | "totalSteps"
-    | "value"
-    | "prompt"
-    | "validationMessage"
-    | "ignoreFocusOut"
-    | "placeholder"
-    | "buttons"
-    | "onDidTriggerButton"
-    | "onDidHide"
-    | "onDidAccept"
-    | "onDidChangeValue"
-    | "show"
-    | "dispose"
+    | 'title'
+    | 'step'
+    | 'totalSteps'
+    | 'value'
+    | 'prompt'
+    | 'validationMessage'
+    | 'ignoreFocusOut'
+    | 'placeholder'
+    | 'buttons'
+    | 'onDidTriggerButton'
+    | 'onDidHide'
+    | 'onDidAccept'
+    | 'onDidChangeValue'
+    | 'show'
+    | 'dispose'
   >
 >;
 
@@ -140,7 +140,7 @@ export function buildInputBoxStub(
     title: undefined,
     step: undefined,
     totalSteps: undefined,
-    value: "",
+    value: '',
     prompt: undefined,
     validationMessage: undefined,
     ignoreFocusOut: false,

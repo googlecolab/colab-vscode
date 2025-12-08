@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
-import { TestEventEmitter } from "./events";
+import vscode from 'vscode';
+import { TestEventEmitter } from './events';
 
 export class TestCancellationToken implements vscode.CancellationToken {
   private _isCancellationRequested = false;
@@ -49,14 +49,14 @@ export class TestCancellationTokenSource
 
   get token(): TestCancellationToken {
     if (this.disposed) {
-      throw new Error("CancellationTokenSource has been disposed");
+      throw new Error('CancellationTokenSource has been disposed');
     }
     return this._token;
   }
 
   cancel(): void {
     if (this.disposed) {
-      throw new Error("CancellationTokenSource has been disposed");
+      throw new Error('CancellationTokenSource has been disposed');
     }
     this._token.cancel();
   }
