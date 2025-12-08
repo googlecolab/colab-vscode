@@ -2,5 +2,7 @@
 .vscode-test/
 *.vsix
 node_modules/
+openapitools.json
 out/
 src/colab-config.ts
+src/jupyter/client/post-processed-api.yaml

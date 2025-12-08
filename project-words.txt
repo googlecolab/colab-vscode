@@ -12,6 +12,7 @@ grayscale
 highmem
 ipykernel
 ipynb
+kernelspecs
 KHTML
 milli
 mocharc
