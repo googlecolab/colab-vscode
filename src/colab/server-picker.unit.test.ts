@@ -48,7 +48,7 @@ describe("ServerPicker", () => {
 
     // Type assertion needed due to overloading on getServers
     (assignmentStub.getServers as sinon.SinonStub)
-      .withArgs("extension", sinon.match.any)
+      .withArgs("extension")
       .resolves([]);
   });
 
