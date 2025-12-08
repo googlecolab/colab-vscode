@@ -434,7 +434,7 @@ describe("AssignmentManager", () => {
             storedServers,
           );
         });
-        
+
         it("reconciles assigned servers before returning", async () => {
           colabClientStub.listAssignments.resolves([defaultAssignment]);
           const noLongerAssignedServer = {
@@ -445,7 +445,9 @@ describe("AssignmentManager", () => {
 
           const results = await assignmentManager.getServers("extension");
 
-          expect(stripFetchesAndWebSockets(results)).to.deep.equal([defaultServer]);
+          expect(stripFetchesAndWebSockets(results)).to.deep.equal([
+            defaultServer,
+          ]);
         });
 
         it("includes a fetch implementation that attaches Colab connection info", async () => {
