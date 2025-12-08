@@ -4,7 +4,7 @@
   "displayName": "Colab",
   "description": "Connect notebooks to Colab servers.",
   "icon": "icon.png",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "pricing": "Free",
   "homepage": "https://github.com/googlecolab/colab-vscode",
   "repository": {

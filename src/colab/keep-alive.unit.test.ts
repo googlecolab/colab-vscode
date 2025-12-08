@@ -127,7 +127,7 @@ describe("ServerKeepAliveController", () => {
     it("skips when a keep-alive is already in flight", async () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
-        .withArgs("extension", sinon.match.any)
+        .withArgs("extension")
         .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
@@ -155,7 +155,7 @@ describe("ServerKeepAliveController", () => {
     it("can be toggled on and off", async () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
-        .withArgs("extension", sinon.match.any)
+        .withArgs("extension")
         .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
@@ -186,7 +186,7 @@ describe("ServerKeepAliveController", () => {
     it("aborts slow keep-alive attempts", async () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
-        .withArgs("extension", sinon.match.any)
+        .withArgs("extension")
         .resolves([defaultServer]);
       colabClientStub.listKernels
         .withArgs(defaultServer)
@@ -208,7 +208,7 @@ describe("ServerKeepAliveController", () => {
       it("does nothing", async () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension", sinon.match.any)
+          .withArgs("extension")
           .resolves([]);
 
         await tickPast(CONFIG.keepAliveIntervalMs);
@@ -223,7 +223,7 @@ describe("ServerKeepAliveController", () => {
       beforeEach(() => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension", sinon.match.any)
+          .withArgs("extension")
           .resolves([defaultServer]);
       });
 
@@ -290,7 +290,7 @@ describe("ServerKeepAliveController", () => {
       beforeEach(() => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension", sinon.match.any)
+          .withArgs("extension")
           .resolves([defaultServer]);
         colabClientStub.listKernels
           .withArgs(defaultServer)
@@ -462,7 +462,7 @@ describe("ServerKeepAliveController", () => {
         }
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension", sinon.match.any)
+          .withArgs("extension")
           .resolves(servers.map((s) => s.server));
       });
 
@@ -546,7 +546,7 @@ describe("ServerKeepAliveController", () => {
       it("respects the most recent kernel activity", async () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension", sinon.match.any)
+          .withArgs("extension")
           .resolves([defaultServer]);
         const kernels: Kernel[] = [
           DEFAULT_KERNEL,
@@ -571,7 +571,7 @@ describe("ServerKeepAliveController", () => {
       it("does not send a keep-alive request if all kernels are idle", async () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
-          .withArgs("extension", sinon.match.any)
+          .withArgs("extension")
           .resolves([defaultServer]);
         const kernels: Kernel[] = [
           {
