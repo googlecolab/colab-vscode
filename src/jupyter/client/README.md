@@ -16,4 +16,4 @@ It can be ran with the following: `npm run generate:jupyterclient`.
 
 ## Special Sauce
 
-Since this codebase uses strict TS compilation rules and the generator often includes things like unecessary imports (instead relying on builds to shake out what they don't need), we add `// @ts-nocheck` to all files.
+Since this codebase uses strict TS compilation rules and the generator often includes things like unnecessary imports (instead relying on builds to shake out what they don't need), we add `// @ts-nocheck` to all files.
