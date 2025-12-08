@@ -33,6 +33,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from "../colab/headers";
+import { warnOnDriveMount } from "./drive-mount-warning";
 import {
   AllServers,
   ColabAssignedServer,
@@ -628,21 +629,10 @@ function isRequest(info: RequestInfo): info is Request {
   return typeof info !== "string" && !("href" in info);
 }
 
-const DRIVE_MOUNT_PATTERN = /drive\.mount\(.*\)/;
-const DRIVE_MOUNT_ISSUE_LINK =
-  "https://github.com/googlecolab/colab-vscode/issues/223";
-const DRIVE_MOUNT_WIKI_LINK =
-  "https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount";
-
-enum DriveMountUnsupportedAction {
-  VIEW_ISSUE = "View Issue",
-  VIEW_WORKAROUND = "View Workaround",
-}
-
 /**
  * Returns a `WebSocket` class which extends `WebSocketIsomorphic`, adds our
- * custom headers, and intercepts `WebSocket.send` to notify users when
- * `drive.mount` is executed.
+ * custom headers, and intercepts `WebSocket.send` to warn users when on
+ * `drive.mount` execution.
  */
 function colabProxyWebSocket(vs: typeof vscode, token: string) {
   // These custom headers are required for our proxy WebSocket to work.
@@ -663,22 +653,6 @@ function colabProxyWebSocket(vs: typeof vscode, token: string) {
       ...options,
       headers,
     };
-  };
-
-  const notifyDriveMountUnsupported = async () => {
-    const selectedAction = await vs.window.showWarningMessage(
-      `drive.mount() is not supported by Colab VS Code extension at the moment, and we are actively working on supporting it. Please see [our wiki](${DRIVE_MOUNT_WIKI_LINK}) for workaround and [this issue](${DRIVE_MOUNT_ISSUE_LINK}) for progress.`,
-      DriveMountUnsupportedAction.VIEW_WORKAROUND,
-      DriveMountUnsupportedAction.VIEW_ISSUE,
-    );
-    switch (selectedAction) {
-      case DriveMountUnsupportedAction.VIEW_WORKAROUND:
-        vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_WIKI_LINK));
-        break;
-      case DriveMountUnsupportedAction.VIEW_ISSUE:
-        vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_ISSUE_LINK));
-        break;
-    }
   };
 
   return class OurWebSocket extends WebSocketIsomorphic {
@@ -714,17 +688,9 @@ function colabProxyWebSocket(vs: typeof vscode, token: string) {
         | undefined,
       cb?: (err?: Error) => void,
     ) {
-      const jupyterMessage = JSON.parse(data) as {
-        header: { msg_type: string };
-        content: { code: string };
-      };
-      if (
-        jupyterMessage.header.msg_type === "execute_request" &&
-        DRIVE_MOUNT_PATTERN.exec(jupyterMessage.content.code)
-      ) {
-        void notifyDriveMountUnsupported();
-      }
+      void warnOnDriveMount(vs, data);
 
+      // This is required to override all `send` overload signatures:
       if (options === undefined || typeof options === "function") {
         cb = options;
         options = {};
