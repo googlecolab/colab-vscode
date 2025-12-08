@@ -44,7 +44,7 @@ async function notifyDriveMountUnsupported(vs: typeof vscode): Promise<void> {
 
 const DRIVE_MOUNT_PATTERN = /drive\.mount\(.*\)/;
 const DRIVE_MOUNT_ISSUE_LINK =
-  "https://github.com/googlecolab/colab-vscode/issues/223";
+  "https://github.com/googlecolab/colab-vscode/issues/256";
 const DRIVE_MOUNT_WIKI_LINK =
   "https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount";
 
