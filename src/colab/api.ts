@@ -422,9 +422,7 @@ const HIGHMEM_ONLY_ACCELERATORS: Set<string> = new Set<string>([
  * @returns Whether the accelerator requires a high-memory machine shape.
  */
 export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
-  if (!accelerator) {
-    return false;
-  }
-
-  return HIGHMEM_ONLY_ACCELERATORS.has(accelerator);
+  return (
+    accelerator !== undefined && HIGHMEM_ONLY_ACCELERATORS.has(accelerator)
+  );
 }

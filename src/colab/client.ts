@@ -415,8 +415,9 @@ export class ColabClient {
     if (accelerator) {
       url.searchParams.append("accelerator", accelerator);
     }
-    if (shape !== undefined && shape !== Shape.STANDARD) {
-      url.searchParams.append("shape", mapShapeToURLParam(shape));
+    const shapeURLParam = mapShapeToURLParam(shape ?? Shape.STANDARD);
+    if (shapeURLParam) {
+      url.searchParams.append("shape", shapeURLParam);
     }
     return url;
   }
@@ -539,11 +540,11 @@ class ColabRequestError extends Error {
   }
 }
 
-function mapShapeToURLParam(shape: Shape): string {
+function mapShapeToURLParam(shape: Shape): string | undefined {
   switch (shape) {
     case Shape.HIGHMEM:
       return "hm";
     default:
-      return "";
+      return undefined;
   }
 }

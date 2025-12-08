@@ -102,7 +102,7 @@ export class ServerPicker {
     const pick = await input.showQuickPick({
       title: "Select a variant",
       step: 1,
-      totalSteps: 3,
+      totalSteps: 2,
       items,
       activeItem: items.find((item) => item.value === state.variant),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -114,8 +114,18 @@ export class ServerPicker {
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
       state.accelerator = "NONE";
+      const shapePicks = getShapePicksFromAccelerator(
+        shapesByAccelerators,
+        state.accelerator,
+      );
+      if (shapePicks.length <= 1) {
+        state.shape =
+          shapePicks.length === 1 ? shapePicks[0].value : Shape.STANDARD;
+        return (input: MultiStepInput) =>
+          this.promptForAlias(input, state, /** totalSteps */ 2);
+      }
       return (input: MultiStepInput) =>
-        this.promptForMachineShape(input, state, shapesByAccelerators);
+        this.promptForMachineShape(input, state, shapePicks);
     }
     return (input: MultiStepInput) =>
       this.promptForAccelerator(
@@ -144,7 +154,7 @@ export class ServerPicker {
       title: "Select an accelerator",
       step: 2,
       // Since we have to pick an accelerator, we've added a step.
-      totalSteps: 4,
+      totalSteps: 3,
       items,
       activeItem: items.find((item) => item.value === state.accelerator),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -153,27 +163,25 @@ export class ServerPicker {
     if (!isAcceleratorDefined(state)) {
       return;
     }
-
+    const shapePicks = getShapePicksFromAccelerator(
+      shapesByAccelerators,
+      state.accelerator,
+    );
+    if (shapePicks.length <= 1) {
+      state.shape =
+        shapePicks.length === 1 ? shapePicks[0].value : Shape.STANDARD;
+      return (input: MultiStepInput) =>
+        this.promptForAlias(input, state, /** totalSteps */ 3);
+    }
     return (input: MultiStepInput) =>
-      this.promptForMachineShape(input, state, shapesByAccelerators);
+      this.promptForMachineShape(input, state, shapePicks);
   }
 
   private async promptForMachineShape(
     input: MultiStepInput,
     state: PartialServerWith<"variant">,
-    shapesByAccelerators: Map<string, Set<Shape>>,
+    items: ShapePick[],
   ) {
-    if (!isAcceleratorDefined(state)) {
-      return;
-    }
-    const shapes = shapesByAccelerators.get(state.accelerator) ?? new Set();
-    const items: ShapePick[] = [];
-    for (const shape of shapes) {
-      items.push({
-        value: shape,
-        label: shapeToMachineShape(shape),
-      });
-    }
     const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
     const pick = await input.showQuickPick({
       title: "Select a machine shape",
@@ -188,22 +196,23 @@ export class ServerPicker {
       return;
     }
 
-    return (input: MultiStepInput) => this.promptForAlias(input, state);
+    return (input: MultiStepInput) =>
+      this.promptForAlias(input, state, /** totalSteps */ step + 1);
   }
 
   private async promptForAlias(
     input: MultiStepInput,
     state: PartialServerWith<"variant">,
+    totalSteps: number,
   ): Promise<InputStep | undefined> {
     const placeholder = await this.assignments.getDefaultLabel(
       state.variant,
       state.accelerator,
     );
-    const step = state.accelerator && state.accelerator !== "NONE" ? 4 : 3;
     const alias = await input.showInputBox({
       title: "Alias your server",
-      step,
-      totalSteps: step,
+      step: totalSteps,
+      totalSteps,
       value: state.alias ?? "",
       prompt: PROMPT_SERVER_ALIAS,
       validate: validateServerAlias,
@@ -256,4 +265,19 @@ interface AcceleratorPick extends QuickPickItem {
 
 interface ShapePick extends QuickPickItem {
   value: Shape;
+}
+
+function getShapePicksFromAccelerator(
+  shapesByAccelerators: Map<string, Set<Shape>>,
+  accelerator: string,
+): ShapePick[] {
+  const shapes = shapesByAccelerators.get(accelerator) ?? new Set();
+  const items: ShapePick[] = [];
+  for (const shape of shapes) {
+    items.push({
+      value: shape,
+      label: shapeToMachineShape(shape),
+    });
+  }
+  return items;
 }

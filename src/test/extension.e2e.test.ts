@@ -96,12 +96,7 @@ describe("Colab Extension", function () {
       // the open kernel selector.
       await selectQuickPickItem({
         item: "CPU",
-        quickPick: "Select a variant (1/3)",
-      });
-      // We must now pick a machine shape
-      await selectQuickPickItem({
-        item: "Standard",
-        quickPick: "Select a machine shape (2/3)",
+        quickPick: "Select a variant (1/2)",
       });
       // Alias the server with the default name.
       const inputBox = await InputBox.create();
