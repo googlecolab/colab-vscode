@@ -61,7 +61,7 @@ describe("warnOnDriveMount", () => {
         sinon.match(function (url: Uri) {
           return (
             url.toString() ===
-            "https://github.com/googlecolab/colab-vscode/issues/223"
+            "https://github.com/googlecolab/colab-vscode/issues/256"
           );
         }),
       );
