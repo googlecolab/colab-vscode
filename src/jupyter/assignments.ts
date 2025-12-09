@@ -34,8 +34,8 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
-import { warnOnDriveMount } from './drive-mount-warning';
 import { log } from '../common/logging';
+import { warnOnDriveMount } from './drive-mount-warning';
 import {
   AllServers,
   ColabAssignedServer,
@@ -695,7 +695,7 @@ function colabProxyWebSocket(vs: typeof vscode, token: string) {
       void warnOnDriveMount(vs, data);
 
       // This is required to override all `send` overload signatures:
-      if (options === undefined || typeof options === "function") {
+      if (options === undefined || typeof options === 'function') {
         cb = options;
         options = {};
       }

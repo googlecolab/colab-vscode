@@ -468,8 +468,8 @@ describe('AssignmentManager', () => {
           });
         });
 
-        it("includes a custom WebSocket implementation", async () => {
-          const servers = await assignmentManager.getServers("extension");
+        it('includes a custom WebSocket implementation', async () => {
+          const servers = await assignmentManager.getServers('extension');
           assert.lengthOf(servers, 1);
           const server = servers[0];
           assert.isDefined(server.connectionInformation.WebSocket);
@@ -843,7 +843,7 @@ describe('AssignmentManager', () => {
         });
       });
 
-      it("includes a custom WebSocket implementation", () => {
+      it('includes a custom WebSocket implementation', () => {
         assert.isDefined(assignedServer.connectionInformation.WebSocket);
       });
     });

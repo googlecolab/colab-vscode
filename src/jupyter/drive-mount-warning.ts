@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
+import vscode from 'vscode';
 
 /**
  * Displays a warning notification message in VS Code if `rawJupyterMessage` is
@@ -19,7 +19,7 @@ export async function warnOnDriveMount(
     content: { code: string };
   };
   if (
-    parsedJupyterMessage.header.msg_type === "execute_request" &&
+    parsedJupyterMessage.header.msg_type === 'execute_request' &&
     DRIVE_MOUNT_PATTERN.exec(parsedJupyterMessage.content.code)
   ) {
     await notifyDriveMountUnsupported(vs);
@@ -44,11 +44,11 @@ async function notifyDriveMountUnsupported(vs: typeof vscode): Promise<void> {
 
 const DRIVE_MOUNT_PATTERN = /drive\.mount\(.*\)/;
 const DRIVE_MOUNT_ISSUE_LINK =
-  "https://github.com/googlecolab/colab-vscode/issues/256";
+  'https://github.com/googlecolab/colab-vscode/issues/256';
 const DRIVE_MOUNT_WIKI_LINK =
-  "https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount";
+  'https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount';
 
 enum DriveMountUnsupportedAction {
-  VIEW_ISSUE = "View Issue",
-  VIEW_WORKAROUND = "View Workaround",
+  VIEW_ISSUE = 'View Issue',
+  VIEW_WORKAROUND = 'View Workaround',
 }
