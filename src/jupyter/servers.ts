@@ -8,8 +8,8 @@ import { UUID } from 'crypto';
 import {
   JupyterServer,
   JupyterServerConnectionInformation,
-} from "@vscode/jupyter-extension";
-import { Variant, Shape } from "../colab/api";
+} from '@vscode/jupyter-extension';
+import { Variant, Shape } from '../colab/api';
 
 /**
  * Colab's Jupyter server descriptor which includes machine-specific

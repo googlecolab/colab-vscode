@@ -485,7 +485,7 @@ describe('ColabJupyterServerProvider', () => {
           sinon.assert.calledOnce(serverPickerStub.prompt);
         });
 
-        it("completes assigning a server", async () => {
+        it('completes assigning a server', async () => {
           colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
 
           const availableServers = [DEFAULT_SERVER];

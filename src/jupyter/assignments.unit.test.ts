@@ -142,14 +142,14 @@ describe('AssignmentManager', () => {
     sinon.restore();
   });
 
-  describe("getAvailableServerDescriptors", () => {
+  describe('getAvailableServerDescriptors', () => {
     const mockCcuInfo = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 0,
-      eligibleGpus: ["T4", "A100"],
+      eligibleGpus: ['T4', 'A100'],
       ineligibleGpus: [],
-      eligibleTpus: ["V5E1", "V6E1"],
+      eligibleTpus: ['V5E1', 'V6E1'],
       ineligibleTpus: [],
       freeCcuQuotaInfo: {
         remainingTokens: 4,
@@ -158,30 +158,30 @@ describe('AssignmentManager', () => {
     };
 
     const defaultGpuT4Descriptor = {
-      label: "Colab GPU T4",
+      label: 'Colab GPU T4',
       variant: Variant.GPU,
-      accelerator: "T4",
+      accelerator: 'T4',
     };
 
     const defaultGpuA100Descriptor = {
-      label: "Colab GPU A100",
+      label: 'Colab GPU A100',
       variant: Variant.GPU,
-      accelerator: "A100",
+      accelerator: 'A100',
     };
 
     const defaultTpuV5E1Descriptor = {
-      label: "Colab TPU V5E1",
+      label: 'Colab TPU V5E1',
       variant: Variant.TPU,
-      accelerator: "V5E1",
+      accelerator: 'V5E1',
     };
 
     const defaultTpuV6E1Descriptor = {
-      label: "Colab TPU V6E1",
+      label: 'Colab TPU V6E1',
       variant: Variant.TPU,
-      accelerator: "V6E1",
+      accelerator: 'V6E1',
     };
 
-    it("returns the default CPU and the eligible servers", async () => {
+    it('returns the default CPU and the eligible servers', async () => {
       colabClientStub.getCcuInfo.resolves(mockCcuInfo);
 
       const servers = await assignmentManager.getAvailableServerDescriptors();
@@ -195,7 +195,7 @@ describe('AssignmentManager', () => {
       ]);
     });
 
-    it("returns the default CPU and the eligible servers for pro users", async () => {
+    it('returns the default CPU and the eligible servers for pro users', async () => {
       colabClientStub.getCcuInfo.resolves(mockCcuInfo);
 
       const tier = SubscriptionTier.PRO;

@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { QuickPickItem } from "vscode";
-import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
-import { AssignmentManager } from "../jupyter/assignments";
-import { ColabServerDescriptor } from "../jupyter/servers";
+import vscode, { QuickPickItem } from 'vscode';
+import { InputStep, MultiStepInput } from '../common/multi-step-quickpick';
+import { AssignmentManager } from '../jupyter/assignments';
+import { ColabServerDescriptor } from '../jupyter/servers';
 import {
   Variant,
   variantToMachineType,
   Shape,
   shapeToMachineShape,
-} from "./api";
+} from './api';
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -45,7 +45,7 @@ export class ServerPicker {
     const variantToAccelerators = new Map<Variant, Set<string>>();
     const acceleratorsToShapes = new Map<string, Set<Shape>>();
     for (const server of availableServers) {
-      const serverAccelerator = server.accelerator ?? "NONE";
+      const serverAccelerator = server.accelerator ?? 'NONE';
 
       const accelerators =
         variantToAccelerators.get(server.variant) ?? new Set();
@@ -113,7 +113,7 @@ export class ServerPicker {
     }
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
-      state.accelerator = "NONE";
+      state.accelerator = 'NONE';
       const shapePicks = getShapePicksFromAccelerator(
         shapesByAccelerators,
         state.accelerator,
@@ -179,12 +179,12 @@ export class ServerPicker {
 
   private async promptForMachineShape(
     input: MultiStepInput,
-    state: PartialServerWith<"variant">,
+    state: PartialServerWith<'variant'>,
     items: ShapePick[],
   ) {
-    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
+    const step = state.accelerator && state.accelerator !== 'NONE' ? 3 : 2;
     const pick = await input.showQuickPick({
-      title: "Select a machine shape",
+      title: 'Select a machine shape',
       step,
       totalSteps: step + 1,
       items,
@@ -202,7 +202,7 @@ export class ServerPicker {
 
   private async promptForAlias(
     input: MultiStepInput,
-    state: PartialServerWith<"variant">,
+    state: PartialServerWith<'variant'>,
     totalSteps: number,
   ): Promise<InputStep | undefined> {
     const placeholder = await this.assignments.getDefaultLabel(
@@ -210,10 +210,10 @@ export class ServerPicker {
       state.accelerator,
     );
     const alias = await input.showInputBox({
-      title: "Alias your server",
+      title: 'Alias your server',
       step: totalSteps,
       totalSteps,
-      value: state.alias ?? "",
+      value: state.alias ?? '',
       prompt: PROMPT_SERVER_ALIAS,
       validate: validateServerAlias,
       placeholder,
@@ -251,7 +251,7 @@ function isAcceleratorDefined(
 
 function isShapeDefined(
   state: Partial<Server>,
-): state is PartialServerWith<"shape"> {
+): state is PartialServerWith<'shape'> {
   return state.shape !== undefined;
 }
 

@@ -33,7 +33,7 @@ import {
   RuntimeProxyInfo,
   RuntimeProxyInfoSchema,
   Shape,
-} from "./api";
+} from './api';
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
@@ -417,7 +417,7 @@ export class ColabClient {
     }
     const shapeURLParam = mapShapeToURLParam(shape ?? Shape.STANDARD);
     if (shapeURLParam) {
-      url.searchParams.append("shape", shapeURLParam);
+      url.searchParams.append('shape', shapeURLParam);
     }
     return url;
   }
@@ -543,7 +543,7 @@ class ColabRequestError extends Error {
 function mapShapeToURLParam(shape: Shape): string | undefined {
   switch (shape) {
     case Shape.HIGHMEM:
-      return "hm";
+      return 'hm';
     default:
       return undefined;
   }

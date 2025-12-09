@@ -22,7 +22,7 @@ import {
   SubscriptionTier,
   Shape,
   isHighMemOnlyAccelerator,
-} from "../colab/api";
+} from '../colab/api';
 import {
   ColabClient,
   DenylistedError,

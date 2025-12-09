@@ -226,14 +226,14 @@ describe('ColabClient', () => {
 
       const assignmentTests: [Variant, string?, Shape?][] = [
         [Variant.DEFAULT, undefined],
-        [Variant.GPU, "T4"],
-        [Variant.TPU, "V28", Shape.STANDARD],
+        [Variant.GPU, 'T4'],
+        [Variant.TPU, 'V28', Shape.STANDARD],
         [Variant.DEFAULT, undefined, Shape.HIGHMEM],
-        [Variant.GPU, "A100", Shape.HIGHMEM],
-        [Variant.TPU, "V6E1", Shape.HIGHMEM],
+        [Variant.GPU, 'A100', Shape.HIGHMEM],
+        [Variant.TPU, 'V6E1', Shape.HIGHMEM],
       ];
       for (const [variant, accelerator, shape] of assignmentTests) {
-        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ""} with shape ${String(shape ?? Shape.STANDARD)}`;
+        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ''} with shape ${String(shape ?? Shape.STANDARD)}`;
 
         it(`creates a new ${assignment}`, async () => {
           const postQueryParams: Record<string, string | RegExp> = {
@@ -246,12 +246,12 @@ describe('ColabClient', () => {
             postQueryParams.accelerator = accelerator;
           }
           if (shape === Shape.HIGHMEM) {
-            postQueryParams.shape = "hm";
+            postQueryParams.shape = 'hm';
           }
           const assignmentResponse = {
             ...DEFAULT_ASSIGNMENT_RESPONSE,
             variant,
-            accelerator: accelerator ?? "NONE",
+            accelerator: accelerator ?? 'NONE',
             ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           fetchStub
@@ -275,7 +275,7 @@ describe('ColabClient', () => {
           const expectedAssignment: Assignment = {
             ...DEFAULT_ASSIGNMENT,
             variant,
-            accelerator: accelerator ?? "NONE",
+            accelerator: accelerator ?? 'NONE',
             ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           await expect(
