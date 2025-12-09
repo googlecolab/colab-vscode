@@ -4,29 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import * as sinon from "sinon";
-import { Uri } from "vscode";
-import { PackageInfo } from "../config/package-info";
-import { TestUri } from "../test/helpers/uri";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { buildExtensionUri, ExtensionUriHandler } from "./uri";
+import { expect } from 'chai';
+import * as sinon from 'sinon';
+import { Uri } from 'vscode';
+import { PackageInfo } from '../config/package-info';
+import { TestUri } from '../test/helpers/uri';
+import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
+import { buildExtensionUri, ExtensionUriHandler } from './uri';
 
-it("buildExtensionUri", () => {
+it('buildExtensionUri', () => {
   const vs = newVsCodeStub();
-  vs.env.uriScheme = "vscode-insiders";
+  vs.env.uriScheme = 'vscode-insiders';
   const packageInfo: PackageInfo = {
-    publisher: "google",
-    name: "colab",
-    version: "0.0.1",
+    publisher: 'google',
+    name: 'colab',
+    version: '0.0.1',
   };
 
   expect(buildExtensionUri(vs.asVsCode(), packageInfo)).to.equal(
-    "vscode-insiders://google.colab",
+    'vscode-insiders://google.colab',
   );
 });
 
-describe("ExtensionUriHandler", () => {
+describe('ExtensionUriHandler', () => {
   let vs: VsCodeStub;
   let handler: ExtensionUriHandler;
 
@@ -40,7 +40,7 @@ describe("ExtensionUriHandler", () => {
     handler.dispose();
   });
 
-  it("disposes of the event emitter when disposed", () => {
+  it('disposes of the event emitter when disposed', () => {
     const disposeSpy = sinon.spy();
     const fakeEmitterInstance = {
       event: sinon.stub(),
@@ -57,21 +57,21 @@ describe("ExtensionUriHandler", () => {
     sinon.assert.calledOnce(disposeSpy);
   });
 
-  it("fires a single URI event", () => {
+  it('fires a single URI event', () => {
     const onReceivedUriStub: sinon.SinonStub<[Uri], void> = sinon.stub();
     handler.onReceivedUri(onReceivedUriStub);
-    const testUri = TestUri.parse("vscode://google.colab?foo=bar");
+    const testUri = TestUri.parse('vscode://google.colab?foo=bar');
 
     handler.handleUri(testUri);
 
     sinon.assert.calledOnceWithExactly(onReceivedUriStub, testUri);
   });
 
-  it("fires multiple URI events", () => {
+  it('fires multiple URI events', () => {
     const onReceivedUriStub: sinon.SinonStub<[Uri], void> = sinon.stub();
     handler.onReceivedUri(onReceivedUriStub);
-    const testUri1 = TestUri.parse("vscode://google.colab?foo=bar");
-    const testUri2 = TestUri.parse("vscode://google.colab?foo=baz");
+    const testUri1 = TestUri.parse('vscode://google.colab?foo=bar');
+    const testUri2 = TestUri.parse('vscode://google.colab?foo=baz');
 
     handler.handleUri(testUri1);
     handler.handleUri(testUri2);

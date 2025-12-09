@@ -4,21 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { existsSync, mkdirSync, cpSync } from "fs";
-import * as path from "path";
-import * as esbuild from "esbuild";
-import { nodeExternalsPlugin } from "esbuild-node-externals";
-import { glob } from "glob";
+import { existsSync, mkdirSync, cpSync } from 'fs';
+import * as path from 'path';
+import * as esbuild from 'esbuild';
+import { nodeExternalsPlugin } from 'esbuild-node-externals';
+import { glob } from 'glob';
 
-const isProduction: boolean = process.argv.includes("--production");
-const isTestBuild: boolean = process.argv.includes("--tests");
-const isWatch: boolean = process.argv.includes("--watch");
+const isProduction: boolean = process.argv.includes('--production');
+const isTestBuild: boolean = process.argv.includes('--tests');
+const isWatch: boolean = process.argv.includes('--watch');
 
 // Create output directories.
-mkdirSync("out/auth/media", { recursive: true });
+mkdirSync('out/auth/media', { recursive: true });
 if (isTestBuild) {
-  mkdirSync("out/test/media", { recursive: true });
-  cpSync("src/auth/media/favicon.ico", "out/test/media/favicon.ico");
+  mkdirSync('out/test/media', { recursive: true });
+  cpSync('src/auth/media/favicon.ico', 'out/test/media/favicon.ico');
 }
 
 /**
@@ -29,7 +29,7 @@ if (isTestBuild) {
  */
 function logBuildMetadata(
   name: string,
-  outputs: esbuild.Metafile["outputs"],
+  outputs: esbuild.Metafile['outputs'],
 ): void {
   for (const [fileName, output] of Object.entries(outputs)) {
     if (!output.bytes) {
@@ -47,7 +47,7 @@ function logBuildMetadata(
  */
 function buildReporter(name: string): esbuild.Plugin {
   return {
-    name: "build-reporter",
+    name: 'build-reporter',
     setup(build: esbuild.PluginBuild) {
       build.onEnd((result: esbuild.BuildResult) => {
         if (result.errors.length > 0) {
@@ -74,20 +74,20 @@ function buildReporter(name: string): esbuild.Plugin {
 const baseOptions: esbuild.BuildOptions = {
   bundle: true,
   sourcemap: true,
-  platform: "node",
-  format: "cjs", // CommonJS format, requires for VS Code extensions.
+  platform: 'node',
+  format: 'cjs', // CommonJS format, requires for VS Code extensions.
   minify: isProduction,
   treeShaking: true,
-  external: ["vscode"], // 'vscode' is provided by the VS Code runtime.
+  external: ['vscode'], // 'vscode' is provided by the VS Code runtime.
   color: true,
 };
 
 // Options specific to the main extension build
 const extensionOptions: esbuild.BuildOptions = {
   ...baseOptions,
-  entryPoints: ["src/extension.ts"],
-  outfile: "out/extension.js",
-  plugins: [buildReporter("Extension")],
+  entryPoints: ['src/extension.ts'],
+  outfile: 'out/extension.js',
+  plugins: [buildReporter('Extension')],
   metafile: !isWatch,
 };
 
@@ -96,13 +96,13 @@ const extensionOptions: esbuild.BuildOptions = {
  * Throws an error if the file is not found.
  */
 function ensureConfigExists(): void {
-  if (existsSync("./src/colab-config.ts")) {
+  if (existsSync('./src/colab-config.ts')) {
     return;
   }
   console.error(
-    "📣 Required source configuration file not found. Run `npm run generate:config`.",
+    '📣 Required source configuration file not found. Run `npm run generate:config`.',
   );
-  throw new Error("Configuration file not found: src/colab-config.ts");
+  throw new Error('Configuration file not found: src/colab-config.ts');
 }
 
 /**
@@ -120,7 +120,7 @@ function testOptions(
     entryPoints: Array.isArray(entrypointGlobPattern)
       ? entrypointGlobPattern
       : glob.sync(entrypointGlobPattern),
-    outdir: "out/test",
+    outdir: 'out/test',
     plugins: [buildReporter(name), nodeExternalsPlugin()],
   };
 }
@@ -140,7 +140,7 @@ function testSetupOptions(
   return {
     ...baseOptions,
     entryPoints: [entrypoint],
-    outfile: path.join("out/test", outfile),
+    outfile: path.join('out/test', outfile),
     bundle: false, // Do not bundle, just transpile for test setup files.
     external: undefined, // 'external' cannot be used when 'bundle' is false.
     plugins: [buildReporter(name), nodeExternalsPlugin()],
@@ -155,32 +155,32 @@ async function main(): Promise<void> {
   try {
     ensureConfigExists();
     // Copy favicon for both main and test builds
-    cpSync("src/auth/media/favicon.ico", "out/auth/media/favicon.ico");
+    cpSync('src/auth/media/favicon.ico', 'out/auth/media/favicon.ico');
     if (isTestBuild) {
-      cpSync("src/auth/media/favicon.ico", "out/test/media/favicon.ico");
+      cpSync('src/auth/media/favicon.ico', 'out/test/media/favicon.ico');
     }
 
     // Determine which build options to use based on 'isTestBuild' flag
     const options: esbuild.BuildOptions[] = isTestBuild
       ? [
           testSetupOptions(
-            "Unit Test Setup",
-            "src/test/unit-test-setup.ts",
-            "test/unit-test-setup.js",
+            'Unit Test Setup',
+            'src/test/unit-test-setup.ts',
+            'test/unit-test-setup.js',
           ),
           testSetupOptions(
-            "Integration Test Setup",
-            "src/test/integration-test-runner.ts",
-            "test/integration-test-runner.js",
+            'Integration Test Setup',
+            'src/test/integration-test-runner.ts',
+            'test/integration-test-runner.js',
           ),
-          testOptions("Unit Tests", "src/**/*.unit.test.ts"),
-          testOptions("Integration Tests", [
-            "src/**/*.vscode.test.ts",
-            "src/test/suite/**/*.ts",
+          testOptions('Unit Tests', 'src/**/*.unit.test.ts'),
+          testOptions('Integration Tests', [
+            'src/**/*.vscode.test.ts',
+            'src/test/suite/**/*.ts',
           ]),
-          testOptions("E2E Tests", [
-            "src/test/*.e2e.test.ts",
-            "src/test/e2e.mocharc.js",
+          testOptions('E2E Tests', [
+            'src/test/*.e2e.test.ts',
+            'src/test/e2e.mocharc.js',
           ]),
         ]
       : [extensionOptions];
@@ -191,12 +191,12 @@ async function main(): Promise<void> {
         // Start watch mode
         const context = await esbuild.context(opts);
         await context.watch();
-        console.log("👀 Watching for changes...");
+        console.log('👀 Watching for changes...');
 
         // Handle process exit gracefully in watch mode
-        process.on("SIGINT", () => {
+        process.on('SIGINT', () => {
           void context.dispose();
-          console.log("\n🛑 Watch mode stopped");
+          console.log('\n🛑 Watch mode stopped');
           process.exit(0);
         });
       } else {
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     // Log any errors and exit with a non-zero code
-    console.error("🚨 Build process encountered an error:", error);
+    console.error('🚨 Build process encountered an error:', error);
     process.exit(1);
   }
 }

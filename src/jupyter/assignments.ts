@@ -4,37 +4,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID, UUID } from "crypto";
-import WebSocketIsomorphic from "isomorphic-ws";
+import { randomUUID, UUID } from 'crypto';
+import WebSocketIsomorphic from 'isomorphic-ws';
 import fetch, {
   Headers,
   Request,
   RequestInfo,
   RequestInit,
   Response,
-} from "node-fetch";
-import vscode from "vscode";
+} from 'node-fetch';
+import vscode from 'vscode';
 import {
   Assignment,
   ListedAssignment,
   RuntimeProxyInfo,
   Variant,
   variantToMachineType,
-} from "../colab/api";
+} from '../colab/api';
 import {
   ColabClient,
   DenylistedError,
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
-} from "../colab/client";
-import { REMOVE_SERVER } from "../colab/commands/constants";
+} from '../colab/client';
+import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-} from "../colab/headers";
-import { log } from "../common/logging";
-import { warnOnDriveMount } from "./drive-mount-warning";
+} from '../colab/headers';
+import { log } from '../common/logging';
+import { warnOnDriveMount } from './drive-mount-warning';
+import { log } from '../common/logging';
 import {
   AllServers,
   ColabAssignedServer,
@@ -43,8 +44,8 @@ import {
   DEFAULT_CPU_SERVER,
   isColabAssignedServer,
   UnownedServer,
-} from "./servers";
-import { ServerStorage } from "./storage";
+} from './servers';
+import { ServerStorage } from './storage';
 
 /**
  * An {@link vscode.Event} which fires when a {@link ColabAssignedServer} is
@@ -162,7 +163,7 @@ export class AssignmentManager implements vscode.Disposable {
    * and can be refreshed by calling {@link refreshConnection}.
    */
   async getServers(
-    from: "extension",
+    from: 'extension',
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer[]>;
 
@@ -171,7 +172,7 @@ export class AssignmentManager implements vscode.Disposable {
    * the VS Code extension.
    */
   async getServers(
-    from: "external",
+    from: 'external',
     signal?: AbortSignal,
   ): Promise<UnownedServer[]>;
 
@@ -179,20 +180,20 @@ export class AssignmentManager implements vscode.Disposable {
    * Retrieves the list of all servers that are assigned both in and outside VS
    * Code.
    */
-  async getServers(from: "all", signal?: AbortSignal): Promise<AllServers>;
+  async getServers(from: 'all', signal?: AbortSignal): Promise<AllServers>;
 
   async getServers(
-    from: "extension" | "external" | "all",
+    from: 'extension' | 'external' | 'all',
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer[] | UnownedServer[] | AllServers> {
     let storedServers = await this.storage.list();
-    if (from === "extension" && storedServers.length === 0) {
+    if (from === 'extension' && storedServers.length === 0) {
       return storedServers;
     }
 
     const allAssignments = await this.client.listAssignments(signal);
 
-    if (from === "extension" || from === "all") {
+    if (from === 'extension' || from === 'all') {
       storedServers = (
         await this.reconcileStoredServers(storedServers, allAssignments)
       ).map((server) => ({
@@ -209,7 +210,7 @@ export class AssignmentManager implements vscode.Disposable {
     }
 
     let unownedServers: UnownedServer[] = [];
-    if (from === "external" || from === "all") {
+    if (from === 'external' || from === 'all') {
       const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
       unownedServers = await Promise.all(
         allAssignments
@@ -229,9 +230,9 @@ export class AssignmentManager implements vscode.Disposable {
     }
 
     switch (from) {
-      case "extension":
+      case 'extension':
         return storedServers;
-      case "external":
+      case 'external':
         return unownedServers;
       default:
         return {
@@ -347,7 +348,7 @@ export class AssignmentManager implements vscode.Disposable {
   async latestServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer | undefined> {
-    const assigned = await this.getServers("extension", signal);
+    const assigned = await this.getServers('extension', signal);
     let latest: ColabAssignedServer | undefined;
     for (const server of assigned) {
       if (!latest || server.dateAssigned > latest.dateAssigned) {
@@ -373,7 +374,7 @@ export class AssignmentManager implements vscode.Disposable {
     await this.reconcileAssignedServers(signal);
     const server = await this.storage.get(id);
     if (!server) {
-      throw new NotFoundError("Server is not assigned");
+      throw new NotFoundError('Server is not assigned');
     }
     const newConnectionInfo = await this.client.refreshConnection(
       server.endpoint,
@@ -434,8 +435,8 @@ export class AssignmentManager implements vscode.Disposable {
     accelerator?: string,
     signal?: AbortSignal,
   ): Promise<string> {
-    const servers = await this.getServers("extension", signal);
-    const a = accelerator && accelerator !== "NONE" ? ` ${accelerator}` : "";
+    const servers = await this.getServers('extension', signal);
+    const a = accelerator && accelerator !== 'NONE' ? ` ${accelerator}` : '';
     const v = variantToMachineType(variant);
     const labelBase = `Colab ${v}${a}`;
     const labelRegex = new RegExp(`^${labelBase}(?:\\s\\((\\d+)\\))?$`);
@@ -528,7 +529,7 @@ export class AssignmentManager implements vscode.Disposable {
   private async notifyMaxAssignmentsExceeded() {
     // TODO: Account for subscription tiers in actions.
     const selectedAction = await this.vs.window.showErrorMessage(
-      "Unable to assign server. You have too many, remove one to continue.",
+      'Unable to assign server. You have too many, remove one to continue.',
       AssignmentsExceededActions.REMOVE_SERVER,
     );
     switch (selectedAction) {
@@ -549,7 +550,7 @@ export class AssignmentManager implements vscode.Disposable {
     if (selectedAction === LEARN_MORE) {
       this.vs.env.openExternal(
         this.vs.Uri.parse(
-          "https://research.google.com/colaboratory/faq.html#resource-limits",
+          'https://research.google.com/colaboratory/faq.html#resource-limits',
         ),
       );
     }
@@ -571,7 +572,7 @@ export class AssignmentManager implements vscode.Disposable {
     const serverDescriptor =
       removed.length === 1
         ? `${removed[0]} was`
-        : `${removed.slice(0, numRemoved - 1).join(", ")} and ${removed[numRemoved - 1]} were`;
+        : `${removed.slice(0, numRemoved - 1).join(', ')} and ${removed[numRemoved - 1]} were`;
     const viewIssue = await this.vs.window.showInformationMessage(
       `To work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverDescriptor} previously connected to.`,
       `View Issue`,
@@ -579,7 +580,7 @@ export class AssignmentManager implements vscode.Disposable {
     if (viewIssue) {
       this.vs.env.openExternal(
         this.vs.Uri.parse(
-          "https://github.com/microsoft/vscode-jupyter/issues/17094",
+          'https://github.com/microsoft/vscode-jupyter/issues/17094',
         ),
       );
     }
@@ -587,12 +588,12 @@ export class AssignmentManager implements vscode.Disposable {
 }
 
 enum AssignmentsExceededActions {
-  REMOVE_SERVER = "Remove Server",
+  REMOVE_SERVER = 'Remove Server',
 }
 
-const LEARN_MORE = "Learn More";
+const LEARN_MORE = 'Learn More';
 
-const UNKNOWN_REMOTE_SERVER_NAME = "Untitled";
+const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
 
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
@@ -629,7 +630,7 @@ function colabProxyFetch(
 }
 
 function isRequest(info: RequestInfo): info is Request {
-  return typeof info !== "string" && !("href" in info);
+  return typeof info !== 'string' && !('href' in info);
 }
 
 /**

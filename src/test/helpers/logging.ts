@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Disposable, WorkspaceConfiguration } from "vscode";
-import { initializeLogger, LogLevel } from "../../common/logging";
-import { FakeLogOutputChannel } from "./output-channel";
-import { VsCodeStub } from "./vscode";
+import { Disposable, WorkspaceConfiguration } from 'vscode';
+import { initializeLogger, LogLevel } from '../../common/logging';
+import { FakeLogOutputChannel } from './output-channel';
+import { VsCodeStub } from './vscode';
 
 /**
  * Helper for capturing log output during tests.
@@ -20,11 +20,11 @@ export class ColabLogWatcher implements Disposable {
     this.logSink = new FakeLogOutputChannel();
     // Cast needed due to overloading.
     (vs.window.createOutputChannel as sinon.SinonStub)
-      .withArgs("Colab")
+      .withArgs('Colab')
       .returns(this.logSink);
-    vs.workspace.getConfiguration.withArgs("colab.logging").returns({
+    vs.workspace.getConfiguration.withArgs('colab.logging').returns({
       get: () => level,
-    } as Pick<WorkspaceConfiguration, "get"> as WorkspaceConfiguration);
+    } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
     vs.workspace.onDidChangeConfiguration.callsFake(() => {
       return {
         dispose() {
@@ -38,13 +38,13 @@ export class ColabLogWatcher implements Disposable {
     } catch (err: unknown) {
       const innerErrMsg = err instanceof Error ? err.message : String(err);
       const lines = [
-        "Failed to initialize logger for test.",
-        "Likely because a previous ColabLogWatcher was not disposed.",
-        "Ensure you call dispose() (e.g., in an afterEach) to clean up the watcher.",
-        "",
+        'Failed to initialize logger for test.',
+        'Likely because a previous ColabLogWatcher was not disposed.',
+        'Ensure you call dispose() (e.g., in an afterEach) to clean up the watcher.',
+        '',
         innerErrMsg,
       ];
-      throw new Error(lines.map((l, i) => (i === 0 ? l : `\t${l}`)).join("\n"));
+      throw new Error(lines.map((l, i) => (i === 0 ? l : `\t${l}`)).join('\n'));
     }
   }
 
@@ -55,7 +55,7 @@ export class ColabLogWatcher implements Disposable {
 
   get output(): string {
     if (!this.logging) {
-      throw new Error("Cannot get output after disposal.");
+      throw new Error('Cannot get output after disposal.');
     }
     return this.logSink.content;
   }

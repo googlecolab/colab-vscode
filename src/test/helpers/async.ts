@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AsyncToggle } from "../../common/toggleable";
+import { AsyncToggle } from '../../common/toggleable';
 
 /**
  * A simple Deferred promise helper.
@@ -71,8 +71,8 @@ export class ControllableAsyncToggle {
     // Cast to be able to wrap protected member so the async toggles are
     // controllable.
     this.openInstance = instance as PublicToggle;
-    this._turnOn = this.wrap("turnOn");
-    this._turnOff = this.wrap("turnOff");
+    this._turnOn = this.wrap('turnOn');
+    this._turnOff = this.wrap('turnOff');
   }
 
   get turnOn(): ControllableMethod {
@@ -83,7 +83,7 @@ export class ControllableAsyncToggle {
     return this._turnOff;
   }
 
-  private wrap(methodName: "turnOn" | "turnOff"): ControllableMethod {
+  private wrap(methodName: 'turnOn' | 'turnOff'): ControllableMethod {
     const originalMethod = this.openInstance[methodName].bind(
       this.openInstance,
     );

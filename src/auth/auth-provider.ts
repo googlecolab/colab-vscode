@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GaxiosError } from "gaxios";
-import { OAuth2Client } from "google-auth-library";
-import fetch from "node-fetch";
-import { v4 as uuid } from "uuid";
+import { GaxiosError } from 'gaxios';
+import { OAuth2Client } from 'google-auth-library';
+import fetch from 'node-fetch';
+import { v4 as uuid } from 'uuid';
 import vscode, {
   AuthenticationProvider,
   AuthenticationProviderAuthenticationSessionsChangeEvent,
@@ -16,21 +16,21 @@ import vscode, {
   Disposable,
   Event,
   EventEmitter,
-} from "vscode";
-import { z } from "zod";
-import { AUTHORIZATION_HEADER } from "../colab/headers";
-import { log } from "../common/logging";
-import { Toggleable } from "../common/toggleable";
-import { Credentials } from "./login";
-import { AuthStorage, RefreshableAuthenticationSession } from "./storage";
+} from 'vscode';
+import { z } from 'zod';
+import { AUTHORIZATION_HEADER } from '../colab/headers';
+import { log } from '../common/logging';
+import { Toggleable } from '../common/toggleable';
+import { Credentials } from './login';
+import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
 export const REQUIRED_SCOPES = [
-  "profile",
-  "email",
-  "https://www.googleapis.com/auth/colaboratory",
+  'profile',
+  'email',
+  'https://www.googleapis.com/auth/colaboratory',
 ] as const;
-const PROVIDER_ID = "google";
-const PROVIDER_LABEL = "Google";
+const PROVIDER_ID = 'google';
+const PROVIDER_LABEL = 'Google';
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -120,7 +120,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    */
   dispose() {
     this.authProvider.dispose();
-    this.disposeController.abort(new Error("GoogleAuthProvider was disposed."));
+    this.disposeController.abort(new Error('GoogleAuthProvider was disposed.'));
   }
 
   /**
@@ -141,26 +141,26 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     }
     this.oAuth2Client.setCredentials({
       refresh_token: session.refreshToken,
-      token_type: "Bearer",
-      scope: session.scopes.join(" "),
+      token_type: 'Bearer',
+      scope: session.scopes.join(' '),
     });
     try {
       await this.oAuth2Client.refreshAccessToken();
     } catch (err: unknown) {
       let shouldClearSession = false;
-      let reason = "";
+      let reason = '';
 
       if (
         err instanceof GaxiosError &&
         err.status === 400 &&
-        err.message.includes("invalid_grant")
+        err.message.includes('invalid_grant')
       ) {
-        reason = "OAuth app access to Colab was revoked";
+        reason = 'OAuth app access to Colab was revoked';
         shouldClearSession = true;
       } else if (err instanceof GaxiosError && err.status === 401) {
         // This should only ever be the case when developer building from source
         // switches the OAuth client ID / secret.
-        reason = "The configured OAuth client has changed";
+        reason = 'The configured OAuth client has changed';
         shouldClearSession = true;
       }
 
@@ -170,12 +170,12 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         await this.initialize();
         return;
       }
-      log.error("Unable to refresh access token", err);
+      log.error('Unable to refresh access token', err);
       throw err;
     }
     const accessToken = this.oAuth2Client.credentials.access_token;
     if (!accessToken) {
-      throw new Error("Failed to refresh Google OAuth token.");
+      throw new Error('Failed to refresh Google OAuth token.');
     }
     this.session = {
       id: session.id,
@@ -258,7 +258,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       const sortedScopes = scopes.sort();
       if (!matchesRequiredScopes(sortedScopes)) {
         throw new Error(
-          `Only supports the following scopes: ${sortedScopes.join(", ")}`,
+          `Only supports the following scopes: ${sortedScopes.join(', ')}`,
         );
       }
       const tokenInfo = await this.login(sortedScopes);
@@ -297,10 +297,10 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
           hasValidSession: true,
         });
       }
-      this.vs.window.showInformationMessage("Signed in to Google!");
+      this.vs.window.showInformationMessage('Signed in to Google!');
       return this.session;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "unknown error";
+      const msg = err instanceof Error ? err.message : 'unknown error';
       this.vs.window.showErrorMessage(`Sign in failed: ${msg}`);
       throw err;
     }
@@ -346,8 +346,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
 
   private async setSignedInContext() {
     await this.vs.commands.executeCommand(
-      "setContext",
-      "colab.isSignedIn",
+      'setContext',
+      'colab.isSignedIn',
       !!this.session,
     );
   }
@@ -363,7 +363,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     await this.oAuth2Client.refreshAccessToken();
     const accessToken = this.oAuth2Client.credentials.access_token;
     if (!accessToken) {
-      throw new Error("Failed to refresh Google OAuth token.");
+      throw new Error('Failed to refresh Google OAuth token.');
     }
     this.session = {
       ...this.session,
@@ -374,7 +374,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   private async getUserInfo(
     token: string,
   ): Promise<z.infer<typeof UserInfoSchema>> {
-    const url = "https://www.googleapis.com/oauth2/v2/userinfo";
+    const url = 'https://www.googleapis.com/oauth2/v2/userinfo';
     const response = await fetch(url, {
       headers: {
         [AUTHORIZATION_HEADER.key]: `Bearer ${token}`,

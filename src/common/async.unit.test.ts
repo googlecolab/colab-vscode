@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import sinon from "sinon";
-import { Deferred } from "../test/helpers/async";
-import { ColabLogWatcher } from "../test/helpers/logging";
-import { newVsCodeStub } from "../test/helpers/vscode";
-import { LatestCancelable } from "./async";
-import { LogLevel } from "./logging";
+import { expect } from 'chai';
+import sinon from 'sinon';
+import { Deferred } from '../test/helpers/async';
+import { ColabLogWatcher } from '../test/helpers/logging';
+import { newVsCodeStub } from '../test/helpers/vscode';
+import { LatestCancelable } from './async';
+import { LogLevel } from './logging';
 
-describe("LatestCancelable", () => {
+describe('LatestCancelable', () => {
   let logs: ColabLogWatcher;
   let worker: sinon.SinonStub<[...unknown[], AbortSignal], Promise<void>>;
   let cancelable: LatestCancelable<unknown[]>;
@@ -20,21 +20,21 @@ describe("LatestCancelable", () => {
   beforeEach(() => {
     logs = new ColabLogWatcher(newVsCodeStub(), LogLevel.Trace);
     worker = sinon.stub();
-    cancelable = new LatestCancelable("test-worker", worker);
+    cancelable = new LatestCancelable('test-worker', worker);
   });
 
   afterEach(() => {
     logs.dispose();
   });
 
-  it("should run the worker", async () => {
+  it('should run the worker', async () => {
     worker.resolves();
 
     await cancelable.run();
     sinon.assert.calledOnce(worker);
   });
 
-  it("should cancel previous worker and not affect the running state of a new task", async () => {
+  it('should cancel previous worker and not affect the running state of a new task', async () => {
     const firstRunStarted = new Deferred<void>();
     const firstRunCompleter = new Deferred<void>();
     const secondRunStarted = new Deferred<void>();
@@ -46,7 +46,7 @@ describe("LatestCancelable", () => {
         firstRunStarted.resolve();
         const signal = args.pop() as AbortSignal;
         await new Promise<void>((resolve) => {
-          signal.addEventListener("abort", () => {
+          signal.addEventListener('abort', () => {
             resolve();
           });
         });
@@ -80,19 +80,19 @@ describe("LatestCancelable", () => {
     expect(firstSignal.aborted).to.be.true;
   });
 
-  it("should be a no-op when cancelling and no task is running", () => {
+  it('should be a no-op when cancelling and no task is running', () => {
     expect(() => {
       cancelable.cancel();
     }).to.not.throw();
   });
 
-  it("should forward arguments to the worker", async () => {
+  it('should forward arguments to the worker', async () => {
     worker.resolves();
-    await cancelable.run("foo", 123);
-    sinon.assert.calledOnceWithExactly(worker, "foo", 123, sinon.match.any);
+    await cancelable.run('foo', 123);
+    sinon.assert.calledOnceWithExactly(worker, 'foo', 123, sinon.match.any);
   });
 
-  it("should report running state correctly", async () => {
+  it('should report running state correctly', async () => {
     const d = new Deferred<void>();
     const workerStarted = new Deferred<void>();
     worker.callsFake(async () => {
@@ -113,13 +113,13 @@ describe("LatestCancelable", () => {
     expect(cancelable.isRunning()).to.be.false;
   });
 
-  it("should cancel in-flight work", async () => {
+  it('should cancel in-flight work', async () => {
     const d = new Deferred<void>();
     const workerStarted = new Deferred<void>();
     worker.callsFake(async (...args) => {
       workerStarted.resolve();
       const signal = args.pop() as AbortSignal;
-      signal.addEventListener("abort", () => {
+      signal.addEventListener('abort', () => {
         d.resolve();
       });
       await d.promise;
@@ -139,19 +139,19 @@ describe("LatestCancelable", () => {
     expect(cancelable.isRunning()).to.be.false;
   });
 
-  it("should handle errors gracefully", async () => {
-    worker.rejects(new Error("🤮"));
+  it('should handle errors gracefully', async () => {
+    worker.rejects(new Error('🤮'));
     await cancelable.run();
     expect(logs.output).to.match(/LatestCancelable worker error/);
   });
 
-  it("should ignore abort errors", async () => {
+  it('should ignore abort errors', async () => {
     worker.callsFake((...args) => {
       const signal = args.pop() as AbortSignal;
       return new Promise((_resolve, reject) => {
-        const err = new Error("AbortError");
-        err.name = "AbortError";
-        signal.addEventListener("abort", () => {
+        const err = new Error('AbortError');
+        err.name = 'AbortError';
+        signal.addEventListener('abort', () => {
           reject(err);
         });
       });

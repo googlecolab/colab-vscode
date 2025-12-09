@@ -4,25 +4,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import * as sinon from "sinon";
-import { Disposable, InputBox, QuickPick, QuickPickItem } from "vscode";
+import { expect } from 'chai';
+import * as sinon from 'sinon';
+import { Disposable, InputBox, QuickPick, QuickPickItem } from 'vscode';
 import {
   buildInputBoxStub,
   buildQuickPickStub,
   InputBoxStub,
   QuickPickStub,
-} from "../test/helpers/quick-input";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
+} from '../test/helpers/quick-input';
+import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
   InputBoxOptions,
   InputFlowAction,
   InputStep,
   MultiStepInput,
   QuickPickOptions,
-} from "./multi-step-quickpick";
+} from './multi-step-quickpick';
 
-describe("MultiStepQuickPick", () => {
+describe('MultiStepQuickPick', () => {
   let vsCodeStub: VsCodeStub;
 
   beforeEach(() => {
@@ -33,7 +33,7 @@ describe("MultiStepQuickPick", () => {
     sinon.restore();
   });
 
-  describe("run", () => {
+  describe('run', () => {
     function inputStepStub(): sinon.SinonStub<
       [input: MultiStepInput],
       Thenable<InputStep | undefined>
@@ -41,7 +41,7 @@ describe("MultiStepQuickPick", () => {
       return sinon.stub();
     }
 
-    it("runs a single step", async () => {
+    it('runs a single step', async () => {
       const start = inputStepStub().returns(Promise.resolve(undefined));
 
       await expect(MultiStepInput.run(vsCodeStub.asVsCode(), start)).to
@@ -50,7 +50,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.calledOnce(start);
     });
 
-    it("runs multiple steps", async () => {
+    it('runs multiple steps', async () => {
       const second = inputStepStub().returns(Promise.resolve(undefined));
       const first = inputStepStub().returns(Promise.resolve(second));
 
@@ -72,7 +72,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.calledOnce(first);
     });
 
-    it("goes back a step when one past the first", async () => {
+    it('goes back a step when one past the first', async () => {
       // First > Second > (back) First > Second > Done.
       const second = inputStepStub();
       second.onFirstCall().throws(InputFlowAction.back);
@@ -85,7 +85,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.callOrder(first, second, first, second);
     });
 
-    it("goes back a step when multiple past the first", async () => {
+    it('goes back a step when multiple past the first', async () => {
       // First > Second > Third (back) Second > Third > Done.
       const third = inputStepStub();
       third.onFirstCall().throws(InputFlowAction.back);
@@ -113,12 +113,12 @@ describe("MultiStepQuickPick", () => {
     });
   });
 
-  describe("showQuickPick", () => {
+  describe('showQuickPick', () => {
     const ONLY_FOO: QuickPickOptions<QuickPickItem> = {
-      title: "Select foo",
+      title: 'Select foo',
       step: 1,
       totalSteps: 1,
-      items: [{ label: "foo" }],
+      items: [{ label: 'foo' }],
     };
     let onDidTriggerButtonDisposeStub: sinon.SinonStubbedInstance<Disposable>;
     let onDidHideDisposeStub: sinon.SinonStubbedInstance<Disposable>;
@@ -182,7 +182,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.calledOnce(quickPickStub.dispose);
     });
 
-    it("resolves the selected item", async () => {
+    it('resolves the selected item', async () => {
       let selected: QuickPickItem | undefined;
       const step: InputStep = async (input: MultiStepInput) => {
         selected = await input.showQuickPick(ONLY_FOO);
@@ -193,21 +193,21 @@ describe("MultiStepQuickPick", () => {
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
       // Once the quick pick has been shown, select "foo".
       await inputShown;
-      quickPickStub.onDidChangeSelection.yield([{ label: "foo" }]);
+      quickPickStub.onDidChangeSelection.yield([{ label: 'foo' }]);
 
       await expect(input).to.eventually.be.fulfilled;
-      expect(selected).to.deep.equal({ label: "foo" });
+      expect(selected).to.deep.equal({ label: 'foo' });
       sinon.assert.calledOnce(quickPickStub.dispose);
     });
 
-    it("configures the provided options", async () => {
+    it('configures the provided options', async () => {
       const opts: QuickPickOptions<QuickPickItem> = {
-        title: "Select foo",
+        title: 'Select foo',
         step: 1,
         totalSteps: 1,
-        placeholder: "foo",
-        items: [{ label: "foo" }],
-        activeItem: { label: "foo" },
+        placeholder: 'foo',
+        items: [{ label: 'foo' }],
+        activeItem: { label: 'foo' },
         buttons: [vsCodeStub.QuickInputButtons.Back],
         ignoreFocusOut: true,
       };
@@ -226,12 +226,12 @@ describe("MultiStepQuickPick", () => {
         ...optsToCompare,
         activeItems: [activeItem],
       });
-      quickPickStub.onDidChangeSelection.yield([{ label: "foo" }]);
+      quickPickStub.onDidChangeSelection.yield([{ label: 'foo' }]);
 
       await expect(input).to.eventually.be.fulfilled;
     });
 
-    it("disposes the input and registered listeners", async () => {
+    it('disposes the input and registered listeners', async () => {
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showQuickPick(ONLY_FOO);
         return undefined;
@@ -241,7 +241,7 @@ describe("MultiStepQuickPick", () => {
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
       // Once the quick pick has been shown, select "foo".
       await inputShown;
-      quickPickStub.onDidChangeSelection.yield([{ label: "foo" }]);
+      quickPickStub.onDidChangeSelection.yield([{ label: 'foo' }]);
 
       await expect(input).to.eventually.be.fulfilled;
       sinon.assert.calledOnce(quickPickStub.dispose);
@@ -255,13 +255,13 @@ describe("MultiStepQuickPick", () => {
     });
   });
 
-  describe("showInputBox", () => {
+  describe('showInputBox', () => {
     const ENTER_A_VALUE: InputBoxOptions = {
-      title: "Got a value?",
+      title: 'Got a value?',
       step: 1,
       totalSteps: 1,
-      value: "",
-      prompt: "Enter a value",
+      value: '',
+      prompt: 'Enter a value',
       validate: () => undefined,
     };
     let onDidTriggerButtonDisposeStub: sinon.SinonStubbedInstance<Disposable>;
@@ -329,7 +329,7 @@ describe("MultiStepQuickPick", () => {
       sinon.assert.calledOnce(inputBoxStub.dispose);
     });
 
-    it("resolves the selected item", async () => {
+    it('resolves the selected item', async () => {
       let entered: string | undefined;
       const step: InputStep = async (input: MultiStepInput) => {
         entered = await input.showInputBox(ENTER_A_VALUE);
@@ -340,22 +340,22 @@ describe("MultiStepQuickPick", () => {
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
       // Once the input box has been shown, enter "foo".
       await inputShown;
-      inputBoxStub.value = "foo";
+      inputBoxStub.value = 'foo';
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
       inputBoxStub.onDidAccept.yield();
 
       await expect(input).to.eventually.be.fulfilled;
-      expect(entered).to.deep.equal("foo");
+      expect(entered).to.deep.equal('foo');
       sinon.assert.calledOnce(inputBoxStub.dispose);
     });
 
-    it("validates the input as it changes", async () => {
+    it('validates the input as it changes', async () => {
       const needFoo = "Nope, need 'foo'";
       let entered: string | undefined;
       const step: InputStep = async (input: MultiStepInput) => {
         entered = await input.showInputBox({
           ...ENTER_A_VALUE,
-          validate: (text) => (text === "foo" ? undefined : needFoo),
+          validate: (text) => (text === 'foo' ? undefined : needFoo),
         });
         return undefined;
       };
@@ -365,30 +365,30 @@ describe("MultiStepQuickPick", () => {
       // Once the input box has been shown, simulate typing "foo" (character
       // by character).
       await inputShown;
-      inputBoxStub.value = "f";
+      inputBoxStub.value = 'f';
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
       expect(inputBoxStub.validationMessage).to.equal(needFoo);
-      inputBoxStub.value = "fo";
+      inputBoxStub.value = 'fo';
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
       expect(inputBoxStub.validationMessage).to.equal(needFoo);
-      inputBoxStub.value = "foo";
+      inputBoxStub.value = 'foo';
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
       expect(inputBoxStub.validationMessage).to.equal(undefined);
       inputBoxStub.onDidAccept.yield();
 
       await expect(input).to.eventually.be.fulfilled;
-      expect(entered).to.deep.equal("foo");
+      expect(entered).to.deep.equal('foo');
       sinon.assert.calledOnce(inputBoxStub.dispose);
     });
 
-    it("configures the provided options", async () => {
+    it('configures the provided options', async () => {
       const opts: InputBoxOptions = {
-        title: "Got a value?",
+        title: 'Got a value?',
         step: 1,
         totalSteps: 1,
-        value: "",
-        prompt: "Enter a value",
-        placeholder: "42",
+        value: '',
+        prompt: 'Enter a value',
+        placeholder: '42',
         validate: () => undefined,
         buttons: [vsCodeStub.QuickInputButtons.Back],
         ignoreFocusOut: true,
@@ -406,14 +406,14 @@ describe("MultiStepQuickPick", () => {
       await inputShown;
       const { validate: _, ...optsToCompare } = opts;
       expect(inputBoxStub).to.deep.include(optsToCompare);
-      inputBoxStub.value = "foo";
+      inputBoxStub.value = 'foo';
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
       inputBoxStub.onDidAccept.yield();
 
       await expect(input).to.eventually.be.fulfilled;
     });
 
-    it("disposes the input and registered listeners", async () => {
+    it('disposes the input and registered listeners', async () => {
       const step: InputStep = async (input: MultiStepInput) => {
         await input.showInputBox(ENTER_A_VALUE);
         return undefined;
@@ -423,7 +423,7 @@ describe("MultiStepQuickPick", () => {
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
       // Once the input box has been shown, enter "foo".
       await inputShown;
-      inputBoxStub.value = "foo";
+      inputBoxStub.value = 'foo';
       inputBoxStub.onDidChangeValue.yield(inputBoxStub.value);
       inputBoxStub.onDidAccept.yield();
 

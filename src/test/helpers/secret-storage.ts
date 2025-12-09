@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import sinon, { SinonStubbedInstance } from "sinon";
-import { SecretStorage } from "vscode";
+import sinon, { SinonStubbedInstance } from 'sinon';
+import { SecretStorage } from 'vscode';
 
 /**
  * A thin fake implementation backed by stubs of `SecretStorage` that stores
@@ -15,7 +15,7 @@ import { SecretStorage } from "vscode";
  */
 export class SecretStorageFake
   implements
-    SinonStubbedInstance<Pick<SecretStorage, "get" | "store" | "delete">>
+    SinonStubbedInstance<Pick<SecretStorage, 'get' | 'store' | 'delete'>>
 {
   private lastStore?: string;
 

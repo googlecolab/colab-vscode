@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
-import { CcuInfo, SubscriptionTier } from "../api";
-import { ColabClient } from "../client";
-import { openColabSignup } from "../commands/external";
+import vscode from 'vscode';
+import { CcuInfo, SubscriptionTier } from '../api';
+import { ColabClient } from '../client';
+import { openColabSignup } from '../commands/external';
 
 const WARN_WHEN_LESS_THAN_MINUTES = 30;
 const DEFAULT_SNOOZE_MINUTES = 10;
@@ -93,7 +93,7 @@ export class ConsumptionNotifier implements vscode.Disposable {
       if (this.snoozeError) {
         return undefined;
       }
-      message = "Colab Compute Units (CCU) depleted!";
+      message = 'Colab Compute Units (CCU) depleted!';
       notify = this.vs.window.showErrorMessage;
     } else {
       // Close to running out.
@@ -157,7 +157,7 @@ function calculateRoughMinutesLeft(ccuInfo: CcuInfo): number {
 }
 
 enum SignupAction {
-  SIGNUP_FOR_COLAB = "Sign Up for Colab",
-  UPGRADE_TO_PRO_PLUS = "Upgrade to Pro+",
-  PURCHASE_MORE_CCU = "Purchase More CCUs",
+  SIGNUP_FOR_COLAB = 'Sign Up for Colab',
+  UPGRADE_TO_PRO_PLUS = 'Upgrade to Pro+',
+  PURCHASE_MORE_CCU = 'Purchase More CCUs',
 }

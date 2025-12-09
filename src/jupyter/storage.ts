@@ -4,20 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
-import vscode from "vscode";
-import { z } from "zod";
-import { Variant } from "../colab/api";
-import { PROVIDER_ID } from "../config/constants";
-import { isUUID } from "../utils/uuid";
-import { ColabAssignedServer } from "./servers";
+import { UUID } from 'crypto';
+import vscode from 'vscode';
+import { z } from 'zod';
+import { Variant } from '../colab/api';
+import { PROVIDER_ID } from '../config/constants';
+import { isUUID } from '../utils/uuid';
+import { ColabAssignedServer } from './servers';
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
 const AssignedServers = z.array(
   z.object({
     id: z
       .string()
-      .refine(isUUID, "String must be a valid UUID.")
+      .refine(isUUID, 'String must be a valid UUID.')
       .transform((s) => s as UUID),
     label: z.string().nonempty(),
     variant: z.enum(Variant),

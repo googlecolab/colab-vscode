@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { assert, expect } from "chai";
-import sinon, { SinonFakeTimers, SinonStubbedInstance } from "sinon";
-import { TestEventEmitter } from "../../test/helpers/events";
-import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
-import { CcuInfo, SubscriptionTier } from "../api";
-import { ColabClient } from "../client";
-import { ConsumptionNotifier } from "./notifier";
+import { assert, expect } from 'chai';
+import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
+import { TestEventEmitter } from '../../test/helpers/events';
+import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { CcuInfo, SubscriptionTier } from '../api';
+import { ColabClient } from '../client';
+import { ConsumptionNotifier } from './notifier';
 
-const NOTIFICATION_SEVERITIES = ["warn", "error"] as const;
+const NOTIFICATION_SEVERITIES = ['warn', 'error'] as const;
 type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 
 // Since notifications are dispatched asynchronously and are non-blocking, when
@@ -37,7 +37,7 @@ class TestConsumptionNotifier extends ConsumptionNotifier {
    */
   async nextConsumptionCalculation(): Promise<void> {
     const orig = this.notifyCcuConsumption;
-    const stub = sinon.stub(this, "notifyCcuConsumption");
+    const stub = sinon.stub(this, 'notifyCcuConsumption');
     const res = new Promise<void>((resolve) => {
       stub.callsFake(async (...args) => {
         try {
@@ -53,7 +53,7 @@ class TestConsumptionNotifier extends ConsumptionNotifier {
   }
 }
 
-describe("ConsumptionNotifier", () => {
+describe('ConsumptionNotifier', () => {
   let vs: VsCodeStub;
   let colabClient: SinonStubbedInstance<ColabClient>;
   let ccuEmitter: TestEventEmitter<CcuInfo>;
@@ -93,7 +93,7 @@ describe("ConsumptionNotifier", () => {
       // Type assertion needed due to overloading.
       (
         vs.window[
-          severity === "warn" ? "showWarningMessage" : "showErrorMessage"
+          severity === 'warn' ? 'showWarningMessage' : 'showErrorMessage'
         ] as sinon.SinonStub
       ).callsFake(
         async (
@@ -117,7 +117,7 @@ describe("ConsumptionNotifier", () => {
     });
   }
 
-  it("disposes the CCU listener on dispose", () => {
+  it('disposes the CCU listener on dispose', () => {
     consumptionNotifier.dispose();
 
     expect(ccuEmitter.hasListeners()).to.be.false;
@@ -140,7 +140,7 @@ describe("ConsumptionNotifier", () => {
     let hourlyConsumptionRate: number;
     let paidBalance: number;
     let freeTokens: number;
-    if ("hourlyRate" in c) {
+    if ('hourlyRate' in c) {
       hourlyConsumptionRate = c.hourlyRate;
       paidBalance = c.paidHourlyCcuBalance;
       freeTokens = c.freeTokens;
@@ -169,37 +169,37 @@ describe("ConsumptionNotifier", () => {
     consumption: Consumption;
   }[] = [
     {
-      label: "free with sufficient free minutes",
+      label: 'free with sufficient free minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 0, freeMinutes: 31 },
     },
     {
-      label: "pay-as-you-go with sufficient paid minutes",
+      label: 'pay-as-you-go with sufficient paid minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 31, freeMinutes: 0 },
     },
     {
-      label: "pay-as-you-go with sufficient combined paid and free minutes",
+      label: 'pay-as-you-go with sufficient combined paid and free minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 15, freeMinutes: 16 },
     },
     {
-      label: "subscribed with sufficient paid minutes",
+      label: 'subscribed with sufficient paid minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 31, freeMinutes: 0 },
     },
     {
-      label: "subscribed with sufficient free minutes",
+      label: 'subscribed with sufficient free minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 0, freeMinutes: 31 },
     },
     {
-      label: "subscribed with sufficient combined paid and free minutes",
+      label: 'subscribed with sufficient combined paid and free minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 15, freeMinutes: 16 },
     },
     {
-      label: "sufficient headroom and no active assignments",
+      label: 'sufficient headroom and no active assignments',
       consumption: {
         hourlyRate: 0,
         paidHourlyCcuBalance: 42,
@@ -207,11 +207,11 @@ describe("ConsumptionNotifier", () => {
       },
     },
     {
-      label: "insufficient headroom but no active assignments",
+      label: 'insufficient headroom but no active assignments',
       consumption: { hourlyRate: 0, paidHourlyCcuBalance: 0, freeTokens: 1 },
     },
     {
-      label: "depleted but no active assignments",
+      label: 'depleted but no active assignments',
       consumption: { hourlyRate: 0, paidHourlyCcuBalance: 0, freeTokens: 0 },
     },
   ];
@@ -235,119 +235,119 @@ describe("ConsumptionNotifier", () => {
     consumption: ConsumptionByMinutes;
     should: {
       severity: NotificationSeverity;
-      action: "Sign Up" | "Upgrade" | "Purchase More";
+      action: 'Sign Up' | 'Upgrade' | 'Purchase More';
     };
   }[] = [
     {
-      label: "unsubscribed with no free minutes",
+      label: 'unsubscribed with no free minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 0, freeMinutes: 0 },
       should: {
-        severity: "error",
-        action: "Sign Up",
+        severity: 'error',
+        action: 'Sign Up',
       },
     },
     {
-      label: "unsubscribed with minimal free minutes",
+      label: 'unsubscribed with minimal free minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 0, freeMinutes: 1 },
       should: {
-        severity: "warn",
-        action: "Sign Up",
+        severity: 'warn',
+        action: 'Sign Up',
       },
     },
     {
-      label: "pay-as-you-go with minimal paid minutes and no free minutes",
+      label: 'pay-as-you-go with minimal paid minutes and no free minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 1, freeMinutes: 0 },
       should: {
-        severity: "warn",
-        action: "Purchase More",
+        severity: 'warn',
+        action: 'Purchase More',
       },
     },
     {
-      label: "pay-as-you-go with minimal combined paid and free minutes",
+      label: 'pay-as-you-go with minimal combined paid and free minutes',
       tier: SubscriptionTier.NONE,
       consumption: { paidMinutes: 1, freeMinutes: 1 },
       should: {
-        severity: "warn",
-        action: "Purchase More",
+        severity: 'warn',
+        action: 'Purchase More',
       },
     },
     {
-      label: "pro with no paid or free minutes",
+      label: 'pro with no paid or free minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 0, freeMinutes: 0 },
       should: {
-        severity: "error",
-        action: "Upgrade",
+        severity: 'error',
+        action: 'Upgrade',
       },
     },
     {
-      label: "pro with no paid and minimal free minutes",
+      label: 'pro with no paid and minimal free minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 0, freeMinutes: 1 },
       should: {
-        severity: "warn",
-        action: "Upgrade",
+        severity: 'warn',
+        action: 'Upgrade',
       },
     },
     {
       // Seems like a weird case, but consider a free user who consumes all
       // their quota but then signs up for Pro.
-      label: "pro with minimal paid and no free minutes",
+      label: 'pro with minimal paid and no free minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 1, freeMinutes: 0 },
       should: {
-        severity: "warn",
-        action: "Upgrade",
+        severity: 'warn',
+        action: 'Upgrade',
       },
     },
     {
-      label: "pro with minimal combined paid and free minutes",
+      label: 'pro with minimal combined paid and free minutes',
       tier: SubscriptionTier.PRO,
       consumption: { paidMinutes: 1, freeMinutes: 1 },
       should: {
-        severity: "warn",
-        action: "Upgrade",
+        severity: 'warn',
+        action: 'Upgrade',
       },
     },
     {
-      label: "pro+ with no paid or free minutes",
+      label: 'pro+ with no paid or free minutes',
       tier: SubscriptionTier.PRO_PLUS,
       consumption: { paidMinutes: 0, freeMinutes: 0 },
       should: {
-        severity: "error",
-        action: "Purchase More",
+        severity: 'error',
+        action: 'Purchase More',
       },
     },
     {
-      label: "pro+ with no paid and minimal free minutes",
+      label: 'pro+ with no paid and minimal free minutes',
       tier: SubscriptionTier.PRO_PLUS,
       consumption: { paidMinutes: 0, freeMinutes: 1 },
       should: {
-        severity: "warn",
-        action: "Purchase More",
+        severity: 'warn',
+        action: 'Purchase More',
       },
     },
     {
       // Seems like a weird case, but consider a free user who consumes all
       // their quota but then signs up for Pro+.
-      label: "pro+ with minimal paid and no free minutes",
+      label: 'pro+ with minimal paid and no free minutes',
       tier: SubscriptionTier.PRO_PLUS,
       consumption: { paidMinutes: 1, freeMinutes: 0 },
       should: {
-        severity: "warn",
-        action: "Purchase More",
+        severity: 'warn',
+        action: 'Purchase More',
       },
     },
     {
-      label: "pro+ with minimal combined paid and free minutes",
+      label: 'pro+ with minimal combined paid and free minutes',
       tier: SubscriptionTier.PRO_PLUS,
       consumption: { paidMinutes: 1, freeMinutes: 1 },
       should: {
-        severity: "warn",
-        action: "Purchase More",
+        severity: 'warn',
+        action: 'Purchase More',
       },
     },
   ];
@@ -365,7 +365,7 @@ describe("ConsumptionNotifier", () => {
         t.consumption.paidMinutes + t.consumption.freeMinutes
       ).toString();
       const expectedMessage =
-        t.should.severity === "error"
+        t.should.severity === 'error'
           ? /depleted/
           : new RegExp(`${minutesLeft} minutes left`);
       expect(notification.message).to.match(expectedMessage);
@@ -373,7 +373,7 @@ describe("ConsumptionNotifier", () => {
       const action = notification.actions[0];
       expect(action).to.match(new RegExp(t.should.action));
       const notificationStub =
-        t.should.severity === "error"
+        t.should.severity === 'error'
           ? vs.window.showErrorMessage
           : vs.window.showWarningMessage;
       sinon.assert.calledOnce(notificationStub);
@@ -384,7 +384,7 @@ describe("ConsumptionNotifier", () => {
     it(`should open signup page when action is clicked for ${severity}`, async () => {
       const ccuInfo = createCcuInfo({
         paidMinutes: 0,
-        freeMinutes: severity === "warn" ? 1 : 0,
+        freeMinutes: severity === 'warn' ? 1 : 0,
       });
       const notification = nextNotification(severity);
       ccuEmitter.fire(ccuInfo);
@@ -396,19 +396,19 @@ describe("ConsumptionNotifier", () => {
         });
       });
 
-      shownNotification.click("Sign Up for Colab");
+      shownNotification.click('Sign Up for Colab');
 
       await expect(openExternal).to.eventually.equal(
-        "https://colab.research.google.com/signup",
+        'https://colab.research.google.com/signup',
       );
     });
   }
 
-  describe("snooze", () => {
+  describe('snooze', () => {
     let fakeClock: SinonFakeTimers;
 
     beforeEach(() => {
-      fakeClock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
+      fakeClock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
     });
 
     afterEach(() => {
@@ -419,7 +419,7 @@ describe("ConsumptionNotifier", () => {
       it(`should not ${severity} while in "snooze" period`, async () => {
         const ccuInfo = createCcuInfo({
           paidMinutes: 0,
-          freeMinutes: severity === "warn" ? 1 : 0,
+          freeMinutes: severity === 'warn' ? 1 : 0,
         });
         const firstNotification = nextNotification(severity);
         ccuEmitter.fire(ccuInfo);

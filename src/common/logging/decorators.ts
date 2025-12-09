@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getLevel, log, LogLevel } from ".";
+import { getLevel, log, LogLevel } from '.';
 
 /**
  * A decorator that traces the entry and exit (or error) of a method.
@@ -17,7 +17,7 @@ export function traceMethod(
   const originalMethod: unknown = descriptor.value;
 
   // Ensure the property is a function.
-  if (typeof originalMethod !== "function") {
+  if (typeof originalMethod !== 'function') {
     return descriptor;
   }
 
@@ -35,7 +35,7 @@ export function traceMethod(
     try {
       log.trace(`${targetPrefix} called with`, ...args);
     } catch (err: unknown) {
-      log.trace("Error in trace decorator (entry)", err);
+      log.trace('Error in trace decorator (entry)', err);
     }
 
     let result: unknown;
@@ -46,7 +46,7 @@ export function traceMethod(
       try {
         log.trace(`${targetPrefix} threw error (sync)`, error);
       } catch (e) {
-        log.trace("Error in trace decorator (sync error)", e);
+        log.trace('Error in trace decorator (sync error)', e);
       }
       // Re-throw the original error.
       throw error;
@@ -60,7 +60,7 @@ export function traceMethod(
           try {
             log.trace(`${targetPrefix} Promise resolved with`, resolvedValue);
           } catch (e) {
-            log.trace("Error in trace decorator (resolve)", e);
+            log.trace('Error in trace decorator (resolve)', e);
           }
           return resolvedValue;
         },
@@ -68,7 +68,7 @@ export function traceMethod(
           try {
             log.trace(`${targetPrefix} Promise rejected with`, error);
           } catch (e) {
-            log.trace("Error in trace decorator (reject)", e);
+            log.trace('Error in trace decorator (reject)', e);
           }
           throw error;
         },
@@ -79,7 +79,7 @@ export function traceMethod(
     try {
       log.trace(`${targetPrefix} returned (sync)`, result);
     } catch (e) {
-      log.trace("Error in trace decorator (sync return)", e);
+      log.trace('Error in trace decorator (sync return)', e);
     }
     return result;
   };
@@ -93,7 +93,7 @@ export function traceMethod(
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   return (
     value !== null &&
-    (typeof value === "object" || typeof value === "function") &&
-    typeof (value as { then?: unknown }).then === "function"
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
   );
 }

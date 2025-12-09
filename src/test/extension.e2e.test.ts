@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from "fs";
-import { assert } from "chai";
-import dotenv from "dotenv";
-import * as chrome from "selenium-webdriver/chrome";
+import * as fs from 'fs';
+import { assert } from 'chai';
+import dotenv from 'dotenv';
+import * as chrome from 'selenium-webdriver/chrome';
 import {
   Builder,
   By,
@@ -20,13 +20,13 @@ import {
   Workbench,
   VSBrowser,
   until,
-} from "vscode-extension-tester";
-import { CONFIG } from "../colab-config";
+} from 'vscode-extension-tester';
+import { CONFIG } from '../colab-config';
 
 const ELEMENT_WAIT_MS = 10000;
 const CELL_EXECUTION_WAIT_MS = 30000;
 
-describe("Colab Extension", function () {
+describe('Colab Extension', function () {
   dotenv.config();
 
   let driver: WebDriver;
@@ -36,7 +36,7 @@ describe("Colab Extension", function () {
   before(async () => {
     assert.equal(
       CONFIG.Environment,
-      "production",
+      'production',
       'Unexpected extension environment. Run `npm run generate:config` with COLAB_EXTENSION_ENVIRONMENT="production".',
     );
     // Wait for VS Code UI to settle before running tests.
@@ -46,37 +46,37 @@ describe("Colab Extension", function () {
   });
 
   beforeEach(function () {
-    testTitle = this.currentTest?.fullTitle() ?? "";
+    testTitle = this.currentTest?.fullTitle() ?? '';
   });
 
-  describe("with a notebook", () => {
+  describe('with a notebook', () => {
     beforeEach(async () => {
       // Create an executable notebook. Note that it's created with a single
       // code cell by default.
-      await workbench.executeCommand("Create: New Jupyter Notebook");
+      await workbench.executeCommand('Create: New Jupyter Notebook');
       // Wait for the notebook editor to finish loading before we interact with
       // it.
       await notebookLoaded(driver);
-      await workbench.executeCommand("Notebook: Edit Cell");
+      await workbench.executeCommand('Notebook: Edit Cell');
       const cell = await driver.switchTo().activeElement();
-      await cell.sendKeys("1 + 1");
+      await cell.sendKeys('1 + 1');
     });
 
-    it("authenticates and executes the notebook on a Colab server", async () => {
+    it('authenticates and executes the notebook on a Colab server', async () => {
       // Select the Colab server provider from the kernel selector.
-      await workbench.executeCommand("Notebook: Select Notebook Kernel");
+      await workbench.executeCommand('Notebook: Select Notebook Kernel');
       await selectQuickPickItem({
-        item: "Colab",
-        quickPick: "Select Another Kernel",
+        item: 'Colab',
+        quickPick: 'Select Another Kernel',
       });
       await selectQuickPickItem({
-        item: "New Colab Server",
-        quickPick: "Select a Jupyter Server",
+        item: 'New Colab Server',
+        quickPick: 'Select a Jupyter Server',
       });
 
       // Accept the dialog allowing the Colab extension to sign in using Google.
       await pushDialogButton({
-        button: "Allow",
+        button: 'Allow',
         dialog: "The extension 'Colab' wants to sign in using Google.",
       });
       // Begin the sign-in process by copying the OAuth URL to the clipboard and
@@ -85,39 +85,39 @@ describe("Colab Extension", function () {
       // driver instance for the OAuth flow, since the original driver instance
       // does not have a handle to the window that would be spawned with "Open".
       await pushDialogButton({
-        button: "Copy",
-        dialog: "Do you want Code to open the external website?",
+        button: 'Copy',
+        dialog: 'Do you want Code to open the external website?',
       });
       // TODO: Remove this dynamic import
-      const clipboardy = await import("clipboardy");
+      const clipboardy = await import('clipboardy');
       await doOauthSignIn(/* oauthUrl= */ clipboardy.default.readSync());
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
       await selectQuickPickItem({
-        item: "CPU",
-        quickPick: "Select a variant (1/2)",
+        item: 'CPU',
+        quickPick: 'Select a variant (1/2)',
       });
       // Alias the server with the default name.
       const inputBox = await InputBox.create();
       await inputBox.sendKeys(Key.ENTER);
       await selectQuickPickItem({
-        item: "Python 3 (ipykernel)",
-        quickPick: "Select a Kernel from Colab CPU",
+        item: 'Python 3 (ipykernel)',
+        quickPick: 'Select a Kernel from Colab CPU',
       });
 
       // Execute the notebook and poll for the success indicator (green check).
       // Why not the cell output? Because the output is rendered in a webview.
-      await workbench.executeCommand("Notebook: Run All");
+      await workbench.executeCommand('Notebook: Run All');
       await driver.wait(
         async () => {
           const element = await workbench
             .getEnclosingElement()
-            .findElements(By.className("codicon-notebook-state-success"));
+            .findElements(By.className('codicon-notebook-state-success'));
           return element.length > 0;
         },
         CELL_EXECUTION_WAIT_MS,
-        "Notebook: Run All failed",
+        'Notebook: Run All failed',
       );
     });
   });
@@ -195,25 +195,25 @@ describe("Colab Extension", function () {
       const emailInput = await oauthDriver.findElement(
         By.css("input[type='email']"),
       );
-      await emailInput.sendKeys(process.env.TEST_ACCOUNT_EMAIL ?? "");
+      await emailInput.sendKeys(process.env.TEST_ACCOUNT_EMAIL ?? '');
       await emailInput.sendKeys(Key.ENTER);
 
       // Input the test account password. Note that we wait for the page to
       // settle to avoid getting a stale element reference.
       await oauthDriver.wait(
-        until.urlContains("accounts.google.com/v3/signin/challenge"),
+        until.urlContains('accounts.google.com/v3/signin/challenge'),
         ELEMENT_WAIT_MS,
       );
       await oauthDriver.sleep(1000);
       const passwordInput = await oauthDriver.findElement(
         By.css("input[type='password']"),
       );
-      await passwordInput.sendKeys(process.env.TEST_ACCOUNT_PASSWORD ?? "");
+      await passwordInput.sendKeys(process.env.TEST_ACCOUNT_PASSWORD ?? '');
       await passwordInput.sendKeys(Key.ENTER);
 
       // Click Continue to sign in to Colab.
       await oauthDriver.wait(
-        until.urlContains("accounts.google.com/signin/oauth/id"),
+        until.urlContains('accounts.google.com/signin/oauth/id'),
         ELEMENT_WAIT_MS,
       );
       await safeClick(
@@ -224,7 +224,7 @@ describe("Colab Extension", function () {
 
       // Click Allow or Continue to authorize the scope (handles both v1 and v2
       // consent screens).
-      await oauthDriver.wait(until.urlContains("consent"), ELEMENT_WAIT_MS);
+      await oauthDriver.wait(until.urlContains('consent'), ELEMENT_WAIT_MS);
       await safeClick(
         oauthDriver,
         By.xpath("//span[text()='Allow' or text()='Continue']"),
@@ -233,7 +233,7 @@ describe("Colab Extension", function () {
 
       // Check that the test account's authenticated. Close the browser window.
       await oauthDriver.wait(
-        until.urlContains("vscode/auth-success"),
+        until.urlContains('vscode/auth-success'),
         ELEMENT_WAIT_MS,
       );
       await oauthDriver.quit();
@@ -246,7 +246,7 @@ describe("Colab Extension", function () {
       fs.writeFileSync(
         `${screenshotsDir}/${testTitle} (oauth window).png`,
         await oauthDriver.takeScreenshot(),
-        "base64",
+        'base64',
       );
       throw _;
     }
@@ -257,12 +257,12 @@ describe("Colab Extension", function () {
  * Creates a new WebDriver instance for the OAuth flow.
  */
 function getOAuthDriver(): Promise<WebDriver> {
-  const authDriverArgsPrefix = "--auth-driver:";
+  const authDriverArgsPrefix = '--auth-driver:';
   const authDriverArgs = process.argv
     .filter((a) => a.startsWith(authDriverArgsPrefix))
     .map((a) => a.substring(authDriverArgsPrefix.length));
   return new Builder()
-    .forBrowser("chrome")
+    .forBrowser('chrome')
     .setChromeOptions(
       new chrome.Options().addArguments(...authDriverArgs) as chrome.Options,
     )
@@ -273,12 +273,12 @@ async function notebookLoaded(driver: WebDriver): Promise<void> {
   await driver.wait(
     async () => {
       const editors = await driver.findElements(
-        By.className("notebook-editor"),
+        By.className('notebook-editor'),
       );
       return editors.length > 0;
     },
     ELEMENT_WAIT_MS,
-    "Notebook editor did not load in time",
+    'Notebook editor did not load in time',
   );
 }
 

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { log } from "./logging";
+import { log } from './logging';
 
 /**
  * Run an async worker task, canceling in-flight work with an
@@ -35,7 +35,7 @@ export class LatestCancelable<T extends unknown[]> {
     } catch (err: unknown) {
       if (
         abort.signal.aborted ||
-        (err instanceof Error && err.name === "AbortError")
+        (err instanceof Error && err.name === 'AbortError')
       ) {
         // Throwing an abort is expected.
       } else {

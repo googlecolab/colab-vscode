@@ -4,21 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import { OAuth2Client } from "google-auth-library";
-import sinon from "sinon";
-import vscode from "vscode";
-import { PackageInfo } from "../../config/package-info";
-import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
-import { getOAuth2Flows, OAuth2Flow } from "./flows";
+import { expect } from 'chai';
+import { OAuth2Client } from 'google-auth-library';
+import sinon from 'sinon';
+import vscode from 'vscode';
+import { PackageInfo } from '../../config/package-info';
+import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { getOAuth2Flows, OAuth2Flow } from './flows';
 
 const PACKAGE_INFO: PackageInfo = {
-  publisher: "google",
-  name: "colab",
-  version: "0.1.0",
+  publisher: 'google',
+  name: 'colab',
+  version: '0.1.0',
 };
 
-describe("getOAuth2Flows", () => {
+describe('getOAuth2Flows', () => {
   let vs: VsCodeStub;
 
   beforeEach(() => {
@@ -38,18 +38,18 @@ describe("getOAuth2Flows", () => {
     );
   }
 
-  it("returns the local server and proxied redirect flows when running on desktop", () => {
+  it('returns the local server and proxied redirect flows when running on desktop', () => {
     const flows = getOAuth2FlowsFor(vs.UIKind.Desktop);
 
     expect(flows).to.have.lengthOf(2);
-    expect(flows[0].constructor.name).to.equal("LocalServerFlow");
-    expect(flows[1].constructor.name).to.equal("ProxiedRedirectFlow");
+    expect(flows[0].constructor.name).to.equal('LocalServerFlow');
+    expect(flows[1].constructor.name).to.equal('ProxiedRedirectFlow');
   });
 
-  it("returns the proxied redirect flow when running on web", () => {
+  it('returns the proxied redirect flow when running on web', () => {
     const flows = getOAuth2FlowsFor(vs.UIKind.Web);
 
     expect(flows).to.have.lengthOf(1);
-    expect(flows[0].constructor.name).to.equal("ProxiedRedirectFlow");
+    expect(flows[0].constructor.name).to.equal('ProxiedRedirectFlow');
   });
 });
