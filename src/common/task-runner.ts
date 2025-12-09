@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Disposable } from "vscode";
-import { log } from "./logging";
+import { Disposable } from 'vscode';
+import { log } from './logging';
 
 /**
  * Configuration for the {@link SequentialTaskRunner}.
@@ -165,7 +165,7 @@ export class SequentialTaskRunner implements Disposable {
   private async runWorker(): Promise<void> {
     const abort = new AbortController();
     abort.signal.addEventListener(
-      "abort",
+      'abort',
       () => {
         const reason: unknown = abort.signal.reason;
         if (reason instanceof TimeoutError) {
@@ -260,10 +260,10 @@ export class SequentialTaskRunner implements Disposable {
         });
       };
 
-      signal.addEventListener("abort", onAbort, { once: true });
+      signal.addEventListener('abort', onAbort, { once: true });
 
       void task.finally(() => {
-        signal.removeEventListener("abort", onAbort);
+        signal.removeEventListener('abort', onAbort);
       });
     });
 
@@ -276,27 +276,27 @@ class NonGracefulAbandonError extends Error {
     super(
       `Task "${taskName}" did not complete within a ${timeoutMs.toString()}ms grace period after being abandoned.`,
     );
-    this.name = "NonGracefulAbandonError";
+    this.name = 'NonGracefulAbandonError';
   }
 }
 
 class TimeoutError extends Error {
   constructor(taskName: string, afterMs: number) {
     super(`Task "${taskName}" timed out after ${afterMs.toString()}ms`);
-    this.name = "TimeoutError";
+    this.name = 'TimeoutError';
   }
 }
 
 class OverrunAbandonError extends Error {
   constructor(taskName: string) {
     super(`Task "${taskName}" abandoned for a new run`);
-    this.name = "OverrunAbandonError";
+    this.name = 'OverrunAbandonError';
   }
 }
 
 class DisposedError extends Error {
   constructor(taskName: string) {
     super(`Task "${taskName}" aborted due to runner being disposed`);
-    this.name = "DisposedError";
+    this.name = 'DisposedError';
   }
 }

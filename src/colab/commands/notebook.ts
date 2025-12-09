@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { QuickPickItem } from "vscode";
-import { InputFlowAction } from "../../common/multi-step-quickpick";
-import { AssignmentManager } from "../../jupyter/assignments";
-import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from "./constants";
-import { openColabSignup, openColabWeb } from "./external";
+import vscode, { QuickPickItem } from 'vscode';
+import { InputFlowAction } from '../../common/multi-step-quickpick';
+import { AssignmentManager } from '../../jupyter/assignments';
+import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from './constants';
+import { openColabSignup, openColabWeb } from './external';
 
 /**
  * Prompt the user to select a Colab command to run.
@@ -22,7 +22,7 @@ export async function notebookToolbar(
 ): Promise<void> {
   const commands = await getAvailableCommands(vs, assignments);
   const command = await vs.window.showQuickPick<NotebookCommand>(commands, {
-    title: "Colab",
+    title: 'Colab',
   });
   if (!command) {
     return;
@@ -79,7 +79,7 @@ async function getAvailableCommands(
     },
   ];
   const separator: NotebookCommand = {
-    label: "",
+    label: '',
     kind: vs.QuickPickItemKind.Separator,
     invoke: () => {
       // Not selectable.

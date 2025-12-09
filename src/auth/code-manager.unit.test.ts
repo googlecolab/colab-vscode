@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import { SinonFakeTimers } from "sinon";
-import * as sinon from "sinon";
-import { CancellationTokenSource } from "vscode";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { CodeManager } from "./code-manager";
+import { expect } from 'chai';
+import { SinonFakeTimers } from 'sinon';
+import * as sinon from 'sinon';
+import { CancellationTokenSource } from 'vscode';
+import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
+import { CodeManager } from './code-manager';
 
-describe("CodeManager", () => {
+describe('CodeManager', () => {
   let vsCodeStub: VsCodeStub;
   let clock: SinonFakeTimers;
   let cancellationTokenSource: CancellationTokenSource;
@@ -19,7 +19,7 @@ describe("CodeManager", () => {
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
-    clock = sinon.useFakeTimers({ toFake: ["setTimeout"] });
+    clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
     cancellationTokenSource = new vsCodeStub.CancellationTokenSource();
     manager = new CodeManager();
   });
@@ -30,16 +30,16 @@ describe("CodeManager", () => {
     sinon.restore();
   });
 
-  it("rejects outstanding codes when disposed", async () => {
-    const code = manager.waitForCode("1", cancellationTokenSource.token);
+  it('rejects outstanding codes when disposed', async () => {
+    const code = manager.waitForCode('1', cancellationTokenSource.token);
 
     manager.dispose();
 
     await expect(code).to.be.rejectedWith(/disposed/);
   });
 
-  it("rejects when waiting for the same nonce", async () => {
-    const nonce = "1";
+  it('rejects when waiting for the same nonce', async () => {
+    const nonce = '1';
 
     void manager.waitForCode(nonce, cancellationTokenSource.token);
 
@@ -48,13 +48,13 @@ describe("CodeManager", () => {
     ).to.be.rejectedWith(/waiting/);
   });
 
-  it("throws when resolving an unknown nonce", async () => {
-    const nonce = "1";
-    const code = "42";
+  it('throws when resolving an unknown nonce', async () => {
+    const nonce = '1';
+    const code = '42';
     const gotCode = manager.waitForCode(nonce, cancellationTokenSource.token);
 
     expect(() => {
-      manager.resolveCode("unknown", code);
+      manager.resolveCode('unknown', code);
     }).to.throw(/Unexpected/);
 
     // Ensure no code is resolved and ultimately times out.
@@ -62,25 +62,25 @@ describe("CodeManager", () => {
     await expect(gotCode).to.be.rejectedWith(/timeout/);
   });
 
-  it("rejects when the timeout is exceeded", async () => {
-    const gotCode = manager.waitForCode("1", cancellationTokenSource.token);
+  it('rejects when the timeout is exceeded', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
 
     clock.tick(60_001);
 
     await expect(gotCode).to.be.rejectedWith(/timeout/);
   });
 
-  it("rejects when the user cancels", async () => {
-    const gotCode = manager.waitForCode("1", cancellationTokenSource.token);
+  it('rejects when the user cancels', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
 
     cancellationTokenSource.cancel();
 
     await expect(gotCode).to.be.rejectedWith(/cancelled/);
   });
 
-  it("resolves a code", async () => {
-    const code = "42";
-    const nonce = "123";
+  it('resolves a code', async () => {
+    const code = '42';
+    const nonce = '123';
 
     const gotCode = manager.waitForCode(nonce, cancellationTokenSource.token);
     manager.resolveCode(nonce, code);
@@ -88,10 +88,10 @@ describe("CodeManager", () => {
     await expect(gotCode).to.eventually.equal(code);
   });
 
-  it("resolves the code corresponding to the nonce", async () => {
+  it('resolves the code corresponding to the nonce', async () => {
     const redirects = [
-      { nonce: "1", code: "42" },
-      { nonce: "2", code: "99" },
+      { nonce: '1', code: '42' },
+      { nonce: '2', code: '99' },
     ];
 
     const gotFirstCode = manager.waitForCode(
@@ -110,11 +110,11 @@ describe("CodeManager", () => {
     await expect(gotSecondCode).to.eventually.equal(redirects[1].code);
   });
 
-  it("resolves a code while another request times out", async () => {
-    const code = "42";
-    const nonce = "2";
+  it('resolves a code while another request times out', async () => {
+    const code = '42';
+    const nonce = '2';
     const gotFirstCode = manager.waitForCode(
-      "1",
+      '1',
       cancellationTokenSource.token,
     );
     // Wait 30s after the first.

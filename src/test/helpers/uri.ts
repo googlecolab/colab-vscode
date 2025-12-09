@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { join } from "path";
-import * as sinon from "sinon";
-import vscode from "vscode";
+import { join } from 'path';
+import * as sinon from 'sinon';
+import vscode from 'vscode';
 
 interface UriOptions {
   scheme: string;
@@ -23,21 +23,21 @@ export class TestUri implements vscode.Uri {
   static parse(stringUri: string): TestUri {
     const url = new URL(stringUri);
     return new TestUri(
-      url.protocol.replace(/:$/, ""),
+      url.protocol.replace(/:$/, ''),
       url.hostname,
       url.pathname,
-      url.search.replace(/^\?/, ""),
-      url.hash.replace(/^#/, ""),
+      url.search.replace(/^\?/, ''),
+      url.hash.replace(/^#/, ''),
     );
   }
 
   static file(filePath: string): TestUri {
     return new TestUri(
-      "file",
-      "",
-      filePath.split("?")[0] || "",
-      filePath.split("?")[1] || "",
-      "",
+      'file',
+      '',
+      filePath.split('?')[0] || '',
+      filePath.split('?')[1] || '',
+      '',
     );
   }
 
@@ -123,7 +123,7 @@ export class TestUri implements vscode.Uri {
  * @returns A Sinon matcher for the URI.
  */
 export function matchUri(regExp: RegExp | string): sinon.SinonMatcher {
-  if (typeof regExp === "string") {
+  if (typeof regExp === 'string') {
     regExp = new RegExp(regExp);
   }
   return sinon.match((uri: vscode.Uri) => regExp.test(uri.toString()));

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Transform } from "stream";
+import { Transform } from 'stream';
 
 /**
  * Transformer that adds a Content-Length header prefix to incoming LSP
@@ -26,7 +26,7 @@ export class ContentLengthTransformer extends Transform {
     if (/^content-length/i.test(json)) {
       this.push(chunk);
     } else {
-      const l = Buffer.byteLength(json, "utf-8");
+      const l = Buffer.byteLength(json, 'utf-8');
       this.push(Buffer.from(`Content-Length: ${l.toString()}\r\n\r\n${json}`));
     }
 
@@ -35,19 +35,19 @@ export class ContentLengthTransformer extends Transform {
 }
 
 function chunkToString(chunk: string | Buffer | Uint8Array | DataView): string {
-  if (typeof chunk === "string") {
+  if (typeof chunk === 'string') {
     return chunk;
   }
   if (Buffer.isBuffer(chunk)) {
-    return chunk.toString("utf-8");
+    return chunk.toString('utf-8');
   }
   if (chunk instanceof DataView) {
     return Buffer.from(
       chunk.buffer,
       chunk.byteOffset,
       chunk.byteLength,
-    ).toString("utf-8");
+    ).toString('utf-8');
   }
   // Uint8Array or other ArrayBufferView
-  return Buffer.from(chunk).toString("utf-8");
+  return Buffer.from(chunk).toString('utf-8');
 }

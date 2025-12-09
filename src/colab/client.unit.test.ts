@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID } from "crypto";
-import { expect } from "chai";
-import fetch, { Response } from "node-fetch";
-import { SinonStub, SinonMatcher } from "sinon";
-import * as sinon from "sinon";
-import { ColabAssignedServer } from "../jupyter/servers";
-import { TestUri } from "../test/helpers/uri";
-import { uuidToWebSafeBase64 } from "../utils/uuid";
+import { randomUUID } from 'crypto';
+import { expect } from 'chai';
+import fetch, { Response } from 'node-fetch';
+import { SinonStub, SinonMatcher } from 'sinon';
+import * as sinon from 'sinon';
+import { ColabAssignedServer } from '../jupyter/servers';
+import { TestUri } from '../test/helpers/uri';
+import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
   CcuInfo,
   Assignment,
@@ -24,13 +24,13 @@ import {
   Outcome,
   ListedAssignments,
   RuntimeProxyInfo,
-} from "./api";
+} from './api';
 import {
   ColabClient,
   DenylistedError,
   InsufficientQuotaError,
   TooManyAssignmentsError,
-} from "./client";
+} from './client';
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
@@ -38,24 +38,24 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_XSRF_TOKEN_HEADER,
-} from "./headers";
+} from './headers';
 
-const COLAB_HOST = "colab.example.com";
-const GOOGLE_APIS_HOST = "colab.example.googleapis.com";
-const BEARER_TOKEN = "access-token";
+const COLAB_HOST = 'colab.example.com';
+const GOOGLE_APIS_HOST = 'colab.example.googleapis.com';
+const BEARER_TOKEN = 'access-token';
 const NOTEBOOK_HASH = randomUUID();
 const DEFAULT_ASSIGNMENT_RESPONSE = {
-  accelerator: "A100",
-  endpoint: "mock-server",
+  accelerator: 'A100',
+  endpoint: 'mock-server',
   fit: 30,
   sub: SubscriptionState.UNSUBSCRIBED,
   subTier: SubscriptionTier.NONE,
   variant: Variant.GPU,
   machineShape: Shape.STANDARD,
   runtimeProxyInfo: {
-    token: "mock-token",
+    token: 'mock-token',
     tokenExpiresInSeconds: 42,
-    url: "https://mock-url.com",
+    url: 'https://mock-url.com',
   },
 };
 const DEFAULT_LIST_ASSIGNMENTS_RESPONSE: ListedAssignments = {
@@ -76,13 +76,13 @@ const DEFAULT_ASSIGNMENT: Assignment = {
   subscriptionTier: subTier,
 };
 
-describe("ColabClient", () => {
+describe('ColabClient', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
   let sessionStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
 
   beforeEach(() => {
-    fetchStub = sinon.stub(fetch, "default");
+    fetchStub = sinon.stub(fetch, 'default');
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
     client = new ColabClient(
       new URL(`https://${COLAB_HOST}`),
@@ -95,18 +95,18 @@ describe("ColabClient", () => {
     sinon.restore();
   });
 
-  it("successfully gets the subscription tier", async () => {
+  it('successfully gets the subscription tier', async () => {
     const mockResponse = {
-      subscriptionTier: "SUBSCRIPTION_TIER_NONE",
+      subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
       paidComputeUnitsBalance: 0,
-      eligibleAccelerators: [{ variant: "VARIANT_GPU", models: ["T4"] }],
+      eligibleAccelerators: [{ variant: 'VARIANT_GPU', models: ['T4'] }],
     };
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: GOOGLE_APIS_HOST,
-          path: "/v1/user-info",
+          path: '/v1/user-info',
           withAuthUser: false,
         }),
       )
@@ -121,26 +121,26 @@ describe("ColabClient", () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it("successfully gets CCU info", async () => {
+  it('successfully gets CCU info', async () => {
     const mockResponse = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
-      eligibleGpus: ["T4"],
-      ineligibleGpus: ["A100", "L4"],
-      eligibleTpus: ["V6E1", "V28"],
-      ineligibleTpus: ["V5E1"],
+      eligibleGpus: ['T4'],
+      ineligibleGpus: ['A100', 'L4'],
+      eligibleTpus: ['V6E1', 'V28'],
+      ineligibleTpus: ['V5E1'],
       freeCcuQuotaInfo: {
-        remainingTokens: "4",
+        remainingTokens: '4',
         nextRefillTimestampSec: 5,
       },
     };
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/ccu-info",
+          path: '/tun/m/ccu-info',
         }),
       )
       .resolves(
@@ -161,8 +161,8 @@ describe("ColabClient", () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  describe("assignment", () => {
-    const ASSIGN_PATH = "/tun/m/assign";
+  describe('assignment', () => {
+    const ASSIGN_PATH = '/tun/m/assign';
     let wireNbh: string;
     let queryParams: Record<string, string | RegExp>;
 
@@ -173,11 +173,11 @@ describe("ColabClient", () => {
       };
     });
 
-    it("resolves an existing assignment", async () => {
+    it('resolves an existing assignment', async () => {
       fetchStub
         .withArgs(
           urlMatcher({
-            method: "GET",
+            method: 'GET',
             host: COLAB_HOST,
             path: ASSIGN_PATH,
             queryParams,
@@ -190,7 +190,7 @@ describe("ColabClient", () => {
         );
 
       await expect(
-        client.assign(NOTEBOOK_HASH, Variant.GPU, "A100"),
+        client.assign(NOTEBOOK_HASH, Variant.GPU, 'A100'),
       ).to.eventually.deep.equal({
         assignment: DEFAULT_ASSIGNMENT,
         isNew: false,
@@ -199,19 +199,19 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    describe("without an existing assignment", () => {
+    describe('without an existing assignment', () => {
       beforeEach(() => {
         const mockGetResponse = {
-          acc: "NONE",
+          acc: 'NONE',
           nbh: wireNbh,
           p: false,
-          token: "mock-xsrf-token",
+          token: 'mock-xsrf-token',
           variant: Variant.DEFAULT,
         };
         fetchStub
           .withArgs(
             urlMatcher({
-              method: "GET",
+              method: 'GET',
               host: COLAB_HOST,
               path: ASSIGN_PATH,
               queryParams,
@@ -257,12 +257,12 @@ describe("ColabClient", () => {
           fetchStub
             .withArgs(
               urlMatcher({
-                method: "POST",
+                method: 'POST',
                 host: COLAB_HOST,
                 path: ASSIGN_PATH,
                 queryParams: postQueryParams,
                 otherHeaders: {
-                  [COLAB_XSRF_TOKEN_HEADER.key]: "mock-xsrf-token",
+                  [COLAB_XSRF_TOKEN_HEADER.key]: 'mock-xsrf-token',
                 },
               }),
             )
@@ -289,16 +289,16 @@ describe("ColabClient", () => {
         });
       }
 
-      it("rejects when assignments exceed limit", async () => {
+      it('rejects when assignments exceed limit', async () => {
         fetchStub
           .withArgs(
             urlMatcher({
-              method: "POST",
+              method: 'POST',
               host: COLAB_HOST,
               path: ASSIGN_PATH,
               queryParams,
               otherHeaders: {
-                "X-Goog-Colab-Token": "mock-xsrf-token",
+                'X-Goog-Colab-Token': 'mock-xsrf-token',
               },
             }),
           )
@@ -311,11 +311,11 @@ describe("ColabClient", () => {
 
       for (const quotaTest of [
         {
-          reason: "request variant unavailable",
+          reason: 'request variant unavailable',
           outcome: Outcome.QUOTA_DENIED_REQUESTED_VARIANTS,
         },
         {
-          reason: "usage time exceeded",
+          reason: 'usage time exceeded',
           outcome: Outcome.QUOTA_EXCEEDED_USAGE_TIME,
         },
       ]) {
@@ -323,12 +323,12 @@ describe("ColabClient", () => {
           fetchStub
             .withArgs(
               urlMatcher({
-                method: "POST",
+                method: 'POST',
                 host: COLAB_HOST,
                 path: ASSIGN_PATH,
                 queryParams,
                 otherHeaders: {
-                  "X-Goog-Colab-Token": "mock-xsrf-token",
+                  'X-Goog-Colab-Token': 'mock-xsrf-token',
                 },
               }),
             )
@@ -354,16 +354,16 @@ describe("ColabClient", () => {
         });
       }
 
-      it("rejects when user is banned", async () => {
+      it('rejects when user is banned', async () => {
         fetchStub
           .withArgs(
             urlMatcher({
-              method: "POST",
+              method: 'POST',
               host: COLAB_HOST,
               path: ASSIGN_PATH,
               queryParams,
               otherHeaders: {
-                "X-Goog-Colab-Token": "mock-xsrf-token",
+                'X-Goog-Colab-Token': 'mock-xsrf-token',
               },
             }),
           )
@@ -387,13 +387,13 @@ describe("ColabClient", () => {
     });
   });
 
-  it("successfully lists assignments", async () => {
+  it('successfully lists assignments', async () => {
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/assignments",
+          path: '/tun/m/assignments',
         }),
       )
       .resolves(
@@ -412,19 +412,19 @@ describe("ColabClient", () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it("successfully unassigns the specified assignment", async () => {
-    const endpoint = "mock-server";
+  it('successfully unassigns the specified assignment', async () => {
+    const endpoint = 'mock-server';
     const path = `/tun/m/unassign/${endpoint}`;
-    const token = "mock-xsrf-token";
+    const token = 'mock-xsrf-token';
     fetchStub
-      .withArgs(urlMatcher({ method: "GET", host: COLAB_HOST, path: path }))
+      .withArgs(urlMatcher({ method: 'GET', host: COLAB_HOST, path: path }))
       .resolves(
         new Response(withXSSI(JSON.stringify({ token })), { status: 200 }),
       );
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "POST",
+          method: 'POST',
           host: COLAB_HOST,
           path,
           otherHeaders: {
@@ -439,44 +439,44 @@ describe("ColabClient", () => {
     sinon.assert.calledTwice(fetchStub);
   });
 
-  describe("with an assigned server", () => {
+  describe('with an assigned server', () => {
     const assignedServerUrl = new URL(
-      "https://8080-m-s-foo.bar.prod.colab.dev",
+      'https://8080-m-s-foo.bar.prod.colab.dev',
     );
     let assignedServer: ColabAssignedServer;
 
     beforeEach(() => {
       assignedServer = {
         id: randomUUID(),
-        label: "foo",
+        label: 'foo',
         variant: Variant.DEFAULT,
         accelerator: undefined,
-        endpoint: "m-s-foo",
+        endpoint: 'm-s-foo',
         connectionInformation: {
           baseUrl: TestUri.parse(assignedServerUrl.toString()),
-          token: "123",
+          token: '123',
           tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
         },
         dateAssigned: new Date(),
       };
     });
 
-    it("successfully refreshes the connection", async () => {
+    it('successfully refreshes the connection', async () => {
       const newConnectionInfo: RuntimeProxyInfo = {
-        token: "new",
+        token: 'new',
         tokenExpiresInSeconds: 3600,
         url: assignedServerUrl.toString(),
       };
-      const path = "/tun/m/runtime-proxy-token";
+      const path = '/tun/m/runtime-proxy-token';
       fetchStub
         .withArgs(
           urlMatcher({
-            method: "GET",
+            method: 'GET',
             host: COLAB_HOST,
             path: path,
             queryParams: {
               endpoint: assignedServer.endpoint,
-              port: "8080",
+              port: '8080',
             },
           }),
         )
@@ -491,15 +491,15 @@ describe("ColabClient", () => {
       ).to.eventually.deep.equal(newConnectionInfo);
     });
 
-    it("successfully lists kernels", async () => {
+    it('successfully lists kernels', async () => {
       const lastActivity = new Date().toISOString();
 
       fetchStub
         .withArgs(
           urlMatcher({
-            method: "GET",
+            method: 'GET',
             host: assignedServerUrl.host,
-            path: "/api/kernels",
+            path: '/api/kernels',
             otherHeaders: {
               [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
                 assignedServer.connectionInformation.token,
@@ -512,10 +512,10 @@ describe("ColabClient", () => {
             withXSSI(
               JSON.stringify([
                 {
-                  id: "mock-id",
-                  name: "mock-name",
+                  id: 'mock-id',
+                  name: 'mock-name',
                   last_activity: lastActivity,
-                  execution_state: "idle",
+                  execution_state: 'idle',
                   connections: 1,
                 },
               ]),
@@ -526,10 +526,10 @@ describe("ColabClient", () => {
           ),
         );
       const kernel: Kernel = {
-        id: "mock-id",
-        name: "mock-name",
+        id: 'mock-id',
+        name: 'mock-name',
         lastActivity,
-        executionState: "idle",
+        executionState: 'idle',
         connections: 1,
       };
 
@@ -540,42 +540,42 @@ describe("ColabClient", () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    describe("listSessions", () => {
+    describe('listSessions', () => {
       const last_activity = new Date().toISOString();
       const mockResponseSession = {
-        id: "mock-session-id",
+        id: 'mock-session-id',
         kernel: {
-          id: "mock-kernel-id",
-          name: "mock-kernel-name",
+          id: 'mock-kernel-id',
+          name: 'mock-kernel-name',
           last_activity,
-          execution_state: "idle",
+          execution_state: 'idle',
           connections: 1,
         },
-        name: "mock-session-name",
-        path: "/mock-path",
-        type: "notebook",
+        name: 'mock-session-name',
+        path: '/mock-path',
+        type: 'notebook',
       };
       const expectedSession: Session = {
-        id: "mock-session-id",
+        id: 'mock-session-id',
         kernel: {
-          id: "mock-kernel-id",
-          name: "mock-kernel-name",
+          id: 'mock-kernel-id',
+          name: 'mock-kernel-name',
           lastActivity: last_activity,
-          executionState: "idle",
+          executionState: 'idle',
           connections: 1,
         },
-        name: "mock-session-name",
-        path: "/mock-path",
-        type: "notebook",
+        name: 'mock-session-name',
+        path: '/mock-path',
+        type: 'notebook',
       };
 
-      it("successfully lists sessions by server", async () => {
+      it('successfully lists sessions by server', async () => {
         fetchStub
           .withArgs(
             urlMatcher({
-              method: "GET",
+              method: 'GET',
               host: assignedServerUrl.host,
-              path: "/api/sessions",
+              path: '/api/sessions',
               otherHeaders: {
                 [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
                   assignedServer.connectionInformation.token,
@@ -596,11 +596,11 @@ describe("ColabClient", () => {
         sinon.assert.calledOnce(fetchStub);
       });
 
-      it("successfully lists sessions by assignment endpoint", async () => {
+      it('successfully lists sessions by assignment endpoint', async () => {
         fetchStub
           .withArgs(
             urlMatcher({
-              method: "GET",
+              method: 'GET',
               host: COLAB_HOST,
               path: `/tun/m/${assignedServer.endpoint}/api/sessions`,
               otherHeaders: {
@@ -623,12 +623,12 @@ describe("ColabClient", () => {
       });
     });
 
-    it("successfully deletes a session", async () => {
-      const sessionId = "mock-session-id";
+    it('successfully deletes a session', async () => {
+      const sessionId = 'mock-session-id';
       fetchStub
         .withArgs(
           urlMatcher({
-            method: "DELETE",
+            method: 'DELETE',
             host: assignedServerUrl.host,
             path: `/api/sessions/${sessionId}`,
             otherHeaders: {
@@ -647,13 +647,13 @@ describe("ColabClient", () => {
     });
   });
 
-  it("successfully issues keep-alive pings", async () => {
+  it('successfully issues keep-alive pings', async () => {
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/foo/keep-alive/",
+          path: '/tun/m/foo/keep-alive/',
           otherHeaders: {
             [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
           },
@@ -661,27 +661,27 @@ describe("ColabClient", () => {
       )
       .resolves(new Response(undefined, { status: 200 }));
 
-    await expect(client.sendKeepAlive("foo")).to.eventually.be.fulfilled;
+    await expect(client.sendKeepAlive('foo')).to.eventually.be.fulfilled;
 
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it("supports non-XSSI responses", async () => {
+  it('supports non-XSSI responses', async () => {
     const mockResponse = {
       currentBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
-      eligibleGpus: ["T4"],
-      ineligibleGpus: ["A100", "L4"],
-      eligibleTpus: ["V6E1", "V28"],
-      ineligibleTpus: ["V5E1"],
+      eligibleGpus: ['T4'],
+      ineligibleGpus: ['A100', 'L4'],
+      eligibleTpus: ['V6E1', 'V28'],
+      ineligibleTpus: ['V5E1'],
     };
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/ccu-info",
+          path: '/tun/m/ccu-info',
         }),
       )
       .resolves(new Response(JSON.stringify(mockResponse), { status: 200 }));
@@ -691,19 +691,19 @@ describe("ColabClient", () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it("rejects when error responses are returned", async () => {
+  it('rejects when error responses are returned', async () => {
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/ccu-info",
+          path: '/tun/m/ccu-info',
         }),
       )
       .resolves(
-        new Response("Error", {
+        new Response('Error', {
           status: 500,
-          statusText: "Foo error",
+          statusText: 'Foo error',
         }),
       );
 
@@ -712,34 +712,34 @@ describe("ColabClient", () => {
     );
   });
 
-  it("rejects invalid JSON responses", async () => {
+  it('rejects invalid JSON responses', async () => {
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/ccu-info",
+          path: '/tun/m/ccu-info',
         }),
       )
-      .resolves(new Response(withXSSI("not JSON eh?"), { status: 200 }));
+      .resolves(new Response(withXSSI('not JSON eh?'), { status: 200 }));
 
     await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
       /not JSON.+eh\?/,
     );
   });
 
-  it("rejects response schema mismatches", async () => {
+  it('rejects response schema mismatches', async () => {
     const mockResponse: Partial<CcuInfo> = {
       currentBalance: 1,
       consumptionRateHourly: 2,
-      eligibleGpus: ["T4"],
+      eligibleGpus: ['T4'],
     };
     fetchStub
       .withArgs(
         urlMatcher({
-          method: "GET",
+          method: 'GET',
           host: COLAB_HOST,
-          path: "/tun/m/ccu-info",
+          path: '/tun/m/ccu-info',
         }),
       )
       .resolves(
@@ -751,13 +751,13 @@ describe("ColabClient", () => {
     );
   });
 
-  it("initializes fetch with abort signal", async () => {
+  it('initializes fetch with abort signal', async () => {
     const abort = new AbortController();
     fetchStub
       .withArgs(sinon.match({ signal: abort.signal }))
       .resolves(new Response(undefined, { status: 200 }));
 
-    await expect(client.sendKeepAlive("foo", abort.signal)).to.eventually.be
+    await expect(client.sendKeepAlive('foo', abort.signal)).to.eventually.be
       .fulfilled;
 
     sinon.assert.calledOnce(fetchStub);
@@ -769,7 +769,7 @@ function withXSSI(response: string): string {
 }
 
 export interface URLMatchOptions {
-  method: "GET" | "POST" | "DELETE";
+  method: 'GET' | 'POST' | 'DELETE';
   host: string;
   path: string | RegExp;
   queryParams?: Record<string, string | RegExp>;
@@ -786,10 +786,10 @@ export interface URLMatchOptions {
  * headers.
  */
 export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
-  let reason = "";
+  let reason = '';
   return sinon.match((request: Request) => {
     const reasons: string[] = [];
-    reason = "";
+    reason = '';
 
     // Check method
     const actualMethod = request.method.toUpperCase();
@@ -825,10 +825,10 @@ export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
     // Check query params
     const params = url.searchParams;
     if (expected.withAuthUser !== false) {
-      const actualAuthuser = params.get("authuser");
-      if (actualAuthuser !== "0") {
+      const actualAuthuser = params.get('authuser');
+      if (actualAuthuser !== '0') {
         reasons.push(
-          `authuser param is "${actualAuthuser ?? ""}", expected "0"`,
+          `authuser param is "${actualAuthuser ?? ''}", expected "0"`,
         );
       }
     }
@@ -859,19 +859,19 @@ export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
     const expectedAuth = `Bearer ${BEARER_TOKEN}`;
     if (actualAuth !== expectedAuth) {
       reasons.push(
-        `Authorization header is "${actualAuth ?? ""}", expected "${expectedAuth}"`,
+        `Authorization header is "${actualAuth ?? ''}", expected "${expectedAuth}"`,
       );
     }
     const actualAccept = headers.get(ACCEPT_JSON_HEADER.key);
     if (actualAccept !== ACCEPT_JSON_HEADER.value) {
       reasons.push(
-        `Accept header is "${actualAccept ?? ""}", expected "${ACCEPT_JSON_HEADER.value}"`,
+        `Accept header is "${actualAccept ?? ''}", expected "${ACCEPT_JSON_HEADER.value}"`,
       );
     }
     const actualClientAgent = headers.get(COLAB_CLIENT_AGENT_HEADER.key);
     if (actualClientAgent !== COLAB_CLIENT_AGENT_HEADER.value) {
       reasons.push(
-        `Client-Agent header is "${actualClientAgent ?? ""}", expected "${COLAB_CLIENT_AGENT_HEADER.value}"`,
+        `Client-Agent header is "${actualClientAgent ?? ''}", expected "${COLAB_CLIENT_AGENT_HEADER.value}"`,
       );
     }
     if (expected.otherHeaders) {
@@ -879,17 +879,17 @@ export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
         const actualVal = headers.get(key);
         if (actualVal !== expectedVal) {
           reasons.push(
-            `header "${key}" = "${actualVal ?? ""}", expected "${expectedVal}"`,
+            `header "${key}" = "${actualVal ?? ''}", expected "${expectedVal}"`,
           );
         }
       }
     }
 
     if (reasons.length > 0) {
-      reason = reasons.join("; ");
+      reason = reasons.join('; ');
       return false;
     }
 
     return true;
-  }, reason || "URL did not match expected pattern");
+  }, reason || 'URL did not match expected pattern');
 }

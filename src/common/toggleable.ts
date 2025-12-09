@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LatestCancelable } from "./async";
+import { LatestCancelable } from './async';
 
 /**
  * An entity which can be turned "on" and "off".
@@ -30,19 +30,19 @@ type ToggleDirection = Lowercase<keyof Toggleable>;
  * when toggling.
  */
 export abstract class AsyncToggle implements Toggleable {
-  private lastToggle?: "on" | "off";
+  private lastToggle?: 'on' | 'off';
   private runner = new LatestCancelable<[ToggleDirection]>(
-    "AsyncToggle",
+    'AsyncToggle',
     async (to, signal) => {
       if (this.lastToggle === to) {
         return;
       }
       this.lastToggle = to;
       switch (to) {
-        case "on":
+        case 'on':
           await this.turnOn(signal);
           break;
-        case "off":
+        case 'off':
           await this.turnOff(signal);
           break;
       }
@@ -50,10 +50,10 @@ export abstract class AsyncToggle implements Toggleable {
   );
 
   on(): void {
-    void this.runner.run("on");
+    void this.runner.run('on');
   }
   off(): void {
-    void this.runner.run("off");
+    void this.runner.run('off');
   }
 
   protected abstract turnOn(signal: AbortSignal): Promise<void>;

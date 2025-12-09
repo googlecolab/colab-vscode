@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import sinon from "sinon";
-import { ControllableAsyncToggle, Deferred } from "../test/helpers/async";
-import { ColabLogWatcher } from "../test/helpers/logging";
-import { newVsCodeStub } from "../test/helpers/vscode";
-import { LogLevel } from "./logging";
-import { AsyncToggle } from "./toggleable";
+import sinon from 'sinon';
+import { ControllableAsyncToggle, Deferred } from '../test/helpers/async';
+import { ColabLogWatcher } from '../test/helpers/logging';
+import { newVsCodeStub } from '../test/helpers/vscode';
+import { LogLevel } from './logging';
+import { AsyncToggle } from './toggleable';
 
 /**
  * A derived class with the abstract methods of the SUT (AsyncToggle) stubbed.
@@ -29,14 +29,14 @@ class TestToggle extends AsyncToggle {
    * @param turning - the direction to gate.
    */
   gate(
-    turning: "turnOn" | "turnOff",
+    turning: 'turnOn' | 'turnOff',
     call: number,
   ): { resolve: () => void; aborted: Promise<void> } {
-    const turn = turning === "turnOn" ? this.turnOnStub : this.turnOffStub;
+    const turn = turning === 'turnOn' ? this.turnOnStub : this.turnOffStub;
     const d = new Deferred<void>();
     const aborted = new Deferred<void>();
     turn.onCall(call).callsFake(async (signal: AbortSignal) => {
-      signal.addEventListener("abort", () => {
+      signal.addEventListener('abort', () => {
         aborted.resolve();
       });
       if (signal.aborted) {
@@ -48,7 +48,7 @@ class TestToggle extends AsyncToggle {
   }
 }
 
-describe("AsyncToggle", () => {
+describe('AsyncToggle', () => {
   let logs: ColabLogWatcher;
   let toggle: TestToggle;
   let toggleSpy: ControllableAsyncToggle;
@@ -65,15 +65,15 @@ describe("AsyncToggle", () => {
     logs.dispose();
   });
 
-  describe("on", () => {
-    it("should turn on when called", async () => {
+  describe('on', () => {
+    it('should turn on when called', async () => {
       toggle.on();
 
       await toggleSpy.turnOn.call(0).waitForCompletion();
     });
 
-    it("should not turn on if already turning on", async () => {
-      const first = toggle.gate("turnOn", 0);
+    it('should not turn on if already turning on', async () => {
+      const first = toggle.gate('turnOn', 0);
       toggle.on();
       await toggleSpy.turnOn.call(0).waitForStart();
 
@@ -83,7 +83,7 @@ describe("AsyncToggle", () => {
       sinon.assert.calledOnce(toggle.turnOnStub);
     });
 
-    it("should not turn on if already on", async () => {
+    it('should not turn on if already on', async () => {
       toggle.on();
       await toggleSpy.turnOn.call(0).waitForCompletion();
 
@@ -96,8 +96,8 @@ describe("AsyncToggle", () => {
       sinon.assert.calledOnce(toggle.turnOnStub);
     });
 
-    it("should be cancelled if off is called", async () => {
-      const turnOn = toggle.gate("turnOn", 0);
+    it('should be cancelled if off is called', async () => {
+      const turnOn = toggle.gate('turnOn', 0);
       toggle.on();
       await toggleSpy.turnOn.call(0).waitForStart();
 
@@ -109,15 +109,15 @@ describe("AsyncToggle", () => {
     });
   });
 
-  describe("off", () => {
-    it("should turn off when called", async () => {
+  describe('off', () => {
+    it('should turn off when called', async () => {
       toggle.off();
 
       await toggleSpy.turnOff.call(0).waitForCompletion();
     });
 
-    it("should not turn off if already turning off", async () => {
-      const first = toggle.gate("turnOff", 0);
+    it('should not turn off if already turning off', async () => {
+      const first = toggle.gate('turnOff', 0);
       toggle.off();
       await toggleSpy.turnOff.call(0).waitForStart();
 
@@ -127,7 +127,7 @@ describe("AsyncToggle", () => {
       sinon.assert.calledOnce(toggle.turnOffStub);
     });
 
-    it("should not turn off if already off", async () => {
+    it('should not turn off if already off', async () => {
       toggle.off();
       await toggleSpy.turnOff.call(0).waitForCompletion();
 
@@ -140,8 +140,8 @@ describe("AsyncToggle", () => {
       sinon.assert.calledOnce(toggle.turnOffStub);
     });
 
-    it("should be cancelled if on is called", async () => {
-      const turnOff = toggle.gate("turnOff", 0);
+    it('should be cancelled if on is called', async () => {
+      const turnOff = toggle.gate('turnOff', 0);
       toggle.off();
       await toggleSpy.turnOff.call(0).waitForStart();
 
@@ -153,21 +153,21 @@ describe("AsyncToggle", () => {
     });
   });
 
-  it("should handle rapid toggling", async () => {
+  it('should handle rapid toggling', async () => {
     // Start toggling on but gate it from completing.
-    const turnOn1 = toggle.gate("turnOn", 0);
+    const turnOn1 = toggle.gate('turnOn', 0);
     toggle.on();
     await toggleSpy.turnOn.call(0).waitForStart();
 
     // Toggle off before on completes.
-    const turnOff1 = toggle.gate("turnOff", 0);
+    const turnOff1 = toggle.gate('turnOff', 0);
     toggle.off();
     await toggleSpy.turnOff.call(0).waitForStart();
     await turnOn1.aborted;
     turnOn1.resolve();
 
     // Toggle on to completion before off completes.
-    const turnOn2 = toggle.gate("turnOn", 1);
+    const turnOn2 = toggle.gate('turnOn', 1);
     toggle.on();
     await toggleSpy.turnOn.call(1).waitForStart();
     await turnOff1.aborted;

@@ -11,26 +11,26 @@ import {
   JupyterServerCommand,
   JupyterServerCommandProvider,
   JupyterServerProvider,
-} from "@vscode/jupyter-extension";
-import { CancellationToken, Disposable, Event, ProviderResult } from "vscode";
-import vscode from "vscode";
-import { AuthChangeEvent } from "../auth/auth-provider";
-import { SubscriptionTier } from "../colab/api";
-import { ColabClient } from "../colab/client";
+} from '@vscode/jupyter-extension';
+import { CancellationToken, Disposable, Event, ProviderResult } from 'vscode';
+import vscode from 'vscode';
+import { AuthChangeEvent } from '../auth/auth-provider';
+import { SubscriptionTier } from '../colab/api';
+import { ColabClient } from '../colab/client';
 import {
   AUTO_CONNECT,
   NEW_SERVER,
   OPEN_COLAB_WEB,
   SIGN_IN_VIEW_EXISTING,
   UPGRADE_TO_PRO,
-} from "../colab/commands/constants";
-import { openColabSignup, openColabWeb } from "../colab/commands/external";
-import { ServerPicker } from "../colab/server-picker";
-import { LatestCancelable } from "../common/async";
-import { traceMethod } from "../common/logging/decorators";
-import { InputFlowAction } from "../common/multi-step-quickpick";
-import { isUUID } from "../utils/uuid";
-import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
+} from '../colab/commands/constants';
+import { openColabSignup, openColabWeb } from '../colab/commands/external';
+import { ServerPicker } from '../colab/server-picker';
+import { LatestCancelable } from '../common/async';
+import { traceMethod } from '../common/logging/decorators';
+import { InputFlowAction } from '../common/multi-step-quickpick';
+import { isUUID } from '../utils/uuid';
+import { AssignmentChangeEvent, AssignmentManager } from './assignments';
 
 /**
  * Colab Jupyter server provider.
@@ -51,7 +51,7 @@ export class ColabJupyterServerProvider
   private isAuthorized = false;
   private authorizedListener: Disposable;
   private setServerContextRunner = new LatestCancelable(
-    "hasAssignedServer",
+    'hasAssignedServer',
     this.setHasAssignedServerContext.bind(this),
   );
 
@@ -70,8 +70,8 @@ export class ColabJupyterServerProvider
       this.handleAssignmentsChange.bind(this),
     );
     this.serverCollection = jupyter.createJupyterServerCollection(
-      "colab",
-      "Colab",
+      'colab',
+      'Colab',
       this,
     );
     this.serverCollection.commandProvider = this;
@@ -94,7 +94,7 @@ export class ColabJupyterServerProvider
     if (!this.isAuthorized) {
       return [];
     }
-    return this.assignmentManager.getAssignedServers();
+    return this.assignmentManager.getServers('extension');
   }
 
   /**
@@ -106,7 +106,7 @@ export class ColabJupyterServerProvider
     _token: CancellationToken,
   ): ProviderResult<JupyterServer> {
     if (!isUUID(server.id)) {
-      throw new Error("Unexpected server ID format, expected UUID");
+      throw new Error('Unexpected server ID format, expected UUID');
     }
     return this.assignmentManager.refreshConnection(server.id);
   }
@@ -183,7 +183,7 @@ export class ColabJupyterServerProvider
           openColabSignup(this.vs);
           return;
         default:
-          throw new Error("Unexpected command");
+          throw new Error('Unexpected command');
       }
     } catch (e: unknown) {
       if (e === InputFlowAction.back) {
@@ -198,7 +198,7 @@ export class ColabJupyterServerProvider
       // Throwing a CancellationError is meant to dismiss the dialog, but it
       // doesn't. Additionally, if any other error is thrown while handling
       // commands, the quick pick is left spinning in the "busy" state.
-      await this.vs.commands.executeCommand("workbench.action.closeQuickOpen");
+      await this.vs.commands.executeCommand('workbench.action.closeQuickOpen');
       throw e;
     }
   }
@@ -226,8 +226,8 @@ export class ColabJupyterServerProvider
       ? await this.assignmentManager.hasAssignedServer(signal)
       : false;
     await this.vs.commands.executeCommand(
-      "setContext",
-      "colab.hasAssignedServer",
+      'setContext',
+      'colab.hasAssignedServer',
       value,
     );
   }

@@ -17,11 +17,11 @@ import {
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
-  "Provide a local convenience alias to the server.";
+  'Provide a local convenience alias to the server.';
 
 /** Validates the server alias. */
 export const validateServerAlias = (value: string) =>
-  value.length > 10 ? "Name must be less than 10 characters." : "";
+  value.length > 10 ? 'Name must be less than 10 characters.' : '';
 
 /**
  * Supports prompting the user to pick a Colab server to be created.
@@ -100,7 +100,7 @@ export class ServerPicker {
       });
     }
     const pick = await input.showQuickPick({
-      title: "Select a variant",
+      title: 'Select a variant',
       step: 1,
       totalSteps: 2,
       items,
@@ -138,7 +138,7 @@ export class ServerPicker {
 
   private async promptForAccelerator(
     input: MultiStepInput,
-    state: PartialServerWith<"variant">,
+    state: PartialServerWith<'variant'>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
     shapesByAccelerators: Map<string, Set<Shape>>,
   ): Promise<InputStep | undefined> {
@@ -151,7 +151,7 @@ export class ServerPicker {
       });
     }
     const pick = await input.showQuickPick({
-      title: "Select an accelerator",
+      title: 'Select an accelerator',
       step: 2,
       // Since we have to pick an accelerator, we've added a step.
       totalSteps: 3,
@@ -239,13 +239,13 @@ type PartialServerWith<K extends keyof Server> = Partial<Server> &
 
 function isVariantDefined(
   state: Partial<Server>,
-): state is PartialServerWith<"variant"> {
+): state is PartialServerWith<'variant'> {
   return state.variant !== undefined;
 }
 
 function isAcceleratorDefined(
   state: Partial<Server>,
-): state is PartialServerWith<"accelerator"> {
+): state is PartialServerWith<'accelerator'> {
   return state.accelerator !== undefined;
 }
 

@@ -4,17 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
-import { Disposable } from "vscode";
-import vscode from "vscode";
-import { log } from "../common/logging";
-import { traceMethod } from "../common/logging/decorators";
-import { OverrunPolicy, SequentialTaskRunner } from "../common/task-runner";
-import { Toggleable } from "../common/toggleable";
-import { AssignmentManager } from "../jupyter/assignments";
-import { ColabAssignedServer } from "../jupyter/servers";
-import { Kernel } from "./api";
-import { ColabClient } from "./client";
+import { UUID } from 'crypto';
+import { Disposable } from 'vscode';
+import vscode from 'vscode';
+import { log } from '../common/logging';
+import { traceMethod } from '../common/logging/decorators';
+import { OverrunPolicy, SequentialTaskRunner } from '../common/task-runner';
+import { Toggleable } from '../common/toggleable';
+import { AssignmentManager } from '../jupyter/assignments';
+import { ColabAssignedServer } from '../jupyter/servers';
+import { Kernel } from './api';
+import { ColabClient } from './client';
 
 interface Config {
   /**
@@ -45,10 +45,10 @@ const DEFAULT_CONFIG: Config = {
 };
 
 const ACTIVE_KERNEL_STATES = new Set([
-  "starting",
-  "busy",
-  "restarting",
-  "autorestarting",
+  'starting',
+  'busy',
+  'restarting',
+  'autorestarting',
 ]);
 
 /**
@@ -107,7 +107,10 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
   }
 
   private async keepServersAlive(signal: AbortSignal): Promise<void> {
-    const assignments = await this.assignmentManager.getAssignedServers();
+    const assignments = await this.assignmentManager.getServers(
+      'extension',
+      signal,
+    );
     const keepAliveSignals = assignments.map(async (a) => {
       try {
         await this.keepServerAlive(a, signal);
@@ -229,7 +232,7 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
 
   private assertNotDisposed(): void {
     if (this.isDisposed) {
-      throw new Error("ServerKeepAliveController is disposed");
+      throw new Error('ServerKeepAliveController is disposed');
     }
   }
 }

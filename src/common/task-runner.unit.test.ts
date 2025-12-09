@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import sinon, { SinonFakeTimers } from "sinon";
-import { ColabLogWatcher } from "../test/helpers/logging";
-import { newVsCodeStub } from "../test/helpers/vscode";
-import { LogLevel } from "./logging";
+import { expect } from 'chai';
+import sinon, { SinonFakeTimers } from 'sinon';
+import { ColabLogWatcher } from '../test/helpers/logging';
+import { newVsCodeStub } from '../test/helpers/vscode';
+import { LogLevel } from './logging';
 import {
   Config,
   OverrunPolicy,
   SequentialTaskRunner,
   StartMode,
   Task,
-} from "./task-runner";
+} from './task-runner';
 
 const INTERVAL_TIMEOUT_MS = 1000;
 const TASK_TIMEOUT_MS = 100;
@@ -36,7 +36,7 @@ interface TestRun {
 }
 
 class TestTask implements Task {
-  readonly name = "test task";
+  readonly name = 'test task';
   readonly run = sinon.stub<[AbortSignal], Promise<void>>();
 
   nextRun(): TestRun {
@@ -59,7 +59,7 @@ class TestTask implements Task {
     };
     const started = new Promise<void>((resolveStarted) => {
       this.run.onCall(callIndex).callsFake((signal: AbortSignal) => {
-        signal.addEventListener("abort", () => {
+        signal.addEventListener('abort', () => {
           abortResolver();
         });
 
@@ -85,7 +85,7 @@ class TestTask implements Task {
   }
 }
 
-describe("SequentialTaskRunner", () => {
+describe('SequentialTaskRunner', () => {
   let clock: SinonFakeTimers;
   let logs: ColabLogWatcher;
   let testTask: TestTask;
@@ -107,7 +107,7 @@ describe("SequentialTaskRunner", () => {
 
   beforeEach(() => {
     clock = sinon.useFakeTimers({
-      toFake: ["setInterval", "clearInterval", "setTimeout"],
+      toFake: ['setInterval', 'clearInterval', 'setTimeout'],
     });
     logs = new ColabLogWatcher(newVsCodeStub(), LogLevel.Warning);
     testTask = new TestTask();
@@ -118,7 +118,7 @@ describe("SequentialTaskRunner", () => {
     clock.restore();
   });
 
-  describe("dispose", () => {
+  describe('dispose', () => {
     let runner: SequentialTaskRunner;
 
     beforeEach(() => {
@@ -129,7 +129,7 @@ describe("SequentialTaskRunner", () => {
       runner.dispose();
     });
 
-    it("cancels any scheduled tasks", async () => {
+    it('cancels any scheduled tasks', async () => {
       runner.start(StartMode.Scheduled);
 
       runner.dispose();
@@ -138,43 +138,43 @@ describe("SequentialTaskRunner", () => {
       sinon.assert.notCalled(testTask.run);
     });
 
-    it("aborts in-flight tasks", async () => {
+    it('aborts in-flight tasks', async () => {
       const run = testTask.nextRun();
       runner.start();
       await tickPast(INTERVAL_TIMEOUT_MS);
 
       runner.dispose();
 
-      await expect(run.aborted, "Task should be aborted when disposed").to
+      await expect(run.aborted, 'Task should be aborted when disposed').to
         .eventually.be.fulfilled;
-      expect(logs.output, "Nothing should be logged on a clean disposal").is
+      expect(logs.output, 'Nothing should be logged on a clean disposal').is
         .empty;
     });
   });
 
-  describe("start", () => {
-    it("runs the task immediately when StartMode.Immediately is configured", async () => {
+  describe('start', () => {
+    it('runs the task immediately when StartMode.Immediately is configured', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
 
       runner.start(StartMode.Immediately);
 
-      await expect(run.started, "Task should start immediately").to.eventually
+      await expect(run.started, 'Task should start immediately').to.eventually
         .be.fulfilled;
     });
 
-    it("schedules the task to be run after the configured interval", async () => {
+    it('schedules the task to be run after the configured interval', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
 
       runner.start(StartMode.Scheduled);
       await tickPast(INTERVAL_TIMEOUT_MS);
 
-      await expect(run.started, "Task should start after scheduled interval").to
+      await expect(run.started, 'Task should start after scheduled interval').to
         .eventually.be.fulfilled;
     });
 
-    it("does nothing if the task is already started", async () => {
+    it('does nothing if the task is already started', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
 
@@ -182,51 +182,51 @@ describe("SequentialTaskRunner", () => {
       runner.start(StartMode.Immediately);
       await tickPast(INTERVAL_TIMEOUT_MS);
 
-      await expect(run.started, "Task should start after scheduled interval").to
+      await expect(run.started, 'Task should start after scheduled interval').to
         .eventually.be.fulfilled;
       sinon.assert.calledOnce(testTask.run);
     });
 
-    it("resumes a previously stopped runner", async () => {
+    it('resumes a previously stopped runner', async () => {
       const runner = buildRunner();
       const firstRun = testTask.nextRun();
       runner.start(StartMode.Immediately);
-      await expect(firstRun.started, "First run should start").to.eventually.be
+      await expect(firstRun.started, 'First run should start').to.eventually.be
         .fulfilled;
 
       runner.stop();
 
-      await expect(firstRun.aborted, "First run should be aborted").to
+      await expect(firstRun.aborted, 'First run should be aborted').to
         .eventually.be.fulfilled;
       await tickPast(ABANDON_GRACE_MS);
       const secondRun = testTask.nextRun();
 
       runner.start(StartMode.Immediately);
 
-      await expect(secondRun.started, "Second run should start").to.eventually
+      await expect(secondRun.started, 'Second run should start').to.eventually
         .be.fulfilled;
       sinon.assert.calledTwice(testTask.run);
     });
 
-    it("runs multiple times", async () => {
+    it('runs multiple times', async () => {
       const runner = buildRunner();
 
       const firstRun = testTask.nextRun();
       runner.start(StartMode.Immediately);
-      await expect(firstRun.started, "First run should start").to.eventually.be
+      await expect(firstRun.started, 'First run should start').to.eventually.be
         .fulfilled;
       firstRun.resolve();
 
       const secondRun = testTask.nextRun();
       await tickPast(INTERVAL_TIMEOUT_MS);
-      await expect(secondRun.started, "Second run should start").to.eventually
+      await expect(secondRun.started, 'Second run should start').to.eventually
         .be.fulfilled;
       secondRun.resolve();
     });
   });
 
-  describe("stop", () => {
-    it("cancels the next scheduled task run", async () => {
+  describe('stop', () => {
+    it('cancels the next scheduled task run', async () => {
       const runner = buildRunner();
       runner.start(StartMode.Scheduled);
 
@@ -236,23 +236,23 @@ describe("SequentialTaskRunner", () => {
       sinon.assert.notCalled(testTask.run);
     });
 
-    it("aborts in-flight tasks", async () => {
+    it('aborts in-flight tasks', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
       runner.start(StartMode.Immediately);
-      await expect(run.started, "Task should start immediately").to.eventually
+      await expect(run.started, 'Task should start immediately').to.eventually
         .be.fulfilled;
 
       runner.stop();
 
-      await expect(run.aborted, "Task should be aborted").to.eventually.be
+      await expect(run.aborted, 'Task should be aborted').to.eventually.be
         .fulfilled;
       sinon.assert.calledOnce(testTask.run);
     });
   });
 
-  describe("when overrun (AllowToComplete policy)", () => {
-    it("does nothing for the current interval", async () => {
+  describe('when overrun (AllowToComplete policy)', () => {
+    it('does nothing for the current interval', async () => {
       const runner = buildRunner(OverrunPolicy.AllowToComplete, {
         abandonGraceMs: ABANDON_GRACE_MS,
         intervalTimeoutMs: INTERVAL_TIMEOUT_MS,
@@ -260,7 +260,7 @@ describe("SequentialTaskRunner", () => {
       });
       const firstRun = testTask.nextRun();
       runner.start(StartMode.Immediately);
-      await expect(firstRun.started, "Task should start immediately").to
+      await expect(firstRun.started, 'Task should start immediately').to
         .eventually.be.fulfilled;
 
       await tickPast(INTERVAL_TIMEOUT_MS);
@@ -269,7 +269,7 @@ describe("SequentialTaskRunner", () => {
     });
   });
 
-  describe("when overrun (AbandonAndRun policy)", () => {
+  describe('when overrun (AbandonAndRun policy)', () => {
     let runner: SequentialTaskRunner;
     let firstRun: TestRun;
     let secondRun: TestRun;
@@ -283,7 +283,7 @@ describe("SequentialTaskRunner", () => {
       });
       firstRun = testTask.nextRun();
       runner.start(StartMode.Immediately);
-      await expect(firstRun.started, "First run should start immediately").to
+      await expect(firstRun.started, 'First run should start immediately').to
         .eventually.be.fulfilled;
       secondRun = testTask.nextRun();
       // Don't resolve the first run, to simulate it being in-flight and overrun
@@ -295,40 +295,40 @@ describe("SequentialTaskRunner", () => {
       runner.dispose();
     });
 
-    it("aborts the in-flight task and starts a new one after the abandon grace period", async () => {
-      await expect(firstRun.aborted, "First run should be aborted").to
+    it('aborts the in-flight task and starts a new one after the abandon grace period', async () => {
+      await expect(firstRun.aborted, 'First run should be aborted').to
         .eventually.be.fulfilled;
 
       await clock.tickAsync(ABANDON_GRACE_MS / 2);
-      expect(secondRun.started, "Second run should not start yet").to.not.be
+      expect(secondRun.started, 'Second run should not start yet').to.not.be
         .fulfilled;
       sinon.assert.calledOnce(testTask.run);
 
       await clock.tickAsync(ABANDON_GRACE_MS);
-      await expect(secondRun.started, "Second run should start").to.eventually
+      await expect(secondRun.started, 'Second run should start').to.eventually
         .be.fulfilled;
       sinon.assert.calledTwice(testTask.run);
     });
 
-    it("logs a warning message immediately", () => {
+    it('logs a warning message immediately', () => {
       expect(logs.output).to.match(
         new RegExp(`Warning.*${testTask.name}.*new run`),
       );
     });
 
-    it("grants a grace period for the aborted task to complete cleanly", async () => {
-      await expect(firstRun.aborted, "First run should be aborted").to
+    it('grants a grace period for the aborted task to complete cleanly', async () => {
+      await expect(firstRun.aborted, 'First run should be aborted').to
         .eventually.be.fulfilled;
       await tickPast(ABANDON_GRACE_MS / 2);
       // Verify the second run hasn't started, before the grace period.
-      expect(secondRun.started, "Second run should not start yet").to.not.be
+      expect(secondRun.started, 'Second run should not start yet').to.not.be
         .fulfilled;
 
       firstRun.resolve();
 
       // Wait for grace period to pass and second task to start.
       await tickPast(ABANDON_GRACE_MS);
-      await expect(secondRun.started, "Second run should start").to.eventually
+      await expect(secondRun.started, 'Second run should start').to.eventually
         .be.fulfilled;
 
       // Check that no non-graceful error was logged. A warning for overrun is
@@ -341,8 +341,8 @@ describe("SequentialTaskRunner", () => {
       );
     });
 
-    it("logs an error if the aborted task fails to complete within its grace period", async () => {
-      await expect(firstRun.aborted, "First run should be aborted").to
+    it('logs an error if the aborted task fails to complete within its grace period', async () => {
+      await expect(firstRun.aborted, 'First run should be aborted').to
         .eventually.be.fulfilled;
 
       // Don't resolve the first run, let the grace period expire.
@@ -353,7 +353,7 @@ describe("SequentialTaskRunner", () => {
       );
     });
 
-    it("handles multiple overruns", async () => {
+    it('handles multiple overruns', async () => {
       // The beforeEach already triggered the *first* overrun.
       await expect(firstRun.aborted).to.eventually.be.fulfilled;
       await tickPast(ABANDON_GRACE_MS);
@@ -371,7 +371,7 @@ describe("SequentialTaskRunner", () => {
       sinon.assert.calledThrice(testTask.run);
     });
 
-    it("does not start a new task if disposed during an overrun grace period", async () => {
+    it('does not start a new task if disposed during an overrun grace period', async () => {
       // The beforeEach already triggered the overrun.
       // firstRun is in its grace period.
       await expect(firstRun.aborted).to.eventually.be.fulfilled;
@@ -384,7 +384,7 @@ describe("SequentialTaskRunner", () => {
       await clock.runAllAsync();
 
       // The secondRun (which was queued) should never have started.
-      expect(secondRun.started, "Second run should not have started").to.not.be
+      expect(secondRun.started, 'Second run should not have started').to.not.be
         .fulfilled;
 
       // Only the very first run should have been called.
@@ -392,8 +392,8 @@ describe("SequentialTaskRunner", () => {
     });
   });
 
-  describe("timeout", () => {
-    it("aborts the in-flight task", async () => {
+  describe('timeout', () => {
+    it('aborts the in-flight task', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
       runner.start(StartMode.Immediately);
@@ -401,11 +401,11 @@ describe("SequentialTaskRunner", () => {
 
       await tickPast(TASK_TIMEOUT_MS);
 
-      await expect(run.aborted, "Task should be aborted on timeout").to
+      await expect(run.aborted, 'Task should be aborted on timeout').to
         .eventually.be.fulfilled;
     });
 
-    it("logs an error message for the timeout", async () => {
+    it('logs an error message for the timeout', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
       runner.start(StartMode.Immediately);
@@ -419,7 +419,7 @@ describe("SequentialTaskRunner", () => {
       );
     });
 
-    it("logs a second error if the timed-out task fails to complete within its grace period", async () => {
+    it('logs a second error if the timed-out task fails to complete within its grace period', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
       runner.start(StartMode.Immediately);
@@ -436,7 +436,7 @@ describe("SequentialTaskRunner", () => {
       );
     });
 
-    it("does not log non-graceful error if disposed during timeout grace period", async () => {
+    it('does not log non-graceful error if disposed during timeout grace period', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
       runner.start(StartMode.Immediately);
@@ -464,7 +464,7 @@ describe("SequentialTaskRunner", () => {
     });
   });
 
-  describe("task errors", () => {
+  describe('task errors', () => {
     let runner: SequentialTaskRunner;
     let run: TestRun;
 
@@ -472,7 +472,7 @@ describe("SequentialTaskRunner", () => {
       runner = buildRunner();
       run = testTask.nextRun();
       runner.start(StartMode.Immediately);
-      await expect(run.started, "First run should start immediately").to
+      await expect(run.started, 'First run should start immediately').to
         .eventually.be.fulfilled;
     });
 
@@ -483,8 +483,8 @@ describe("SequentialTaskRunner", () => {
       }
     });
 
-    it("logs the unhandled error from the task", async () => {
-      run.reject(new Error("🤮"));
+    it('logs the unhandled error from the task', async () => {
+      run.reject(new Error('🤮'));
       await tickPast(ABANDON_GRACE_MS); // Allow promise to settle
 
       expect(logs.output).to.match(
@@ -493,24 +493,24 @@ describe("SequentialTaskRunner", () => {
       expect(logs.output).to.match(/🤮/);
     });
 
-    it("continues to run the task on the next interval", async () => {
-      run.reject(new Error("🤮"));
+    it('continues to run the task on the next interval', async () => {
+      run.reject(new Error('🤮'));
       const secondRun = testTask.nextRun();
       await tickPast(INTERVAL_TIMEOUT_MS);
 
-      await expect(secondRun.started, "Second run should start").to.eventually
+      await expect(secondRun.started, 'Second run should start').to.eventually
         .be.fulfilled;
       sinon.assert.calledTwice(testTask.run);
     });
 
-    it("logs unhandled error if task rejects during grace period", async () => {
+    it('logs unhandled error if task rejects during grace period', async () => {
       // Trigger timeout to start grace period
       await tickPast(TASK_TIMEOUT_MS);
       await expect(run.aborted).to.eventually.be.fulfilled;
 
       // Reject the task *during* the grace period
       await clock.tickAsync(ABANDON_GRACE_MS / 2);
-      run.reject(new Error("Failed during cleanup"));
+      run.reject(new Error('Failed during cleanup'));
 
       // Let all timers finish
       await clock.tickAsync(ABANDON_GRACE_MS / 2);

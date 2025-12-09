@@ -23,7 +23,7 @@
  * will get smaller and more sensible.
  */
 
-import { z } from "zod";
+import { z } from 'zod';
 
 export enum SubscriptionState {
   UNSUBSCRIBED = 1,
@@ -46,10 +46,10 @@ enum ColabSubscriptionTier {
 }
 
 enum ColabGapiSubscriptionTier {
-  UNSPECIFIED = "SUBSCRIPTION_TIER_UNSPECIFIED",
-  NONE = "SUBSCRIPTION_TIER_NONE",
-  PRO = "SUBSCRIPTION_TIER_PRO",
-  PRO_PLUS = "SUBSCRIPTION_TIER_PRO_PLUS",
+  UNSPECIFIED = 'SUBSCRIPTION_TIER_UNSPECIFIED',
+  NONE = 'SUBSCRIPTION_TIER_NONE',
+  PRO = 'SUBSCRIPTION_TIER_PRO',
+  PRO_PLUS = 'SUBSCRIPTION_TIER_PRO_PLUS',
 }
 
 export enum Outcome {
@@ -62,15 +62,15 @@ export enum Outcome {
 }
 
 export enum Variant {
-  DEFAULT = "DEFAULT",
-  GPU = "GPU",
-  TPU = "TPU",
+  DEFAULT = 'DEFAULT',
+  GPU = 'GPU',
+  TPU = 'TPU',
 }
 
 enum ColabGapiVariant {
-  UNSPECIFIED = "VARIANT_UNSPECIFIED",
-  GPU = "VARIANT_GPU",
-  TPU = "VARIANT_TPU",
+  UNSPECIFIED = 'VARIANT_UNSPECIFIED',
+  GPU = 'VARIANT_GPU',
+  TPU = 'VARIANT_TPU',
 }
 
 export enum Shape {
@@ -193,7 +193,7 @@ export const CcuInfoSchema = z.object({
             return Number.isSafeInteger(num);
           },
           {
-            error: "Value too large to be a safe integer for JavaScript",
+            error: 'Value too large to be a safe integer for JavaScript',
           },
         )
         .transform((val) => Number(val)),
@@ -263,7 +263,7 @@ export const PostAssignmentResponseSchema = z.object({
   // On GET, this is a string (enum) but on POST this is a number.
   // Normalize it to the string-based enum.
   variant: z.preprocess((val) => {
-    if (typeof val === "number") {
+    if (typeof val === 'number') {
       switch (val) {
         case 0:
           return Variant.DEFAULT;
@@ -384,11 +384,11 @@ export type Session = z.infer<typeof SessionSchema>;
 export function variantToMachineType(variant: Variant): string {
   switch (variant) {
     case Variant.DEFAULT:
-      return "CPU";
+      return 'CPU';
     case Variant.GPU:
-      return "GPU";
+      return 'GPU';
     case Variant.TPU:
-      return "TPU";
+      return 'TPU';
   }
 }
 /**

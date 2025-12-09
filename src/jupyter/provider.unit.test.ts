@@ -4,67 +4,67 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID } from "crypto";
+import { randomUUID } from 'crypto';
 import {
   Jupyter,
   JupyterServerCollection,
   JupyterServerCommandProvider,
   JupyterServerProvider,
-} from "@vscode/jupyter-extension";
-import { assert, expect } from "chai";
-import { SinonStubbedInstance } from "sinon";
-import * as sinon from "sinon";
-import { CancellationToken, CancellationTokenSource } from "vscode";
-import { AuthChangeEvent } from "../auth/auth-provider";
-import { SubscriptionTier, Variant } from "../colab/api";
-import { ColabClient } from "../colab/client";
+} from '@vscode/jupyter-extension';
+import { assert, expect } from 'chai';
+import { SinonStubbedInstance } from 'sinon';
+import * as sinon from 'sinon';
+import { CancellationToken, CancellationTokenSource } from 'vscode';
+import { AuthChangeEvent } from '../auth/auth-provider';
+import { SubscriptionTier, Variant } from '../colab/api';
+import { ColabClient } from '../colab/client';
 import {
   AUTO_CONNECT,
   NEW_SERVER,
   OPEN_COLAB_WEB,
   SIGN_IN_VIEW_EXISTING,
   UPGRADE_TO_PRO,
-} from "../colab/commands/constants";
+} from '../colab/commands/constants';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-} from "../colab/headers";
-import { ServerPicker } from "../colab/server-picker";
-import { InputFlowAction } from "../common/multi-step-quickpick";
-import { TestEventEmitter } from "../test/helpers/events";
-import { TestUri } from "../test/helpers/uri";
+} from '../colab/headers';
+import { ServerPicker } from '../colab/server-picker';
+import { InputFlowAction } from '../common/multi-step-quickpick';
+import { TestEventEmitter } from '../test/helpers/events';
+import { TestUri } from '../test/helpers/uri';
 import {
   newVsCodeStub as newVsCodeStub,
   VsCodeStub,
-} from "../test/helpers/vscode";
-import { AssignmentChangeEvent, AssignmentManager } from "./assignments";
-import { ColabJupyterServerProvider } from "./provider";
-import { ColabAssignedServer, ColabServerDescriptor } from "./servers";
+} from '../test/helpers/vscode';
+import { AssignmentChangeEvent, AssignmentManager } from './assignments';
+import { ColabJupyterServerProvider } from './provider';
+import { ColabAssignedServer, ColabServerDescriptor } from './servers';
 
 const DEFAULT_SERVER: ColabAssignedServer = {
   id: randomUUID(),
-  label: "Colab GPU A100",
+  label: 'Colab GPU A100',
   variant: Variant.GPU,
-  accelerator: "A100",
-  endpoint: "m-s-foo",
+  accelerator: 'A100',
+  endpoint: 'm-s-foo',
   connectionInformation: {
-    baseUrl: TestUri.parse("https://example.com"),
-    token: "123",
+    baseUrl: TestUri.parse('https://example.com'),
+    token: '123',
     tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
     headers: {
-      [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: "123",
+      [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: '123',
       [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
     },
   },
   dateAssigned: new Date(),
 };
 
-describe("ColabJupyterServerProvider", () => {
+describe('ColabJupyterServerProvider', () => {
   let vsCodeStub: VsCodeStub;
   let cancellationTokenSource: CancellationTokenSource;
   let cancellationToken: CancellationToken;
   let jupyterStub: SinonStubbedInstance<
-    Pick<Jupyter, "createJupyterServerCollection">
+    Pick<Jupyter, 'createJupyterServerCollection'>
   >;
   let serverCollectionStub: SinonStubbedInstance<JupyterServerCollection>;
   let serverCollectionDisposeStub: sinon.SinonStub<[], void>;
@@ -79,7 +79,7 @@ describe("ColabJupyterServerProvider", () => {
   function stubHasAssignedServerSet(): Promise<boolean> {
     return new Promise<boolean>((r) => {
       vsCodeStub.commands.executeCommand
-        .withArgs("setContext", "colab.hasAssignedServer")
+        .withArgs('setContext', 'colab.hasAssignedServer')
         .callsFake((_command, _context, value: boolean) => {
           r(value);
           return Promise.resolve();
@@ -133,7 +133,7 @@ describe("ColabJupyterServerProvider", () => {
       ): JupyterServerCollection => {
         if (!isJupyterServerCommandProvider(serverProvider)) {
           throw new Error(
-            "Stub expects the `serverProvider` to also be the `JupyterServerCommandProvider`",
+            'Stub expects the `serverProvider` to also be the `JupyterServerCommandProvider`',
           );
         }
         serverCollectionStub = {
@@ -148,7 +148,7 @@ describe("ColabJupyterServerProvider", () => {
     authChangeEmitter = new TestEventEmitter<AuthChangeEvent>();
 
     assignmentStub = sinon.createStubInstance(AssignmentManager);
-    Object.defineProperty(assignmentStub, "onDidAssignmentsChange", {
+    Object.defineProperty(assignmentStub, 'onDidAssignmentsChange', {
       value: sinon.stub(),
     });
     colabClientStub = sinon.createStubInstance(ColabClient);
@@ -169,17 +169,17 @@ describe("ColabJupyterServerProvider", () => {
     sinon.restore();
   });
 
-  describe("lifecycle", () => {
+  describe('lifecycle', () => {
     it('registers the "Colab" Jupyter server collection', () => {
       sinon.assert.calledOnceWithExactly(
         jupyterStub.createJupyterServerCollection,
-        "colab",
-        "Colab",
+        'colab',
+        'Colab',
         serverProvider,
       );
     });
 
-    it("disposes the auth change event listener", () => {
+    it('disposes the auth change event listener', () => {
       serverProvider.dispose();
 
       expect(authChangeEmitter.hasListeners()).to.be.false;
@@ -192,9 +192,12 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  describe("provideJupyterServers", () => {
-    it("returns no servers when none are assigned", async () => {
-      assignmentStub.getAssignedServers.resolves([]);
+  describe('provideJupyterServers', () => {
+    it('returns no servers when none are assigned', async () => {
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -202,8 +205,11 @@ describe("ColabJupyterServerProvider", () => {
       expect(servers).to.have.lengthOf(0);
     });
 
-    it("returns a single server when one is assigned", async () => {
-      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+    it('returns a single server when one is assigned', async () => {
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([DEFAULT_SERVER]);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -211,12 +217,15 @@ describe("ColabJupyterServerProvider", () => {
       expect(servers).to.deep.equal([DEFAULT_SERVER]);
     });
 
-    it("returns multiple servers when they are assigned", async () => {
+    it('returns multiple servers when they are assigned', async () => {
       const assignedServers = [
         DEFAULT_SERVER,
         { ...DEFAULT_SERVER, id: randomUUID() },
       ];
-      assignmentStub.getAssignedServers.resolves(assignedServers);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves(assignedServers);
 
       const servers =
         await serverProvider.provideJupyterServers(cancellationToken);
@@ -224,7 +233,7 @@ describe("ColabJupyterServerProvider", () => {
       expect(servers).to.deep.equal(assignedServers);
     });
 
-    it("returns no servers when not signed in", async () => {
+    it('returns no servers when not signed in', async () => {
       toggleAuth(AuthState.SIGNED_OUT);
 
       const servers =
@@ -233,28 +242,31 @@ describe("ColabJupyterServerProvider", () => {
       expect(servers).to.have.lengthOf(0);
       // Assert the call was never made, which requires the user to be signed
       // in.
-      sinon.assert.notCalled(assignmentStub.getAssignedServers);
+      sinon.assert.notCalled(assignmentStub.getServers);
     });
   });
 
-  describe("resolveJupyterServer", () => {
-    it("throws when the server ID is not a UUID", () => {
-      const server = { ...DEFAULT_SERVER, id: "not-a-uuid" };
+  describe('resolveJupyterServer', () => {
+    it('throws when the server ID is not a UUID', () => {
+      const server = { ...DEFAULT_SERVER, id: 'not-a-uuid' };
 
       expect(() =>
         serverProvider.resolveJupyterServer(server, cancellationToken),
       ).to.throw(/expected UUID/);
     });
 
-    it("returns the assigned server with refreshed connection info", async () => {
+    it('returns the assigned server with refreshed connection info', async () => {
       const refreshedServer: ColabAssignedServer = {
         ...DEFAULT_SERVER,
         connectionInformation: {
           ...DEFAULT_SERVER.connectionInformation,
-          token: "456",
+          token: '456',
         },
       };
-      assignmentStub.getAssignedServers.resolves([DEFAULT_SERVER]);
+      // Type assertion needed due to overloading on getServers
+      (assignmentStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([DEFAULT_SERVER]);
       assignmentStub.refreshConnection
         .withArgs(DEFAULT_SERVER.id)
         .resolves(refreshedServer);
@@ -265,15 +277,15 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  describe("commands", () => {
-    describe("provideCommands", () => {
-      describe("when signed in", () => {
+  describe('commands', () => {
+    describe('provideCommands', () => {
+      describe('when signed in', () => {
         beforeEach(() => {
           toggleAuth(AuthState.SIGNED_IN);
         });
 
-        it("excludes upgrade to pro command when getting the subscription tier fails", async () => {
-          colabClientStub.getSubscriptionTier.rejects(new Error("foo"));
+        it('excludes upgrade to pro command when getting the subscription tier fails', async () => {
+          colabClientStub.getSubscriptionTier.rejects(new Error('foo'));
 
           const commands = await serverProvider.provideCommands(
             undefined,
@@ -288,7 +300,7 @@ describe("ColabJupyterServerProvider", () => {
           ]);
         });
 
-        it("excludes upgrade to pro command for users with pro", async () => {
+        it('excludes upgrade to pro command for users with pro', async () => {
           colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
 
           const commands = await serverProvider.provideCommands(
@@ -304,7 +316,7 @@ describe("ColabJupyterServerProvider", () => {
           ]);
         });
 
-        it("excludes upgrade to pro command for users with pro-plus", async () => {
+        it('excludes upgrade to pro command for users with pro-plus', async () => {
           colabClientStub.getSubscriptionTier.resolves(
             SubscriptionTier.PRO_PLUS,
           );
@@ -322,7 +334,7 @@ describe("ColabJupyterServerProvider", () => {
           ]);
         });
 
-        it("returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users", async () => {
+        it('returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users', async () => {
           colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.NONE);
 
           const commands = await serverProvider.provideCommands(
@@ -340,12 +352,12 @@ describe("ColabJupyterServerProvider", () => {
         });
       });
 
-      describe("when signed out", () => {
+      describe('when signed out', () => {
         beforeEach(() => {
           toggleAuth(AuthState.SIGNED_OUT);
         });
 
-        it("includes command to sign-in and view existing servers if there previously were some", async () => {
+        it('includes command to sign-in and view existing servers if there previously were some', async () => {
           assignmentStub.getLastKnownAssignedServers.resolves([DEFAULT_SERVER]);
 
           const commands = await serverProvider.provideCommands(
@@ -362,7 +374,7 @@ describe("ColabJupyterServerProvider", () => {
           ]);
         });
 
-        it("returns commands to auto-connect, create a server and open Colab web", async () => {
+        it('returns commands to auto-connect, create a server and open Colab web', async () => {
           assignmentStub.getLastKnownAssignedServers.resolves([]);
 
           const commands = await serverProvider.provideCommands(
@@ -380,12 +392,12 @@ describe("ColabJupyterServerProvider", () => {
       });
     });
 
-    describe("handleCommand", () => {
+    describe('handleCommand', () => {
       // See catch block of ColabJupyterServerProvider.handleCommand for
       // context. This is a required workaround until
       // https://github.com/microsoft/vscode-jupyter/issues/16469 is resolved.
-      it("dismisses the input when an error is thrown", async () => {
-        assignmentStub.latestOrAutoAssignServer.rejects(new Error("barf"));
+      it('dismisses the input when an error is thrown', async () => {
+        assignmentStub.latestOrAutoAssignServer.rejects(new Error('barf'));
 
         await expect(
           serverProvider.handleCommand(
@@ -396,7 +408,7 @@ describe("ColabJupyterServerProvider", () => {
 
         sinon.assert.calledWithExactly(
           vsCodeStub.commands.executeCommand,
-          "workbench.action.closeQuickOpen",
+          'workbench.action.closeQuickOpen',
         );
       });
 
@@ -412,7 +424,7 @@ describe("ColabJupyterServerProvider", () => {
 
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.env.openExternal,
-          vsCodeStub.Uri.parse("https://colab.research.google.com"),
+          vsCodeStub.Uri.parse('https://colab.research.google.com'),
         );
       });
 
@@ -428,12 +440,12 @@ describe("ColabJupyterServerProvider", () => {
 
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.env.openExternal,
-          vsCodeStub.Uri.parse("https://colab.research.google.com/signup"),
+          vsCodeStub.Uri.parse('https://colab.research.google.com/signup'),
         );
       });
 
-      describe("for signing-in to view existing servers", () => {
-        it("triggers server reconciliation and navigates back out of the flow", async () => {
+      describe('for signing-in to view existing servers', () => {
+        it('triggers server reconciliation and navigates back out of the flow', async () => {
           assignmentStub.reconcileAssignedServers.resolves();
 
           await expect(
@@ -447,8 +459,8 @@ describe("ColabJupyterServerProvider", () => {
         });
       });
 
-      describe("for auto-connecting", () => {
-        it("assigns the latest server or auto-assigns one", async () => {
+      describe('for auto-connecting', () => {
+        it('assigns the latest server or auto-assigns one', async () => {
           assignmentStub.latestOrAutoAssignServer.resolves(DEFAULT_SERVER);
 
           await expect(
@@ -460,8 +472,8 @@ describe("ColabJupyterServerProvider", () => {
         });
       });
 
-      describe("for new Colab server", () => {
-        it("returns undefined when navigating back out of the flow", async () => {
+      describe('for new Colab server', () => {
+        it('returns undefined when navigating back out of the flow', async () => {
           serverPickerStub.prompt.rejects(InputFlowAction.back);
 
           await expect(
@@ -481,7 +493,7 @@ describe("ColabJupyterServerProvider", () => {
             availableServers,
           );
           const selectedServer: ColabServerDescriptor = {
-            label: "My new server",
+            label: 'My new server',
             variant: DEFAULT_SERVER.variant,
             accelerator: DEFAULT_SERVER.accelerator,
           };
@@ -510,19 +522,19 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  describe("server changes", () => {
-    const events: Map<"added" | "removed" | "changed", AssignmentChangeEvent> =
-      new Map<"added" | "removed" | "changed", AssignmentChangeEvent>([
-        ["added", { added: [DEFAULT_SERVER], removed: [], changed: [] }],
+  describe('server changes', () => {
+    const events: Map<'added' | 'removed' | 'changed', AssignmentChangeEvent> =
+      new Map<'added' | 'removed' | 'changed', AssignmentChangeEvent>([
+        ['added', { added: [DEFAULT_SERVER], removed: [], changed: [] }],
         [
-          "removed",
+          'removed',
           {
             added: [],
             removed: [{ server: DEFAULT_SERVER, userInitiated: false }],
             changed: [],
           },
         ],
-        ["changed", { added: [], removed: [], changed: [DEFAULT_SERVER] }],
+        ['changed', { added: [], removed: [], changed: [DEFAULT_SERVER] }],
       ]);
     let listener: sinon.SinonStub<[]>;
 
@@ -541,8 +553,8 @@ describe("ColabJupyterServerProvider", () => {
     }
 
     // The provider setup starts signed-in, so no need to toggle to it.
-    describe("when signed in", () => {
-      it("sets colab.hasAssignedServer to true when there are assigned servers", async () => {
+    describe('when signed in', () => {
+      it('sets colab.hasAssignedServer to true when there are assigned servers', async () => {
         assignmentStub.hasAssignedServer.resolves(true);
         const setContext = stubHasAssignedServerSet();
 
@@ -555,7 +567,7 @@ describe("ColabJupyterServerProvider", () => {
         await expect(setContext).to.eventually.be.true;
       });
 
-      it("sets colab.hasAssignedServer to false when there are no assigned servers", async () => {
+      it('sets colab.hasAssignedServer to false when there are no assigned servers', async () => {
         assignmentStub.hasAssignedServer.resolves(false);
         const setContext = stubHasAssignedServerSet();
 
@@ -574,7 +586,7 @@ describe("ColabJupyterServerProvider", () => {
     // tests are added defensively in the case that there's a race condition
     // respecting an auth state change or we add other pruning mechanisms in the
     // future which don't require credentials.
-    describe("when signed out", () => {
+    describe('when signed out', () => {
       beforeEach(async () => {
         await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
 
@@ -582,7 +594,7 @@ describe("ColabJupyterServerProvider", () => {
         assignmentStub.hasAssignedServer.reset();
       });
 
-      it("sets colab.hasAssignedServer to false even when there are assigned servers", async () => {
+      it('sets colab.hasAssignedServer to false even when there are assigned servers', async () => {
         const setContext = stubHasAssignedServerSet();
 
         assignmentStub.onDidAssignmentsChange.yield({
@@ -595,7 +607,7 @@ describe("ColabJupyterServerProvider", () => {
         sinon.assert.notCalled(assignmentStub.hasAssignedServer);
       });
 
-      it("sets colab.hasAssignedServer to false when there are no assigned servers", async () => {
+      it('sets colab.hasAssignedServer to false when there are no assigned servers', async () => {
         const setContext = stubHasAssignedServerSet();
 
         assignmentStub.onDidAssignmentsChange.yield({
@@ -609,8 +621,8 @@ describe("ColabJupyterServerProvider", () => {
       });
     });
 
-    it("warns of server removal when not initiated by the user", () => {
-      assignmentStub.onDidAssignmentsChange.yield(events.get("removed"));
+    it('warns of server removal when not initiated by the user', () => {
+      assignmentStub.onDidAssignmentsChange.yield(events.get('removed'));
 
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.showWarningMessage,
@@ -619,7 +631,7 @@ describe("ColabJupyterServerProvider", () => {
     });
   });
 
-  describe("auth changes", () => {
+  describe('auth changes', () => {
     let listener: sinon.SinonStub<[]>;
 
     beforeEach(() => {
@@ -627,12 +639,12 @@ describe("ColabJupyterServerProvider", () => {
       serverProvider.onDidChangeServers(listener);
     });
 
-    describe("with assigned servers", () => {
+    describe('with assigned servers', () => {
       beforeEach(() => {
         assignmentStub.hasAssignedServer.resolves(true);
       });
 
-      it("sets colab.hasAssignedServer to true after signing in", async () => {
+      it('sets colab.hasAssignedServer to true after signing in', async () => {
         // Start signed out.
         await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
         const setContext = stubHasAssignedServerSet();
@@ -642,7 +654,7 @@ describe("ColabJupyterServerProvider", () => {
         await expect(setContext).to.eventually.be.true;
       });
 
-      it("sets colab.hasAssignedServer to false after signing out", async () => {
+      it('sets colab.hasAssignedServer to false after signing out', async () => {
         const setContext = stubHasAssignedServerSet();
 
         toggleAuth(AuthState.SIGNED_OUT);
@@ -650,7 +662,7 @@ describe("ColabJupyterServerProvider", () => {
         await expect(setContext).to.eventually.be.false;
       });
 
-      it("fires onDidChangeServers as auth state changes", async () => {
+      it('fires onDidChangeServers as auth state changes', async () => {
         await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
         sinon.assert.calledOnce(listener);
 
@@ -659,12 +671,12 @@ describe("ColabJupyterServerProvider", () => {
       });
     });
 
-    describe("without assigned servers", () => {
+    describe('without assigned servers', () => {
       beforeEach(() => {
         assignmentStub.hasAssignedServer.resolves(false);
       });
 
-      it("sets colab.hasAssignedServer to false after signing in", async () => {
+      it('sets colab.hasAssignedServer to false after signing in', async () => {
         // Start signed out.
         await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
         const setContext = stubHasAssignedServerSet();
@@ -674,7 +686,7 @@ describe("ColabJupyterServerProvider", () => {
         await expect(setContext).to.eventually.be.false;
       });
 
-      it("sets colab.hasAssignedServer to false after signing out", async () => {
+      it('sets colab.hasAssignedServer to false after signing out', async () => {
         const setContext = stubHasAssignedServerSet();
 
         toggleAuth(AuthState.SIGNED_OUT);
@@ -682,7 +694,7 @@ describe("ColabJupyterServerProvider", () => {
         await expect(setContext).to.eventually.be.false;
       });
 
-      it("fires onDidChangeServers as auth state changes", async () => {
+      it('fires onDidChangeServers as auth state changes', async () => {
         await toggleAuthCtxSettled(AuthState.SIGNED_OUT);
         sinon.assert.calledOnce(listener);
 
@@ -713,13 +725,13 @@ describe("ColabJupyterServerProvider", () => {
 function isJupyterServerCommandProvider(
   obj: unknown,
 ): obj is JupyterServerCommandProvider {
-  if (typeof obj !== "object" || obj === null) {
+  if (typeof obj !== 'object' || obj === null) {
     return false;
   }
   return (
-    "provideCommands" in obj &&
-    "handleCommand" in obj &&
-    typeof obj.provideCommands === "function" &&
-    typeof obj.handleCommand === "function"
+    'provideCommands' in obj &&
+    'handleCommand' in obj &&
+    typeof obj.provideCommands === 'function' &&
+    typeof obj.handleCommand === 'function'
   );
 }

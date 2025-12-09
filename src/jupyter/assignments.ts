@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID, UUID } from "crypto";
+import { randomUUID, UUID } from 'crypto';
 import fetch, {
   Headers,
   Request,
   RequestInfo,
   RequestInit,
   Response,
-} from "node-fetch";
-import vscode from "vscode";
+} from 'node-fetch';
+import vscode from 'vscode';
 import {
   Assignment,
   ListedAssignment,
@@ -29,12 +29,13 @@ import {
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
-} from "../colab/client";
-import { REMOVE_SERVER } from "../colab/commands/constants";
+} from '../colab/client';
+import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-} from "../colab/headers";
+} from '../colab/headers';
+import { log } from '../common/logging';
 import {
   AllServers,
   ColabAssignedServer,
@@ -43,8 +44,8 @@ import {
   DEFAULT_CPU_SERVER,
   isColabAssignedServer,
   UnownedServer,
-} from "./servers";
-import { ServerStorage } from "./storage";
+} from './servers';
+import { ServerStorage } from './storage';
 
 /**
  * An {@link vscode.Event} which fires when a {@link ColabAssignedServer} is
@@ -168,66 +169,86 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * Retrieves the list of servers that have been assigned in VS Code.
+   * Retrieves the list of servers that have been assigned in the VS Code
+   * extension.
    *
    * @returns A list of assigned servers. Connection information is included
    * and can be refreshed by calling {@link refreshConnection}.
    */
-  async getAssignedServers(
+  async getServers(
+    from: 'extension',
     signal?: AbortSignal,
-  ): Promise<ColabAssignedServer[]> {
-    await this.reconcileAssignedServers(signal);
-    return (await this.storage.list()).map((server) => ({
-      ...server,
-      connectionInformation: {
-        ...server.connectionInformation,
-        fetch: colabProxyFetch(server.connectionInformation.token),
-      },
-    }));
-  }
+  ): Promise<ColabAssignedServer[]>;
+
+  /**
+   * Retrieves the list of servers that have been assigned externally outside
+   * the VS Code extension.
+   */
+  async getServers(
+    from: 'external',
+    signal?: AbortSignal,
+  ): Promise<UnownedServer[]>;
 
   /**
    * Retrieves the list of all servers that are assigned both in and outside VS
    * Code.
    */
-  async getAllServers(signal?: AbortSignal): Promise<AllServers> {
-    const allAssignments = await this.client.listAssignments(signal);
+  async getServers(from: 'all', signal?: AbortSignal): Promise<AllServers>;
 
+  async getServers(
+    from: 'extension' | 'external' | 'all',
+    signal?: AbortSignal,
+  ): Promise<ColabAssignedServer[] | UnownedServer[] | AllServers> {
     let storedServers = await this.storage.list();
-    if (storedServers.length > 0) {
-      storedServers = await this.reconcileStoredServers(
-        storedServers,
-        allAssignments,
-      );
+    if (from === 'extension' && storedServers.length === 0) {
+      return storedServers;
     }
 
-    const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
-    const unownedServers = await Promise.all(
-      allAssignments
-        .filter((a) => !storedEndpointSet.has(a.endpoint))
-        .map(async (a) => {
-          // For any remote servers created in Colab web UI, assuming there is
-          // only one session per assignment.
-          const sessions = await this.client.listSessions(a.endpoint, signal);
-          return {
-            label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
-            endpoint: a.endpoint,
-            variant: a.variant,
-            accelerator: a.accelerator,
-          };
-        }),
-    );
+    const allAssignments = await this.client.listAssignments(signal);
 
-    return {
-      assigned: storedServers.map((server) => ({
+    if (from === 'extension' || from === 'all') {
+      storedServers = (
+        await this.reconcileStoredServers(storedServers, allAssignments)
+      ).map((server) => ({
         ...server,
         connectionInformation: {
           ...server.connectionInformation,
           fetch: colabProxyFetch(server.connectionInformation.token),
         },
-      })),
-      unowned: unownedServers,
-    };
+      }));
+    }
+
+    let unownedServers: UnownedServer[] = [];
+    if (from === 'external' || from === 'all') {
+      const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
+      unownedServers = await Promise.all(
+        allAssignments
+          .filter((a) => !storedEndpointSet.has(a.endpoint))
+          .map(async (a) => {
+            // For any remote servers created in Colab web UI, assuming there is
+            // only one session per assignment.
+            const sessions = await this.client.listSessions(a.endpoint, signal);
+            return {
+              label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
+              endpoint: a.endpoint,
+              variant: a.variant,
+              accelerator: a.accelerator,
+            };
+          }),
+      );
+    }
+
+    switch (from) {
+      case 'extension':
+        return storedServers;
+      case 'external':
+        return unownedServers;
+      default:
+        return {
+          assigned: storedServers,
+          unowned: unownedServers,
+        };
+    }
   }
 
   /**
@@ -272,6 +293,7 @@ export class AssignmentManager implements vscode.Disposable {
         signal,
       ));
     } catch (error) {
+      log.trace(`Failed assigning server ${id}`, error);
       // TODO: Consider listing assignments to check if there are too many
       // before the user goes through the assignment flow. This handling logic
       // would still be needed for the rare race condition where an assignment
@@ -336,7 +358,7 @@ export class AssignmentManager implements vscode.Disposable {
   async latestServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer | undefined> {
-    const assigned = await this.getAssignedServers(signal);
+    const assigned = await this.getServers('extension', signal);
     let latest: ColabAssignedServer | undefined;
     for (const server of assigned) {
       if (!latest || server.dateAssigned > latest.dateAssigned) {
@@ -362,7 +384,7 @@ export class AssignmentManager implements vscode.Disposable {
     await this.reconcileAssignedServers(signal);
     const server = await this.storage.get(id);
     if (!server) {
-      throw new NotFoundError("Server is not assigned");
+      throw new NotFoundError('Server is not assigned');
     }
     const newConnectionInfo = await this.client.refreshConnection(
       server.endpoint,
@@ -423,8 +445,8 @@ export class AssignmentManager implements vscode.Disposable {
     accelerator?: string,
     signal?: AbortSignal,
   ): Promise<string> {
-    const servers = await this.getAssignedServers(signal);
-    const a = accelerator && accelerator !== "NONE" ? ` ${accelerator}` : "";
+    const servers = await this.getServers('extension', signal);
+    const a = accelerator && accelerator !== 'NONE' ? ` ${accelerator}` : '';
     const v = variantToMachineType(variant);
     const labelBase = `Colab ${v}${a}`;
     const labelRegex = new RegExp(`^${labelBase}(?:\\s\\((\\d+)\\))?$`);
@@ -516,7 +538,7 @@ export class AssignmentManager implements vscode.Disposable {
   private async notifyMaxAssignmentsExceeded() {
     // TODO: Account for subscription tiers in actions.
     const selectedAction = await this.vs.window.showErrorMessage(
-      "Unable to assign server. You have too many, remove one to continue.",
+      'Unable to assign server. You have too many, remove one to continue.',
       AssignmentsExceededActions.REMOVE_SERVER,
     );
     switch (selectedAction) {
@@ -537,7 +559,7 @@ export class AssignmentManager implements vscode.Disposable {
     if (selectedAction === LEARN_MORE) {
       this.vs.env.openExternal(
         this.vs.Uri.parse(
-          "https://research.google.com/colaboratory/faq.html#resource-limits",
+          'https://research.google.com/colaboratory/faq.html#resource-limits',
         ),
       );
     }
@@ -559,7 +581,7 @@ export class AssignmentManager implements vscode.Disposable {
     const serverDescriptor =
       removed.length === 1
         ? `${removed[0]} was`
-        : `${removed.slice(0, numRemoved - 1).join(", ")} and ${removed[numRemoved - 1]} were`;
+        : `${removed.slice(0, numRemoved - 1).join(', ')} and ${removed[numRemoved - 1]} were`;
     const viewIssue = await this.vs.window.showInformationMessage(
       `To work around [microsoft/vscode-jupyter #17094](https://github.com/microsoft/vscode-jupyter/issues/17094) - please re-open notebooks ${serverDescriptor} previously connected to.`,
       `View Issue`,
@@ -567,7 +589,7 @@ export class AssignmentManager implements vscode.Disposable {
     if (viewIssue) {
       this.vs.env.openExternal(
         this.vs.Uri.parse(
-          "https://github.com/microsoft/vscode-jupyter/issues/17094",
+          'https://github.com/microsoft/vscode-jupyter/issues/17094',
         ),
       );
     }
@@ -575,12 +597,12 @@ export class AssignmentManager implements vscode.Disposable {
 }
 
 enum AssignmentsExceededActions {
-  REMOVE_SERVER = "Remove Server",
+  REMOVE_SERVER = 'Remove Server',
 }
 
-const LEARN_MORE = "Learn More";
+const LEARN_MORE = 'Learn More';
 
-const UNKNOWN_REMOTE_SERVER_NAME = "Untitled";
+const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
 
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
@@ -617,5 +639,5 @@ function colabProxyFetch(
 }
 
 function isRequest(info: RequestInfo): info is Request {
-  return typeof info !== "string" && !("href" in info);
+  return typeof info !== 'string' && !('href' in info);
 }

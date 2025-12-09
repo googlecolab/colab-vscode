@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export const PROVIDER_ID = "google";
+export const PROVIDER_ID = 'google';

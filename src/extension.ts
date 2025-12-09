@@ -4,35 +4,35 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Jupyter } from "@vscode/jupyter-extension";
-import { OAuth2Client } from "google-auth-library";
-import vscode, { Disposable } from "vscode";
-import { GoogleAuthProvider } from "./auth/auth-provider";
-import { getOAuth2Flows } from "./auth/flows/flows";
-import { login } from "./auth/login";
-import { AuthStorage } from "./auth/storage";
-import { ColabClient } from "./colab/client";
+import { Jupyter } from '@vscode/jupyter-extension';
+import { OAuth2Client } from 'google-auth-library';
+import vscode, { Disposable } from 'vscode';
+import { GoogleAuthProvider } from './auth/auth-provider';
+import { getOAuth2Flows } from './auth/flows/flows';
+import { login } from './auth/login';
+import { AuthStorage } from './auth/storage';
+import { ColabClient } from './colab/client';
 import {
   COLAB_TOOLBAR,
   REMOVE_SERVER,
   SIGN_OUT,
-} from "./colab/commands/constants";
-import { notebookToolbar } from "./colab/commands/notebook";
-import { removeServer } from "./colab/commands/server";
-import { ConnectionRefreshController } from "./colab/connection-refresher";
-import { ConsumptionNotifier } from "./colab/consumption/notifier";
-import { ConsumptionPoller } from "./colab/consumption/poller";
-import { ServerKeepAliveController } from "./colab/keep-alive";
-import { ServerPicker } from "./colab/server-picker";
-import { CONFIG } from "./colab-config";
-import { initializeLogger, log } from "./common/logging";
-import { Toggleable } from "./common/toggleable";
-import { getPackageInfo } from "./config/package-info";
-import { AssignmentManager } from "./jupyter/assignments";
-import { getJupyterApi } from "./jupyter/jupyter-extension";
-import { ColabJupyterServerProvider } from "./jupyter/provider";
-import { ServerStorage } from "./jupyter/storage";
-import { ExtensionUriHandler } from "./system/uri";
+} from './colab/commands/constants';
+import { notebookToolbar } from './colab/commands/notebook';
+import { removeServer } from './colab/commands/server';
+import { ConnectionRefreshController } from './colab/connection-refresher';
+import { ConsumptionNotifier } from './colab/consumption/notifier';
+import { ConsumptionPoller } from './colab/consumption/poller';
+import { ServerKeepAliveController } from './colab/keep-alive';
+import { ServerPicker } from './colab/server-picker';
+import { CONFIG } from './colab-config';
+import { initializeLogger, log } from './common/logging';
+import { Toggleable } from './common/toggleable';
+import { getPackageInfo } from './config/package-info';
+import { AssignmentManager } from './jupyter/assignments';
+import { getJupyterApi } from './jupyter/jupyter-extension';
+import { ColabJupyterServerProvider } from './jupyter/provider';
+import { ServerStorage } from './jupyter/storage';
+import { ExtensionUriHandler } from './system/uri';
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
@@ -114,7 +114,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
   log.info(`${vscode.env.appName}: ${vscode.version}`);
-  log.info(`Remote: ${vscode.env.remoteName ?? "N/A"}`);
+  log.info(`Remote: ${vscode.env.remoteName ?? 'N/A'}`);
   log.info(`App Host: ${vscode.env.appHost}`);
   const jupyterVersion = getPackageInfo(jupyter).version;
   log.info(`Jupyter extension version: ${jupyterVersion}`);

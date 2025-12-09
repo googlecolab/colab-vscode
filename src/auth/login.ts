@@ -7,10 +7,10 @@
 import {
   Credentials as OAuth2Credentials,
   OAuth2Client,
-} from "google-auth-library";
-import { v4 as uuid } from "uuid";
-import vscode from "vscode";
-import { OAuth2TriggerOptions, FlowResult, OAuth2Flow } from "./flows/flows";
+} from 'google-auth-library';
+import { v4 as uuid } from 'uuid';
+import vscode from 'vscode';
+import { OAuth2TriggerOptions, FlowResult, OAuth2Flow } from './flows/flows';
 
 /**
  * A complete set of credentials produced from completing OAuth2 authentication.
@@ -37,7 +37,7 @@ export async function login(
   scopes: string[],
 ): Promise<Credentials> {
   if (flows.length === 0) {
-    throw new Error("No authentication flows available.");
+    throw new Error('No authentication flows available.');
   }
 
   for (const flow of flows) {
@@ -48,7 +48,7 @@ export async function login(
       return await vs.window.withProgress<Credentials>(
         {
           location: vs.ProgressLocation.Notification,
-          title: "Signing in to Google...",
+          title: 'Signing in to Google...',
           cancellable: true,
         },
         async (_, cancel: vscode.CancellationToken) => {
@@ -71,7 +71,7 @@ export async function login(
         },
       );
     } catch (err) {
-      const innerMsg = err instanceof Error ? err.message : "unknown error";
+      const innerMsg = err instanceof Error ? err.message : 'unknown error';
       const msg = `Sign-in attempt failed: ${innerMsg}.`;
       // Notify this attempt failed, but try other methods 🤞.
       vs.window.showErrorMessage(msg);
@@ -80,16 +80,16 @@ export async function login(
 
   const msg =
     flows.length > 1
-      ? "All authentication methods failed."
-      : "Authentication failed.";
+      ? 'All authentication methods failed.'
+      : 'Authentication failed.';
   throw new Error(msg);
 }
 
 async function promptIfFallback(vs: typeof vscode): Promise<boolean> {
-  const yes = "Yes";
-  const no = "No";
+  const yes = 'Yes';
+  const no = 'No';
   const result = await vs.window.showErrorMessage(
-    "Failed to authenticate with Google. Would you like to try a different authentication method?",
+    'Failed to authenticate with Google. Would you like to try a different authentication method?',
     yes,
     no,
   );
@@ -109,18 +109,18 @@ async function exchangeCodeForCredentials(
   if (tokenResponse.res?.status !== 200) {
     const details = tokenResponse.res
       ? tokenResponse.res.statusText
-      : "unknown error";
+      : 'unknown error';
     throw new Error(`Failed to get token: ${details}.`);
   }
   if (!isDefinedCredentials(tokenResponse.tokens)) {
-    throw new Error("Missing credential information.");
+    throw new Error('Missing credential information.');
   }
   return tokenResponse.tokens;
 }
 
 type RequiredCredentials = Pick<
   OAuth2Credentials,
-  "refresh_token" | "access_token" | "expiry_date" | "scope"
+  'refresh_token' | 'access_token' | 'expiry_date' | 'scope'
 >;
 
 function isDefinedCredentials(
