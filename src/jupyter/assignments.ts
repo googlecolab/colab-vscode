@@ -34,7 +34,6 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
-import { log } from '../common/logging';
 import { warnOnDriveMount } from './drive-mount-warning';
 import {
   AllServers,
