@@ -122,7 +122,7 @@ export class ServerPicker {
         state.shape =
           shapePicks.length === 1 ? shapePicks[0].value : Shape.STANDARD;
         return (input: MultiStepInput) =>
-          this.promptForAlias(input, state, /** totalSteps */ 2);
+          this.promptForAlias(input, state, /** totalSteps= */ 2);
       }
       return (input: MultiStepInput) =>
         this.promptForMachineShape(input, state, shapePicks);
@@ -171,7 +171,7 @@ export class ServerPicker {
       state.shape =
         shapePicks.length === 1 ? shapePicks[0].value : Shape.STANDARD;
       return (input: MultiStepInput) =>
-        this.promptForAlias(input, state, /** totalSteps */ 3);
+        this.promptForAlias(input, state, /** totalSteps= */ 3);
     }
     return (input: MultiStepInput) =>
       this.promptForMachineShape(input, state, shapePicks);
@@ -197,7 +197,7 @@ export class ServerPicker {
     }
 
     return (input: MultiStepInput) =>
-      this.promptForAlias(input, state, /** totalSteps */ step + 1);
+      this.promptForAlias(input, state, /** totalSteps= */ step + 1);
   }
 
   private async promptForAlias(
