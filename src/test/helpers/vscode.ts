@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as sinon from "sinon";
-import vscode from "vscode";
-import { FakeAuthenticationProviderManager } from "./authentication";
-import { TestCancellationTokenSource } from "./cancellation";
-import { TestEventEmitter } from "./events";
-import { TestUri } from "./uri";
+import * as sinon from 'sinon';
+import vscode from 'vscode';
+import { FakeAuthenticationProviderManager } from './authentication';
+import { TestCancellationTokenSource } from './cancellation';
+import { TestEventEmitter } from './events';
+import { TestUri } from './uri';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 class TestQuickInputButtons implements vscode.QuickInputButtons {
   static readonly Back: vscode.QuickInputButton = {
     iconPath: {
-      id: "back",
+      id: 'back',
     },
   };
 }
@@ -165,7 +165,7 @@ export function newVsCodeStub(): VsCodeStub {
     },
     UIKind: UIKind,
     env: {
-      uriScheme: "vscode",
+      uriScheme: 'vscode',
       uiKind: UIKind.Desktop,
       openExternal: sinon.stub(),
       asExternalUri: sinon.stub(),

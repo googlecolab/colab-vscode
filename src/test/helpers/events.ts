@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
+import vscode from 'vscode';
 
 export class TestEventEmitter<T> implements vscode.EventEmitter<T> {
   private listeners = new Set<(data: T) => void>();
@@ -13,7 +13,7 @@ export class TestEventEmitter<T> implements vscode.EventEmitter<T> {
   constructor() {
     this.event = (listener: (data: T) => void) => {
       if (this.disposed) {
-        throw new Error("EventEmitter has been disposed");
+        throw new Error('EventEmitter has been disposed');
       }
       this.listeners.add(listener);
 
@@ -29,7 +29,7 @@ export class TestEventEmitter<T> implements vscode.EventEmitter<T> {
 
   fire(data: T): void {
     if (this.disposed) {
-      throw new Error("EventEmitter has been disposed");
+      throw new Error('EventEmitter has been disposed');
     }
 
     for (const listener of this.listeners) {

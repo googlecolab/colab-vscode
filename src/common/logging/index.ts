@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as vscode from "vscode";
-import { Disposable, ExtensionMode } from "vscode";
-import { ConsoleLogger } from "./console";
-import { OutputChannelLogger } from "./output-channel";
+import * as vscode from 'vscode';
+import { Disposable, ExtensionMode } from 'vscode';
+import { ConsoleLogger } from './console';
+import { OutputChannelLogger } from './output-channel';
 
 /**
  * Supports logging a message at varying severity levels.
@@ -53,18 +53,18 @@ export function initializeLogger(
   mode: ExtensionMode,
 ): Disposable {
   if (loggers.length > 0) {
-    throw new Error("Loggers have already been initialized.");
+    throw new Error('Loggers have already been initialized.');
   }
 
   level = getConfiguredLogLevel(vs);
   const configListener = vs.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration("colab.logging")) {
+    if (e.affectsConfiguration('colab.logging')) {
       level = getConfiguredLogLevel(vs);
     }
   });
 
   // Create the output channel once.
-  const outputChannel = vs.window.createOutputChannel("Colab");
+  const outputChannel = vs.window.createOutputChannel('Colab');
   loggers.push(new OutputChannelLogger(outputChannel));
 
   if (mode === vs.ExtensionMode.Development) {
@@ -95,19 +95,19 @@ export function getLevel(): LogLevel {
  */
 export const log: Logger = {
   error: (msg: string, ...args: unknown[]) => {
-    doLog(LogLevel.Error, "error", msg, ...args);
+    doLog(LogLevel.Error, 'error', msg, ...args);
   },
   warn: (msg: string, ...args: unknown[]) => {
-    doLog(LogLevel.Warning, "warn", msg, ...args);
+    doLog(LogLevel.Warning, 'warn', msg, ...args);
   },
   info: (msg: string, ...args: unknown[]) => {
-    doLog(LogLevel.Info, "info", msg, ...args);
+    doLog(LogLevel.Info, 'info', msg, ...args);
   },
   debug: (msg: string, ...args: unknown[]) => {
-    doLog(LogLevel.Debug, "debug", msg, ...args);
+    doLog(LogLevel.Debug, 'debug', msg, ...args);
   },
   trace: (msg: string, ...args: unknown[]) => {
-    doLog(LogLevel.Trace, "trace", msg, ...args);
+    doLog(LogLevel.Trace, 'trace', msg, ...args);
   },
 };
 
@@ -142,8 +142,8 @@ const LOG_CONFIG_TO_LEVEL: Record<
 
 function getConfiguredLogLevel(vs: typeof vscode): LogLevel {
   const configLevel = vs.workspace
-    .getConfiguration("colab.logging")
-    .get<Lowercase<keyof typeof LogLevel>>("level", "info");
+    .getConfiguration('colab.logging')
+    .get<Lowercase<keyof typeof LogLevel>>('level', 'info');
 
   return LOG_CONFIG_TO_LEVEL[configLevel];
 }

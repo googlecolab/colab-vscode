@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
+import { UUID } from 'crypto';
 import {
   JupyterServer,
   JupyterServerConnectionInformation,
-} from "@vscode/jupyter-extension";
-import { Variant } from "../colab/api";
+} from '@vscode/jupyter-extension';
+import { Variant } from '../colab/api';
 
 /**
  * Colab's Jupyter server descriptor which includes machine-specific
@@ -47,11 +47,11 @@ export type ColabAssignedServer = ColabJupyterServer & {
 export function isColabAssignedServer(
   s: ColabAssignedServer | UnownedServer,
 ): s is ColabAssignedServer {
-  return "connectionInformation" in s;
+  return 'connectionInformation' in s;
 }
 
 export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
-  label: "Colab CPU",
+  label: 'Colab CPU',
   variant: Variant.DEFAULT,
 };
 

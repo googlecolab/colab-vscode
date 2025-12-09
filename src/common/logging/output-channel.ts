@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { OutputChannel } from "vscode";
-import { buildTimestampLevelPrefix } from "./util";
-import { ActionableLogLevel, Logger, LogLevel } from ".";
+import { OutputChannel } from 'vscode';
+import { buildTimestampLevelPrefix } from './util';
+import { ActionableLogLevel, Logger, LogLevel } from '.';
 
 /**
  * A logger that appends to the provided VS Code {@link OutputChannel}.
@@ -48,7 +48,7 @@ function format(
   args: unknown[],
 ): string {
   const prefix = buildTimestampLevelPrefix(level);
-  const padding = " ".repeat(prefix.length + 1);
+  const padding = ' '.repeat(prefix.length + 1);
 
   let res = `${prefix} ${message}`;
 
@@ -57,18 +57,18 @@ function format(
 
     if (arg instanceof Error) {
       argsStr = arg.stack ?? arg.message;
-    } else if (typeof arg === "object" && arg !== null) {
+    } else if (typeof arg === 'object' && arg !== null) {
       try {
         argsStr = JSON.stringify(arg, null, 2);
       } catch (_: unknown) {
-        argsStr = "[Unserializable Object]";
+        argsStr = '[Unserializable Object]';
       }
     } else {
       // Simply convert primitives to a string.
       argsStr = String(arg);
     }
 
-    res += `\n${padding}${argsStr.split("\n").join(`\n${padding}`)}`;
+    res += `\n${padding}${argsStr.split('\n').join(`\n${padding}`)}`;
   }
 
   return res;

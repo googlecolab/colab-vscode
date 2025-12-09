@@ -4,19 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { QuickPickItem } from "vscode";
-import { InputStep, MultiStepInput } from "../common/multi-step-quickpick";
-import { AssignmentManager } from "../jupyter/assignments";
-import { ColabServerDescriptor } from "../jupyter/servers";
-import { Variant, variantToMachineType } from "./api";
+import vscode, { QuickPickItem } from 'vscode';
+import { InputStep, MultiStepInput } from '../common/multi-step-quickpick';
+import { AssignmentManager } from '../jupyter/assignments';
+import { ColabServerDescriptor } from '../jupyter/servers';
+import { Variant, variantToMachineType } from './api';
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
-  "Provide a local convenience alias to the server.";
+  'Provide a local convenience alias to the server.';
 
 /** Validates the server alias. */
 export const validateServerAlias = (value: string) =>
-  value.length > 10 ? "Name must be less than 10 characters." : "";
+  value.length > 10 ? 'Name must be less than 10 characters.' : '';
 
 /**
  * Supports prompting the user to pick a Colab server to be created.
@@ -41,7 +41,7 @@ export class ServerPicker {
     for (const server of availableServers) {
       const accelerators =
         variantToAccelerators.get(server.variant) ?? new Set();
-      accelerators.add(server.accelerator ?? "NONE");
+      accelerators.add(server.accelerator ?? 'NONE');
       variantToAccelerators.set(server.variant, accelerators);
     }
     if (variantToAccelerators.size === 0) {
@@ -80,7 +80,7 @@ export class ServerPicker {
       });
     }
     const pick = await input.showQuickPick({
-      title: "Select a variant",
+      title: 'Select a variant',
       step: 1,
       totalSteps: 2,
       items,
@@ -93,7 +93,7 @@ export class ServerPicker {
     }
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
-      state.accelerator = "NONE";
+      state.accelerator = 'NONE';
       return (input: MultiStepInput) => this.promptForAlias(input, state);
     }
     return (input: MultiStepInput) =>
@@ -102,7 +102,7 @@ export class ServerPicker {
 
   private async promptForAccelerator(
     input: MultiStepInput,
-    state: PartialServerWith<"variant">,
+    state: PartialServerWith<'variant'>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
   ): Promise<InputStep | undefined> {
     const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
@@ -114,7 +114,7 @@ export class ServerPicker {
       });
     }
     const pick = await input.showQuickPick({
-      title: "Select an accelerator",
+      title: 'Select an accelerator',
       step: 2,
       // Since we have to pick an accelerator, we've added a step.
       totalSteps: 3,
@@ -132,18 +132,18 @@ export class ServerPicker {
 
   private async promptForAlias(
     input: MultiStepInput,
-    state: PartialServerWith<"variant">,
+    state: PartialServerWith<'variant'>,
   ): Promise<InputStep | undefined> {
     const placeholder = await this.assignments.getDefaultLabel(
       state.variant,
       state.accelerator,
     );
-    const step = state.accelerator && state.accelerator !== "NONE" ? 3 : 2;
+    const step = state.accelerator && state.accelerator !== 'NONE' ? 3 : 2;
     const alias = await input.showInputBox({
-      title: "Alias your server",
+      title: 'Alias your server',
       step,
       totalSteps: step,
-      value: state.alias ?? "",
+      value: state.alias ?? '',
       prompt: PROMPT_SERVER_ALIAS,
       validate: validateServerAlias,
       placeholder,
@@ -168,13 +168,13 @@ type PartialServerWith<K extends keyof Server> = Partial<Server> &
 
 function isVariantDefined(
   state: Partial<Server>,
-): state is PartialServerWith<"variant"> {
+): state is PartialServerWith<'variant'> {
   return state.variant !== undefined;
 }
 
 function isAcceleratorDefined(
   state: Partial<Server>,
-): state is PartialServerWith<"accelerator"> {
+): state is PartialServerWith<'accelerator'> {
   return state.accelerator !== undefined;
 }
 

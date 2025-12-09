@@ -28,16 +28,16 @@ export interface StaticHeader extends Header {
  * The HTTP header for JSON content type.
  */
 export const CONTENT_TYPE_JSON_HEADER: StaticHeader = {
-  key: "Content-Type",
-  value: "application/json",
+  key: 'Content-Type',
+  value: 'application/json',
 };
 
 /**
  * The HTTP header for accepting JSON.
  */
 export const ACCEPT_JSON_HEADER: StaticHeader = {
-  key: "Accept",
-  value: "application/json",
+  key: 'Accept',
+  value: 'application/json',
 };
 
 /**
@@ -45,35 +45,35 @@ export const ACCEPT_JSON_HEADER: StaticHeader = {
  * VS Code.
  */
 export const COLAB_CLIENT_AGENT_HEADER: StaticHeader = {
-  key: "X-Colab-Client-Agent",
-  value: "vscode",
+  key: 'X-Colab-Client-Agent',
+  value: 'vscode',
 };
 
 /**
  * The HTTP header for requests that are resolved through the Colab tunnel.
  */
 export const COLAB_TUNNEL_HEADER: StaticHeader = {
-  key: "X-Colab-Tunnel",
-  value: "Google",
+  key: 'X-Colab-Tunnel',
+  value: 'Google',
 };
 
 /**
  * The HTTP header for the authorization token.
  */
 export const AUTHORIZATION_HEADER: Header = {
-  key: "Authorization",
+  key: 'Authorization',
 };
 
 /**
  * The HTTP header for the Colab runtime proxy token.
  */
 export const COLAB_RUNTIME_PROXY_TOKEN_HEADER: Header = {
-  key: "X-Colab-Runtime-Proxy-Token",
+  key: 'X-Colab-Runtime-Proxy-Token',
 };
 
 /**
  * The HTTP header for the Colab XSRF token.
  */
 export const COLAB_XSRF_TOKEN_HEADER: Header = {
-  key: "X-Goog-Colab-Token",
+  key: 'X-Goog-Colab-Token',
 };

@@ -10,17 +10,17 @@ import {
   QuickInput,
   Event,
   QuickInputButton,
-} from "vscode";
-import vscode from "vscode";
+} from 'vscode';
+import vscode from 'vscode';
 
 /**
  * Represents an action that can be taken during an input flow.
  */
 export class InputFlowAction extends Error {
   /** Navigate back in the input flow. */
-  static back = new InputFlowAction("back");
+  static back = new InputFlowAction('back');
   /** Cancel the input flow. */
-  static cancel = new InputFlowAction("cancel");
+  static cancel = new InputFlowAction('cancel');
 }
 
 /**
@@ -203,7 +203,7 @@ export class MultiStepInput {
         input.title = opts.title;
         input.step = opts.step;
         input.totalSteps = opts.totalSteps;
-        input.value = opts.value || "";
+        input.value = opts.value || '';
         input.password = opts.password ?? false;
         input.prompt = opts.prompt;
         input.placeholder = opts.placeholder;

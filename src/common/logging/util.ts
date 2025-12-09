@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ActionableLogLevel, LogLevel } from ".";
+import { ActionableLogLevel, LogLevel } from '.';
 
 /**
  * Builds a log prefix containing a timestamp and log level.
@@ -20,11 +20,11 @@ export function buildTimestampLevelPrefix(level: ActionableLogLevel): string {
 }
 
 const LOG_LEVEL_STRING_MAP: Record<ActionableLogLevel, string> = {
-  [LogLevel.Trace]: "Trace",
-  [LogLevel.Debug]: "Debug",
-  [LogLevel.Info]: "Info",
-  [LogLevel.Warning]: "Warning",
-  [LogLevel.Error]: "Error",
+  [LogLevel.Trace]: 'Trace',
+  [LogLevel.Debug]: 'Debug',
+  [LogLevel.Info]: 'Info',
+  [LogLevel.Warning]: 'Warning',
+  [LogLevel.Error]: 'Error',
 };
 
 /**

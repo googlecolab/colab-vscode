@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import sinon, { SinonStubbedInstance } from "sinon";
-import { QuickPickItem, Uri } from "vscode";
-import { InputFlowAction } from "../../common/multi-step-quickpick";
-import { AssignmentManager } from "../../jupyter/assignments";
-import { newVsCodeStub, VsCodeStub } from "../../test/helpers/vscode";
-import { OPEN_COLAB_WEB, UPGRADE_TO_PRO, REMOVE_SERVER } from "./constants";
-import { notebookToolbar } from "./notebook";
+import { expect } from 'chai';
+import sinon, { SinonStubbedInstance } from 'sinon';
+import { QuickPickItem, Uri } from 'vscode';
+import { InputFlowAction } from '../../common/multi-step-quickpick';
+import { AssignmentManager } from '../../jupyter/assignments';
+import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { OPEN_COLAB_WEB, UPGRADE_TO_PRO, REMOVE_SERVER } from './constants';
+import { notebookToolbar } from './notebook';
 
-describe("notebookToolbar", () => {
+describe('notebookToolbar', () => {
   let vsCodeStub: VsCodeStub;
   let assignmentManager: SinonStubbedInstance<AssignmentManager>;
 
@@ -26,14 +26,14 @@ describe("notebookToolbar", () => {
     sinon.restore();
   });
 
-  it("does nothing when no command is selected", async () => {
+  it('does nothing when no command is selected', async () => {
     vsCodeStub.window.showQuickPick.resolves(undefined);
 
     await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
   });
 
-  it("re-invokes the notebook toolbar when a command flows back", async () => {
+  it('re-invokes the notebook toolbar when a command flows back', async () => {
     assignmentManager.hasAssignedServer.resolves(true);
     vsCodeStub.commands.executeCommand
       .withArgs(REMOVE_SERVER.id)
@@ -51,7 +51,7 @@ describe("notebookToolbar", () => {
     sinon.assert.calledTwice(vsCodeStub.window.showQuickPick);
   });
 
-  it("excludes server specific commands when there are non assigned", async () => {
+  it('excludes server specific commands when there are non assigned', async () => {
     vsCodeStub.window.showQuickPick
       .onFirstCall()
       // Arbitrarily select the first command.
@@ -66,7 +66,7 @@ describe("notebookToolbar", () => {
     );
   });
 
-  it("includes all commands when there is a server assigned", async () => {
+  it('includes all commands when there is a server assigned', async () => {
     assignmentManager.hasAssignedServer.resolves(true);
     vsCodeStub.window.showQuickPick
       .onFirstCall()
@@ -80,14 +80,14 @@ describe("notebookToolbar", () => {
       vsCodeStub.window.showQuickPick,
       commandsLabeled([
         REMOVE_SERVER.label,
-        /* separator */ "",
+        /* separator */ '',
         OPEN_COLAB_WEB.label,
         UPGRADE_TO_PRO.label,
       ]),
     );
   });
 
-  it("opens Colab in web", async () => {
+  it('opens Colab in web', async () => {
     vsCodeStub.window.showQuickPick.callsFake(
       findCommand(OPEN_COLAB_WEB.label),
     );
@@ -99,12 +99,12 @@ describe("notebookToolbar", () => {
       vsCodeStub.env.openExternal,
       sinon.match(
         (u: Uri) =>
-          u.authority === "colab.research.google.com" && u.path === "/",
+          u.authority === 'colab.research.google.com' && u.path === '/',
       ),
     );
   });
 
-  it("opens the Colab signup page", async () => {
+  it('opens the Colab signup page', async () => {
     vsCodeStub.window.showQuickPick.callsFake(
       findCommand(UPGRADE_TO_PRO.label),
     );
@@ -116,12 +116,12 @@ describe("notebookToolbar", () => {
       vsCodeStub.env.openExternal,
       sinon.match(
         (u: Uri) =>
-          u.authority === "colab.research.google.com" && u.path === "/signup",
+          u.authority === 'colab.research.google.com' && u.path === '/signup',
       ),
     );
   });
 
-  it("removes a server", async () => {
+  it('removes a server', async () => {
     assignmentManager.hasAssignedServer.resolves(true);
     vsCodeStub.window.showQuickPick.callsFake(findCommand(REMOVE_SERVER.label));
 
@@ -146,5 +146,5 @@ function findCommand(label: string) {
 }
 
 function commandsLabeled(labels: string[]) {
-  return sinon.match(labels.map((label) => sinon.match.has("label", label)));
+  return sinon.match(labels.map((label) => sinon.match.has('label', label)));
 }

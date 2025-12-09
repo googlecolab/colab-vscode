@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Extension } from "vscode";
-import { z } from "zod";
+import { Extension } from 'vscode';
+import { z } from 'zod';
 
 /**
  * A partial representation of the package.json file.

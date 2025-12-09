@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
+import { UUID } from 'crypto';
 
 /**
  * Type guard to check if a value is a valid UUID. Ensures the string follows
@@ -29,5 +29,5 @@ export function isUUID(value: string): value is UUID {
  */
 export function uuidToWebSafeBase64(uuid: UUID): string {
   // Ensure 44-character length by adding the necessary padding.
-  return uuid.replace(/-/g, "_") + ".".repeat(44 - uuid.length);
+  return uuid.replace(/-/g, '_') + '.'.repeat(44 - uuid.length);
 }

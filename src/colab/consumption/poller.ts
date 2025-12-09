@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Disposable } from "vscode";
+import vscode, { Disposable } from 'vscode';
 import {
   OverrunPolicy,
   SequentialTaskRunner,
   StartMode,
-} from "../../common/task-runner";
-import { Toggleable } from "../../common/toggleable";
-import { CcuInfo } from "../api";
-import { ColabClient } from "../client";
+} from '../../common/task-runner';
+import { Toggleable } from '../../common/toggleable';
+import { CcuInfo } from '../api';
+import { ColabClient } from '../client';
 
 const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
@@ -87,7 +87,7 @@ export class ConsumptionPoller implements Toggleable, Disposable {
 
   private assertNotDisposed(): void {
     if (this.isDisposed) {
-      throw new Error("ConsumptionPoller is disposed");
+      throw new Error('ConsumptionPoller is disposed');
     }
   }
 }

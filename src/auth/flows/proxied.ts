@@ -4,20 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { OAuth2Client } from "google-auth-library";
-import vscode from "vscode";
-import { CONFIG } from "../../colab-config";
+import { OAuth2Client } from 'google-auth-library';
+import vscode from 'vscode';
+import { CONFIG } from '../../colab-config';
 import {
   MultiStepInput,
   InputFlowAction,
-} from "../../common/multi-step-quickpick";
-import { CodeManager } from "../code-manager";
+} from '../../common/multi-step-quickpick';
+import { CodeManager } from '../code-manager';
 import {
   DEFAULT_AUTH_URL_OPTS,
   OAuth2Flow,
   OAuth2TriggerOptions,
   FlowResult,
-} from "./flows";
+} from './flows';
 
 const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
 
@@ -75,14 +75,14 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
           buttons: undefined,
           ignoreFocusOut: true,
           password: true,
-          prompt: "Enter your authorization code",
-          title: "Sign in to Google",
+          prompt: 'Enter your authorization code',
+          title: 'Sign in to Google',
           validate: (value: string) => {
             return value.length === 0
-              ? "Authorization code cannot be empty"
+              ? 'Authorization code cannot be empty'
               : undefined;
           },
-          value: "",
+          value: '',
         });
         this.codeManager.resolveCode(nonce, pastedCode);
         return undefined;

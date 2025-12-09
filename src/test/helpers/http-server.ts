@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import EventEmitter from "events";
-import http from "http";
-import { AddressInfo } from "net";
-import * as sinon from "sinon";
+import EventEmitter from 'events';
+import http from 'http';
+import { AddressInfo } from 'net';
+import * as sinon from 'sinon';
 
 /**
  * Creates a stubbed instance of an {@link http.Server} which can trigger events
@@ -41,7 +41,7 @@ export function createHttpServerMock(
   fakeServer.address.returns(address);
   fakeServer.listen.yields();
   // Required since `listening` is a readonly getter.
-  Object.defineProperty(fakeServer, "listening", {
+  Object.defineProperty(fakeServer, 'listening', {
     get: () => true,
     // Make it configurable so we can override it in tests.
     configurable: true,

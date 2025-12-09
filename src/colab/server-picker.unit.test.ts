@@ -4,39 +4,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from "chai";
-import * as sinon from "sinon";
-import { InputBox, QuickPick, QuickPickItem } from "vscode";
-import { AssignmentManager } from "../jupyter/assignments";
-import { DEFAULT_CPU_SERVER } from "../jupyter/servers";
+import { expect } from 'chai';
+import * as sinon from 'sinon';
+import { InputBox, QuickPick, QuickPickItem } from 'vscode';
+import { AssignmentManager } from '../jupyter/assignments';
+import { DEFAULT_CPU_SERVER } from '../jupyter/servers';
 import {
   buildInputBoxStub,
   buildQuickPickStub,
-} from "../test/helpers/quick-input";
-import { newVsCodeStub, VsCodeStub } from "../test/helpers/vscode";
-import { Variant } from "./api";
-import { ServerPicker } from "./server-picker";
+} from '../test/helpers/quick-input';
+import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
+import { Variant } from './api';
+import { ServerPicker } from './server-picker';
 
 const AVAILABLE_SERVERS = [
   DEFAULT_CPU_SERVER,
   {
-    label: "Colab GPU T4",
+    label: 'Colab GPU T4',
     variant: Variant.GPU,
-    accelerator: "T4",
+    accelerator: 'T4',
   },
   {
-    label: "Colab GPU A100",
+    label: 'Colab GPU A100',
     variant: Variant.GPU,
-    accelerator: "A100",
+    accelerator: 'A100',
   },
   {
-    label: "Colab TPU V6E1",
+    label: 'Colab TPU V6E1',
     variant: Variant.TPU,
-    accelerator: "V6E1",
+    accelerator: 'V6E1',
   },
 ];
 
-describe("ServerPicker", () => {
+describe('ServerPicker', () => {
   let vsCodeStub: VsCodeStub;
   let assignmentStub: sinon.SinonStubbedInstance<AssignmentManager>;
   let serverPicker: ServerPicker;
@@ -48,7 +48,7 @@ describe("ServerPicker", () => {
 
     // Type assertion needed due to overloading on getServers
     (assignmentStub.getServers as sinon.SinonStub)
-      .withArgs("extension")
+      .withArgs('extension')
       .resolves([]);
   });
 
@@ -56,7 +56,7 @@ describe("ServerPicker", () => {
     sinon.restore();
   });
 
-  describe("prompt", () => {
+  describe('prompt', () => {
     function stubQuickPickForCall(n: number) {
       const stub = buildQuickPickStub();
       vsCodeStub.window.createQuickPick
@@ -75,11 +75,11 @@ describe("ServerPicker", () => {
       return stub;
     }
 
-    it("returns undefined when there are no available servers", async () => {
+    it('returns undefined when there are no available servers', async () => {
       await expect(serverPicker.prompt([])).to.eventually.equal(undefined);
     });
 
-    it("returns undefined when selecting a variant is cancelled", async () => {
+    it('returns undefined when selecting a variant is cancelled', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
@@ -90,7 +90,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.equal(undefined);
     });
 
-    it("returns undefined when selecting an accelerator is cancelled", async () => {
+    it('returns undefined when selecting an accelerator is cancelled', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
 
@@ -99,7 +99,7 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
       await acceleratorPickerShown;
       acceleratorQuickPickStub.onDidHide.yield();
@@ -107,7 +107,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.be.undefined;
     });
 
-    it("returns undefined when selecting an alias is cancelled", async () => {
+    it('returns undefined when selecting an alias is cancelled', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -117,12 +117,12 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: "T4", label: "T4" },
+        { value: 'T4', label: 'T4' },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.onDidHide.yield();
@@ -130,7 +130,7 @@ describe("ServerPicker", () => {
       await expect(prompt).to.eventually.be.undefined;
     });
 
-    it("prompting for an accelerated is skipped when there are none", async () => {
+    it('prompting for an accelerated is skipped when there are none', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -140,14 +140,14 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.DEFAULT, label: "CPU" },
+        { value: Variant.DEFAULT, label: 'CPU' },
       ]);
 
       await aliasInputShown;
       sinon.assert.notCalled(acceleratorQuickPickStub.show);
     });
 
-    it("returns the server type when all prompts are answered", async () => {
+    it('returns the server type when all prompts are answered', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -157,26 +157,26 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: "T4", label: "T4" },
+        { value: 'T4', label: 'T4' },
       ]);
       await aliasInputShown;
-      aliasInputBoxStub.value = "foo";
-      aliasInputBoxStub.onDidChangeValue.yield("foo");
+      aliasInputBoxStub.value = 'foo';
+      aliasInputBoxStub.onDidChangeValue.yield('foo');
       aliasInputBoxStub.onDidAccept.yield();
 
       await expect(prompt).to.eventually.be.deep.equal({
-        label: "foo",
+        label: 'foo',
         variant: Variant.GPU,
-        accelerator: "T4",
+        accelerator: 'T4',
       });
     });
 
-    it("returns a validation error message if over character limit", async () => {
+    it('returns a validation error message if over character limit', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
@@ -185,16 +185,16 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.DEFAULT, label: "CPU" },
+        { value: Variant.DEFAULT, label: 'CPU' },
       ]);
       await aliasInputShown;
-      aliasInputBoxStub.value = "s".repeat(11);
+      aliasInputBoxStub.value = 's'.repeat(11);
       aliasInputBoxStub.onDidChangeValue.yield(aliasInputBoxStub.value);
 
       expect(aliasInputBoxStub.validationMessage).to.match(/less than 10/);
     });
 
-    it("returns the server type with the placeholder as the label when the alias is omitted", async () => {
+    it('returns the server type with the placeholder as the label when the alias is omitted', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -204,27 +204,27 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
       await acceleratorPickerShown;
       assignmentStub.getDefaultLabel
-        .withArgs(Variant.GPU, "T4")
-        .resolves("Colab GPU T4");
+        .withArgs(Variant.GPU, 'T4')
+        .resolves('Colab GPU T4');
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: "T4", label: "T4" },
+        { value: 'T4', label: 'T4' },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.onDidAccept.yield();
 
       await expect(prompt).to.eventually.be.deep.equal({
-        label: "Colab GPU T4",
+        label: 'Colab GPU T4',
         variant: Variant.GPU,
-        accelerator: "T4",
+        accelerator: 'T4',
       });
     });
 
-    it("can navigate back when no accelerator was prompted", async () => {
+    it('can navigate back when no accelerator was prompted', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
@@ -234,7 +234,7 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.DEFAULT, label: "CPU" },
+        { value: Variant.DEFAULT, label: 'CPU' },
       ]);
       await aliasInputShown;
       const secondVariantQuickPickStub = stubQuickPickForCall(1);
@@ -245,7 +245,7 @@ describe("ServerPicker", () => {
       await secondVariantPickerShown;
     });
 
-    it("sets the previously specified value when navigating back", async () => {
+    it('sets the previously specified value when navigating back', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -256,16 +256,16 @@ describe("ServerPicker", () => {
       await variantPickerShown;
       const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
       await acceleratorPickerShown;
       const aliasInputShown = aliasInputBoxStub.nextShow();
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: "T4", label: "T4" },
+        { value: 'T4', label: 'T4' },
       ]);
       await aliasInputShown;
-      aliasInputBoxStub.value = "foo";
-      aliasInputBoxStub.onDidChangeValue.yield("foo");
+      aliasInputBoxStub.value = 'foo';
+      aliasInputBoxStub.onDidChangeValue.yield('foo');
       // Navigate back.
       const secondAcceleratorQuickPickStub = stubQuickPickForCall(2);
       const secondVariantQuickPickStub = stubQuickPickForCall(3);
@@ -276,7 +276,7 @@ describe("ServerPicker", () => {
       );
       await secondAcceleratorPickerShown;
       expect(secondAcceleratorQuickPickStub.activeItems).to.be.deep.equal([
-        { value: "T4", label: "T4" },
+        { value: 'T4', label: 'T4' },
       ]);
       const secondVariantPickerShown = secondVariantQuickPickStub.nextShow();
       secondAcceleratorQuickPickStub.onDidTriggerButton.yield(
@@ -284,11 +284,11 @@ describe("ServerPicker", () => {
       );
       await secondVariantPickerShown;
       expect(secondVariantQuickPickStub.activeItems).to.be.deep.equal([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
     });
 
-    it("sets the right step", async () => {
+    it('sets the right step', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
@@ -301,7 +301,7 @@ describe("ServerPicker", () => {
       expect(variantQuickPickStub.totalSteps).to.equal(2);
 
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.DEFAULT, label: "CPU" },
+        { value: Variant.DEFAULT, label: 'CPU' },
       ]);
 
       await aliasInputShown;
@@ -309,7 +309,7 @@ describe("ServerPicker", () => {
       expect(aliasInputBoxStub.totalSteps).to.equal(2);
     });
 
-    it("sets the right step when accelerators are available", async () => {
+    it('sets the right step when accelerators are available', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -324,14 +324,14 @@ describe("ServerPicker", () => {
       expect(variantQuickPickStub.totalSteps).to.equal(2);
 
       variantQuickPickStub.onDidChangeSelection.yield([
-        { value: Variant.GPU, label: "GPU" },
+        { value: Variant.GPU, label: 'GPU' },
       ]);
       await acceleratorPickerShown;
       expect(acceleratorQuickPickStub.step).to.equal(2);
       expect(acceleratorQuickPickStub.totalSteps).to.equal(3);
 
       acceleratorQuickPickStub.onDidChangeSelection.yield([
-        { value: "T4", label: "T4" },
+        { value: 'T4', label: 'T4' },
       ]);
       await aliasInputShown;
       expect(aliasInputBoxStub.step).to.equal(3);

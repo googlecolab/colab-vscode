@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from "crypto";
-import * as https from "https";
-import fetch, { Request, RequestInit, Headers } from "node-fetch";
-import { z } from "zod";
-import { traceMethod } from "../common/logging/decorators";
-import { ColabAssignedServer } from "../jupyter/servers";
-import { uuidToWebSafeBase64 } from "../utils/uuid";
+import { UUID } from 'crypto';
+import * as https from 'https';
+import fetch, { Request, RequestInit, Headers } from 'node-fetch';
+import { z } from 'zod';
+import { traceMethod } from '../common/logging/decorators';
+import { ColabAssignedServer } from '../jupyter/servers';
+import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
   Assignment,
   CcuInfo,
@@ -32,7 +32,7 @@ import {
   ListedAssignment,
   RuntimeProxyInfo,
   RuntimeProxyInfoSchema,
-} from "./api";
+} from './api';
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
@@ -40,19 +40,19 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_XSRF_TOKEN_HEADER,
-} from "./headers";
+} from './headers';
 
 const XSSI_PREFIX = ")]}'\n";
-const TUN_ENDPOINT = "/tun/m";
+const TUN_ENDPOINT = '/tun/m';
 
 // To discriminate the type of GET assignment responses.
 interface AssignmentToken extends GetAssignmentResponse {
-  kind: "to_assign";
+  kind: 'to_assign';
 }
 
 // To discriminate the type of GET assignment responses.
 interface AssignedAssignment extends Assignment {
-  kind: "assigned";
+  kind: 'assigned';
 }
 
 /**
@@ -68,7 +68,7 @@ export class ColabClient {
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
-    if (colabDomain.hostname === "localhost") {
+    if (colabDomain.hostname === 'localhost') {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
   }
@@ -81,8 +81,8 @@ export class ColabClient {
    */
   async getSubscriptionTier(signal?: AbortSignal): Promise<SubscriptionTier> {
     const userInfo = await this.issueRequest(
-      new URL("v1/user-info", this.colabGapiDomain),
-      { method: "GET", signal },
+      new URL('v1/user-info', this.colabGapiDomain),
+      { method: 'GET', signal },
       UserInfoSchema,
     );
     return userInfo.subscriptionTier;
@@ -97,7 +97,7 @@ export class ColabClient {
   async getCcuInfo(signal?: AbortSignal): Promise<CcuInfo> {
     return this.issueRequest(
       new URL(`${TUN_ENDPOINT}/ccu-info`, this.colabDomain),
-      { method: "GET", signal },
+      { method: 'GET', signal },
       CcuInfoSchema,
     );
   }
@@ -129,13 +129,13 @@ export class ColabClient {
       signal,
     );
     switch (assignment.kind) {
-      case "assigned": {
+      case 'assigned': {
         // Not required, but we want to remove the type field we use internally
         // to discriminate the union of types returned from getAssignment.
         const { kind: _, ...rest } = assignment;
         return { assignment: rest, isNew: false };
       }
-      case "to_assign": {
+      case 'to_assign': {
         let res: PostAssignmentResponse;
         try {
           res = await this.postAssignment(
@@ -160,13 +160,13 @@ export class ColabClient {
           case Outcome.QUOTA_DENIED_REQUESTED_VARIANTS:
           case Outcome.QUOTA_EXCEEDED_USAGE_TIME:
             throw new InsufficientQuotaError(
-              "You have insufficient quota to assign this server.",
+              'You have insufficient quota to assign this server.',
             );
           case Outcome.DENYLISTED:
             // TODO: Consider adding a mechanism to send feedback as part of an
             // appeal.
             throw new DenylistedError(
-              "This account has been blocked from accessing Colab servers due to suspected abusive activity. This does not impact access to other Google products. Review the [usage limitations](https://research.google.com/colaboratory/faq.html#limitations-and-restrictions).",
+              'This account has been blocked from accessing Colab servers due to suspected abusive activity. This does not impact access to other Google products. Review the [usage limitations](https://research.google.com/colaboratory/faq.html#limitations-and-restrictions).',
             );
           case Outcome.UNDEFINED_OUTCOME:
           case Outcome.SUCCESS:
@@ -193,11 +193,11 @@ export class ColabClient {
     );
     const { token } = await this.issueRequest(
       url,
-      { method: "GET", signal },
+      { method: 'GET', signal },
       z.object({ token: z.string() }),
     );
     await this.issueRequest(url, {
-      method: "POST",
+      method: 'POST',
       headers: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
       signal,
     });
@@ -218,12 +218,12 @@ export class ColabClient {
       `${TUN_ENDPOINT}/runtime-proxy-token`,
       this.colabDomain,
     );
-    url.searchParams.append("endpoint", endpoint);
-    url.searchParams.append("port", "8080");
+    url.searchParams.append('endpoint', endpoint);
+    url.searchParams.append('port', '8080');
     return await this.issueRequest(
       url,
       {
-        method: "GET",
+        method: 'GET',
         headers: { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value },
         signal,
       },
@@ -240,7 +240,7 @@ export class ColabClient {
   async listAssignments(signal?: AbortSignal): Promise<ListedAssignment[]> {
     const assignments = await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/assignments`, this.colabDomain),
-      { method: "GET", signal },
+      { method: 'GET', signal },
       ListedAssignmentsSchema,
     );
     return assignments.assignments;
@@ -258,13 +258,13 @@ export class ColabClient {
     signal?: AbortSignal,
   ): Promise<Kernel[]> {
     const url = new URL(
-      "api/kernels",
+      'api/kernels',
       server.connectionInformation.baseUrl.toString(),
     );
     return await this.issueRequest(
       url,
       {
-        method: "GET",
+        method: 'GET',
         headers: {
           [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
             server.connectionInformation.token,
@@ -289,7 +289,7 @@ export class ColabClient {
   ): Promise<Session[]> {
     let url: URL;
     let headers: fetch.HeadersInit;
-    if (typeof serverOrEndpoint === "string") {
+    if (typeof serverOrEndpoint === 'string') {
       url = new URL(
         `${TUN_ENDPOINT}/${serverOrEndpoint}/api/sessions`,
         this.colabDomain,
@@ -297,7 +297,7 @@ export class ColabClient {
       headers = { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value };
     } else {
       const connectionInfo = serverOrEndpoint.connectionInformation;
-      url = new URL("api/sessions", connectionInfo.baseUrl.toString());
+      url = new URL('api/sessions', connectionInfo.baseUrl.toString());
       headers = {
         [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: connectionInfo.token,
       };
@@ -305,7 +305,7 @@ export class ColabClient {
     return await this.issueRequest(
       url,
       {
-        method: "GET",
+        method: 'GET',
         headers,
         signal,
       },
@@ -330,7 +330,7 @@ export class ColabClient {
       server.connectionInformation.baseUrl.toString(),
     );
     await this.issueRequest(url, {
-      method: "DELETE",
+      method: 'DELETE',
       headers: {
         [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
           server.connectionInformation.token,
@@ -350,7 +350,7 @@ export class ColabClient {
     await this.issueRequest(
       new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.colabDomain),
       {
-        method: "GET",
+        method: 'GET',
         headers: { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value },
         signal,
       },
@@ -366,13 +366,13 @@ export class ColabClient {
     const url = this.buildAssignUrl(notebookHash, variant, accelerator);
     const response = await this.issueRequest(
       url,
-      { method: "GET", signal },
+      { method: 'GET', signal },
       z.union([GetAssignmentResponseSchema, AssignmentSchema]),
     );
-    if ("xsrfToken" in response) {
-      return { ...response, kind: "to_assign" };
+    if ('xsrfToken' in response) {
+      return { ...response, kind: 'to_assign' };
     } else {
-      return { ...response, kind: "assigned" };
+      return { ...response, kind: 'assigned' };
     }
   }
 
@@ -387,7 +387,7 @@ export class ColabClient {
     return await this.issueRequest(
       url,
       {
-        method: "POST",
+        method: 'POST',
         headers: { [COLAB_XSRF_TOKEN_HEADER.key]: xsrfToken },
         signal,
       },
@@ -401,12 +401,12 @@ export class ColabClient {
     accelerator?: string,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
-    url.searchParams.append("nbh", uuidToWebSafeBase64(notebookHash));
+    url.searchParams.append('nbh', uuidToWebSafeBase64(notebookHash));
     if (variant !== Variant.DEFAULT) {
-      url.searchParams.append("variant", variant);
+      url.searchParams.append('variant', variant);
     }
     if (accelerator) {
-      url.searchParams.append("accelerator", accelerator);
+      url.searchParams.append('accelerator', accelerator);
     }
     return url;
   }
@@ -444,7 +444,7 @@ export class ColabClient {
   ): Promise<unknown> {
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
-      endpoint.searchParams.append("authuser", "0");
+      endpoint.searchParams.append('authuser', '0');
     }
     const token = await this.getAccessToken();
     const requestHeaders = new Headers(init.headers);
@@ -521,7 +521,7 @@ class ColabRequestError extends Error {
   }) {
     super(
       `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ${responseBody}` : ""),
+        (responseBody ? `\nResponse body: ${responseBody}` : ''),
     );
     this.request = request;
     this.response = response;

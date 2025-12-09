@@ -4,19 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as path from "path";
-import { Glob } from "glob";
-import Mocha from "mocha";
+import * as path from 'path';
+import { Glob } from 'glob';
+import Mocha from 'mocha';
 
 export function run(): Promise<void> {
   const mocha = new Mocha({
-    ui: "bdd",
+    ui: 'bdd',
   });
 
-  const testsRoot = path.resolve(__dirname, "..");
+  const testsRoot = path.resolve(__dirname, '..');
 
   return new Promise((c, e) => {
-    const files = new Glob("**/**vscode.test.js", { cwd: testsRoot });
+    const files = new Glob('**/**vscode.test.js', { cwd: testsRoot });
 
     for (const file of files) {
       mocha.addFile(path.resolve(testsRoot, file));

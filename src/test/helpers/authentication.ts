@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from "vscode";
+import vscode from 'vscode';
 
 /**
  * A fake implementation to back the `vscode.authentication` API.
@@ -88,13 +88,13 @@ export class FakeAuthenticationProviderManager {
 
     if (sessions.length > 1) {
       throw new Error(
-        "The fake implementation for getSession does not support multiple sessions",
+        'The fake implementation for getSession does not support multiple sessions',
       );
     }
 
     if (sessions.length !== 1) {
       throw new Error(
-        "The provider failed to create a session for the requested scopes",
+        'The provider failed to create a session for the requested scopes',
       );
     }
 
@@ -122,29 +122,29 @@ export function authUriMatch(
         const parsedUrl = new URL(urlString);
         const params = parsedUrl.searchParams;
 
-        if (parsedUrl.protocol !== "https:") {
+        if (parsedUrl.protocol !== 'https:') {
           this.errors.push(
             `Expected protocol "https:", but got "${parsedUrl.protocol}"`,
           );
         }
-        if (parsedUrl.hostname !== "accounts.google.com") {
+        if (parsedUrl.hostname !== 'accounts.google.com') {
           this.errors.push(
             `Expected hostname "accounts.google.com", but got "${parsedUrl.hostname}"`,
           );
         }
-        if (parsedUrl.pathname !== "/o/oauth2/v2/auth") {
+        if (parsedUrl.pathname !== '/o/oauth2/v2/auth') {
           this.errors.push(
             `Expected pathname "/o/oauth2/v2/auth", but got "${parsedUrl.pathname}"`,
           );
         }
 
         const expectedParams: Record<string, string> = {
-          access_type: "offline",
-          response_type: "code",
-          prompt: "consent",
-          code_challenge_method: "S256",
+          access_type: 'offline',
+          response_type: 'code',
+          prompt: 'consent',
+          code_challenge_method: 'S256',
           redirect_uri: redirectUri,
-          scope: scopes.join(" "),
+          scope: scopes.join(' '),
         };
 
         for (const key in expectedParams) {
@@ -152,22 +152,22 @@ export function authUriMatch(
           const expected = expectedParams[key];
           if (actual !== expected) {
             this.errors.push(
-              `For param "${key}", expected "${expected}", but got "${actual ?? ""}"`,
+              `For param "${key}", expected "${expected}", but got "${actual ?? ''}"`,
             );
           }
         }
 
-        const requiredDynamicParams = ["state", "code_challenge", "client_id"];
+        const requiredDynamicParams = ['state', 'code_challenge', 'client_id'];
         for (const key of requiredDynamicParams) {
           if (!params.has(key)) {
             this.errors.push(`Missing required dynamic param: "${key}"`);
           }
         }
 
-        const state = params.get("state");
+        const state = params.get('state');
         if (!state || !stateParam.test(state)) {
           this.errors.push(
-            `State param should match "${stateParam.source}", but got "${state ?? ""}"`,
+            `State param should match "${stateParam.source}", but got "${state ?? ''}"`,
           );
         }
       } catch (error) {
@@ -179,9 +179,9 @@ export function authUriMatch(
 
     toString: function (): string {
       if (this.errors.length > 0) {
-        return `The following issues were found:\n  - ${this.errors.join("\n  - ")}`;
+        return `The following issues were found:\n  - ${this.errors.join('\n  - ')}`;
       }
-      return "a valid Google Auth URL";
+      return 'a valid Google Auth URL';
     },
   };
 }
