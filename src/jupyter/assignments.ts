@@ -103,12 +103,14 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Retrieves a list of available server descriptors that can be assigned.
    *
+   * @param subscriptionTier - The user's subscription tier.
+   * @param signal - An optional {@link AbortSignal} to cancel the operation.
    * @returns A list of available server descriptors.
    */
   // TODO: Consider communicating which machines are available, but not to the
   // user at their tier (in the "ineligible" list).
   async getAvailableServerDescriptors(
-    subscriptionTier = SubscriptionTier.NONE,
+    subscriptionTier: SubscriptionTier,
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
     const ccuInfo = await this.client.getCcuInfo(signal);

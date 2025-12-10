@@ -286,7 +286,6 @@ describe('ColabJupyterServerProvider', () => {
 
         it('excludes upgrade to pro command when getting the subscription tier fails', async () => {
           colabClientStub.getSubscriptionTier.rejects(new Error('foo'));
-
           const commands = await serverProvider.provideCommands(
             undefined,
             cancellationToken,

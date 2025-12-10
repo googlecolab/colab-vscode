@@ -114,13 +114,12 @@ export class ServerPicker {
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
       state.accelerator = 'NONE';
-      const shapePicks = getShapePicksFromAccelerator(
+      const { defaultShape, shapePicks } = getShapeInfoForAccelerator(
         shapesByAccelerators,
         state.accelerator,
       );
       if (shapePicks.length <= 1) {
-        state.shape =
-          shapePicks.length === 1 ? shapePicks[0].value : Shape.STANDARD;
+        state.shape = defaultShape;
         return (input: MultiStepInput) =>
           this.promptForAlias(input, state, /** totalSteps= */ 2);
       }
@@ -163,13 +162,12 @@ export class ServerPicker {
     if (!isAcceleratorDefined(state)) {
       return;
     }
-    const shapePicks = getShapePicksFromAccelerator(
+    const { defaultShape, shapePicks } = getShapeInfoForAccelerator(
       shapesByAccelerators,
       state.accelerator,
     );
     if (shapePicks.length <= 1) {
-      state.shape =
-        shapePicks.length === 1 ? shapePicks[0].value : Shape.STANDARD;
+      state.shape = defaultShape;
       return (input: MultiStepInput) =>
         this.promptForAlias(input, state, /** totalSteps= */ 3);
     }
@@ -183,10 +181,11 @@ export class ServerPicker {
     items: ShapePick[],
   ) {
     const step = state.accelerator && state.accelerator !== 'NONE' ? 3 : 2;
+    const totalSteps = step + 1;
     const pick = await input.showQuickPick({
       title: 'Select a machine shape',
       step,
-      totalSteps: step + 1,
+      totalSteps,
       items,
       activeItem: items.find((item) => item.value === state.shape),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -197,7 +196,7 @@ export class ServerPicker {
     }
 
     return (input: MultiStepInput) =>
-      this.promptForAlias(input, state, /** totalSteps= */ step + 1);
+      this.promptForAlias(input, state, totalSteps);
   }
 
   private async promptForAlias(
@@ -267,17 +266,26 @@ interface ShapePick extends QuickPickItem {
   value: Shape;
 }
 
-function getShapePicksFromAccelerator(
+function getShapeInfoForAccelerator(
   shapesByAccelerators: Map<string, Set<Shape>>,
   accelerator: string,
-): ShapePick[] {
-  const shapes = shapesByAccelerators.get(accelerator) ?? new Set();
-  const items: ShapePick[] = [];
+): { defaultShape: Shape; shapePicks: ShapePick[] } {
+  const shapes = shapesByAccelerators.get(accelerator);
+  const shapePicks: ShapePick[] = [];
+  if (!shapes) {
+    return {
+      defaultShape: Shape.STANDARD,
+      shapePicks,
+    };
+  }
   for (const shape of shapes) {
-    items.push({
+    shapePicks.push({
       value: shape,
       label: shapeToMachineShape(shape),
     });
   }
-  return items;
+  return {
+    defaultShape: shapePicks.length >= 1 ? shapePicks[0].value : Shape.STANDARD,
+    shapePicks,
+  };
 }
