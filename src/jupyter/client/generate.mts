@@ -4,26 +4,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { execSync } from "child_process";
-import fs from "fs";
-import path from "path";
-import { parse, stringify } from "yaml";
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { parse, stringify } from 'yaml';
 
 const DIR = import.meta.dirname;
-const API_YAML = path.join(DIR, "api.yaml");
-const POST_PROCESSED_YAML = path.join(DIR, "post-processed-api.yaml");
-const OUT_DIR = path.join(DIR, "generated");
+const API_YAML = path.join(DIR, 'api.yaml');
+const POST_PROCESSED_YAML = path.join(DIR, 'post-processed-api.yaml');
+const OUT_DIR = path.join(DIR, 'generated');
 
-type HttpMethod = "get" | "post" | "put" | "delete" | "patch";
+type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch';
 
-interface OpenAPIOperation {
+interface OpenApiOperation {
   operationId?: string;
   summary?: string;
   description?: string;
   [key: string]: unknown; // Allow other properties
 }
 
-type OpenAPIPathItem = Partial<Record<HttpMethod, OpenAPIOperation>> &
+type OpenAPIPathItem = Partial<Record<HttpMethod, OpenApiOperation>> &
   Record<string, unknown>;
 
 interface OpenAPIDocument {
@@ -39,76 +39,101 @@ interface OpDef {
 
 // Path -> Method -> { id, name }
 const OPERATION_MAP: Record<string, Partial<Record<HttpMethod, OpDef>>> = {
-  "/api/contents/{path}": {
-    get: { id: "Contents_get", name: "get" },
-    post: { id: "Contents_create", name: "create" },
-    patch: { id: "Contents_rename", name: "rename" },
-    put: { id: "Contents_save", name: "save" },
-    delete: { id: "Contents_delete", name: "delete" },
+  '/api/contents/{path}': {
+    get: { id: 'Contents_get', name: 'get' },
+    post: { id: 'Contents_create', name: 'create' },
+    patch: { id: 'Contents_rename', name: 'rename' },
+    put: { id: 'Contents_save', name: 'save' },
+    delete: { id: 'Contents_delete', name: 'delete' },
   },
-  "/api/contents/{path}/checkpoints": {
-    get: { id: "Contents_listCheckpoints", name: "listCheckpoints" },
-    post: { id: "Contents_createCheckpoint", name: "createCheckpoint" },
+  '/api/contents/{path}/checkpoints': {
+    get: { id: 'Contents_listCheckpoints', name: 'listCheckpoints' },
+    post: { id: 'Contents_createCheckpoint', name: 'createCheckpoint' },
   },
-  "/api/contents/{path}/checkpoints/{checkpoint_id}": {
-    post: { id: "Contents_restoreCheckpoint", name: "restoreCheckpoint" },
-    delete: { id: "Contents_deleteCheckpoint", name: "deleteCheckpoint" },
+  '/api/contents/{path}/checkpoints/{checkpoint_id}': {
+    post: { id: 'Contents_restoreCheckpoint', name: 'restoreCheckpoint' },
+    delete: { id: 'Contents_deleteCheckpoint', name: 'deleteCheckpoint' },
   },
-  "/api/sessions/{session}": {
-    get: { id: "Sessions_get", name: "get" },
-    patch: { id: "Sessions_update", name: "update" },
-    delete: { id: "Sessions_delete", name: "delete" },
+  '/api/sessions/{session}': {
+    get: { id: 'Sessions_get', name: 'get' },
+    patch: { id: 'Sessions_update', name: 'update' },
+    delete: { id: 'Sessions_delete', name: 'delete' },
   },
-  "/api/sessions": {
-    get: { id: "Sessions_list", name: "list" },
-    post: { id: "Sessions_create", name: "create" },
+  '/api/sessions': {
+    get: { id: 'Sessions_list', name: 'list' },
+    post: { id: 'Sessions_create', name: 'create' },
   },
-  "/api/kernels": {
-    get: { id: "Kernels_list", name: "list" },
-    post: { id: "Kernels_start", name: "start" },
+  '/api/kernels': {
+    get: { id: 'Kernels_list', name: 'list' },
+    post: { id: 'Kernels_start', name: 'start' },
   },
-  "/api/kernels/{kernel_id}": {
-    get: { id: "Kernels_get", name: "get" },
-    delete: { id: "Kernels_kill", name: "kill" },
+  '/api/kernels/{kernel_id}': {
+    get: { id: 'Kernels_get', name: 'get' },
+    delete: { id: 'Kernels_kill', name: 'kill' },
   },
-  "/api/kernels/{kernel_id}/interrupt": {
-    post: { id: "Kernels_interrupt", name: "interrupt" },
+  '/api/kernels/{kernel_id}/interrupt': {
+    post: { id: 'Kernels_interrupt', name: 'interrupt' },
   },
-  "/api/kernels/{kernel_id}/restart": {
-    post: { id: "Kernels_restart", name: "restart" },
+  '/api/kernels/{kernel_id}/restart': {
+    post: { id: 'Kernels_restart', name: 'restart' },
   },
-  "/api/kernelspecs": {
-    get: { id: "Kernelspecs_list", name: "list" },
+  '/api/kernelspecs': {
+    get: { id: 'Kernelspecs_list', name: 'list' },
   },
-  "/api/config/{section_name}": {
-    get: { id: "Config_get", name: "get" },
-    patch: { id: "Config_update", name: "update" },
+  '/api/config/{section_name}': {
+    get: { id: 'Config_get', name: 'get' },
+    patch: { id: 'Config_update', name: 'update' },
   },
-  "/api/terminals": {
-    get: { id: "Terminals_list", name: "list" },
-    post: { id: "Terminals_create", name: "create" },
+  '/api/terminals': {
+    get: { id: 'Terminals_list', name: 'list' },
+    post: { id: 'Terminals_create', name: 'create' },
   },
-  "/api/terminals/{terminal_id}": {
-    get: { id: "Terminals_get", name: "get" },
-    delete: { id: "Terminals_delete", name: "delete" },
+  '/api/terminals/{terminal_id}': {
+    get: { id: 'Terminals_get', name: 'get' },
+    delete: { id: 'Terminals_delete', name: 'delete' },
   },
-  "/api/me": {
-    get: { id: "Identity_get", name: "get" },
+  '/api/me': {
+    get: { id: 'Identity_get', name: 'get' },
   },
-  "/api/status": {
-    get: { id: "Status_get", name: "get" },
+  '/api/status': {
+    get: { id: 'Status_get', name: 'get' },
   },
-  "/api/spec.yaml": {
-    get: { id: "ApiSpec_get", name: "getSpec" },
+  '/api/spec.yaml': {
+    get: { id: 'ApiSpec_get', name: 'getSpec' },
   },
-  "/api/": {
-    get: { id: "Default_getVersion", name: "getVersion" },
+  '/api/': {
+    get: { id: 'Default_getVersion', name: 'getVersion' },
   },
 };
 
 function main(): void {
-  console.log("📚 Reading api.yaml...");
-  const raw = fs.readFileSync(API_YAML, "utf8");
+  console.log('📚 Reading api.yaml...');
+  const spec = readApiSpec();
+
+  console.log('✏️ Injecting unique operationIds...');
+  const { nameReplacements, injectedCount } = injectOperationIds(spec);
+  console.log(`✅ Injected ${injectedCount.toString()} operationIds.`);
+
+  fs.writeFileSync(POST_PROCESSED_YAML, stringify(spec));
+
+  console.log('🏃 Running openapi-generator-cli...');
+  execSync(
+    `npx openapi-generator-cli generate \
+        -i "${POST_PROCESSED_YAML}" \
+        -g typescript-fetch \
+        -o "${OUT_DIR}" \
+        --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
+    { stdio: 'inherit' },
+  );
+
+  console.log('✏️ Post-processing generated files...');
+  postProcessGeneratedFiles(nameReplacements);
+
+  console.log('✅ Done generating client!');
+}
+
+function readApiSpec(): OpenAPIDocument {
+  const raw = fs.readFileSync(API_YAML, 'utf8');
 
   const spec = parse(raw) as unknown;
   if (!isOpenAPIDocument(spec)) {
@@ -116,8 +141,13 @@ function main(): void {
       "Parsed YAML is not a valid OpenAPI document (missing 'paths').",
     );
   }
+  return spec;
+}
 
-  console.log("✏️ Injecting unique operationIds...");
+function injectOperationIds(spec: OpenAPIDocument): {
+  nameReplacements: Map<string, string>;
+  injectedCount: number;
+} {
   let injectedCount = 0;
 
   const nameReplacements = new Map<string, string>();
@@ -138,42 +168,32 @@ function main(): void {
       injectedCount++;
     }
   }
-  console.log(`✅ Injected ${injectedCount.toString()} operationIds.`);
+  return { nameReplacements, injectedCount };
+}
 
-  fs.writeFileSync(POST_PROCESSED_YAML, stringify(spec));
-
-  console.log("🏃 Running openapi-generator-cli...");
-  execSync(
-    `npx openapi-generator-cli generate \
-        -i "${POST_PROCESSED_YAML}" \
-        -g typescript-fetch \
-        -o "${OUT_DIR}" \
-        --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
-    { stdio: "inherit" },
-  );
-
-  console.log("✏️ Post-processing generated files...");
+function postProcessGeneratedFiles(
+  nameReplacements: Map<string, string>,
+): void {
   const files = findTsFiles(OUT_DIR);
 
   for (const file of files) {
-    let content = fs.readFileSync(file, "utf8");
+    let content = fs.readFileSync(file, 'utf8');
 
     // Add @ts-nocheck if missing
-    if (!content.startsWith("// @ts-nocheck")) {
-      content = "// @ts-nocheck\n" + content;
+    if (!content.startsWith('// @ts-nocheck')) {
+      content = '// @ts-nocheck\n' + content;
     }
 
     // Rename methods
     for (const [genName, desiredName] of nameReplacements) {
-      const regex = new RegExp(`(async )?${genName}\\(`, "g");
+      const regex = new RegExp(`(async )?${genName}\\(`, 'g');
       content = content.replace(regex, `$1${desiredName}(`);
-      const regexRaw = new RegExp(`(async )?${genName}Raw\\(`, "g");
+      const regexRaw = new RegExp(`(async )?${genName}Raw\\(`, 'g');
       content = content.replace(regexRaw, `$1${desiredName}Raw(`);
     }
 
     fs.writeFileSync(file, content);
   }
-  console.log("✅ Done generating client!");
 }
 
 /**
@@ -182,10 +202,10 @@ function main(): void {
  */
 function isOpenAPIDocument(doc: unknown): doc is OpenAPIDocument {
   return (
-    typeof doc === "object" &&
+    typeof doc === 'object' &&
     doc !== null &&
-    "paths" in doc &&
-    typeof (doc as OpenAPIDocument).paths === "object"
+    'paths' in doc &&
+    typeof (doc as OpenAPIDocument).paths === 'object'
   );
 }
 
@@ -207,7 +227,7 @@ function findTsFiles(dir: string): string[] {
 
     if (stat.isDirectory()) {
       results = results.concat(findTsFiles(filePath));
-    } else if (file.endsWith(".ts")) {
+    } else if (file.endsWith('.ts')) {
       results.push(filePath);
     }
   }
