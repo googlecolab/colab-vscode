@@ -23,15 +23,18 @@
     "ms-toolsai.jupyter"
   ],
   "categories": [
+    "Data Science",
+    "Machine Learning",
     "Notebooks"
   ],
-  "tags": [
+  "keywords": [
     "colab",
     "google",
     "interactive",
     "julia",
     "jupyter",
     "notebook",
+    "notebookKernelJupyterNotebook",
     "python",
     "r"
   ],
