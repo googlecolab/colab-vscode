@@ -120,6 +120,7 @@
   "scripts": {
     "clean": "rm -rf out/*",
     "generate:config": "tsx ./scripts/generate-config.mts",
+    "generate:jupyterclient": "tsx ./src/jupyter/client/generate.mts",
     "build": "concurrently \"npm:build:extension\" \"npm:build:tests\" \"npm:typecheck\" --prefixColors=auto",
     "build:extension": "tsx esbuild.config.mts",
     "build:tests": "npm run build:extension -- --tests",
@@ -148,6 +149,7 @@
   "devDependencies": {
     "@cspell/eslint-plugin": "^8.17.3",
     "@eslint/js": "^9.33.0",
+    "@openapitools/openapi-generator-cli": "^2.25.2",
     "@stylistic/eslint-plugin": "^5.2.2",
     "@types/chai": "^4.3.20",
     "@types/chai-as-promised": "^7.1.8",
@@ -184,7 +186,8 @@
     "tsx": "^4.19.4",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.15.0",
-    "vscode-extension-tester": "^8.14.1"
+    "vscode-extension-tester": "^8.14.1",
+    "yaml": "^2.8.2"
   },
   "dependencies": {
     "glob": "^11.1.0",

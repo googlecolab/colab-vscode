@@ -20,6 +20,9 @@ import {
   RuntimeProxyInfo,
   Variant,
   variantToMachineType,
+  SubscriptionTier,
+  Shape,
+  isHighMemOnlyAccelerator,
 } from '../colab/api';
 import {
   ColabClient,
@@ -102,11 +105,14 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Retrieves a list of available server descriptors that can be assigned.
    *
+   * @param subscriptionTier - The user's subscription tier.
+   * @param signal - An optional {@link AbortSignal} to cancel the operation.
    * @returns A list of available server descriptors.
    */
   // TODO: Consider communicating which machines are available, but not to the
   // user at their tier (in the "ineligible" list).
   async getAvailableServerDescriptors(
+    subscriptionTier: SubscriptionTier,
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
     const ccuInfo = await this.client.getCcuInfo(signal);
@@ -125,7 +131,19 @@ export class AssignmentManager implements vscode.Disposable {
       accelerator: e,
     }));
 
-    return [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
+    const defaultDescriptors = [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
+    if (subscriptionTier === SubscriptionTier.NONE) {
+      return defaultDescriptors;
+    }
+
+    const proDescriptors = [];
+    for (const descriptor of defaultDescriptors) {
+      if (!isHighMemOnlyAccelerator(descriptor.accelerator)) {
+        proDescriptors.push({ ...descriptor, shape: Shape.STANDARD });
+      }
+      proDescriptors.push({ ...descriptor, shape: Shape.HIGHMEM });
+    }
+    return proDescriptors;
   }
 
   /**
@@ -279,6 +297,7 @@ export class AssignmentManager implements vscode.Disposable {
         id,
         descriptor.variant,
         descriptor.accelerator,
+        descriptor.shape,
         signal,
       ));
     } catch (error) {

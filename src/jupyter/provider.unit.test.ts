@@ -286,7 +286,6 @@ describe('ColabJupyterServerProvider', () => {
 
         it('excludes upgrade to pro command when getting the subscription tier fails', async () => {
           colabClientStub.getSubscriptionTier.rejects(new Error('foo'));
-
           const commands = await serverProvider.provideCommands(
             undefined,
             cancellationToken,
@@ -486,6 +485,8 @@ describe('ColabJupyterServerProvider', () => {
         });
 
         it('completes assigning a server', async () => {
+          colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
+
           const availableServers = [DEFAULT_SERVER];
           assignmentStub.getAvailableServerDescriptors.resolves(
             availableServers,
@@ -510,6 +511,10 @@ describe('ColabJupyterServerProvider', () => {
           ).to.eventually.deep.equal(DEFAULT_SERVER);
 
           sinon.assert.calledOnce(serverPickerStub.prompt);
+          sinon.assert.calledOnceWithExactly(
+            assignmentStub.getAvailableServerDescriptors,
+            SubscriptionTier.PRO,
+          );
           sinon.assert.calledOnce(assignmentStub.assignServer);
         });
       });

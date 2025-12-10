@@ -79,7 +79,7 @@ jobs:
       # make it easier to see the results and treat violations as errors
       # instead of warnings.
       - name: Spell Check
-        run: npx cspell "**" --no-progress --show-suggestions --show-context
+        run: npx cspell "**" --no-progress --show-suggestions --show-context --exclude "src/jupyter/client/generated/**" --exclude "src/jupyter/client/api.yaml"
 
   unitTests:
     name: Unit Tests

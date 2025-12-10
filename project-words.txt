@@ -12,9 +12,12 @@ grayscale
 highmem
 ipykernel
 ipynb
+jupyterclient
+kernelspecs
 KHTML
 milli
 mocharc
+openapitools
 pkce
 Pyright
 quickpick

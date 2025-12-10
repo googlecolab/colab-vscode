@@ -8,7 +8,12 @@ import vscode, { QuickPickItem } from 'vscode';
 import { InputStep, MultiStepInput } from '../common/multi-step-quickpick';
 import { AssignmentManager } from '../jupyter/assignments';
 import { ColabServerDescriptor } from '../jupyter/servers';
-import { Variant, variantToMachineType } from './api';
+import {
+  Variant,
+  variantToMachineType,
+  Shape,
+  shapeToMachineShape,
+} from './api';
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -38,23 +43,36 @@ export class ServerPicker {
     availableServers: ColabServerDescriptor[],
   ): Promise<ColabServerDescriptor | undefined> {
     const variantToAccelerators = new Map<Variant, Set<string>>();
+    const acceleratorsToShapes = new Map<string, Set<Shape>>();
     for (const server of availableServers) {
+      const serverAccelerator = server.accelerator ?? 'NONE';
+
       const accelerators =
         variantToAccelerators.get(server.variant) ?? new Set();
-      accelerators.add(server.accelerator ?? 'NONE');
+      accelerators.add(serverAccelerator);
       variantToAccelerators.set(server.variant, accelerators);
+
+      const shapes = acceleratorsToShapes.get(serverAccelerator) ?? new Set();
+      shapes.add(server.shape ?? Shape.STANDARD);
+      acceleratorsToShapes.set(serverAccelerator, shapes);
     }
-    if (variantToAccelerators.size === 0) {
+    if (variantToAccelerators.size === 0 || acceleratorsToShapes.size === 0) {
       return;
     }
 
     const state: Partial<Server> = {};
     await MultiStepInput.run(this.vs, (input) =>
-      this.promptForVariant(input, state, variantToAccelerators),
+      this.promptForVariant(
+        input,
+        state,
+        variantToAccelerators,
+        acceleratorsToShapes,
+      ),
     );
     if (
       state.variant === undefined ||
       state.accelerator === undefined ||
+      state.shape === undefined ||
       !state.alias
     ) {
       return undefined;
@@ -63,6 +81,7 @@ export class ServerPicker {
       label: state.alias,
       variant: state.variant,
       accelerator: state.accelerator,
+      shape: state.shape,
     };
   }
 
@@ -70,6 +89,7 @@ export class ServerPicker {
     input: MultiStepInput,
     state: Partial<Server>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
+    shapesByAccelerators: Map<string, Set<Shape>>,
   ): Promise<InputStep | undefined> {
     const items: VariantPick[] = [];
     for (const variant of acceleratorsByVariant.keys()) {
@@ -94,16 +114,32 @@ export class ServerPicker {
     // Skip prompting for an accelerator for the default variant (CPU).
     if (state.variant === Variant.DEFAULT) {
       state.accelerator = 'NONE';
-      return (input: MultiStepInput) => this.promptForAlias(input, state);
+      const { defaultShape, shapePicks } = getShapeInfoForAccelerator(
+        shapesByAccelerators,
+        state.accelerator,
+      );
+      if (shapePicks.length <= 1) {
+        state.shape = defaultShape;
+        return (input: MultiStepInput) =>
+          this.promptForAlias(input, state, /** totalSteps= */ 2);
+      }
+      return (input: MultiStepInput) =>
+        this.promptForMachineShape(input, state, shapePicks);
     }
     return (input: MultiStepInput) =>
-      this.promptForAccelerator(input, state, acceleratorsByVariant);
+      this.promptForAccelerator(
+        input,
+        state,
+        acceleratorsByVariant,
+        shapesByAccelerators,
+      );
   }
 
   private async promptForAccelerator(
     input: MultiStepInput,
     state: PartialServerWith<'variant'>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
+    shapesByAccelerators: Map<string, Set<Shape>>,
   ): Promise<InputStep | undefined> {
     const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
     const items: AcceleratorPick[] = [];
@@ -126,23 +162,56 @@ export class ServerPicker {
     if (!isAcceleratorDefined(state)) {
       return;
     }
+    const { defaultShape, shapePicks } = getShapeInfoForAccelerator(
+      shapesByAccelerators,
+      state.accelerator,
+    );
+    if (shapePicks.length <= 1) {
+      state.shape = defaultShape;
+      return (input: MultiStepInput) =>
+        this.promptForAlias(input, state, /** totalSteps= */ 3);
+    }
+    return (input: MultiStepInput) =>
+      this.promptForMachineShape(input, state, shapePicks);
+  }
 
-    return (input: MultiStepInput) => this.promptForAlias(input, state);
+  private async promptForMachineShape(
+    input: MultiStepInput,
+    state: PartialServerWith<'variant'>,
+    items: ShapePick[],
+  ) {
+    const step = state.accelerator && state.accelerator !== 'NONE' ? 3 : 2;
+    const totalSteps = step + 1;
+    const pick = await input.showQuickPick({
+      title: 'Select a machine shape',
+      step,
+      totalSteps,
+      items,
+      activeItem: items.find((item) => item.value === state.shape),
+      buttons: [input.vs.QuickInputButtons.Back],
+    });
+    state.shape = pick.value;
+    if (!isShapeDefined(state)) {
+      return;
+    }
+
+    return (input: MultiStepInput) =>
+      this.promptForAlias(input, state, totalSteps);
   }
 
   private async promptForAlias(
     input: MultiStepInput,
     state: PartialServerWith<'variant'>,
+    totalSteps: number,
   ): Promise<InputStep | undefined> {
     const placeholder = await this.assignments.getDefaultLabel(
       state.variant,
       state.accelerator,
     );
-    const step = state.accelerator && state.accelerator !== 'NONE' ? 3 : 2;
     const alias = await input.showInputBox({
       title: 'Alias your server',
-      step,
-      totalSteps: step,
+      step: totalSteps,
+      totalSteps,
       value: state.alias ?? '',
       prompt: PROMPT_SERVER_ALIAS,
       validate: validateServerAlias,
@@ -157,6 +226,7 @@ export class ServerPicker {
 interface Server {
   variant: Variant;
   accelerator: string;
+  shape: Shape;
   alias: string;
 }
 
@@ -178,10 +248,44 @@ function isAcceleratorDefined(
   return state.accelerator !== undefined;
 }
 
+function isShapeDefined(
+  state: Partial<Server>,
+): state is PartialServerWith<'shape'> {
+  return state.shape !== undefined;
+}
+
 interface VariantPick extends QuickPickItem {
   value: Variant;
 }
 
 interface AcceleratorPick extends QuickPickItem {
   value: string;
+}
+
+interface ShapePick extends QuickPickItem {
+  value: Shape;
+}
+
+function getShapeInfoForAccelerator(
+  shapesByAccelerators: Map<string, Set<Shape>>,
+  accelerator: string,
+): { defaultShape: Shape; shapePicks: ShapePick[] } {
+  const shapes = shapesByAccelerators.get(accelerator);
+  const shapePicks: ShapePick[] = [];
+  if (!shapes) {
+    return {
+      defaultShape: Shape.STANDARD,
+      shapePicks,
+    };
+  }
+  for (const shape of shapes) {
+    shapePicks.push({
+      value: shape,
+      label: shapeToMachineShape(shape),
+    });
+  }
+  return {
+    defaultShape: shapePicks.length >= 1 ? shapePicks[0].value : Shape.STANDARD,
+    shapePicks,
+  };
 }

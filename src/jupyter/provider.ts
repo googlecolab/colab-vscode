@@ -204,8 +204,9 @@ export class ColabJupyterServerProvider
   }
 
   private async assignServer(): Promise<JupyterServer> {
+    const tier = await this.client.getSubscriptionTier();
     const serverType = await this.serverPicker.prompt(
-      await this.assignmentManager.getAvailableServerDescriptors(),
+      await this.assignmentManager.getAvailableServerDescriptors(tier),
     );
     if (!serverType) {
       throw new this.vs.CancellationError();
