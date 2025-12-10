@@ -24,6 +24,10 @@
  */
 
 import { z } from 'zod';
+import {
+  Session as GeneratedSession,
+  Kernel as GeneratedKernel,
+} from '../jupyter/client/generated';
 
 export enum SubscriptionState {
   UNSUBSCRIBED = 1,
@@ -337,7 +341,7 @@ export type Assignment = z.infer<typeof AssignmentSchema>;
 /** A Colab Jupyter kernel returned from the Colab API. */
 // This can be obtained by querying the Jupyter REST API's /api/spec.yaml
 // endpoint.
-export const KernelSchema = z
+export const KernelSchema: z.ZodType<GeneratedKernel> = z
   .object({
     /** The UUID of the kernel. */
     id: z.string(),
@@ -361,7 +365,7 @@ export const KernelSchema = z
 export type Kernel = z.infer<typeof KernelSchema>;
 
 /** A session to a Colab Jupyter kernel returned from the Colab API. */
-export const SessionSchema = z.object({
+export const SessionSchema: z.ZodType<GeneratedSession> = z.object({
   /** The UUID of the session. */
   id: z.string(),
   /** The kernel associated with the session. */

@@ -36,6 +36,7 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
+import { ProxiedJupyterClient } from './client';
 import {
   AllServers,
   ColabAssignedServer,
@@ -230,8 +231,12 @@ export class AssignmentManager implements vscode.Disposable {
             // For any remote servers created in Colab web UI, assuming there is
             // only one session per assignment.
             const sessions = await this.client.listSessions(a.endpoint, signal);
+            const label =
+              sessions.length === 1 && sessions[0].name?.length
+                ? sessions[0].name
+                : UNKNOWN_REMOTE_SERVER_NAME;
             return {
-              label: sessions[0]?.name || UNKNOWN_REMOTE_SERVER_NAME,
+              label,
               endpoint: a.endpoint,
               variant: a.variant,
               accelerator: a.accelerator,
@@ -433,9 +438,12 @@ export class AssignmentManager implements vscode.Disposable {
         removed: [{ server, userInitiated: true }],
         changed: [],
       });
+      const client = ProxiedJupyterClient.withStaticConnection(server);
       await Promise.all(
-        (await this.client.listSessions(server, signal)).map((session) =>
-          this.client.deleteSession(server, session.id, signal),
+        (await client.sessions.list({ signal })).map((session) =>
+          session.id
+            ? client.sessions.delete({ session: session.id }, { signal })
+            : Promise.resolve(),
         ),
       );
     }

@@ -30,10 +30,16 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { TestEventEmitter } from '../test/helpers/events';
+import {
+  createJupyterClientStub,
+  JupyterClientStub,
+} from '../test/helpers/jupyter';
 import { ServerStorageFake } from '../test/helpers/server-storage';
+import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { isUUID } from '../utils/uuid';
 import { AssignmentChangeEvent, AssignmentManager } from './assignments';
+import { ProxiedJupyterClient } from './client';
 import {
   ColabAssignedServer,
   ColabServerDescriptor,
@@ -65,13 +71,29 @@ const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
   },
 };
 
+const defaultServer: ColabAssignedServer = {
+  ...defaultAssignmentDescriptor,
+  id: randomUUID(),
+  endpoint: defaultAssignment.endpoint,
+  connectionInformation: {
+    baseUrl: TestUri.parse(defaultAssignment.runtimeProxyInfo.url),
+    token: defaultAssignment.runtimeProxyInfo.token,
+    tokenExpiry: new Date(NOW.getTime() + TOKEN_EXPIRY_MS),
+    headers: {
+      [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+        defaultAssignment.runtimeProxyInfo.token,
+      [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+    },
+  },
+  dateAssigned: NOW,
+};
+
 describe('AssignmentManager', () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let serverStorage: ServerStorage;
   let assignmentChangeListener: sinon.SinonStub<[AssignmentChangeEvent], void>;
-  let defaultServer: ColabAssignedServer;
   let assignmentManager: AssignmentManager;
 
   /**
@@ -112,22 +134,6 @@ describe('AssignmentManager', () => {
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
     serverStorage = new ServerStorageFake() as ServerStorage;
-    defaultServer = {
-      ...defaultAssignmentDescriptor,
-      id: randomUUID(),
-      endpoint: defaultAssignment.endpoint,
-      connectionInformation: {
-        baseUrl: vsCodeStub.Uri.parse(defaultAssignment.runtimeProxyInfo.url),
-        token: defaultAssignment.runtimeProxyInfo.token,
-        tokenExpiry: new Date(NOW.getTime() + TOKEN_EXPIRY_MS),
-        headers: {
-          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-            defaultAssignment.runtimeProxyInfo.token,
-          [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-        },
-      },
-      dateAssigned: NOW,
-    };
     assignmentManager = new AssignmentManager(
       vsCodeStub.asVsCode(),
       colabClientStub,
@@ -957,8 +963,15 @@ describe('AssignmentManager', () => {
     });
 
     describe('when a server created in VS Code exists', () => {
+      let jupyterStub: JupyterClientStub;
+
       beforeEach(async () => {
         await serverStorage.store([defaultServer]);
+        jupyterStub = createJupyterClientStub();
+        sinon
+          .stub(ProxiedJupyterClient, 'withStaticConnection')
+          .withArgs(defaultServer)
+          .returns(jupyterStub);
       });
 
       it('deletes sessions', async () => {
@@ -979,35 +992,29 @@ describe('AssignmentManager', () => {
           ...session1,
           id: 'mock-session-id-2',
         };
-        colabClientStub.listSessions
-          .withArgs(defaultServer)
-          .resolves([session1, session2]);
+        jupyterStub.sessions.list.resolves([session1, session2]);
 
         await assignmentManager.unassignServer(defaultServer);
 
-        sinon.assert.calledTwice(colabClientStub.deleteSession);
-        sinon.assert.calledWith(
-          colabClientStub.deleteSession,
-          defaultServer,
-          session1.id,
-        );
-        sinon.assert.calledWith(
-          colabClientStub.deleteSession,
-          defaultServer,
-          session2.id,
-        );
+        sinon.assert.calledTwice(jupyterStub.sessions.delete);
+        sinon.assert.calledWith(jupyterStub.sessions.delete, {
+          session: session1.id,
+        });
+        sinon.assert.calledWith(jupyterStub.sessions.delete, {
+          session: session2.id,
+        });
       });
 
       it('does not delete sessions when there are none', async () => {
-        colabClientStub.listSessions.resolves([]);
+        jupyterStub.sessions.list.resolves([]);
 
         await assignmentManager.unassignServer(defaultServer);
 
-        sinon.assert.notCalled(colabClientStub.deleteSession);
+        sinon.assert.notCalled(jupyterStub.sessions.delete);
       });
 
       it('unassigns the server', async () => {
-        colabClientStub.listSessions.resolves([]);
+        jupyterStub.sessions.list.resolves([]);
 
         await assignmentManager.unassignServer(defaultServer);
 
