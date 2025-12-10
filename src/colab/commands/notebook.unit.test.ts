@@ -10,7 +10,12 @@ import { QuickPickItem, Uri } from 'vscode';
 import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { OPEN_COLAB_WEB, UPGRADE_TO_PRO, REMOVE_SERVER } from './constants';
+import {
+  OPEN_COLAB_WEB,
+  UPGRADE_TO_PRO,
+  REMOVE_SERVER,
+  MOUNT_SERVER,
+} from './constants';
 import { notebookToolbar } from './notebook';
 
 describe('notebookToolbar', () => {
@@ -79,6 +84,7 @@ describe('notebookToolbar', () => {
     sinon.assert.calledOnceWithMatch(
       vsCodeStub.window.showQuickPick,
       commandsLabeled([
+        MOUNT_SERVER.label,
         REMOVE_SERVER.label,
         /* separator */ '',
         OPEN_COLAB_WEB.label,

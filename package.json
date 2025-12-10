@@ -78,6 +78,12 @@
     "commands": [
       {
         "category": "Colab",
+        "command": "colab.mountServer",
+        "enablement": "colab.hasAssignedServer",
+        "title": "Mount Server to Workspace"
+      },
+      {
+        "category": "Colab",
         "command": "colab.removeServer",
         "enablement": "colab.hasAssignedServer",
         "title": "Remove Server"

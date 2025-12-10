@@ -7,7 +7,12 @@
 import vscode, { QuickPickItem } from 'vscode';
 import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
-import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from './constants';
+import {
+  MOUNT_SERVER,
+  OPEN_COLAB_WEB,
+  REMOVE_SERVER,
+  UPGRADE_TO_PRO,
+} from './constants';
 import { openColabSignup, openColabWeb } from './external';
 
 /**
@@ -66,6 +71,16 @@ async function getAvailableCommands(
     return externalCommands;
   }
   const serverCommands: NotebookCommand[] = [
+    {
+      label: MOUNT_SERVER.label,
+      description: MOUNT_SERVER.description,
+      invoke: () => {
+        return vs.commands.executeCommand(
+          MOUNT_SERVER.id,
+          /* withBackButton= */ true,
+        );
+      },
+    },
     // TODO: Include the rename server alias command once rename is reflected in
     // the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     {

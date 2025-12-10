@@ -7,6 +7,7 @@
 import vscode, { QuickPickItem } from 'vscode';
 import { MultiStepInput } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
+import { ContentsFileSystemProvider } from '../../jupyter/contents';
 import { ColabAssignedServer, UnownedServer } from '../../jupyter/servers';
 import { ServerStorage } from '../../jupyter/storage';
 import { PROMPT_SERVER_ALIAS, validateServerAlias } from '../server-picker';
@@ -55,6 +56,46 @@ export async function renameServerAlias(
 
       await serverStorage.store([{ ...selectedServer, label: alias }]);
     };
+  });
+}
+
+/**
+ * Prompts the user to select an assigned Colab server to mount.
+ */
+// TODO: Consider making this multi-select.
+export async function mountServer(
+  vs: typeof vscode,
+  assignmentManager: AssignmentManager,
+  fs: ContentsFileSystemProvider,
+  withBackButton?: boolean,
+) {
+  const allServers = await assignmentManager.getServers('extension');
+  if (!allServers.length) {
+    return;
+  }
+
+  await MultiStepInput.run(vs, async (input) => {
+    const items: MountServerItem[] = allServers.map((s) => ({
+      label: s.label,
+      description: ServerCategory.VS_CODE,
+      value: s,
+    }));
+    const selectedServer = (
+      await input.showQuickPick({
+        title: REMOVE_SERVER.label,
+        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
+        items,
+      })
+    ).value;
+    if (!selectedServer) {
+      return;
+    }
+    fs.mount(selectedServer);
+
+    // TODO: Do we need a progress notification? Is there anything we can even
+    // listen to?
+
+    return undefined;
   });
 }
 
@@ -117,6 +158,10 @@ export async function removeServer(
 enum ServerCategory {
   VS_CODE = 'VS Code Server',
   COLAB_WEB = 'Colab Web Server',
+}
+
+interface MountServerItem extends QuickPickItem {
+  value?: ColabAssignedServer;
 }
 
 interface RemoveServerItem extends QuickPickItem {
