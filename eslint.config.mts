@@ -22,6 +22,9 @@ export default tseslint.config(
   tseslint.configs.stylisticTypeChecked,
   cspellESLintPluginRecommended,
   {
+    ignores: ['src/jupyter/client/generated'],
+  },
+  {
     languageOptions: {
       parserOptions: {
         project: './tsconfig.json',
