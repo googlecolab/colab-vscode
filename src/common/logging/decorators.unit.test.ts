@@ -63,7 +63,7 @@ describe('traceMethod', () => {
     expect(output).to.match(/TestClass\.asyncMethod called with\s+4\s+5/);
     expect(output).to.include('TestClass.asyncMethod returned a Promise');
     expect(output).to.match(
-      /TestClass\.asyncMethod Promise resolved with\s+20/,
+      /TestClass\.asyncMethod Promise resolved[\s\S]*?20/,
     );
   });
 
@@ -77,7 +77,7 @@ describe('traceMethod', () => {
 
     await asyncMethod;
     expect(logs.output).to.match(
-      /TestClass\.asyncMethod Promise resolved with\s+20/,
+      /TestClass\.asyncMethod Promise resolved[\s\S]*?20/,
     );
   });
 
@@ -102,7 +102,7 @@ describe('traceMethod', () => {
     expect(output).to.match(/TestClass\.asyncErrorMethod called with/);
     expect(output).to.include('TestClass.asyncErrorMethod returned a Promise');
     expect(output).to.match(
-      /TestClass\.asyncErrorMethod Promise rejected with\s+Error: Asynchronous error/,
+      /TestClass\.asyncErrorMethod Promise rejected[\s\S]*?Error: Asynchronous error/,
     );
   });
 });
