@@ -22,7 +22,7 @@ export default tseslint.config(
   tseslint.configs.stylisticTypeChecked,
   cspellESLintPluginRecommended,
   {
-    ignores: ["src/jupyter/client/generated"],
+    ignores: ['src/jupyter/client/generated'],
   },
   {
     languageOptions: {
