@@ -58,7 +58,7 @@ export interface AuthChangeEvent
 export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   readonly onDidChangeSessions: Event<AuthChangeEvent>;
   private isInitialized = false;
-  private readonly authProvider: Disposable;
+  private authProvider?: Disposable;
   private readonly emitter: EventEmitter<AuthChangeEvent>;
   private session?: Readonly<AuthenticationSession>;
   private readonly disposeController = new AbortController();
@@ -83,13 +83,6 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   ) {
     this.emitter = new vs.EventEmitter<AuthChangeEvent>();
     this.onDidChangeSessions = this.emitter.event;
-
-    this.authProvider = this.vs.authentication.registerAuthenticationProvider(
-      PROVIDER_ID,
-      PROVIDER_LABEL,
-      this,
-      { supportsMultipleAccounts: false },
-    );
 
     this.onDidChangeSessions(() => {
       void this.setSignedInContext();
@@ -119,7 +112,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Disposes the provider and cleans up resources.
    */
   dispose() {
-    this.authProvider.dispose();
+    this.authProvider?.dispose();
     this.disposeController.abort(new Error('GoogleAuthProvider was disposed.'));
   }
 
@@ -137,6 +130,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     const session = await this.storage.getSession();
     if (!session) {
       this.isInitialized = true;
+      this.register();
       return;
     }
     this.oAuth2Client.setCredentials({
@@ -190,6 +184,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       changed: [this.session],
       hasValidSession: true,
     });
+    this.register();
   }
 
   /**
@@ -342,6 +337,15 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       return;
     }
     await this.removeSession(this.session.id);
+  }
+
+  private register() {
+    this.authProvider = this.vs.authentication.registerAuthenticationProvider(
+      PROVIDER_ID,
+      PROVIDER_LABEL,
+      this,
+      { supportsMultipleAccounts: false },
+    );
   }
 
   private async setSignedInContext() {

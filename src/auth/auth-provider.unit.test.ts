@@ -127,21 +127,8 @@ describe('GoogleAuthProvider', () => {
   });
 
   describe('lifecycle', () => {
-    it('registers the "Google" authentication provider', async () => {
-      await authProvider.initialize();
-      // Expect the provider-specific rejection surrounding the scopes not
-      // matching the required set. This validates that the provider was
-      // registered and is being used.
-      await expect(
-        vsCodeStub.authentication.getSession(PROVIDER_ID, [
-          'make',
-          'it',
-          'error',
-        ]),
-      ).to.eventually.be.rejectedWith(/scopes/);
-    });
-
     it('disposes the "Google" authentication provider', async () => {
+      await authProvider.initialize();
       authProvider.dispose();
 
       await expect(
@@ -162,6 +149,20 @@ describe('GoogleAuthProvider', () => {
     });
 
     describe('initialize', () => {
+      it('registers the "Google" authentication provider', async () => {
+        await authProvider.initialize();
+        // Expect the provider-specific rejection surrounding the scopes not
+        // matching the required set. This validates that the provider was
+        // registered and is being used.
+        await expect(
+          vsCodeStub.authentication.getSession(PROVIDER_ID, [
+            'make',
+            'it',
+            'error',
+          ]),
+        ).to.eventually.be.rejectedWith(/scopes/);
+      });
+
       it('throws an error if disposed', async () => {
         authProvider.dispose();
 
@@ -234,6 +235,19 @@ describe('GoogleAuthProvider', () => {
             changed: [DEFAULT_AUTH_SESSION],
             hasValidSession: true,
           });
+        });
+
+        it('registers the auth provider', async () => {
+          sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
+            oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+          });
+          storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+
+          await authProvider.initialize();
+
+          await expect(
+            vsCodeStub.authentication.getSession(PROVIDER_ID, SCOPES),
+          ).to.eventually.be.fulfilled;
         });
 
         const gaxiosErrors: { message: string; status: number }[] = [
