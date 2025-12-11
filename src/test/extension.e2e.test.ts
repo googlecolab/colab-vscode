@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import { assert } from 'chai';
 import dotenv from 'dotenv';
+import { WebElement } from 'selenium-webdriver';
 import * as chrome from 'selenium-webdriver/chrome';
 import {
   Builder,
@@ -24,7 +25,7 @@ import {
 import { CONFIG } from '../colab-config';
 
 const ELEMENT_WAIT_MS = 10000;
-const CELL_EXECUTION_WAIT_MS = 30000;
+const CELL_EXECUTION_WAIT_MS = 45000;
 
 describe('Colab Extension', function () {
   dotenv.config();
@@ -57,9 +58,27 @@ describe('Colab Extension', function () {
       // Wait for the notebook editor to finish loading before we interact with
       // it.
       await notebookLoaded(driver);
+
+      let focusedCell: WebElement;
+      // Input code into the first cell.
       await workbench.executeCommand('Notebook: Edit Cell');
-      const cell = await driver.switchTo().activeElement();
-      await cell.sendKeys('1 + 1');
+      focusedCell = await driver.switchTo().activeElement();
+      await focusedCell.sendKeys('1 + 1');
+
+      // Add a second cell to display a data frame.
+      await workbench.executeCommand('Notebook: Insert Code Cell Below');
+      focusedCell = await driver.switchTo().activeElement();
+      await focusedCell.sendKeys(`import pandas as pd
+df = pd.DataFrame({
+'col1': [i for i in range(5)],
+'col2': [f'text_{i}' for i in range(5)]
+})
+df`);
+
+      // Add a third cell to plot the data frame.
+      await workbench.executeCommand('Notebook: Insert Code Cell Below');
+      focusedCell = await driver.switchTo().activeElement();
+      await focusedCell.sendKeys('df.plot()');
     });
 
     it('authenticates and executes the notebook on a Colab server', async () => {
@@ -109,12 +128,19 @@ describe('Colab Extension', function () {
       // Execute the notebook and poll for the success indicator (green check).
       // Why not the cell output? Because the output is rendered in a webview.
       await workbench.executeCommand('Notebook: Run All');
+      // Collapsing all cell outputs so execution status of all 3 cells are in
+      // the viewport.
+      await workbench.executeCommand('Notebook: Collapse All Cell Outputs');
       await driver.wait(
         async () => {
-          const element = await workbench
-            .getEnclosingElement()
-            .findElements(By.className('codicon-notebook-state-success'));
-          return element.length > 0;
+          const container = workbench.getEnclosingElement();
+          const successElements = await container.findElements(
+            By.className('codicon-notebook-state-success'),
+          );
+          const errorElements = await container.findElements(
+            By.className('codicon-notebook-state-error'),
+          );
+          return successElements.length === 3 && errorElements.length === 0;
         },
         CELL_EXECUTION_WAIT_MS,
         'Notebook: Run All failed',
