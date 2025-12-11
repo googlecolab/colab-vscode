@@ -257,19 +257,6 @@ describe('GoogleAuthProvider', () => {
           ).to.eventually.be.fulfilled;
         });
 
-        it('registers the auth provider', async () => {
-          sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
-            oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
-          });
-          storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
-
-          await authProvider.initialize();
-
-          await expect(
-            vsCodeStub.authentication.getSession(PROVIDER_ID, SCOPES),
-          ).to.eventually.be.fulfilled;
-        });
-
         for (const { message, status } of GAXIOS_ERRORS) {
           it(`clears the session and re-initializes if refreshAccessToken throws a ${status.toString()} GaxiosError`, async () => {
             const gaxiosError: GaxiosError = new GaxiosError(
@@ -308,33 +295,6 @@ describe('GoogleAuthProvider', () => {
           await expect(authProvider.initialize()).to.eventually.be.fulfilled;
 
           await expect(signedInContext).to.eventually.be.true;
-        });
-
-        it('clears the session and re-initializes if refreshAccessToken throws a 401 GaxiosError', async () => {
-          const gaxiosError: GaxiosError = new GaxiosError(
-            'unauthorized_client',
-            {},
-            {
-              config: {},
-              data: undefined,
-              status: 401,
-              statusText: 'Unauthorized',
-              headers: {},
-              request: { responseURL: '' },
-            },
-          );
-          sinon.stub(oauth2Client, 'refreshAccessToken').throws(gaxiosError);
-          storageStub.getSession.onSecondCall().resolves(undefined);
-
-          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
-
-          await expect(
-            authProvider.getSessions(undefined, {}),
-          ).to.eventually.deep.equal([]);
-          sinon.assert.calledOnceWithExactly(
-            storageStub.removeSession,
-            DEFAULT_REFRESH_SESSION.id,
-          );
         });
 
         it('re-throws non handled errors when refreshing the access token', async () => {
@@ -607,14 +567,12 @@ describe('GoogleAuthProvider', () => {
       }
 
       it('re-throws non handled errors when refreshing the access token', async () => {
-        refreshAccessTokenStub.throws(new Error('Some other error'));
+        refreshAccessTokenStub.throws(new Error('🤮'));
         fakeClock.tick(HOUR_MS * 2);
 
         const sessions = authProvider.getSessions(undefined, {});
 
-        await expect(sessions).to.eventually.be.rejectedWith(
-          /Some other error/,
-        );
+        await expect(sessions).to.eventually.be.rejectedWith(/🤮/);
       });
     });
   });

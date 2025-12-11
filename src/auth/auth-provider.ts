@@ -153,8 +153,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         changed: [this.session],
         hasValidSession: true,
       });
+      this.register();
     }
-    this.register();
   }
 
   /**
