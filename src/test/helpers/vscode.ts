@@ -5,10 +5,11 @@
  */
 
 import * as sinon from 'sinon';
-import vscode from 'vscode';
+import vscode, { ThemeIcon } from 'vscode';
 import { FakeAuthenticationProviderManager } from './authentication';
 import { TestCancellationTokenSource } from './cancellation';
 import { TestEventEmitter } from './events';
+import { TestThemeIcon } from './theme';
 import { TestUri } from './uri';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
@@ -54,6 +55,7 @@ export interface VsCodeStub {
    * Returns a stub of the vscode module typed as vscode.
    */
   asVsCode: () => typeof vscode;
+  ThemeIcon: typeof ThemeIcon;
   Uri: typeof TestUri;
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
@@ -155,6 +157,7 @@ export function newVsCodeStub(): VsCodeStub {
         > as typeof vscode.authentication,
       } as Partial<typeof vscode> as typeof vscode;
     },
+    ThemeIcon: TestThemeIcon,
     Uri: TestUri,
     CancellationTokenSource: TestCancellationTokenSource,
     EventEmitter: TestEventEmitter,

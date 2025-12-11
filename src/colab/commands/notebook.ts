@@ -9,6 +9,7 @@ import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from './constants';
 import { openColabSignup, openColabWeb } from './external';
+import { commandThemeIcon } from './utils';
 
 /**
  * Prompt the user to select a Colab command to run.
@@ -51,12 +52,14 @@ async function getAvailableCommands(
   const externalCommands: NotebookCommand[] = [
     {
       label: OPEN_COLAB_WEB.label,
+      iconPath: commandThemeIcon(vs, OPEN_COLAB_WEB),
       invoke: () => {
         openColabWeb(vs);
       },
     },
     {
       label: UPGRADE_TO_PRO.label,
+      iconPath: commandThemeIcon(vs, UPGRADE_TO_PRO),
       invoke: () => {
         openColabSignup(vs);
       },
@@ -70,6 +73,7 @@ async function getAvailableCommands(
     // the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     {
       label: REMOVE_SERVER.label,
+      iconPath: commandThemeIcon(vs, REMOVE_SERVER),
       invoke: () => {
         return vs.commands.executeCommand(
           REMOVE_SERVER.id,

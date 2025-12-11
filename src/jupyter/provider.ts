@@ -19,12 +19,14 @@ import { SubscriptionTier } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import {
   AUTO_CONNECT,
+  Command,
   NEW_SERVER,
   OPEN_COLAB_WEB,
   SIGN_IN_VIEW_EXISTING,
   UPGRADE_TO_PRO,
 } from '../colab/commands/constants';
 import { openColabSignup, openColabWeb } from '../colab/commands/external';
+import { buildIconLabel, stripIconLabel } from '../colab/commands/utils';
 import { ServerPicker } from '../colab/server-picker';
 import { LatestCancelable } from '../common/async';
 import { traceMethod } from '../common/logging/decorators';
@@ -125,7 +127,7 @@ export class ColabJupyterServerProvider
     _value: string | undefined,
     _token: CancellationToken,
   ): Promise<JupyterServerCommand[]> {
-    const commands: JupyterServerCommand[] = [];
+    const commands: Command[] = [];
     // Only show the command to view existing servers if the user is not signed
     // in, but previously had assigned servers. Otherwise, the command is
     // redundant.
@@ -136,19 +138,21 @@ export class ColabJupyterServerProvider
       commands.push(SIGN_IN_VIEW_EXISTING);
     }
     commands.push(AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB);
-    if (!this.isAuthorized) {
-      return commands;
-    }
-    try {
-      const tier = await this.client.getSubscriptionTier();
-      if (tier === SubscriptionTier.NONE) {
-        commands.push(UPGRADE_TO_PRO);
+    if (this.isAuthorized) {
+      try {
+        const tier = await this.client.getSubscriptionTier();
+        if (tier === SubscriptionTier.NONE) {
+          commands.push(UPGRADE_TO_PRO);
+        }
+      } catch (_) {
+        // Including the command to upgrade to pro is non-critical. If it fails,
+        // just return the commands without it.
       }
-    } catch (_) {
-      // Including the command to upgrade to pro is non-critical. If it fails,
-      // just return the commands without it.
     }
-    return commands;
+    return commands.map((c) => ({
+      label: buildIconLabel(c),
+      description: c.description,
+    }));
   }
 
   /**
@@ -163,8 +167,9 @@ export class ColabJupyterServerProvider
     command: JupyterServerCommand,
     _token: CancellationToken,
   ): Promise<JupyterServer | undefined> {
+    const commandLabel = stripIconLabel(command.label);
     try {
-      switch (command.label) {
+      switch (commandLabel) {
         case SIGN_IN_VIEW_EXISTING.label:
           // The sign-in flow starts by prompting the user with an
           // application-level dialog to sign-in. Since it effectively takes
