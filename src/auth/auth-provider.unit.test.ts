@@ -612,7 +612,9 @@ describe('GoogleAuthProvider', () => {
 
         const sessions = authProvider.getSessions(undefined, {});
 
-        await expect(sessions).to.eventually.be.rejectedWith(/Some other error/);
+        await expect(sessions).to.eventually.be.rejectedWith(
+          /Some other error/,
+        );
       });
     });
   });
