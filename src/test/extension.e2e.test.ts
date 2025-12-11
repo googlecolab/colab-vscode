@@ -25,7 +25,7 @@ import {
 import { CONFIG } from '../colab-config';
 
 const ELEMENT_WAIT_MS = 10000;
-const CELL_EXECUTION_WAIT_MS = 60000;
+const CELL_EXECUTION_WAIT_MS = 45000;
 
 describe('Colab Extension', function () {
   dotenv.config();
@@ -128,6 +128,9 @@ df`);
       // Execute the notebook and poll for the success indicator (green check).
       // Why not the cell output? Because the output is rendered in a webview.
       await workbench.executeCommand('Notebook: Run All');
+      // Collapsing all cell outputs so execution status of all 3 cells are in
+      // the viewport.
+      await workbench.executeCommand('Notebook: Collapse All Cell Outputs');
       await driver.wait(
         async () => {
           const container = workbench.getEnclosingElement();
