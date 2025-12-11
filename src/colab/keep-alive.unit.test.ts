@@ -8,10 +8,17 @@ import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { AssignmentManager } from '../jupyter/assignments';
+import { JupyterClient, ProxiedJupyterClient } from '../jupyter/client';
+import { Kernel } from '../jupyter/client/generated';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { TestCancellationTokenSource } from '../test/helpers/cancellation';
+import {
+  createJupyterClientStub,
+  JupyterClientStub,
+} from '../test/helpers/jupyter';
+import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { Kernel, Variant } from './api';
+import { Variant } from './api';
 import { ColabClient } from './client';
 import {
   COLAB_CLIENT_AGENT_HEADER,
@@ -47,12 +54,34 @@ const DEFAULT_KERNEL: Kernel = {
   connections: 1,
 };
 
+const DEFAULT_SERVER = {
+  id: randomUUID(),
+  label: 'Colab GPU A100',
+  variant: Variant.GPU,
+  accelerator: 'A100',
+  endpoint: 'm-s-foo',
+  connectionInformation: {
+    baseUrl: TestUri.parse('https://example.com'),
+    token: '123',
+    tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
+    headers: {
+      [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: '123',
+      [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+    },
+  },
+  dateAssigned: new Date(),
+};
+
 describe('ServerKeepAliveController', () => {
   let clock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
+  let jupyterClientFactoryStub: sinon.SinonStub<
+    [server: ColabAssignedServer],
+    JupyterClient
+  >;
+  let defaultServerJupyterStub: JupyterClientStub;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
-  let defaultServer: ColabAssignedServer;
   let keepAlive: ServerKeepAliveController;
 
   async function tickPast(ms: number) {
@@ -66,24 +95,15 @@ describe('ServerKeepAliveController', () => {
     clock.setSystemTime(NOW);
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
+    jupyterClientFactoryStub = sinon.stub(
+      ProxiedJupyterClient,
+      'withStaticConnection',
+    );
+    defaultServerJupyterStub = createJupyterClientStub();
+    jupyterClientFactoryStub
+      .withArgs(DEFAULT_SERVER)
+      .returns(defaultServerJupyterStub);
     assignmentStub = sinon.createStubInstance(AssignmentManager);
-    defaultServer = {
-      id: randomUUID(),
-      label: 'Colab GPU A100',
-      variant: Variant.GPU,
-      accelerator: 'A100',
-      endpoint: 'm-s-foo',
-      connectionInformation: {
-        baseUrl: vsCodeStub.Uri.parse('https://example.com'),
-        token: '123',
-        tokenExpiry: new Date(Date.now() + 1000 * 60 * 60),
-        headers: {
-          [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: '123',
-          [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-        },
-      },
-      dateAssigned: new Date(),
-    };
     keepAlive = new ServerKeepAliveController(
       vsCodeStub.asVsCode(),
       colabClientStub,
@@ -128,10 +148,8 @@ describe('ServerKeepAliveController', () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
         .withArgs('extension')
-        .resolves([defaultServer]);
-      colabClientStub.listKernels
-        .withArgs(defaultServer)
-        .resolves([DEFAULT_KERNEL]);
+        .resolves([DEFAULT_SERVER]);
+      defaultServerJupyterStub.kernels.list.resolves([DEFAULT_KERNEL]);
       colabClientStub.sendKeepAlive.callsFake(ABORTING_KEEP_ALIVE);
       keepAlive = new ServerKeepAliveController(
         vsCodeStub.asVsCode(),
@@ -156,10 +174,8 @@ describe('ServerKeepAliveController', () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
         .withArgs('extension')
-        .resolves([defaultServer]);
-      colabClientStub.listKernels
-        .withArgs(defaultServer)
-        .resolves([DEFAULT_KERNEL]);
+        .resolves([DEFAULT_SERVER]);
+      defaultServerJupyterStub.kernels.list.resolves([DEFAULT_KERNEL]);
 
       // On
       keepAlive.on();
@@ -187,10 +203,8 @@ describe('ServerKeepAliveController', () => {
       // Type assertion needed due to overloading on getServers
       (assignmentStub.getServers as sinon.SinonStub)
         .withArgs('extension')
-        .resolves([defaultServer]);
-      colabClientStub.listKernels
-        .withArgs(defaultServer)
-        .resolves([DEFAULT_KERNEL]);
+        .resolves([DEFAULT_SERVER]);
+      defaultServerJupyterStub.kernels.list.resolves([DEFAULT_KERNEL]);
       colabClientStub.sendKeepAlive
         .onFirstCall()
         .callsFake(ABORTING_KEEP_ALIVE);
@@ -214,7 +228,7 @@ describe('ServerKeepAliveController', () => {
         await tickPast(CONFIG.keepAliveIntervalMs);
 
         sinon.assert.calledOnce(assignmentStub.getServers);
-        sinon.assert.notCalled(colabClientStub.listKernels);
+        sinon.assert.notCalled(jupyterClientFactoryStub);
         sinon.assert.notCalled(colabClientStub.sendKeepAlive);
       });
     });
@@ -224,20 +238,18 @@ describe('ServerKeepAliveController', () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
           .withArgs('extension')
-          .resolves([defaultServer]);
+          .resolves([DEFAULT_SERVER]);
       });
 
       it('sends a keep-alive request for a server with recent activity', async () => {
-        colabClientStub.listKernels
-          .withArgs(defaultServer)
-          .resolves([DEFAULT_KERNEL]);
+        defaultServerJupyterStub.kernels.list.resolves([DEFAULT_KERNEL]);
 
         await tickPast(CONFIG.keepAliveIntervalMs);
 
         sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
         sinon.assert.calledWith(
           colabClientStub.sendKeepAlive,
-          defaultServer.endpoint,
+          DEFAULT_SERVER.endpoint,
         );
       });
 
@@ -254,16 +266,14 @@ describe('ServerKeepAliveController', () => {
               NOW.getTime() - CONFIG.inactivityThresholdMs - 1,
             ).toString(),
           };
-          colabClientStub.listKernels
-            .withArgs(defaultServer)
-            .resolves([busyKernel]);
+          defaultServerJupyterStub.kernels.list.resolves([busyKernel]);
 
           await tickPast(CONFIG.keepAliveIntervalMs);
 
           sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
           sinon.assert.calledWith(
             colabClientStub.sendKeepAlive,
-            defaultServer.endpoint,
+            DEFAULT_SERVER.endpoint,
           );
         });
       }
@@ -291,10 +301,8 @@ describe('ServerKeepAliveController', () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
           .withArgs('extension')
-          .resolves([defaultServer]);
-        colabClientStub.listKernels
-          .withArgs(defaultServer)
-          .resolves([idleKernel]);
+          .resolves([DEFAULT_SERVER]);
+        defaultServerJupyterStub.kernels.list.resolves([idleKernel]);
         cancellationSource = new vsCodeStub.CancellationTokenSource();
         reportStub = sinon.stub();
         vsCodeStub.window.withProgress
@@ -368,9 +376,7 @@ describe('ServerKeepAliveController', () => {
             ...idleKernel,
             lastActivity: NOW.toString(),
           };
-          colabClientStub.listKernels
-            .withArgs(defaultServer)
-            .resolves([activeKernel]);
+          defaultServerJupyterStub.kernels.list.resolves([activeKernel]);
 
           await tickPast(CONFIG.keepAliveIntervalMs);
 
@@ -398,9 +404,7 @@ describe('ServerKeepAliveController', () => {
               ...idleKernel,
               lastActivity: NOW.toString(),
             };
-            colabClientStub.listKernels
-              .withArgs(defaultServer)
-              .resolves([activeKernel]);
+            defaultServerJupyterStub.kernels.list.resolves([activeKernel]);
             await tickPast(CONFIG.keepAliveIntervalMs);
           });
 
@@ -424,7 +428,7 @@ describe('ServerKeepAliveController', () => {
         activity: 'idle' | 'active',
       ): { server: ColabAssignedServer; kernel: Kernel } {
         const server = {
-          ...defaultServer,
+          ...DEFAULT_SERVER,
           id: randomUUID(),
           endpoint: `m-s-${n.toString()}`,
         };
@@ -458,7 +462,9 @@ describe('ServerKeepAliveController', () => {
         idle2 = createServerWithKernel(4, 'idle');
         const servers = [active1, active2, idle1, idle2];
         for (const { server, kernel } of servers) {
-          colabClientStub.listKernels.withArgs(server).resolves([kernel]);
+          const jupyterStub = createJupyterClientStub();
+          jupyterClientFactoryStub.withArgs(server).returns(jupyterStub);
+          jupyterStub.kernels.list.resolves([kernel]);
         }
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
@@ -547,7 +553,7 @@ describe('ServerKeepAliveController', () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
           .withArgs('extension')
-          .resolves([defaultServer]);
+          .resolves([DEFAULT_SERVER]);
         const kernels: Kernel[] = [
           DEFAULT_KERNEL,
           // An "idle" kernel.
@@ -557,14 +563,14 @@ describe('ServerKeepAliveController', () => {
             lastActivity: new Date(42).toString(),
           },
         ];
-        colabClientStub.listKernels.withArgs(defaultServer).resolves(kernels);
+        defaultServerJupyterStub.kernels.list.resolves(kernels);
 
         await tickPast(CONFIG.keepAliveIntervalMs);
 
         sinon.assert.calledOnce(colabClientStub.sendKeepAlive);
         sinon.assert.calledWith(
           colabClientStub.sendKeepAlive,
-          defaultServer.endpoint,
+          DEFAULT_SERVER.endpoint,
         );
       });
 
@@ -572,7 +578,7 @@ describe('ServerKeepAliveController', () => {
         // Type assertion needed due to overloading on getServers
         (assignmentStub.getServers as sinon.SinonStub)
           .withArgs('extension')
-          .resolves([defaultServer]);
+          .resolves([DEFAULT_SERVER]);
         const kernels: Kernel[] = [
           {
             ...DEFAULT_KERNEL,
@@ -585,7 +591,7 @@ describe('ServerKeepAliveController', () => {
             lastActivity: new Date(43).toString(),
           },
         ];
-        colabClientStub.listKernels.withArgs(defaultServer).resolves(kernels);
+        defaultServerJupyterStub.kernels.list.resolves(kernels);
         await tickPast(CONFIG.keepAliveIntervalMs);
 
         sinon.assert.notCalled(colabClientStub.sendKeepAlive);

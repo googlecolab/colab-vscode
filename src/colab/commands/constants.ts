@@ -57,7 +57,7 @@ export const OPEN_COLAB_WEB: Command = {
 /** Command to remove a server. */
 export const REMOVE_SERVER: RegisteredCommand = {
   id: 'colab.removeServer',
-  label: 'Remove Server',
+  label: '$(trash)  Remove Server',
 };
 
 /** Command to rename a server alias. */

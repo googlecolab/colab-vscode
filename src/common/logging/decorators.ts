@@ -58,7 +58,11 @@ export function traceMethod(
       return result.then(
         (resolvedValue: unknown) => {
           try {
-            log.trace(`${targetPrefix} Promise resolved with`, resolvedValue);
+            log.trace(
+              `${targetPrefix} Promise resolved, args and error:`,
+              ...args,
+              resolvedValue,
+            );
           } catch (e) {
             log.trace('Error in trace decorator (resolve)', e);
           }
@@ -66,7 +70,11 @@ export function traceMethod(
         },
         (error: unknown) => {
           try {
-            log.trace(`${targetPrefix} Promise rejected with`, error);
+            log.trace(
+              `${targetPrefix} Promise rejected, args and error:`,
+              ...args,
+              error,
+            );
           } catch (e) {
             log.trace('Error in trace decorator (reject)', e);
           }

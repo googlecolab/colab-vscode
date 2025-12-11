@@ -9,6 +9,7 @@ import { expect } from 'chai';
 import fetch, { Response } from 'node-fetch';
 import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
+import { Session } from '../jupyter/client/generated';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { TestUri } from '../test/helpers/uri';
 import { uuidToWebSafeBase64 } from '../utils/uuid';
@@ -19,8 +20,6 @@ import {
   SubscriptionState,
   SubscriptionTier,
   Variant,
-  Kernel,
-  Session,
   Outcome,
   ListedAssignments,
   RuntimeProxyInfo,
@@ -35,7 +34,6 @@ import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
-  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
@@ -491,56 +489,7 @@ describe('ColabClient', () => {
       ).to.eventually.deep.equal(newConnectionInfo);
     });
 
-    it('successfully lists kernels', async () => {
-      const lastActivity = new Date().toISOString();
-
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: assignedServerUrl.host,
-            path: '/api/kernels',
-            otherHeaders: {
-              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                assignedServer.connectionInformation.token,
-            },
-            withAuthUser: false,
-          }),
-        )
-        .resolves(
-          new Response(
-            withXSSI(
-              JSON.stringify([
-                {
-                  id: 'mock-id',
-                  name: 'mock-name',
-                  last_activity: lastActivity,
-                  execution_state: 'idle',
-                  connections: 1,
-                },
-              ]),
-            ),
-            {
-              status: 200,
-            },
-          ),
-        );
-      const kernel: Kernel = {
-        id: 'mock-id',
-        name: 'mock-name',
-        lastActivity,
-        executionState: 'idle',
-        connections: 1,
-      };
-
-      await expect(client.listKernels(assignedServer)).to.eventually.deep.equal(
-        [kernel],
-      );
-
-      sinon.assert.calledOnce(fetchStub);
-    });
-
-    describe('listSessions', () => {
+    it('successfully lists sessions by assignment endpoint', async () => {
       const last_activity = new Date().toISOString();
       const mockResponseSession = {
         id: 'mock-session-id',
@@ -568,80 +517,27 @@ describe('ColabClient', () => {
         path: '/mock-path',
         type: 'notebook',
       };
-
-      it('successfully lists sessions by server', async () => {
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'GET',
-              host: assignedServerUrl.host,
-              path: '/api/sessions',
-              otherHeaders: {
-                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                  assignedServer.connectionInformation.token,
-              },
-              withAuthUser: false,
-            }),
-          )
-          .resolves(
-            new Response(withXSSI(JSON.stringify([mockResponseSession])), {
-              status: 200,
-            }),
-          );
-
-        await expect(
-          client.listSessions(assignedServer),
-        ).to.eventually.deep.equal([expectedSession]);
-
-        sinon.assert.calledOnce(fetchStub);
-      });
-
-      it('successfully lists sessions by assignment endpoint', async () => {
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'GET',
-              host: COLAB_HOST,
-              path: `/tun/m/${assignedServer.endpoint}/api/sessions`,
-              otherHeaders: {
-                [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
-              },
-              withAuthUser: false,
-            }),
-          )
-          .resolves(
-            new Response(withXSSI(JSON.stringify([mockResponseSession])), {
-              status: 200,
-            }),
-          );
-
-        await expect(
-          client.listSessions(assignedServer.endpoint),
-        ).to.eventually.deep.equal([expectedSession]);
-
-        sinon.assert.calledOnce(fetchStub);
-      });
-    });
-
-    it('successfully deletes a session', async () => {
-      const sessionId = 'mock-session-id';
       fetchStub
         .withArgs(
           urlMatcher({
-            method: 'DELETE',
-            host: assignedServerUrl.host,
-            path: `/api/sessions/${sessionId}`,
+            method: 'GET',
+            host: COLAB_HOST,
+            path: `/tun/m/${assignedServer.endpoint}/api/sessions`,
             otherHeaders: {
-              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                assignedServer.connectionInformation.token,
+              [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
             },
             withAuthUser: false,
           }),
         )
-        .resolves(new Response(undefined, { status: 200 }));
+        .resolves(
+          new Response(withXSSI(JSON.stringify([mockResponseSession])), {
+            status: 200,
+          }),
+        );
 
-      await expect(client.deleteSession(assignedServer, sessionId)).to
-        .eventually.be.fulfilled;
+      await expect(
+        client.listSessions(assignedServer.endpoint),
+      ).to.eventually.deep.equal([expectedSession]);
 
       sinon.assert.calledOnce(fetchStub);
     });
