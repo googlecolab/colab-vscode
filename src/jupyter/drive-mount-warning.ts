@@ -14,16 +14,34 @@ export function warnOnDriveMount(
   vs: typeof vscode,
   rawJupyterMessage: string,
 ): void {
-  const parsedJupyterMessage = JSON.parse(rawJupyterMessage) as {
-    header: { msg_type: string };
-    content: { code: string };
-  };
+  if (!rawJupyterMessage) return;
+
+  const parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
   if (
-    parsedJupyterMessage.header.msg_type === 'execute_request' &&
+    isExecuteRequest(parsedJupyterMessage) &&
     DRIVE_MOUNT_PATTERN.exec(parsedJupyterMessage.content.code)
   ) {
     notifyDriveMountUnsupported(vs);
   }
+}
+
+function isExecuteRequest(
+  message: unknown,
+): message is JupyterExecuteRequestMessage {
+  return (
+    !!message &&
+    typeof message === 'object' &&
+    'header' in message &&
+    !!message.header &&
+    typeof message.header === 'object' &&
+    'msg_type' in message.header &&
+    message.header.msg_type === 'execute_request' &&
+    'content' in message &&
+    !!message.content &&
+    typeof message.content === 'object' &&
+    'code' in message.content &&
+    typeof message.content.code === 'string'
+  );
 }
 
 function notifyDriveMountUnsupported(vs: typeof vscode): void {
@@ -43,6 +61,11 @@ function notifyDriveMountUnsupported(vs: typeof vscode): void {
           break;
       }
     });
+}
+
+interface JupyterExecuteRequestMessage {
+  header: { msg_type: 'execute_request' };
+  content: { code: string };
 }
 
 const DRIVE_MOUNT_PATTERN = /drive\.mount\(.+\)/;

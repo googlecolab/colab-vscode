@@ -101,6 +101,28 @@ describe('warnOnDriveMount', () => {
       vsCodeStub.window.showWarningMessage as sinon.SinonStub,
     );
   });
+
+  it('does nothing if message is empty', async () => {
+    warnOnDriveMount(vsCodeStub.asVsCode(), '');
+    await flush();
+
+    sinon.assert.notCalled(
+      vsCodeStub.window.showWarningMessage as sinon.SinonStub,
+    );
+  });
+
+  it('does nothing if message is not a Jupyter message format', async () => {
+    const rawNonJupyterMessage = JSON.stringify({
+      random_field: 'random_value',
+    });
+
+    warnOnDriveMount(vsCodeStub.asVsCode(), rawNonJupyterMessage);
+    await flush();
+
+    sinon.assert.notCalled(
+      vsCodeStub.window.showWarningMessage as sinon.SinonStub,
+    );
+  });
 });
 
 async function flush(): Promise<void> {
