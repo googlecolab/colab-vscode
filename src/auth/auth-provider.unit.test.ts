@@ -63,6 +63,13 @@ const DEFAULT_USER_INFO = {
   picture: 'https://example.com/foo.jpg',
   hd: 'google.com',
 };
+const GAXIOS_ERRORS: { message: string; status: number }[] = [
+  {
+    message: 'invalid_grant',
+    status: 400,
+  },
+  { message: 'unauthorized_client', status: 401 },
+];
 
 describe('GoogleAuthProvider', () => {
   let fakeClock: SinonFakeTimers;
@@ -250,14 +257,7 @@ describe('GoogleAuthProvider', () => {
           ).to.eventually.be.fulfilled;
         });
 
-        const gaxiosErrors: { message: string; status: number }[] = [
-          {
-            message: 'invalid_grant',
-            status: 400,
-          },
-          { message: 'unauthorized_client', status: 401 },
-        ];
-        for (const { message, status } of gaxiosErrors) {
+        for (const { message, status } of GAXIOS_ERRORS) {
           it(`clears the session and re-initializes if refreshAccessToken throws a ${status.toString()} GaxiosError`, async () => {
             const gaxiosError: GaxiosError = new GaxiosError(
               message,
@@ -295,33 +295,6 @@ describe('GoogleAuthProvider', () => {
           await expect(authProvider.initialize()).to.eventually.be.fulfilled;
 
           await expect(signedInContext).to.eventually.be.true;
-        });
-
-        it('clears the session and re-initializes if refreshAccessToken throws a 401 GaxiosError', async () => {
-          const gaxiosError: GaxiosError = new GaxiosError(
-            'unauthorized_client',
-            {},
-            {
-              config: {},
-              data: undefined,
-              status: 401,
-              statusText: 'Unauthorized',
-              headers: {},
-              request: { responseURL: '' },
-            },
-          );
-          sinon.stub(oauth2Client, 'refreshAccessToken').throws(gaxiosError);
-          storageStub.getSession.onSecondCall().resolves(undefined);
-
-          await expect(authProvider.initialize()).to.eventually.be.fulfilled;
-
-          await expect(
-            authProvider.getSessions(undefined, {}),
-          ).to.eventually.deep.equal([]);
-          sinon.assert.calledOnceWithExactly(
-            storageStub.removeSession,
-            DEFAULT_REFRESH_SESSION.id,
-          );
         });
 
         it('re-throws non handled errors when refreshing the access token', async () => {
@@ -567,6 +540,39 @@ describe('GoogleAuthProvider', () => {
         await expect(sessions).to.eventually.deep.equal([
           { ...DEFAULT_AUTH_SESSION, accessToken: 'new' },
         ]);
+      });
+
+      for (const { message, status } of GAXIOS_ERRORS) {
+        it(`clears the session when refreshing the access token throws a ${status.toString()} GaxiosError`, async () => {
+          const gaxiosError: GaxiosError = new GaxiosError(
+            message,
+            {},
+            {
+              config: {},
+              data: undefined,
+              status,
+              statusText: 'Unauthorized',
+              headers: {},
+              request: { responseURL: '' },
+            },
+          );
+          refreshAccessTokenStub.throws(gaxiosError);
+          sinon.stub(oauth2Client, 'revokeToken').resolves();
+          fakeClock.tick(HOUR_MS * 2);
+
+          const sessions = authProvider.getSessions(undefined, {});
+
+          await expect(sessions).to.eventually.deep.equal([]);
+        });
+      }
+
+      it('re-throws non handled errors when refreshing the access token', async () => {
+        refreshAccessTokenStub.throws(new Error('🤮'));
+        fakeClock.tick(HOUR_MS * 2);
+
+        const sessions = authProvider.getSessions(undefined, {});
+
+        await expect(sessions).to.eventually.be.rejectedWith(/🤮/);
       });
     });
   });
