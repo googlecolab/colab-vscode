@@ -718,7 +718,7 @@ function colabProxyWebSocket(vs: typeof vscode, token: string) {
         | undefined,
       cb?: (err?: Error) => void,
     ) {
-      void warnOnDriveMount(vs, data);
+      warnOnDriveMount(vs, data);
 
       // This is required to override all `send` overload signatures:
       if (options === undefined || typeof options === 'function') {

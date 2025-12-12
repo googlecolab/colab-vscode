@@ -23,20 +23,26 @@ describe('warnOnDriveMount', () => {
     });
 
     it('shows warning notification', async () => {
-      await warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
+      const showWarningMessageStub = vsCodeStub.window
+        .showWarningMessage as sinon.SinonStub;
+      showWarningMessageStub.resolves(undefined);
+
+      warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
+      await flush();
 
       sinon.assert.calledOnceWithMatch(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-        /drive.mount\(\) is not supported/,
+        showWarningMessageStub,
+        /drive.mount is not currently supported/,
       );
     });
 
     it('presents an action to view workaround', async () => {
       (vsCodeStub.window.showWarningMessage as sinon.SinonStub).resolves(
-        'View Workaround',
+        'Workaround',
       );
 
-      await warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
+      warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
+      await flush();
 
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.env.openExternal,
@@ -51,10 +57,11 @@ describe('warnOnDriveMount', () => {
 
     it('presents an action to view issue', async () => {
       (vsCodeStub.window.showWarningMessage as sinon.SinonStub).resolves(
-        'View Issue',
+        'GitHub Issue',
       );
 
-      await warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
+      warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
+      await flush();
 
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.env.openExternal,
@@ -73,7 +80,8 @@ describe('warnOnDriveMount', () => {
       header: { msg_type: 'kernel_info_request' },
     });
 
-    await warnOnDriveMount(vsCodeStub.asVsCode(), rawJupyterMessage);
+    warnOnDriveMount(vsCodeStub.asVsCode(), rawJupyterMessage);
+    await flush();
 
     sinon.assert.notCalled(
       vsCodeStub.window.showWarningMessage as sinon.SinonStub,
@@ -86,10 +94,15 @@ describe('warnOnDriveMount', () => {
       content: { code: 'print("Hello World!")' },
     });
 
-    await warnOnDriveMount(vsCodeStub.asVsCode(), rawJupyterMessage);
+    warnOnDriveMount(vsCodeStub.asVsCode(), rawJupyterMessage);
+    await flush();
 
     sinon.assert.notCalled(
       vsCodeStub.window.showWarningMessage as sinon.SinonStub,
     );
   });
 });
+
+async function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
