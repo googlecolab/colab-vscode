@@ -10,12 +10,12 @@ import { Command } from './constants';
 /**
  * Build a label that's prefixed with the provided icon.
  *
- * This is needed in cases where we want the same styling as a quick pick, but
+ * This is needed in cases where we want the same styling as a Quick Pick, but
  * can only provide a simple label (as a string).
  *
  * @param icon - The VS Code icon to prepend the label with.
  * @param label - The label to follow the icon.
- * @returns A string combining the icon and label in the same way quick picks
+ * @returns A string combining the icon and label in the same way Quick Picks
  * do.
  */
 export function buildIconLabel(command: Command) {
@@ -24,7 +24,7 @@ export function buildIconLabel(command: Command) {
 }
 
 /**
- * Strips the icon from the command's labeled, if it is prefixed with one.
+ * Strips the icon from the command's label, if it is prefixed with one.
  *
  * This is needed in cases where we need to handle commands whose labels were
  * styled with the icon but we need to match against the command's true label
