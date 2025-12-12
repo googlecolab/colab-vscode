@@ -214,17 +214,17 @@ export class AssignmentManager implements vscode.Disposable {
     if (from === 'extension' || from === 'all') {
       storedServers = (
         await this.reconcileStoredServers(storedServers, allAssignments)
-      ).map((server) => ({
-        ...server,
-        connectionInformation: {
-          ...server.connectionInformation,
-          fetch: colabProxyFetch(server.connectionInformation.token),
-          WebSocket: colabProxyWebSocket(
-            this.vs,
-            server.connectionInformation.token,
-          ),
-        },
-      }));
+      ).map((server) => {
+        const c = server.connectionInformation;
+        return {
+          ...server,
+          connectionInformation: {
+            ...c,
+            fetch: colabProxyFetch(c.token),
+            WebSocket: colabProxyWebSocket(this.vs, c.token),
+          },
+        };
+      });
     }
 
     let unownedServers: UnownedServer[] = [];
@@ -660,17 +660,17 @@ function isRequest(info: RequestInfo): info is Request {
 }
 
 /**
- * Returns a `WebSocket` class which extends `WebSocketIsomorphic`, adds our
+ * Returns a `WebSocket` class which extends `WebSocketIsomorphic`, adds Colab's
  * custom headers, and intercepts `WebSocket.send` to warn users when on
  * `drive.mount` execution.
  */
 function colabProxyWebSocket(vs: typeof vscode, token: string) {
-  // These custom headers are required for our proxy WebSocket to work.
+  // These custom headers are required for Colab's proxy WebSocket to work.
   const colabHeaders: Record<string, string> = {};
   colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
   colabHeaders[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
-  const addOurHeaders = (
+  const addColabHeaders = (
     options?: WebSocketIsomorphic.ClientOptions,
   ): WebSocketIsomorphic.ClientOptions => {
     options ??= {};
@@ -679,32 +679,18 @@ function colabProxyWebSocket(vs: typeof vscode, token: string) {
       ...options.headers,
       ...colabHeaders,
     };
-    return {
-      ...options,
-      headers,
-    };
+    return { ...options, headers };
   };
 
-  return class OurWebSocket extends WebSocketIsomorphic {
+  return class ColabWebSocket extends WebSocketIsomorphic {
     constructor(
       url: string | URL,
       protocols?: string | string[],
       options?: WebSocketIsomorphic.ClientOptions,
     ) {
-      super(url, protocols, addOurHeaders(options));
+      super(url, protocols, addColabHeaders(options));
     }
 
-    override send(data: string, cb?: (err?: Error) => void): void;
-    override send(
-      data: string,
-      options: {
-        mask?: boolean;
-        binary?: boolean;
-        compress?: boolean;
-        fin?: boolean;
-      },
-      cb?: (err?: Error) => void,
-    ): void;
     override send(
       data: string,
       options:
@@ -720,7 +706,6 @@ function colabProxyWebSocket(vs: typeof vscode, token: string) {
     ) {
       warnOnDriveMount(vs, data);
 
-      // This is required to override all `send` overload signatures:
       if (options === undefined || typeof options === 'function') {
         cb = options;
         options = {};
