@@ -15,7 +15,7 @@ Name | Type
 `lastModified` | string
 `size` | number
 `mimetype` | string
-`content` | string
+`content` | [Content](Content.md)
 `format` | string
 `hash` | string
 `hashAlgorithm` | string

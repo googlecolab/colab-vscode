@@ -30,12 +30,12 @@ export interface ApiSpecApiInterface {
      * @throws {RequiredError}
      * @memberof ApiSpecApiInterface
      */
-    getSpecRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Blob>>;
+    getSpecRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>>;
 
     /**
      * Get the current spec for the notebook server\'s APIs.
      */
-    getSpec(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob>;
+    getSpec(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<string>;
 
 }
 
@@ -47,7 +47,7 @@ export class ApiSpecApi extends runtime.BaseAPI implements ApiSpecApiInterface {
     /**
      * Get the current spec for the notebook server\'s APIs.
      */
-    async getSpecRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Blob>> {
+    async getSpecRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -62,13 +62,17 @@ export class ApiSpecApi extends runtime.BaseAPI implements ApiSpecApiInterface {
             query: queryParameters,
         }, initOverrides);
 
-        return new runtime.BlobApiResponse(response);
+        if (this.isJsonMime(response.headers.get('content-type'))) {
+            return new runtime.JSONApiResponse<string>(response);
+        } else {
+            return new runtime.TextApiResponse(response) as any;
+        }
     }
 
     /**
      * Get the current spec for the notebook server\'s APIs.
      */
-    async getSpec(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob> {
+    async getSpec(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<string> {
         const response = await this.getSpecRaw(initOverrides);
         return await response.value();
     }

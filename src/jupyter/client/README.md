@@ -4,9 +4,9 @@ This document provides an overview of the auto-generated client for communicatin
 
 ## `api.yaml`
 
-This is the spec file a Colab kernel exposes. It can be queried for on any Colab server (provided you've supplied the necessary credentials) at /api/spec.yaml.
+This is the spec file a Colab kernel exposes. It can be queried for on any Colab server (provided you've supplied the necessary credentials) at /api/spec.yaml. The one submitted has been converted to Open API 3 since the Jupyter Contents API returns _one of_ a few types for the `contents` property on the `Contents` model. `oneOf` is not available in _Swagger 2_. Rather than do a bunch of type hackery or post-generation mutations, we converted the spec automatically with https://converter.swagger.io/.
 
-The submitted file is a pure copy of that returned from a Colab server, with a single modification: `paths:/api/contents/{path}:patch:parameters:name` was changed from `path` to `rename` to resolve the conflict with the URL `path`. Without this change, the generated client will drop the POST payload needed when calling the endpoint.
+In addition to the automatic conversion, a single modification was made: `paths:/api/contents/{path}:patch:parameters:name` was changed from `path` to `rename` to resolve the conflict with the URL `path`. Without this change, the generated client will drop the POST payload needed when calling the endpoint.
 
 ## `@openapitools/openapi-generator-cli`
 

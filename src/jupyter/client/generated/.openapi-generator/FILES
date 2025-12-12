@@ -14,6 +14,7 @@ docs/APIStatus.md
 docs/ApiSpecApi.md
 docs/Checkpoints.md
 docs/ConfigApi.md
+docs/Content.md
 docs/Contents.md
 docs/ContentsApi.md
 docs/ContentsCreateRequest.md
@@ -43,6 +44,7 @@ docs/TerminalsApi.md
 index.ts
 models/APIStatus.ts
 models/Checkpoints.ts
+models/Content.ts
 models/Contents.ts
 models/ContentsCreateRequest.ts
 models/ContentsGet400Response.ts

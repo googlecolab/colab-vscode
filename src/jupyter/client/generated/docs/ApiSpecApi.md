@@ -10,7 +10,7 @@ All URIs are relative to *http://localhost*
 
 ## apiSpecGet
 
-> Blob apiSpecGet()
+> string apiSpecGet()
 
 Get the current spec for the notebook server\&#39;s APIs.
 
@@ -45,7 +45,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-**Blob**
+**string**
 
 ### Authorization
 

@@ -14,6 +14,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { Content } from './Content';
+import {
+    ContentFromJSON,
+    ContentFromJSONTyped,
+    ContentToJSON,
+    ContentToJSONTyped,
+} from './Content';
+
 /**
  * A contents object.  The content and format keys may be null if content is not contained. The hash maybe null if hash is not required.  If type is 'file', then the mimetype will be null.
  * @export
@@ -69,11 +77,11 @@ export interface Contents {
      */
     mimetype: string;
     /**
-     * The content, if requested (otherwise null).  Will be an array if type is 'directory'
-     * @type {string}
+     * 
+     * @type {Content}
      * @memberof Contents
      */
-    content: string;
+    content?: Content;
     /**
      * Format of content (one of null, 'text', 'base64', 'json')
      * @type {string}
@@ -117,7 +125,6 @@ export function instanceOfContents(value: object): value is Contents {
     if (!('created' in value) || value['created'] === undefined) return false;
     if (!('lastModified' in value) || value['lastModified'] === undefined) return false;
     if (!('mimetype' in value) || value['mimetype'] === undefined) return false;
-    if (!('content' in value) || value['content'] === undefined) return false;
     if (!('format' in value) || value['format'] === undefined) return false;
     return true;
 }
@@ -140,7 +147,7 @@ export function ContentsFromJSONTyped(json: any, ignoreDiscriminator: boolean): 
         'lastModified': json['last_modified'],
         'size': json['size'] == null ? undefined : json['size'],
         'mimetype': json['mimetype'],
-        'content': json['content'],
+        'content': json['content'] == null ? undefined : ContentFromJSON(json['content']),
         'format': json['format'],
         'hash': json['hash'] == null ? undefined : json['hash'],
         'hashAlgorithm': json['hash_algorithm'] == null ? undefined : json['hash_algorithm'],
@@ -166,7 +173,7 @@ export function ContentsToJSONTyped(value?: Contents | null, ignoreDiscriminator
         'last_modified': value['lastModified'],
         'size': value['size'],
         'mimetype': value['mimetype'],
-        'content': value['content'],
+        'content': ContentToJSON(value['content']),
         'format': value['format'],
         'hash': value['hash'],
         'hash_algorithm': value['hashAlgorithm'],

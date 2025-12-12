@@ -3,6 +3,7 @@
 /* eslint-disable */
 export * from './APIStatus';
 export * from './Checkpoints';
+export * from './Content';
 export * from './Contents';
 export * from './ContentsCreateRequest';
 export * from './ContentsGet400Response';
