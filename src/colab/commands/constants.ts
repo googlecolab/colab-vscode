@@ -7,15 +7,17 @@
 /** Identifying information for a Colab command. */
 export interface Command {
   /** The human readable label of the registered command. */
-  label: string;
+  readonly label: string;
+  /** An optional icon for the command if it appears outside of the command palette. */
+  readonly icon?: string;
   /** An optional description of the command. */
-  description?: string;
+  readonly description?: string;
 }
 
 /** Identifying information for a Colab-registered command. */
 export interface RegisteredCommand extends Command {
   /** The ID of the registered command. */
-  id: string;
+  readonly id: string;
 }
 
 /** Command to open the toolbar command selection. */
@@ -32,32 +34,37 @@ export const SIGN_OUT: RegisteredCommand = {
 
 /** Command to trigger the sign-in flow, to view existing Colab servers. */
 export const SIGN_IN_VIEW_EXISTING: Command = {
-  label: '$(sign-in)  View Existing Servers',
+  label: 'View Existing Servers',
+  icon: 'sign-in',
   description: 'Click to sign-in...',
 };
 
 /** Command to auto-connect a Colab server. */
 export const AUTO_CONNECT: Command = {
-  label: '$(symbol-event)  Auto Connect',
+  label: 'Auto Connect',
+  icon: 'symbol-event',
   description: '1-click connect! Most recently created server, or a new one.',
 };
 
 /** Command to create a new Colab server. */
 export const NEW_SERVER: Command = {
-  label: '$(add)  New Colab Server',
+  label: 'New Colab Server',
+  icon: 'add',
   description: 'CPU, GPU or TPU.',
 };
 
 /** Command to open Colab in the browser. */
 export const OPEN_COLAB_WEB: Command = {
-  label: '$(link-external)  Open Colab Web',
+  label: 'Open Colab Web',
+  icon: 'link-external',
   description: 'Open Colab web.',
 };
 
 /** Command to remove a server. */
 export const REMOVE_SERVER: RegisteredCommand = {
   id: 'colab.removeServer',
-  label: '$(trash)  Remove Server',
+  label: 'Remove Server',
+  icon: 'trash',
 };
 
 /** Command to rename a server alias. */
@@ -68,6 +75,7 @@ export const RENAME_SERVER_ALIAS: RegisteredCommand = {
 
 /** Command to open the Colab signup page, to upgrade to pro. */
 export const UPGRADE_TO_PRO: Command = {
-  label: '$(accounts-view-bar-icon)  Upgrade to Pro',
+  label: 'Upgrade to Pro',
+  icon: 'accounts-view-bar-icon',
   description: 'More machines, more quota, more Colab!',
 };
