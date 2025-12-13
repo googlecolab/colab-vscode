@@ -1,0 +1,32 @@
+name: E2E Tests (Secure)
+
+on:
+  # This trigger runs in the context of the base repository (has secret access)
+  # BUT it relies on the environment gate to prevent malicious code execution.
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  call_e2e_tests:
+    name: E2E Tests
+    uses: ./.github/workflows/build-test.yml
+    with:
+      # CRITICAL: pull_request_target defaults to the BASE commit.
+      # We must explicitly checkout the HEAD (the PR code) to test the changes.
+      ref: ${{ github.event.pull_request.head.sha }}
+
+      # Turn on the E2E job
+      run_e2e: true
+
+      # Logic: Owners/Members -> Trusted (Fast) | Others -> Protected (Approval)
+      environment_name: >-
+        ${{ 
+          contains(fromJson('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)
+          && 'E2E Tests' 
+          || 'E2E Tests (from forks)'
+        }}
+    secrets: inherit
