@@ -138,23 +138,39 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       token_type: 'Bearer',
       scope: session.scopes.join(' '),
     });
-    const accessToken = await this.refreshSession(session.id);
-    if (accessToken) {
-      this.session = {
-        id: session.id,
-        accessToken,
-        account: session.account,
-        scopes: session.scopes,
-      };
-      this.isInitialized = true;
-      this.emitter.fire({
-        added: [],
-        removed: [],
-        changed: [this.session],
-        hasValidSession: true,
-      });
-      this.register();
+    try {
+      await this.oAuth2Client.refreshAccessToken();
+    } catch (err: unknown) {
+      const { shouldClearSession, reason } =
+        this.shouldClearSessionOnRefreshError(err);
+      if (shouldClearSession) {
+        log.warn(`${reason}. Clearing session.`, err);
+        await this.storage.removeSession(session.id);
+        await this.initialize();
+        return;
+      }
+      log.error('Unable to refresh access token', err);
+      throw err;
     }
+    const accessToken = this.oAuth2Client.credentials.access_token;
+    if (!accessToken) {
+      throw new Error('Failed to refresh Google OAuth token.');
+    }
+
+    this.session = {
+      id: session.id,
+      accessToken,
+      account: session.account,
+      scopes: session.scopes,
+    };
+    this.isInitialized = true;
+    this.emitter.fire({
+      added: [],
+      removed: [],
+      changed: [this.session],
+      hasValidSession: true,
+    });
+    this.register();
   }
 
   /**
@@ -326,41 +342,23 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     );
   }
 
-  private async refreshSession(sessionId: string): Promise<string> {
-    try {
-      await this.oAuth2Client.refreshAccessToken();
-    } catch (err: unknown) {
-      let shouldClearSession = false;
-      let reason = '';
-
-      if (isInvalidGrantError(err)) {
-        reason = 'OAuth app access to Colab was revoked';
-        shouldClearSession = true;
-      } else if (isOAuthClientSwitchedError(err)) {
-        // This should only ever be the case when developer building from source
-        // switches the OAuth client ID / secret.
-        reason = 'The configured OAuth client has changed';
-        shouldClearSession = true;
-      }
-
-      if (shouldClearSession) {
-        log.warn(`${reason}. Clearing session.`, err);
-        if (this.isInitialized) {
-          await this.removeSession(sessionId);
-        } else {
-          await this.storage.removeSession(sessionId);
-        }
-        await this.initialize();
-        return '';
-      }
-      log.error('Unable to refresh access token', err);
-      throw err;
+  private shouldClearSessionOnRefreshError(err: unknown): {
+    shouldClearSession: boolean;
+    reason: string;
+  } {
+    if (isInvalidGrantError(err)) {
+      return {
+        shouldClearSession: true,
+        reason: 'OAuth app access to Colab was revoked.',
+      };
     }
-    const accessToken = this.oAuth2Client.credentials.access_token;
-    if (!accessToken) {
-      throw new Error('Failed to refresh Google OAuth token.');
+    if (isOAuthClientSwitchedError(err)) {
+      return {
+        shouldClearSession: true,
+        reason: 'The configured OAuth client has changed',
+      };
     }
-    return accessToken;
+    return { shouldClearSession: false, reason: '' };
   }
 
   private async refreshSessionIfNeeded(): Promise<void> {
@@ -371,13 +369,28 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (expiryDateMs && expiryDateMs > Date.now() + REFRESH_MARGIN_MS) {
       return;
     }
-    const accessToken = await this.refreshSession(this.session.id);
-    if (accessToken) {
-      this.session = {
-        ...this.session,
-        accessToken,
-      };
+    try {
+      await this.oAuth2Client.refreshAccessToken();
+    } catch (err: unknown) {
+      const { shouldClearSession, reason } =
+        this.shouldClearSessionOnRefreshError(err);
+      if (shouldClearSession) {
+        log.warn(`${reason}. Clearing session.`, err);
+        await this.removeSession(this.session.id);
+        return;
+      }
+      log.error('Unable to refresh access token', err);
+      throw err;
     }
+    const accessToken = this.oAuth2Client.credentials.access_token;
+    if (!accessToken) {
+      throw new Error('Failed to refresh Google OAuth token.');
+    }
+
+    this.session = {
+      ...this.session,
+      accessToken,
+    };
   }
 
   private async getUserInfo(
