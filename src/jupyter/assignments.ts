@@ -5,7 +5,6 @@
  */
 
 import { randomUUID, UUID } from 'crypto';
-import WebSocketIsomorphic from 'isomorphic-ws';
 import fetch, {
   Headers,
   Request,
@@ -38,7 +37,7 @@ import {
 } from '../colab/headers';
 import { log } from '../common/logging';
 import { ProxiedJupyterClient } from './client';
-import { warnOnDriveMount } from './drive-mount-warning';
+import { colabProxyWebSocket } from './colab-proxy-web-socket';
 import {
   AllServers,
   ColabAssignedServer,
@@ -657,60 +656,4 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== 'string' && !('href' in info);
-}
-
-/**
- * Returns a `WebSocket` class which extends `WebSocketIsomorphic`, adds Colab's
- * custom headers, and intercepts `WebSocket.send` to warn users when on
- * `drive.mount` execution.
- */
-function colabProxyWebSocket(vs: typeof vscode, token: string) {
-  // These custom headers are required for Colab's proxy WebSocket to work.
-  const colabHeaders: Record<string, string> = {};
-  colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
-  colabHeaders[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
-
-  const addColabHeaders = (
-    options?: WebSocketIsomorphic.ClientOptions,
-  ): WebSocketIsomorphic.ClientOptions => {
-    options ??= {};
-    options.headers ??= {};
-    const headers: Record<string, string> = {
-      ...options.headers,
-      ...colabHeaders,
-    };
-    return { ...options, headers };
-  };
-
-  return class ColabWebSocket extends WebSocketIsomorphic {
-    constructor(
-      url: string | URL,
-      protocols?: string | string[],
-      options?: WebSocketIsomorphic.ClientOptions,
-    ) {
-      super(url, protocols, addColabHeaders(options));
-    }
-
-    override send(
-      data: string,
-      options:
-        | {
-            mask?: boolean;
-            binary?: boolean;
-            compress?: boolean;
-            fin?: boolean;
-          }
-        | ((err?: Error) => void)
-        | undefined,
-      cb?: (err?: Error) => void,
-    ) {
-      warnOnDriveMount(vs, data);
-
-      if (options === undefined || typeof options === 'function') {
-        cb = options;
-        options = {};
-      }
-      super.send(data, options, cb);
-    }
-  };
 }
