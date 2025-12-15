@@ -75,4 +75,3 @@ enum DriveMountUnsupportedAction {
   VIEW_ISSUE = 'GitHub Issue',
   VIEW_WORKAROUND = 'Workaround',
 }
-
