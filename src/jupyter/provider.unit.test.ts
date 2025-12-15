@@ -25,6 +25,7 @@ import {
   SIGN_IN_VIEW_EXISTING,
   UPGRADE_TO_PRO,
 } from '../colab/commands/constants';
+import { buildIconLabel } from '../colab/commands/utils';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -292,10 +293,10 @@ describe('ColabJupyterServerProvider', () => {
           );
 
           assert.isDefined(commands);
-          expect(commands).to.deep.equal([
-            AUTO_CONNECT,
-            NEW_SERVER,
-            OPEN_COLAB_WEB,
+          expect(commands.map((c) => c.label)).to.deep.equal([
+            buildIconLabel(AUTO_CONNECT),
+            buildIconLabel(NEW_SERVER),
+            buildIconLabel(OPEN_COLAB_WEB),
           ]);
         });
 
@@ -308,10 +309,10 @@ describe('ColabJupyterServerProvider', () => {
           );
 
           assert.isDefined(commands);
-          expect(commands).to.deep.equal([
-            AUTO_CONNECT,
-            NEW_SERVER,
-            OPEN_COLAB_WEB,
+          expect(commands.map((c) => c.label)).to.deep.equal([
+            buildIconLabel(AUTO_CONNECT),
+            buildIconLabel(NEW_SERVER),
+            buildIconLabel(OPEN_COLAB_WEB),
           ]);
         });
 
@@ -326,10 +327,10 @@ describe('ColabJupyterServerProvider', () => {
           );
 
           assert.isDefined(commands);
-          expect(commands).to.deep.equal([
-            AUTO_CONNECT,
-            NEW_SERVER,
-            OPEN_COLAB_WEB,
+          expect(commands.map((c) => c.label)).to.deep.equal([
+            buildIconLabel(AUTO_CONNECT),
+            buildIconLabel(NEW_SERVER),
+            buildIconLabel(OPEN_COLAB_WEB),
           ]);
         });
 
@@ -342,11 +343,11 @@ describe('ColabJupyterServerProvider', () => {
           );
 
           assert.isDefined(commands);
-          expect(commands).to.deep.equal([
-            AUTO_CONNECT,
-            NEW_SERVER,
-            OPEN_COLAB_WEB,
-            UPGRADE_TO_PRO,
+          expect(commands.map((c) => c.label)).to.deep.equal([
+            buildIconLabel(AUTO_CONNECT),
+            buildIconLabel(NEW_SERVER),
+            buildIconLabel(OPEN_COLAB_WEB),
+            buildIconLabel(UPGRADE_TO_PRO),
           ]);
         });
       });
@@ -365,11 +366,11 @@ describe('ColabJupyterServerProvider', () => {
           );
 
           assert.isDefined(commands);
-          expect(commands).to.deep.equal([
-            SIGN_IN_VIEW_EXISTING,
-            AUTO_CONNECT,
-            NEW_SERVER,
-            OPEN_COLAB_WEB,
+          expect(commands.map((c) => c.label)).to.deep.equal([
+            buildIconLabel(SIGN_IN_VIEW_EXISTING),
+            buildIconLabel(AUTO_CONNECT),
+            buildIconLabel(NEW_SERVER),
+            buildIconLabel(OPEN_COLAB_WEB),
           ]);
         });
 
@@ -382,10 +383,10 @@ describe('ColabJupyterServerProvider', () => {
           );
 
           assert.isDefined(commands);
-          expect(commands).to.deep.equal([
-            AUTO_CONNECT,
-            NEW_SERVER,
-            OPEN_COLAB_WEB,
+          expect(commands.map((c) => c.label)).to.deep.equal([
+            buildIconLabel(AUTO_CONNECT),
+            buildIconLabel(NEW_SERVER),
+            buildIconLabel(OPEN_COLAB_WEB),
           ]);
         });
       });
@@ -400,7 +401,7 @@ describe('ColabJupyterServerProvider', () => {
 
         await expect(
           serverProvider.handleCommand(
-            { label: AUTO_CONNECT.label },
+            { label: buildIconLabel(AUTO_CONNECT) },
             cancellationToken,
           ),
         ).to.eventually.be.rejectedWith(/barf/);
@@ -416,7 +417,7 @@ describe('ColabJupyterServerProvider', () => {
 
         await expect(
           serverProvider.handleCommand(
-            { label: OPEN_COLAB_WEB.label },
+            { label: buildIconLabel(OPEN_COLAB_WEB) },
             cancellationToken,
           ),
         ).to.eventually.equal(undefined);
@@ -432,7 +433,7 @@ describe('ColabJupyterServerProvider', () => {
 
         await expect(
           serverProvider.handleCommand(
-            { label: UPGRADE_TO_PRO.label },
+            { label: buildIconLabel(UPGRADE_TO_PRO) },
             cancellationToken,
           ),
         ).to.eventually.equal(undefined);
@@ -449,7 +450,7 @@ describe('ColabJupyterServerProvider', () => {
 
           await expect(
             serverProvider.handleCommand(
-              { label: SIGN_IN_VIEW_EXISTING.label },
+              { label: buildIconLabel(SIGN_IN_VIEW_EXISTING) },
               cancellationToken,
             ),
           ).to.eventually.be.equal(undefined);
@@ -464,7 +465,7 @@ describe('ColabJupyterServerProvider', () => {
 
           await expect(
             serverProvider.handleCommand(
-              { label: AUTO_CONNECT.label },
+              { label: buildIconLabel(AUTO_CONNECT) },
               cancellationToken,
             ),
           ).to.eventually.deep.equal(DEFAULT_SERVER);
@@ -477,7 +478,7 @@ describe('ColabJupyterServerProvider', () => {
 
           await expect(
             serverProvider.handleCommand(
-              { label: NEW_SERVER.label },
+              { label: buildIconLabel(NEW_SERVER) },
               cancellationToken,
             ),
           ).to.eventually.be.equal(undefined);
@@ -505,7 +506,7 @@ describe('ColabJupyterServerProvider', () => {
 
           await expect(
             serverProvider.handleCommand(
-              { label: NEW_SERVER.label },
+              { label: buildIconLabel(NEW_SERVER) },
               cancellationToken,
             ),
           ).to.eventually.deep.equal(DEFAULT_SERVER);
