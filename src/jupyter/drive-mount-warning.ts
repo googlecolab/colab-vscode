@@ -5,6 +5,7 @@
  */
 
 import vscode from 'vscode';
+import { z } from 'zod';
 
 /**
  * Displays a warning notification message in VS Code if `rawJupyterMessage` is
@@ -28,20 +29,7 @@ export function warnOnDriveMount(
 function isExecuteRequest(
   message: unknown,
 ): message is JupyterExecuteRequestMessage {
-  return (
-    !!message &&
-    typeof message === 'object' &&
-    'header' in message &&
-    !!message.header &&
-    typeof message.header === 'object' &&
-    'msg_type' in message.header &&
-    message.header.msg_type === 'execute_request' &&
-    'content' in message &&
-    !!message.content &&
-    typeof message.content === 'object' &&
-    'code' in message.content &&
-    typeof message.content.code === 'string'
-  );
+  return ExecuteRequestSchema.safeParse(message).success;
 }
 
 function notifyDriveMountUnsupported(vs: typeof vscode): void {
@@ -68,6 +56,15 @@ interface JupyterExecuteRequestMessage {
   content: { code: string };
 }
 
+const ExecuteRequestSchema = z.object({
+  header: z.object({
+    msg_type: z.literal('execute_request'),
+  }),
+  content: z.object({
+    code: z.string(),
+  }),
+});
+
 const DRIVE_MOUNT_PATTERN = /drive\.mount\(.+\)/;
 const DRIVE_MOUNT_ISSUE_LINK =
   'https://github.com/googlecolab/colab-vscode/issues/256';
@@ -78,3 +75,4 @@ enum DriveMountUnsupportedAction {
   VIEW_ISSUE = 'GitHub Issue',
   VIEW_WORKAROUND = 'Workaround',
 }
+
