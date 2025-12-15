@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { expect } from 'chai';
 import sinon from 'sinon';
 import { Uri } from 'vscode';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
@@ -23,27 +24,34 @@ describe('warnOnDriveMount', () => {
     });
 
     it('shows warning notification', async () => {
-      const showWarningMessageStub = vsCodeStub.window
-        .showWarningMessage as sinon.SinonStub;
-      showWarningMessageStub.resolves(undefined);
+      const warningShown = new Promise<void>((resolve) => {
+        (vsCodeStub.window.showWarningMessage as sinon.SinonStub).callsFake(
+          (message: string) => {
+            expect(message).to.match(/drive.mount is not currently supported/);
+            resolve();
+            return Promise.resolve(undefined);
+          },
+        );
+      });
 
       warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
-      await flush();
 
-      sinon.assert.calledOnceWithMatch(
-        showWarningMessageStub,
-        /drive.mount is not currently supported/,
-      );
+      await expect(warningShown).to.eventually.be.fulfilled;
     });
 
     it('presents an action to view workaround', async () => {
-      (vsCodeStub.window.showWarningMessage as sinon.SinonStub).resolves(
-        'Workaround',
-      );
+      const warningShown = new Promise<void>((resolve) => {
+        (vsCodeStub.window.showWarningMessage as sinon.SinonStub).callsFake(
+          () => {
+            resolve();
+            return Promise.resolve('Workaround');
+          },
+        );
+      });
 
       warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
-      await flush();
 
+      await expect(warningShown).to.eventually.be.fulfilled;
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.env.openExternal,
         sinon.match(function (url: Uri) {
@@ -56,13 +64,18 @@ describe('warnOnDriveMount', () => {
     });
 
     it('presents an action to view issue', async () => {
-      (vsCodeStub.window.showWarningMessage as sinon.SinonStub).resolves(
-        'GitHub Issue',
-      );
+      const warningShown = new Promise<void>((resolve) => {
+        (vsCodeStub.window.showWarningMessage as sinon.SinonStub).callsFake(
+          () => {
+            resolve();
+            return Promise.resolve('GitHub Issue');
+          },
+        );
+      });
 
       warnOnDriveMount(vsCodeStub.asVsCode(), rawDriveMountMessage);
-      await flush();
 
+      await expect(warningShown).to.eventually.be.fulfilled;
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.env.openExternal,
         sinon.match(function (url: Uri) {
