@@ -6,7 +6,7 @@
 
 import { ClientRequestArgs } from 'http';
 import { expect } from 'chai';
-import WebSocketIsomorphic from 'isomorphic-ws';
+import WebSocket from 'ws';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { colabProxyWebSocket } from './colab-proxy-web-socket';
 
@@ -42,29 +42,27 @@ describe('colabProxyWebSocket', () => {
     });
   });
 
-  class TestWebSocket extends WebSocketIsomorphic {
+  class TestWebSocket extends WebSocket {
     constructor(
-      address: string | URL | null,
+      _address: string | URL | null,
       protocols?:
         | string
         | string[]
-        | WebSocketIsomorphic.ClientOptions
+        | WebSocket.ClientOptions
         | ClientRequestArgs,
-      options?: WebSocketIsomorphic.ClientOptions | ClientRequestArgs,
+      options?: WebSocket.ClientOptions | ClientRequestArgs,
     ) {
       super(null); // Avoid real WS connection
-      if (address !== null) {
-        if (typeof protocols === 'object' && !Array.isArray(protocols)) {
-          verifyColabHeadersPresent(protocols);
-        } else {
-          verifyColabHeadersPresent(options);
-        }
+      if (typeof protocols === 'object' && !Array.isArray(protocols)) {
+        verifyColabHeadersPresent(protocols);
+      } else {
+        verifyColabHeadersPresent(options);
       }
     }
   }
 
   function verifyColabHeadersPresent(
-    options?: WebSocketIsomorphic.ClientOptions | ClientRequestArgs,
+    options?: WebSocket.ClientOptions | ClientRequestArgs,
   ) {
     expect(options?.headers).to.deep.equal({
       'X-Colab-Runtime-Proxy-Token': testToken,

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import WebSocketIsomorphic from 'isomorphic-ws';
 import vscode from 'vscode';
+import WebSocket from 'ws';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -13,14 +13,14 @@ import {
 import { warnOnDriveMount } from './drive-mount-warning';
 
 /**
- * Returns a `WebSocket` class which extends `WebSocketIsomorphic`, adds Colab's
- * custom headers, and intercepts `WebSocket.send` to warn users when on
- * `drive.mount` execution.
+ * Returns a class which extends {@link WebSocket}, adds Colab's custom headers,
+ * and intercepts {@link WebSocket.send} to warn users when on `drive.mount`
+ * execution.
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
   token: string,
-  BaseWebSocket: typeof WebSocketIsomorphic = WebSocketIsomorphic,
+  BaseWebSocket: typeof WebSocket = WebSocket,
 ) {
   // These custom headers are required for Colab's proxy WebSocket to work.
   const colabHeaders: Record<string, string> = {};
@@ -28,8 +28,8 @@ export function colabProxyWebSocket(
   colabHeaders[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
   const addColabHeaders = (
-    options?: WebSocketIsomorphic.ClientOptions,
-  ): WebSocketIsomorphic.ClientOptions => {
+    options?: WebSocket.ClientOptions,
+  ): WebSocket.ClientOptions => {
     options ??= {};
     options.headers ??= {};
     const headers: Record<string, string> = {
@@ -42,8 +42,8 @@ export function colabProxyWebSocket(
   return class ColabWebSocket extends BaseWebSocket {
     constructor(
       address: string | URL,
-      protocols?: string | string[] | WebSocketIsomorphic.ClientOptions,
-      options?: WebSocketIsomorphic.ClientOptions,
+      protocols?: string | string[] | WebSocket.ClientOptions,
+      options?: WebSocket.ClientOptions,
     ) {
       if (typeof protocols === 'object' && !Array.isArray(protocols)) {
         super(address, addColabHeaders(protocols));
