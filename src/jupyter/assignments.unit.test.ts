@@ -300,7 +300,7 @@ describe('AssignmentManager', () => {
         await assignmentManager.reconcileAssignedServers();
 
         const serversAfter = await assignmentManager.getServers('extension');
-        expect(stripFetches(serversAfter)).to.deep.equal([servers[0]]);
+        expect(stripNetworkOverrides(serversAfter)).to.deep.equal([servers[0]]);
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
           added: [],
           removed: [{ server: servers[1], userInitiated: false }],
@@ -359,7 +359,7 @@ describe('AssignmentManager', () => {
         await assignmentManager.reconcileAssignedServers();
 
         const serversAfter = await assignmentManager.getServers('extension');
-        expect(stripFetches(serversAfter)).to.deep.equal([
+        expect(stripNetworkOverrides(serversAfter)).to.deep.equal([
           servers[0],
           servers[1],
         ]);
@@ -451,7 +451,7 @@ describe('AssignmentManager', () => {
         it('returns the assigned server when there is one', async () => {
           const servers = await assignmentManager.getServers('extension');
 
-          expect(stripFetches(servers)).to.deep.equal([defaultServer]);
+          expect(stripNetworkOverrides(servers)).to.deep.equal([defaultServer]);
         });
 
         it('returns multiple assigned servers when there are some', async () => {
@@ -463,7 +463,7 @@ describe('AssignmentManager', () => {
 
           const servers = await assignmentManager.getServers('extension');
 
-          expect(stripFetches(servers)).to.deep.equal(storedServers);
+          expect(stripNetworkOverrides(servers)).to.deep.equal(storedServers);
         });
 
         it('reconciles assigned servers before returning', async () => {
@@ -476,7 +476,7 @@ describe('AssignmentManager', () => {
 
           const results = await assignmentManager.getServers('extension');
 
-          expect(stripFetches(results)).to.deep.equal([defaultServer]);
+          expect(stripNetworkOverrides(results)).to.deep.equal([defaultServer]);
         });
 
         it('includes a fetch implementation that attaches Colab connection info', async () => {
@@ -495,6 +495,13 @@ describe('AssignmentManager', () => {
               [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
             }),
           });
+        });
+
+        it('includes a custom WebSocket implementation', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.WebSocket);
         });
       });
     });
@@ -606,7 +613,7 @@ describe('AssignmentManager', () => {
         const results = await assignmentManager.getServers('all');
 
         // Then 1 assigned server and 2 unowned servers are returned
-        expect(stripFetches([...results.assigned])).to.deep.equal([
+        expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
           assignedServer,
         ]);
         expect(results.unowned).to.deep.equal([
@@ -701,7 +708,7 @@ describe('AssignmentManager', () => {
 
         const results = await assignmentManager.getServers('all');
 
-        expect(stripFetches([...results.assigned])).to.deep.equal([
+        expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
           assignedServer1,
           assignedServer2,
           assignedServer3,
@@ -723,7 +730,7 @@ describe('AssignmentManager', () => {
 
         const results = await assignmentManager.getServers('all');
 
-        expect(stripFetches([...results.assigned])).to.deep.equal([
+        expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
           assignedServer,
         ]);
       });
@@ -834,7 +841,7 @@ describe('AssignmentManager', () => {
       });
 
       it('stores and returns the server', () => {
-        const { id: assignedId, ...got } = stripFetch(assignedServer);
+        const { id: assignedId, ...got } = stripNetworkOverride(assignedServer);
         const { id: defaultId, ...want } = defaultServer;
         expect(got).to.deep.equal(want);
         expect(assignedId).to.satisfy(isUUID);
@@ -862,6 +869,10 @@ describe('AssignmentManager', () => {
             [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
           }),
         });
+      });
+
+      it('includes a custom WebSocket implementation', () => {
+        assert.isDefined(assignedServer.connectionInformation.WebSocket);
       });
     });
 
@@ -1074,7 +1085,7 @@ describe('AssignmentManager', () => {
 
       const server = await assignmentManager.latestOrAutoAssignServer();
 
-      const { id: _g, ...got } = stripFetch(server);
+      const { id: _g, ...got } = stripNetworkOverride(server);
       const { id: _w, ...want } = defaultCpuServer;
       expect(got).to.deep.equal(want);
     });
@@ -1097,7 +1108,7 @@ describe('AssignmentManager', () => {
 
       const server = await assignmentManager.latestOrAutoAssignServer();
 
-      expect(stripFetch(server)).to.deep.equal(olderActiveServer);
+      expect(stripNetworkOverride(server)).to.deep.equal(olderActiveServer);
     });
   });
 
@@ -1127,7 +1138,7 @@ describe('AssignmentManager', () => {
 
       const server = await assignmentManager.latestServer();
 
-      expect(server ? stripFetch(server) : null).to.deep.equal(
+      expect(server ? stripNetworkOverride(server) : null).to.deep.equal(
         olderActiveServer,
       );
     });
@@ -1171,7 +1182,9 @@ describe('AssignmentManager', () => {
             token: newToken,
           },
         };
-        expect(stripFetch(refreshedServer)).to.deep.equal(expectedServer);
+        expect(stripNetworkOverride(refreshedServer)).to.deep.equal(
+          expectedServer,
+        );
       });
 
       it('includes a fetch implementation that attaches Colab connection info', async () => {
@@ -1189,6 +1202,10 @@ describe('AssignmentManager', () => {
             [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
           }),
         });
+      });
+
+      it('includes a custom WebSocket implementation', () => {
+        assert.isDefined(refreshedServer.connectionInformation.WebSocket);
       });
 
       it('emits an assignment change event', () => {
@@ -1365,14 +1382,19 @@ describe('AssignmentManager', () => {
   });
 });
 
-function stripFetch(server: ColabAssignedServer): ColabAssignedServer {
-  const { fetch: _, ...c } = server.connectionInformation;
+function stripNetworkOverride(
+  server: ColabAssignedServer,
+): ColabAssignedServer {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const { fetch: _f, WebSocket: _ws, ...c } = server.connectionInformation;
   return {
     ...server,
     connectionInformation: c,
   };
 }
 
-function stripFetches(servers: ColabAssignedServer[]): ColabAssignedServer[] {
-  return servers.map(stripFetch);
+function stripNetworkOverrides(
+  servers: ColabAssignedServer[],
+): ColabAssignedServer[] {
+  return servers.map(stripNetworkOverride);
 }

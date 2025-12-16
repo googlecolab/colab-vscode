@@ -206,7 +206,7 @@ describe('Server Commands', () => {
             value: additionalVsCodeServer,
             description: 'VS Code Server',
           },
-          { label: '', kind: -1 },
+          { label: '', kind: vsCodeStub.QuickPickItemKind.Separator },
           {
             label: nonVsCodeServer.label,
             value: nonVsCodeServer,
