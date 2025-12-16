@@ -352,6 +352,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         reason: 'OAuth app access to Colab was revoked.',
       };
     }
+    // This should only ever be the case when developer building from source
     if (isOAuthClientSwitchedError(err)) {
       return {
         shouldClearSession: true,
