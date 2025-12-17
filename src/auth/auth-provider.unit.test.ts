@@ -566,13 +566,13 @@ describe('GoogleAuthProvider', () => {
         });
       }
 
-      it('re-throws non handled errors when refreshing the access token', async () => {
+      it('ignores unhandled errors when refreshing the access token', async () => {
         refreshAccessTokenStub.throws(new Error('🤮'));
         fakeClock.tick(HOUR_MS * 2);
 
         const sessions = authProvider.getSessions(undefined, {});
 
-        await expect(sessions).to.eventually.be.rejectedWith(/🤮/);
+        await expect(sessions).to.eventually.deep.equal([DEFAULT_AUTH_SESSION]);
       });
     });
   });

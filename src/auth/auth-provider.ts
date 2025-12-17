@@ -218,7 +218,20 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (scopes && !matchesRequiredScopes(scopes)) {
       return [];
     }
-    await this.refreshSessionIfNeeded();
+    try {
+      await this.refreshSessionIfNeeded();
+    } catch (err: unknown) {
+      const { shouldClearSession, reason } =
+        this.shouldClearSessionOnRefreshError(err);
+      if (shouldClearSession) {
+        log.warn(`${reason}. Clearing session.`, err);
+        if (this.session?.id) {
+          await this.removeSession(this.session.id);
+        }
+        return [];
+      }
+      log.error('Unable to refresh access token', err);
+    }
     if (options.account && this.session?.account != options.account) {
       return [];
     }
@@ -370,19 +383,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (expiryDateMs && expiryDateMs > Date.now() + REFRESH_MARGIN_MS) {
       return;
     }
-    try {
-      await this.oAuth2Client.refreshAccessToken();
-    } catch (err: unknown) {
-      const { shouldClearSession, reason } =
-        this.shouldClearSessionOnRefreshError(err);
-      if (shouldClearSession) {
-        log.warn(`${reason}. Clearing session.`, err);
-        await this.removeSession(this.session.id);
-        return;
-      }
-      log.error('Unable to refresh access token', err);
-      throw err;
-    }
+    await this.oAuth2Client.refreshAccessToken();
     const accessToken = this.oAuth2Client.credentials.access_token;
     if (!accessToken) {
       throw new Error('Failed to refresh Google OAuth token.');
