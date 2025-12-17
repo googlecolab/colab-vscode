@@ -32,6 +32,13 @@ export enum ExtensionMode {
   Test = 3,
 }
 
+export enum FileType {
+  Unknown = 0,
+  File = 1,
+  Directory = 2,
+  SymbolicLink = 64,
+}
+
 enum ProgressLocation {
   SourceControl = 1,
   Window = 10,
@@ -105,6 +112,7 @@ export interface VsCodeStub {
     textDocuments: vscode.TextDocument[];
   };
   ExtensionMode: typeof vscode.ExtensionMode;
+  FileType: typeof vscode.FileType;
   ProgressLocation: typeof ProgressLocation;
   QuickInputButtons: typeof TestQuickInputButtons;
   extensions: {
@@ -189,6 +197,7 @@ export function newVsCodeStub(): VsCodeStub {
       textDocuments: [],
     },
     ExtensionMode: ExtensionMode,
+    FileType: FileType,
     ProgressLocation: ProgressLocation,
     QuickInputButtons: TestQuickInputButtons,
     extensions: {
