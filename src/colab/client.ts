@@ -6,6 +6,7 @@
 
 import { UUID } from 'crypto';
 import * as https from 'https';
+import FormData from 'form-data';
 import fetch, { Request, RequestInit, Headers } from 'node-fetch';
 import { z } from 'zod';
 import { traceMethod } from '../common/logging/decorators';
@@ -31,6 +32,8 @@ import {
   RuntimeProxyInfoSchema,
   Shape,
   SessionSchema,
+  CredentialsPropagationResult,
+  CredentialsPropagationResultSchema,
 } from './api';
 import {
   ACCEPT_JSON_HEADER,
@@ -272,6 +275,63 @@ export class ColabClient {
         signal,
       },
       z.array(SessionSchema),
+    );
+  }
+
+  /**
+   * Propagates credentials to the backend.
+   *
+   * @param endpoint - The assignment endpoint to propagate credentials to.
+   * @param authType - If `dfs_persistent`, backend will record the credentials
+   *   and avoid future requests.
+   * @param fileId - This notebook's file ID.
+   * @param renderDataToken - A URL-safe, tamper-proof token containing a record
+   *   of FE rendering data, in the form of an ARI `AuditRenderData` proto
+   *   message, that can be used to reconstruct the text that was shown to users
+   *   during consent moments.
+   * @param dryRun - If true, check if credentials are already propagated to the
+   *   backend and/or obtain an OAuth redirect URL.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns Whether propagation is successful. If not, an OAuth redirect URL
+   *   is returned to obtain the credentials.
+   */
+  async propagateCredentials(
+    endpoint: string,
+    authType: 'dfs_ephemeral' | 'dfs_persistent',
+    fileId: string,
+    renderDataToken: string,
+    dryRun = true,
+    signal?: AbortSignal,
+  ): Promise<CredentialsPropagationResult> {
+    const url = new URL(
+      `${TUN_ENDPOINT}/credentials-propagation/${endpoint}`,
+      this.colabDomain,
+    );
+    url.searchParams.set('authtype', authType);
+    url.searchParams.set('version', '2');
+    url.searchParams.set('dryrun', String(dryRun));
+    url.searchParams.set('propagate', 'true');
+    url.searchParams.set('record', String(authType === 'dfs_persistent'));
+
+    const { token } = await this.issueRequest(
+      url,
+      { method: 'GET', signal },
+      z.object({ token: z.string() }),
+    );
+
+    const formBody = new FormData();
+    formBody.append('file_id', fileId);
+    formBody.append('render_data_token', renderDataToken);
+
+    return await this.issueRequest(
+      url,
+      {
+        method: 'POST',
+        headers: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
+        body: formBody,
+        signal,
+      },
+      CredentialsPropagationResultSchema,
     );
   }
 

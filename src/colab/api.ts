@@ -379,6 +379,22 @@ export const SessionSchema: z.ZodType<GeneratedSession> = z.object({
 });
 export type Session = z.infer<typeof SessionSchema>;
 
+/** Result from the Colab Drive credentials propagation API. */
+export const CredentialsPropagationResultSchema = z
+  .object({
+    /** Whether the credentials are or were already propagated. */
+    success: z.boolean(),
+    /** An optional OAuth redirect URL if credentials aren't propagated. */
+    unauthorized_redirect_uri: z.string().optional(),
+  })
+  .transform(({ unauthorized_redirect_uri, ...rest }) => ({
+    ...rest,
+    unauthorizedRedirectUri: unauthorized_redirect_uri,
+  }));
+export type CredentialsPropagationResult = z.infer<
+  typeof CredentialsPropagationResultSchema
+>;
+
 /**
  * Maps a Colab {@link Variant} to a human-friendly machine type name.
  *

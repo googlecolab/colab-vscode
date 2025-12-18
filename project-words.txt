@@ -1,7 +1,9 @@
+authtype
 authuser
 autorestarting
 chromedriver
 colab
+dryrun
 extest
 exthost
 gapi
