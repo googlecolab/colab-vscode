@@ -76,8 +76,8 @@ export class ContentsFileSystemProvider
     this.workspaceListener = vs.workspace.onDidChangeWorkspaceFolders(
       this.dropMatchingConnection.bind(this),
     );
-    this.connectionListener = jupyterConnections.onDidRevokeConnection(
-      this.removeWorkspaceFolder.bind(this),
+    this.connectionListener = jupyterConnections.onDidRevokeConnections(
+      this.removeWorkspaceFolders.bind(this),
     );
   }
 
@@ -469,16 +469,28 @@ export class ContentsFileSystemProvider
     }
   }
 
-  private removeWorkspaceFolder(
-    endpoint: string,
-  ): vscode.WorkspaceFolder | undefined {
-    const folder = this.vs.workspace.workspaceFolders?.find(
-      (f) => f.uri.scheme === 'colab' && f.uri.authority === endpoint,
-    );
-    if (folder) {
-      this.vs.workspace.updateWorkspaceFolders(folder.index, 1);
+  private removeWorkspaceFolders(endpoints: string[]): void {
+    const currentFolders = this.vs.workspace.workspaceFolders;
+    if (!currentFolders || currentFolders.length === 0) {
+      return;
     }
-    return folder;
+    const foldersToKeep = currentFolders
+      .filter(
+        (f) =>
+          !(f.uri.scheme === 'colab' && endpoints.includes(f.uri.authority)),
+      )
+      .map((f) => ({
+        uri: f.uri,
+        name: f.name,
+      }));
+    if (foldersToKeep.length === currentFolders.length) {
+      return;
+    }
+    this.vs.workspace.updateWorkspaceFolders(
+      0,
+      currentFolders.length,
+      ...foldersToKeep,
+    );
   }
 
   // Jupyter expects paths relative to root, without the leading slash.

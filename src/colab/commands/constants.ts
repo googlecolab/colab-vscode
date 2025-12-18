@@ -60,6 +60,14 @@ export const OPEN_COLAB_WEB: Command = {
   description: 'Open Colab web.',
 };
 
+/** Command to mount a server's file-system. */
+export const MOUNT_SERVER: RegisteredCommand = {
+  id: 'colab.mountServer',
+  label: 'Mount Server to Workspace',
+  icon: 'remote',
+  description: 'Reloads VS Code if a Workspace is not already open.',
+};
+
 /** Command to remove a server. */
 export const REMOVE_SERVER: RegisteredCommand = {
   id: 'colab.removeServer',

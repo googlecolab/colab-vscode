@@ -6,20 +6,32 @@
 
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
-import { QuickPickItem, Uri } from 'vscode';
+import { QuickPickItem, Uri, WorkspaceConfiguration } from 'vscode';
 import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { OPEN_COLAB_WEB, UPGRADE_TO_PRO, REMOVE_SERVER } from './constants';
+import {
+  OPEN_COLAB_WEB,
+  UPGRADE_TO_PRO,
+  REMOVE_SERVER,
+  MOUNT_SERVER,
+} from './constants';
 import { notebookToolbar } from './notebook';
 
 describe('notebookToolbar', () => {
-  let vsCodeStub: VsCodeStub;
+  let vs: VsCodeStub;
   let assignmentManager: SinonStubbedInstance<AssignmentManager>;
+  let serverMountingEnabled = false;
 
   beforeEach(() => {
-    vsCodeStub = newVsCodeStub();
+    vs = newVsCodeStub();
     assignmentManager = sinon.createStubInstance(AssignmentManager);
+    vs.workspace.getConfiguration.withArgs('colab').returns({
+      get: sinon
+        .stub<[string], boolean>()
+        .withArgs('serverMounting')
+        .callsFake(() => serverMountingEnabled),
+    } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
   });
 
   afterEach(() => {
@@ -27,57 +39,57 @@ describe('notebookToolbar', () => {
   });
 
   it('does nothing when no command is selected', async () => {
-    vsCodeStub.window.showQuickPick.resolves(undefined);
+    vs.window.showQuickPick.resolves(undefined);
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
   });
 
   it('re-invokes the notebook toolbar when a command flows back', async () => {
     assignmentManager.hasAssignedServer.resolves(true);
-    vsCodeStub.commands.executeCommand
+    vs.commands.executeCommand
       .withArgs(REMOVE_SERVER.id)
       .onFirstCall()
       .rejects(InputFlowAction.back);
-    vsCodeStub.window.showQuickPick
+    vs.window.showQuickPick
       .onFirstCall()
       .callsFake(findCommand(REMOVE_SERVER.label))
       .onSecondCall()
       .callsFake(findCommand(REMOVE_SERVER.label));
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
 
-    sinon.assert.calledTwice(vsCodeStub.window.showQuickPick);
+    sinon.assert.calledTwice(vs.window.showQuickPick);
   });
 
   it('excludes server specific commands when there are non assigned', async () => {
-    vsCodeStub.window.showQuickPick
+    vs.window.showQuickPick
       .onFirstCall()
       // Arbitrarily select the first command.
       .callsFake(findCommand(OPEN_COLAB_WEB.label));
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
 
     sinon.assert.calledOnceWithMatch(
-      vsCodeStub.window.showQuickPick,
+      vs.window.showQuickPick,
       commandsLabeled([OPEN_COLAB_WEB.label, UPGRADE_TO_PRO.label]),
     );
   });
 
   it('includes all commands when there is a server assigned', async () => {
     assignmentManager.hasAssignedServer.resolves(true);
-    vsCodeStub.window.showQuickPick
+    vs.window.showQuickPick
       .onFirstCall()
       // Arbitrarily select the first command.
       .callsFake(findCommand(OPEN_COLAB_WEB.label));
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
 
     sinon.assert.calledOnceWithMatch(
-      vsCodeStub.window.showQuickPick,
+      vs.window.showQuickPick,
       commandsLabeled([
         REMOVE_SERVER.label,
         /* separator */ '',
@@ -87,16 +99,37 @@ describe('notebookToolbar', () => {
     );
   });
 
-  it('opens Colab in web', async () => {
-    vsCodeStub.window.showQuickPick.callsFake(
-      findCommand(OPEN_COLAB_WEB.label),
-    );
+  it('includes server mounting when there is a server assigned and the setting is enabled', async () => {
+    assignmentManager.hasAssignedServer.resolves(true);
+    serverMountingEnabled = true;
+    vs.window.showQuickPick
+      .onFirstCall()
+      // Arbitrarily select the first command.
+      .callsFake(findCommand(OPEN_COLAB_WEB.label));
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
 
     sinon.assert.calledOnceWithMatch(
-      vsCodeStub.env.openExternal,
+      vs.window.showQuickPick,
+      commandsLabeled([
+        MOUNT_SERVER.label,
+        REMOVE_SERVER.label,
+        /* separator */ '',
+        OPEN_COLAB_WEB.label,
+        UPGRADE_TO_PRO.label,
+      ]),
+    );
+  });
+
+  it('opens Colab in web', async () => {
+    vs.window.showQuickPick.callsFake(findCommand(OPEN_COLAB_WEB.label));
+
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
+      .eventually.be.fulfilled;
+
+    sinon.assert.calledOnceWithMatch(
+      vs.env.openExternal,
       sinon.match(
         (u: Uri) =>
           u.authority === 'colab.research.google.com' && u.path === '/',
@@ -105,15 +138,13 @@ describe('notebookToolbar', () => {
   });
 
   it('opens the Colab signup page', async () => {
-    vsCodeStub.window.showQuickPick.callsFake(
-      findCommand(UPGRADE_TO_PRO.label),
-    );
+    vs.window.showQuickPick.callsFake(findCommand(UPGRADE_TO_PRO.label));
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
 
     sinon.assert.calledOnceWithMatch(
-      vsCodeStub.env.openExternal,
+      vs.env.openExternal,
       sinon.match(
         (u: Uri) =>
           u.authority === 'colab.research.google.com' && u.path === '/signup',
@@ -121,15 +152,29 @@ describe('notebookToolbar', () => {
     );
   });
 
-  it('removes a server', async () => {
+  it('mounts a server', async () => {
     assignmentManager.hasAssignedServer.resolves(true);
-    vsCodeStub.window.showQuickPick.callsFake(findCommand(REMOVE_SERVER.label));
+    serverMountingEnabled = true;
+    vs.window.showQuickPick.callsFake(findCommand(MOUNT_SERVER.label));
 
-    await expect(notebookToolbar(vsCodeStub.asVsCode(), assignmentManager)).to
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
       .eventually.be.fulfilled;
 
     sinon.assert.calledOnceWithMatch(
-      vsCodeStub.commands.executeCommand,
+      vs.commands.executeCommand,
+      MOUNT_SERVER.id,
+    );
+  });
+
+  it('removes a server', async () => {
+    assignmentManager.hasAssignedServer.resolves(true);
+    vs.window.showQuickPick.callsFake(findCommand(REMOVE_SERVER.label));
+
+    await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
+      .eventually.be.fulfilled;
+
+    sinon.assert.calledOnceWithMatch(
+      vs.commands.executeCommand,
       REMOVE_SERVER.id,
     );
   });

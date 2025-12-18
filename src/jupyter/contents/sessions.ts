@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Disposable, Event, EventEmitter } from 'vscode';
+import vscode, {
+  ConfigurationChangeEvent,
+  Disposable,
+  Event,
+  EventEmitter,
+} from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
 import { AssignmentChangeEvent, AssignmentManager } from '../assignments';
 import { ProxiedJupyterClient } from '../client';
@@ -28,31 +33,34 @@ export class ServerNotFound extends Error {
  */
 export class JupyterConnectionManager implements Disposable {
   private readonly connections = new Map<string, Promise<ServerConnection>>();
-  private readonly revokeConnectionEmitter: EventEmitter<string>;
+  private readonly revokeConnectionEmitter: EventEmitter<string[]>;
   private isAuthorized = false;
   private isDisposed = false;
   private disposables: Disposable[] = [];
 
   /**
-   * Fires when a server connection is revoked.
+   * Fires with the endpoints of server connections which are revoked.
    *
-   * A server connection is revoked when a an assignment is removed, or the user
-   * logs out.
+   * A server connection is revoked when an assignment is removed, the user
+   * logs out or the colab.serverMounting setting is disabled.
    */
-  readonly onDidRevokeConnection: Event<string>;
+  readonly onDidRevokeConnections: Event<string[]>;
 
   constructor(
-    vs: typeof vscode,
+    private readonly vs: typeof vscode,
     authEvent: Event<AuthChangeEvent>,
     private readonly assignments: AssignmentManager,
   ) {
-    this.revokeConnectionEmitter = new vs.EventEmitter<string>();
-    this.onDidRevokeConnection = this.revokeConnectionEmitter.event;
+    this.revokeConnectionEmitter = new vs.EventEmitter<string[]>();
+    this.onDidRevokeConnections = this.revokeConnectionEmitter.event;
+    const configListener = vs.workspace.onDidChangeConfiguration(
+      this.handleConfigChange.bind(this),
+    );
     const authChanges = authEvent(this.handleAuthChange.bind(this));
     const assignmentChanges = assignments.onDidAssignmentsChange(
       this.handleAssignmentChange.bind(this),
     );
-    this.disposables.push(authChanges, assignmentChanges);
+    this.disposables.push(configListener, authChanges, assignmentChanges);
   }
 
   dispose() {
@@ -130,8 +138,8 @@ export class JupyterConnectionManager implements Disposable {
    *
    * @param endpoint - The endpoint of the server to remove the client of.
    * @param silent - When true, suppresses firing the
-   * {@link JupyterConnectionManager.onDidRevokeConnection} event. Useful if the
-   * caller has already updated the UI and does not need the event to fire
+   * {@link JupyterConnectionManager.onDidRevokeConnections} event. Useful if
+   * the caller has already updated the UI and does not need the event to fire
    * again.
    * @returns true if there was a connection which was removed, otherwise false.
    */
@@ -140,7 +148,7 @@ export class JupyterConnectionManager implements Disposable {
     if (!this.connections.has(endpoint)) {
       return false;
     }
-    this.revoke(endpoint, silent);
+    this.revoke([endpoint], silent);
     return true;
   }
 
@@ -175,6 +183,18 @@ export class JupyterConnectionManager implements Disposable {
     };
   }
 
+  private handleConfigChange(e: ConfigurationChangeEvent) {
+    if (!e.affectsConfiguration('colab.serverMounting')) {
+      return;
+    }
+    const enabled = this.vs.workspace
+      .getConfiguration('colab')
+      .get<boolean>('serverMounting', false);
+    if (!enabled) {
+      this.revokeAll();
+    }
+  }
+
   private handleAuthChange(e: AuthChangeEvent) {
     if (this.isAuthorized === e.hasValidSession) {
       return;
@@ -186,26 +206,27 @@ export class JupyterConnectionManager implements Disposable {
   }
 
   private handleAssignmentChange(e: AssignmentChangeEvent) {
-    for (const s of e.removed) {
-      this.revoke(s.server.endpoint);
-    }
+    this.revoke(e.removed.map((r) => r.server.endpoint));
   }
 
   private revokeAll() {
-    for (const endpoint of this.connections.keys()) {
-      this.revoke(endpoint);
-    }
+    this.revoke(Array.from(this.connections.keys()));
   }
 
-  private revoke(endpoint: string, silent = false) {
-    const promise = this.connections.get(endpoint);
-    if (!promise) {
+  private revoke(endpoints: string[], silent = false) {
+    if (!endpoints.length) {
       return;
     }
-    bestEffortDisposeConnection(promise);
-    this.connections.delete(endpoint);
+    for (const endpoint of endpoints) {
+      const promise = this.connections.get(endpoint);
+      if (!promise) {
+        return;
+      }
+      bestEffortDisposeConnection(promise);
+      this.connections.delete(endpoint);
+    }
     if (!silent) {
-      this.revokeConnectionEmitter.fire(endpoint);
+      this.revokeConnectionEmitter.fire(endpoints);
     }
   }
 }

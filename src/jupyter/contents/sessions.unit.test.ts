@@ -7,7 +7,7 @@
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { Disposable } from 'vscode';
+import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
 import { Variant } from '../../colab/api';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../../colab/headers';
@@ -18,7 +18,7 @@ import {
   JupyterClientStub,
 } from '../../test/helpers/jupyter';
 import { TestUri } from '../../test/helpers/uri';
-import { newVsCodeStub } from '../../test/helpers/vscode';
+import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { AssignmentChangeEvent, AssignmentManager } from '../assignments';
 import { ProxiedJupyterClient } from '../client';
 import { ColabAssignedServer } from '../servers';
@@ -40,6 +40,8 @@ const DEFAULT_SERVER: ColabAssignedServer = {
 };
 
 describe('JupyterConnectionManager', () => {
+  let vs: VsCodeStub;
+  let configChangeEmitter: TestEventEmitter<ConfigurationChangeEvent>;
   let authEmitter: TestEventEmitter<AuthChangeEvent>;
   let assignmentEmitter: TestEventEmitter<AssignmentChangeEvent>;
   let assignmentManager: sinon.SinonStubbedInstance<AssignmentManager>;
@@ -52,6 +54,9 @@ describe('JupyterConnectionManager', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
 
   beforeEach(() => {
+    vs = newVsCodeStub();
+    configChangeEmitter = new TestEventEmitter<ConfigurationChangeEvent>();
+    vs.workspace.onDidChangeConfiguration.callsFake(configChangeEmitter.event);
     authEmitter = new TestEventEmitter<AuthChangeEvent>();
     assignmentEmitter = new TestEventEmitter<AssignmentChangeEvent>();
     assignmentManager = sinon.createStubInstance(AssignmentManager);
@@ -71,7 +76,7 @@ describe('JupyterConnectionManager', () => {
     fetchStub = sinon.stub(global, 'fetch');
 
     manager = new JupyterConnectionManager(
-      newVsCodeStub().asVsCode(),
+      vs.asVsCode(),
       authEmitter.event,
       assignmentManager,
     );
@@ -136,13 +141,13 @@ describe('JupyterConnectionManager', () => {
     });
   });
 
-  describe('onDidRevokeConnection', () => {
-    let listener: sinon.SinonStub<[string]>;
+  describe('onDidRevokeConnections', () => {
+    let listener: sinon.SinonStub<[string[]]>;
 
     beforeEach(() => {
       toggleAuth(AuthState.SIGNED_IN);
       listener = sinon.stub();
-      manager.onDidRevokeConnection(listener);
+      manager.onDidRevokeConnections(listener);
     });
 
     it('fires event when user becomes unauthorized', async () => {
@@ -154,7 +159,7 @@ describe('JupyterConnectionManager', () => {
 
       toggleAuth(AuthState.SIGNED_OUT);
 
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
     });
 
     it('does not fire again while the user is unauthorized', async () => {
@@ -168,7 +173,7 @@ describe('JupyterConnectionManager', () => {
       toggleAuth(AuthState.SIGNED_OUT);
       toggleAuth(AuthState.SIGNED_OUT);
 
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
     });
 
     it('fires event when managed server is removed', async () => {
@@ -184,7 +189,7 @@ describe('JupyterConnectionManager', () => {
         removed: [{ server: DEFAULT_SERVER, userInitiated: true }],
       });
 
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
     });
 
     it('does not fire for unrelated assignment changes', async () => {
@@ -390,7 +395,7 @@ describe('JupyterConnectionManager', () => {
   });
 
   describe('drop', () => {
-    let listener: sinon.SinonStub<[string]>;
+    let listener: sinon.SinonStub<[string[]]>;
 
     function waitForClientDisposed() {
       return new Promise<void>((r) => {
@@ -403,7 +408,7 @@ describe('JupyterConnectionManager', () => {
     beforeEach(() => {
       toggleAuth(AuthState.SIGNED_IN);
       listener = sinon.stub();
-      manager.onDidRevokeConnection(listener);
+      manager.onDidRevokeConnections(listener);
     });
 
     it('throws if disposed', () => {
@@ -432,7 +437,7 @@ describe('JupyterConnectionManager', () => {
 
         expect(dropped).to.be.true;
         await expect(clientDisposed).to.be.eventually.fulfilled;
-        sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
       });
 
       it('drops it silently', async () => {
