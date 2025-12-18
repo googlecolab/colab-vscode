@@ -416,34 +416,37 @@ describe('JupyterConnectionManager', () => {
       expect(manager.drop('foo')).to.be.false;
     });
 
-    it('drops a managed connection', async () => {
-      // Cast needed due to overload.
-      (assignmentManager.getServers as sinon.SinonStub).resolves([
-        DEFAULT_SERVER,
-      ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
-      const clientDisposed = waitForClientDisposed();
+    describe('with a managed connection', () => {
+      beforeEach(async () => {
+        // Cast needed due to overload.
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          DEFAULT_SERVER,
+        ]);
+        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      });
 
-      const dropped = manager.drop(DEFAULT_SERVER.endpoint);
+      it('drops it and events the revocation', async () => {
+        const clientDisposed = waitForClientDisposed();
 
-      expect(dropped).to.be.true;
-      await expect(clientDisposed).to.be.eventually.fulfilled;
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
-    });
+        const dropped = manager.drop(DEFAULT_SERVER.endpoint);
 
-    it('drops a managed connection silently', async () => {
-      // Cast needed due to overload.
-      (assignmentManager.getServers as sinon.SinonStub).resolves([
-        DEFAULT_SERVER,
-      ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
-      const clientDisposed = waitForClientDisposed();
+        expect(dropped).to.be.true;
+        await expect(clientDisposed).to.be.eventually.fulfilled;
+        sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+      });
 
-      const dropped = manager.drop(DEFAULT_SERVER.endpoint, /* silent= */ true);
+      it('drops it silently', async () => {
+        const clientDisposed = waitForClientDisposed();
 
-      expect(dropped).to.be.true;
-      await expect(clientDisposed).to.be.eventually.fulfilled;
-      sinon.assert.notCalled(listener);
+        const dropped = manager.drop(
+          DEFAULT_SERVER.endpoint,
+          /* silent= */ true,
+        );
+
+        expect(dropped).to.be.true;
+        await expect(clientDisposed).to.be.eventually.fulfilled;
+        sinon.assert.notCalled(listener);
+      });
     });
   });
 });
