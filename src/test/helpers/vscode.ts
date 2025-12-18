@@ -5,9 +5,10 @@
  */
 
 import * as sinon from 'sinon';
-import vscode, { ThemeIcon } from 'vscode';
+import vscode, { FileSystemError, ThemeIcon } from 'vscode';
 import { FakeAuthenticationProviderManager } from './authentication';
 import { TestCancellationTokenSource } from './cancellation';
+import { TestFileSystemError } from './errors';
 import { TestEventEmitter } from './events';
 import { TestThemeIcon } from './theme';
 import { TestUri } from './uri';
@@ -39,6 +40,12 @@ export enum FileType {
   SymbolicLink = 64,
 }
 
+export enum FileChangeType {
+  Changed = 1,
+  Created = 2,
+  Deleted = 3,
+}
+
 enum ProgressLocation {
   SourceControl = 1,
   Window = 10,
@@ -68,6 +75,7 @@ export interface VsCodeStub {
   EventEmitter: typeof TestEventEmitter;
   QuickPickItemKind: typeof QuickPickItemKind;
   DiagnosticSeverity: typeof DiagnosticSeverity;
+  FileSystemError: typeof FileSystemError;
   commands: {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
@@ -106,13 +114,26 @@ export interface VsCodeStub {
     getConfiguration: sinon.SinonStubbedMember<
       typeof vscode.workspace.getConfiguration
     >;
+    getWorkspaceFolder: sinon.SinonStubbedMember<
+      typeof vscode.workspace.getWorkspaceFolder
+    >;
+    updateWorkspaceFolders: sinon.SinonStubbedMember<
+      typeof vscode.workspace.updateWorkspaceFolders
+    >;
     onDidChangeConfiguration: sinon.SinonStubbedMember<
       typeof vscode.workspace.onDidChangeConfiguration
+    >;
+    onDidChangeWorkspaceFolders: sinon.SinonStubbedMember<
+      typeof vscode.workspace.onDidChangeWorkspaceFolders
+    >;
+    workspaceFolders: sinon.SinonStubbedMember<
+      typeof vscode.workspace.workspaceFolders
     >;
     textDocuments: vscode.TextDocument[];
   };
   ExtensionMode: typeof vscode.ExtensionMode;
   FileType: typeof vscode.FileType;
+  FileChangeType: typeof vscode.FileChangeType;
   ProgressLocation: typeof ProgressLocation;
   QuickInputButtons: typeof TestQuickInputButtons;
   extensions: {
@@ -171,6 +192,7 @@ export function newVsCodeStub(): VsCodeStub {
     EventEmitter: TestEventEmitter,
     QuickPickItemKind: QuickPickItemKind,
     DiagnosticSeverity: DiagnosticSeverity,
+    FileSystemError: TestFileSystemError,
     commands: {
       executeCommand: sinon.stub(),
     },
@@ -193,11 +215,16 @@ export function newVsCodeStub(): VsCodeStub {
     },
     workspace: {
       getConfiguration: sinon.stub(),
+      getWorkspaceFolder: sinon.stub(),
+      updateWorkspaceFolders: sinon.stub(),
       onDidChangeConfiguration: sinon.stub(),
+      onDidChangeWorkspaceFolders: sinon.stub(),
+      workspaceFolders: undefined,
       textDocuments: [],
     },
     ExtensionMode: ExtensionMode,
     FileType: FileType,
+    FileChangeType: FileChangeType,
     ProgressLocation: ProgressLocation,
     QuickInputButtons: TestQuickInputButtons,
     extensions: {

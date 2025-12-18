@@ -10,10 +10,10 @@ import vscode from 'vscode';
 
 interface UriOptions {
   scheme: string;
-  authority: string;
-  path: string;
-  query: string;
-  fragment: string;
+  authority?: string;
+  path?: string;
+  query?: string;
+  fragment?: string;
 }
 
 /**
@@ -55,10 +55,10 @@ export class TestUri implements vscode.Uri {
   static from(components: UriOptions): vscode.Uri {
     return new TestUri(
       components.scheme,
-      components.authority,
-      components.path,
-      components.query,
-      components.fragment,
+      components.authority ?? '',
+      components.path ?? '',
+      components.query ?? '',
+      components.fragment ?? '',
     );
   }
 
