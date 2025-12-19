@@ -659,80 +659,62 @@ describe('ColabClient', () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  describe('propagateCredentials', () => {
-    const tests = [
-      {
-        authType: 'dfs_ephemeral' as const,
-        expectToRecord: false,
-      },
-      {
-        authType: 'dfs_persistent' as const,
-        expectToRecord: true,
-      },
-    ];
-
-    tests.forEach(({ authType, expectToRecord }) => {
-      for (const dryRun of [true, false]) {
-        it(`successfully propagates ${authType} credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
-          const endpoint = 'mock-server';
-          const path = `/tun/m/credentials-propagation/${endpoint}`;
-          const token = 'mock-xsrf-token';
-          const queryParams = {
-            authtype: authType,
-            dryrun: String(dryRun),
-            record: String(expectToRecord),
-            version: '2',
-            propagate: 'true',
-          };
-          const fileId = 'mock-file-id';
-          const renderDataToken = 'mock-render-data-token';
-          fetchStub
-            .withArgs(
-              urlMatcher({
-                method: 'GET',
-                host: COLAB_HOST,
-                path,
-                queryParams,
-              }),
-            )
-            .resolves(
-              new Response(withXSSI(JSON.stringify({ token })), {
-                status: 200,
-              }),
-            );
-          fetchStub
-            .withArgs(
-              urlMatcher({
-                method: 'POST',
-                host: COLAB_HOST,
-                path,
-                queryParams,
-                otherHeaders: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
-                formBody: {
-                  file_id: fileId,
-                  render_data_token: renderDataToken,
-                },
-              }),
-            )
-            .resolves(
-              new Response(withXSSI(JSON.stringify({ success: true })), {
-                status: 200,
-              }),
-            );
-
-          const result = client.propagateCredentials(
-            endpoint,
-            authType,
-            fileId,
-            renderDataToken,
-            dryRun,
+  describe('propagateDriveCredentials', () => {
+    for (const dryRun of [true, false]) {
+      it(`successfully propagates credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
+        const endpoint = 'mock-server';
+        const path = `/tun/m/credentials-propagation/${endpoint}`;
+        const token = 'mock-xsrf-token';
+        const authType = 'dfs_ephemeral';
+        const queryParams = {
+          authtype: authType,
+          dryrun: String(dryRun),
+          record: 'false',
+          version: '2',
+          propagate: 'true',
+        };
+        const fileId = 'mock-file-id';
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'GET',
+              host: COLAB_HOST,
+              path,
+              queryParams,
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify({ token })), {
+              status: 200,
+            }),
+          );
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'POST',
+              host: COLAB_HOST,
+              path,
+              queryParams,
+              otherHeaders: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
+              formBody: { file_id: fileId },
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify({ success: true })), {
+              status: 200,
+            }),
           );
 
-          await expect(result).to.eventually.be.fulfilled;
-          sinon.assert.calledTwice(fetchStub);
+        const result = client.propagateDriveCredentials(endpoint, {
+          authType,
+          fileId,
+          dryRun,
         });
-      }
-    });
+
+        await expect(result).to.eventually.be.fulfilled;
+        sinon.assert.calledTwice(fetchStub);
+      });
+    }
   });
 });
 

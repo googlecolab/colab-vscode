@@ -279,39 +279,35 @@ export class ColabClient {
   }
 
   /**
-   * Propagates credentials to the backend.
+   * Propagates Drive credentials to the backend.
    *
    * @param endpoint - The assignment endpoint to propagate credentials to.
-   * @param authType - If `dfs_persistent`, backend will record the credentials
-   *   and avoid future requests.
-   * @param fileId - This notebook's file ID.
-   * @param renderDataToken - A URL-safe, tamper-proof token containing a record
-   *   of FE rendering data, in the form of an ARI `AuditRenderData` proto
-   *   message, that can be used to reconstruct the text that was shown to users
-   *   during consent moments.
-   * @param dryRun - If true, check if credentials are already propagated to the
-   *   backend and/or obtain an OAuth redirect URL.
+   * @param params - Parameters for credentials propagation API.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns Whether propagation is successful. If not, an OAuth redirect URL
    *   is returned to obtain the credentials.
    */
-  async propagateCredentials(
+  async propagateDriveCredentials(
     endpoint: string,
-    authType: 'dfs_ephemeral' | 'dfs_persistent',
-    fileId: string,
-    renderDataToken: string,
-    dryRun = true,
+    params: {
+      authType: 'dfs_ephemeral';
+      // This notebook's file ID.
+      fileId: string;
+      // If true, check if credentials are already propagated to the backend
+      // and/or obtain an OAuth redirect URL.
+      dryRun: boolean;
+    },
     signal?: AbortSignal,
   ): Promise<CredentialsPropagationResult> {
     const url = new URL(
       `${TUN_ENDPOINT}/credentials-propagation/${endpoint}`,
       this.colabDomain,
     );
-    url.searchParams.set('authtype', authType);
+    url.searchParams.set('authtype', params.authType);
     url.searchParams.set('version', '2');
-    url.searchParams.set('dryrun', String(dryRun));
+    url.searchParams.set('dryrun', String(params.dryRun));
     url.searchParams.set('propagate', 'true');
-    url.searchParams.set('record', String(authType === 'dfs_persistent'));
+    url.searchParams.set('record', 'false');
 
     const { token } = await this.issueRequest(
       url,
@@ -320,8 +316,7 @@ export class ColabClient {
     );
 
     const formBody = new FormData();
-    formBody.append('file_id', fileId);
-    formBody.append('render_data_token', renderDataToken);
+    formBody.append('file_id', params.fileId);
 
     return await this.issueRequest(
       url,
