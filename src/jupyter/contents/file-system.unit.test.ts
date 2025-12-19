@@ -749,7 +749,7 @@ describe('ContentsFileSystemProvider', () => {
       ['none', 'file exists', 'no event', 'throws exists'],
       ['create', 'file exists', 'no event', 'throws exists'],
       ['overwrite', 'file exists', 'changed', 'saves'],
-      ['create and overwrite', 'file exists', 'created', 'saves'],
+      ['create and overwrite', 'file exists', 'changed', 'saves'],
       // File doesn't exist.
       ['none', 'file does not exist', 'no event', 'throws not found'],
       ['create', 'file does not exist', 'created', 'saves'],
@@ -1073,6 +1073,20 @@ describe('ContentsFileSystemProvider', () => {
 
     it('renames existing file when configured to overwrite', async () => {
       const contentsStub = stubClient('m-s-foo');
+      contentsStub.get
+        .withArgs({ path: 'content/bar.txt', content: 0 })
+        .resolves({
+          name: 'bar.txt',
+          path: 'content/bar.txt',
+          type: 'file',
+          writable: true,
+          created: '2025-12-16T14:30:53.932129Z',
+          lastModified: '2025-12-11T14:34:40Z',
+          size: 0,
+          mimetype: 'text/plain',
+          content: '',
+          format: 'text',
+        });
 
       await fs.rename(
         TestUri.parse('colab://m-s-foo/foo.txt'),
@@ -1084,7 +1098,6 @@ describe('ContentsFileSystemProvider', () => {
         path: 'content/foo.txt',
         rename: { path: 'content/bar.txt' },
       });
-      sinon.assert.notCalled(contentsStub.get);
     });
 
     it('throws file system no permissions error on content forbidden responses', async () => {

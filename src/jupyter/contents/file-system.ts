@@ -110,9 +110,7 @@ export class ContentsFileSystemProvider
       log.info(`Server is already mounted: "${server.label}"`, existingFolder);
       return;
     }
-    const lastIdx = this.vs.workspace.workspaceFolders
-      ? this.vs.workspace.workspaceFolders.length
-      : 0;
+    const lastIdx = this.vs.workspace.workspaceFolders?.length ?? 0;
     // TODO: Consider adding a mechanism to listen for the next workspace folder
     // change that corresponds to the addition, and render then dismiss a
     // notification.
@@ -146,7 +144,7 @@ export class ContentsFileSystemProvider
     },
   ): Disposable {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
+    this.throwForVsCodeFile(uri);
     return {
       dispose: () => {
         // No-op
@@ -165,10 +163,10 @@ export class ContentsFileSystemProvider
   @traceMethod
   async stat(uri: Uri): Promise<FileStat> {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
+    this.throwForVsCodeFile(uri);
     const path = this.uriToPath(uri);
     try {
-      const client = await this.client(uri);
+      const client = await this.getOrCreateClient(uri);
       const content = await client.get({ path, content: 0 });
       return toFileStat(this.vs, content);
     } catch (error) {
@@ -187,10 +185,10 @@ export class ContentsFileSystemProvider
   @traceMethod
   async readDirectory(uri: Uri): Promise<[string, FileType][]> {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
+    this.throwForVsCodeFile(uri);
     const path = this.uriToPath(uri);
     try {
-      const client = await this.client(uri);
+      const client = await this.getOrCreateClient(uri);
       const dir = await client.get({
         path,
         type: ContentsGetTypeEnum.Directory,
@@ -222,10 +220,10 @@ export class ContentsFileSystemProvider
   @traceMethod
   async createDirectory(uri: Uri): Promise<void> {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
+    this.throwForVsCodeFile(uri);
     const path = this.uriToPath(uri);
     try {
-      const client = await this.client(uri);
+      const client = await this.getOrCreateClient(uri);
       await client.save({
         path,
         model: {
@@ -249,10 +247,10 @@ export class ContentsFileSystemProvider
   @traceMethod
   async readFile(uri: Uri): Promise<Uint8Array> {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
+    this.throwForVsCodeFile(uri);
     const path = this.uriToPath(uri);
     try {
-      const client = await this.client(uri);
+      const client = await this.getOrCreateClient(uri);
       const content = await client.get({
         path,
         format: 'base64',
@@ -297,19 +295,16 @@ export class ContentsFileSystemProvider
     },
   ): Promise<void> {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
-    const client = await this.client(uri);
+    this.throwForVsCodeFile(uri);
+    const client = await this.getOrCreateClient(uri);
     const path = this.uriToPath(uri);
     try {
-      let exists = false;
-      if (!(options.create && options.overwrite)) {
-        exists = await this.fileExists(client, path);
-        if (!options.create && !exists) {
-          throw this.vs.FileSystemError.FileNotFound(uri);
-        }
-        if (!options.overwrite && exists) {
-          throw this.vs.FileSystemError.FileExists(uri);
-        }
+      const exists = await this.fileExists(client, path);
+      if (!options.create && !exists) {
+        throw this.vs.FileSystemError.FileNotFound(uri);
+      }
+      if (!options.overwrite && exists) {
+        throw this.vs.FileSystemError.FileExists(uri);
       }
 
       const model: ContentsSaveRequest = {
@@ -347,7 +342,7 @@ export class ContentsFileSystemProvider
     },
   ): Promise<void> {
     this.guardDisposed();
-    this.skipVsCodeFiles(uri);
+    this.throwForVsCodeFile(uri);
     const path = this.uriToPath(uri);
     try {
       if (!options.recursive) {
@@ -362,7 +357,7 @@ export class ContentsFileSystemProvider
         }
       }
 
-      const client = await this.client(uri);
+      const client = await this.getOrCreateClient(uri);
       await client.delete({ path });
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Deleted, uri }]);
     } catch (error) {
@@ -394,18 +389,18 @@ export class ContentsFileSystemProvider
     },
   ): Promise<void> {
     this.guardDisposed();
-    this.skipVsCodeFiles(oldUri);
-    this.skipVsCodeFiles(newUri);
+    this.throwForVsCodeFile(oldUri);
+    this.throwForVsCodeFile(newUri);
     if (oldUri.authority !== newUri.authority) {
       throw new Error('Renaming across servers is not supported');
     }
 
-    const client = await this.client(oldUri);
+    const client = await this.getOrCreateClient(oldUri);
     const oldPath = this.uriToPath(oldUri);
     const newPath = this.uriToPath(newUri);
 
+    const newUriExists = await this.fileExists(client, newPath);
     if (!options.overwrite) {
-      const newUriExists = await this.fileExists(client, newPath);
       if (newUriExists) {
         throw this.vs.FileSystemError.FileExists(newUri);
       }
@@ -415,7 +410,12 @@ export class ContentsFileSystemProvider
       await client.rename({ path: oldPath, rename: { path: newPath } });
       this.changeEmitter.fire([
         { type: this.vs.FileChangeType.Deleted, uri: oldUri },
-        { type: this.vs.FileChangeType.Created, uri: newUri },
+        {
+          type: newUriExists
+            ? this.vs.FileChangeType.Changed
+            : this.vs.FileChangeType.Created,
+          uri: newUri,
+        },
       ]);
     } catch (error) {
       this.handleError(error);
@@ -430,7 +430,9 @@ export class ContentsFileSystemProvider
     }
   }
 
-  private async client(endpoint: string | Uri): Promise<ContentsApi> {
+  private async getOrCreateClient(
+    endpoint: string | Uri,
+  ): Promise<ContentsApi> {
     endpoint = endpoint instanceof this.vs.Uri ? endpoint.authority : endpoint;
     try {
       const client = await this.jupyterConnections.getOrCreate(endpoint);
@@ -451,11 +453,10 @@ export class ContentsFileSystemProvider
       await client.get({ path, content: 0 });
       return true;
     } catch (error) {
-      // Throw errors that aren't a 404.
-      if (!(error instanceof ResponseError) || error.response.status !== 404) {
-        throw error;
+      if (error instanceof ResponseError && error.response.status === 404) {
+        return false;
       }
-      return false;
+      throw error;
     }
   }
 
@@ -513,7 +514,7 @@ export class ContentsFileSystemProvider
    * know the server doesn't have, but VS Code looks for. Avoids the unnecessary
    * round-trip.
    */
-  private skipVsCodeFiles(uri: Uri) {
+  private throwForVsCodeFile(uri: Uri) {
     if (uri.path === '/.vscode' || uri.path.startsWith('/.vscode/')) {
       throw this.vs.FileSystemError.FileNotFound(uri);
     }
