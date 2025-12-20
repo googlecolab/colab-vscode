@@ -7,7 +7,12 @@
 import vscode, { QuickPickItem } from 'vscode';
 import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
-import { OPEN_COLAB_WEB, REMOVE_SERVER, UPGRADE_TO_PRO } from './constants';
+import {
+  MOUNT_SERVER,
+  OPEN_COLAB_WEB,
+  REMOVE_SERVER,
+  UPGRADE_TO_PRO,
+} from './constants';
 import { openColabSignup, openColabWeb } from './external';
 import { commandThemeIcon } from './utils';
 
@@ -68,7 +73,24 @@ async function getAvailableCommands(
   if (!(await assignments.hasAssignedServer())) {
     return externalCommands;
   }
-  const serverCommands: NotebookCommand[] = [
+  const serverCommands: NotebookCommand[] = [];
+  const includeMountServer = vs.workspace
+    .getConfiguration('colab')
+    .get<boolean>('serverMounting', false);
+  if (includeMountServer) {
+    serverCommands.push({
+      label: MOUNT_SERVER.label,
+      iconPath: commandThemeIcon(vs, MOUNT_SERVER),
+      description: MOUNT_SERVER.description,
+      invoke: () => {
+        return vs.commands.executeCommand(
+          MOUNT_SERVER.id,
+          /* withBackButton= */ true,
+        );
+      },
+    });
+  }
+  serverCommands.push(
     // TODO: Include the rename server alias command once rename is reflected in
     // the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     {
@@ -81,7 +103,8 @@ async function getAvailableCommands(
         );
       },
     },
-  ];
+  );
+
   const separator: NotebookCommand = {
     label: '',
     kind: vs.QuickPickItemKind.Separator,

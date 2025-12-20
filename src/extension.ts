@@ -14,11 +14,12 @@ import { AuthStorage } from './auth/storage';
 import { ColabClient } from './colab/client';
 import {
   COLAB_TOOLBAR,
+  MOUNT_SERVER,
   REMOVE_SERVER,
   SIGN_OUT,
 } from './colab/commands/constants';
 import { notebookToolbar } from './colab/commands/notebook';
-import { removeServer } from './colab/commands/server';
+import { mountServer, removeServer } from './colab/commands/server';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
@@ -29,6 +30,8 @@ import { initializeLogger, log } from './common/logging';
 import { Toggleable } from './common/toggleable';
 import { getPackageInfo } from './config/package-info';
 import { AssignmentManager } from './jupyter/assignments';
+import { ContentsFileSystemProvider } from './jupyter/contents/file-system';
+import { JupyterConnectionManager } from './jupyter/contents/sessions';
 import { getJupyterApi } from './jupyter/jupyter-extension';
 import { ColabJupyterServerProvider } from './jupyter/provider';
 import { ServerStorage } from './jupyter/storage';
@@ -78,6 +81,12 @@ export async function activate(context: vscode.ExtensionContext) {
     new ServerPicker(vscode, assignmentManager),
     jupyter.exports,
   );
+  const jupyterConnections = new JupyterConnectionManager(
+    vscode,
+    authProvider.onDidChangeSessions,
+    assignmentManager,
+  );
+  const fs = new ContentsFileSystemProvider(vscode, jupyterConnections);
   const connections = new ConnectionRefreshController(assignmentManager);
   const keepServersAlive = new ServerKeepAliveController(
     vscode,
@@ -95,6 +104,9 @@ export async function activate(context: vscode.ExtensionContext) {
     keepServersAlive,
     consumptionMonitor.toggle,
   );
+  const disposeFs = vscode.workspace.registerFileSystemProvider('colab', fs, {
+    isCaseSensitive: true,
+  });
 
   context.subscriptions.push(
     logging,
@@ -104,11 +116,13 @@ export async function activate(context: vscode.ExtensionContext) {
     authProvider,
     assignmentManager,
     serverProvider,
+    jupyterConnections,
+    disposeFs,
     connections,
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
-    ...registerCommands(assignmentManager, authProvider),
+    ...registerCommands(authProvider, assignmentManager, fs),
   );
 }
 
@@ -144,8 +158,9 @@ function watchConsumption(colab: ColabClient): {
 }
 
 function registerCommands(
-  assignmentManager: AssignmentManager,
   authProvider: GoogleAuthProvider,
+  assignmentManager: AssignmentManager,
+  fs: ContentsFileSystemProvider,
 ): Disposable[] {
   return [
     vscode.commands.registerCommand(SIGN_OUT.id, async () => {
@@ -153,6 +168,12 @@ function registerCommands(
     }),
     // TODO: Register the rename server alias command once rename is reflected
     // in the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
+    vscode.commands.registerCommand(
+      MOUNT_SERVER.id,
+      async (withBackButton?: boolean) => {
+        await mountServer(vscode, assignmentManager, fs, withBackButton);
+      },
+    ),
     vscode.commands.registerCommand(
       REMOVE_SERVER.id,
       async (withBackButton?: boolean) => {

@@ -66,6 +66,14 @@
             "Trace logs and higher (debug, info, warning and error) are logged."
           ],
           "description": "Controls the verbosity of logs from the Colab extension. These can be found in the 'Colab' output channel."
+        },
+        "colab.serverMounting": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables the ability to mount Colab server filesystems in your workspace.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },
@@ -76,6 +84,12 @@
       }
     ],
     "commands": [
+      {
+        "category": "Colab",
+        "command": "colab.mountServer",
+        "enablement": "colab.hasAssignedServer && config.colab.serverMounting",
+        "title": "Mount Server to Workspace"
+      },
       {
         "category": "Colab",
         "command": "colab.removeServer",
