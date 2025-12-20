@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Disposable, Event, EventEmitter } from 'vscode';
+import vscode, {
+  ConfigurationChangeEvent,
+  Disposable,
+  Event,
+  EventEmitter,
+} from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
 import { AssignmentChangeEvent, AssignmentManager } from '../assignments';
 import { ProxiedJupyterClient } from '../client';
@@ -42,17 +47,20 @@ export class JupyterConnectionManager implements Disposable {
   readonly onDidRevokeConnections: Event<string[]>;
 
   constructor(
-    vs: typeof vscode,
+    private readonly vs: typeof vscode,
     authEvent: Event<AuthChangeEvent>,
     private readonly assignments: AssignmentManager,
   ) {
     this.revokeConnectionEmitter = new vs.EventEmitter<string[]>();
     this.onDidRevokeConnections = this.revokeConnectionEmitter.event;
+    const configListener = vs.workspace.onDidChangeConfiguration(
+      this.handleConfigChange.bind(this),
+    );
     const authChanges = authEvent(this.handleAuthChange.bind(this));
     const assignmentChanges = assignments.onDidAssignmentsChange(
       this.handleAssignmentChange.bind(this),
     );
-    this.disposables.push(authChanges, assignmentChanges);
+    this.disposables.push(configListener, authChanges, assignmentChanges);
   }
 
   dispose() {
@@ -173,6 +181,18 @@ export class JupyterConnectionManager implements Disposable {
         client.dispose();
       },
     };
+  }
+
+  private handleConfigChange(e: ConfigurationChangeEvent) {
+    if (!e.affectsConfiguration('colab.serverMounting')) {
+      return;
+    }
+    const enabled = this.vs.workspace
+      .getConfiguration('colab')
+      .get<boolean>('serverMounting', false);
+    if (!enabled) {
+      this.revokeAll();
+    }
   }
 
   private handleAuthChange(e: AuthChangeEvent) {

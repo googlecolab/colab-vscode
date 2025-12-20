@@ -7,7 +7,12 @@
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { Disposable } from 'vscode';
+import {
+  ConfigurationChangeEvent,
+  ConfigurationScope,
+  Disposable,
+  WorkspaceConfiguration,
+} from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
 import { Variant } from '../../colab/api';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../../colab/headers';
@@ -18,7 +23,7 @@ import {
   JupyterClientStub,
 } from '../../test/helpers/jupyter';
 import { TestUri } from '../../test/helpers/uri';
-import { newVsCodeStub } from '../../test/helpers/vscode';
+import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { AssignmentChangeEvent, AssignmentManager } from '../assignments';
 import { ProxiedJupyterClient } from '../client';
 import { ColabAssignedServer } from '../servers';
@@ -40,6 +45,9 @@ const DEFAULT_SERVER: ColabAssignedServer = {
 };
 
 describe('JupyterConnectionManager', () => {
+  let vs: VsCodeStub;
+  let configChangeEmitter: TestEventEmitter<ConfigurationChangeEvent>;
+  let serverMountingEnabled = true;
   let authEmitter: TestEventEmitter<AuthChangeEvent>;
   let assignmentEmitter: TestEventEmitter<AssignmentChangeEvent>;
   let assignmentManager: sinon.SinonStubbedInstance<AssignmentManager>;
@@ -52,6 +60,15 @@ describe('JupyterConnectionManager', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
 
   beforeEach(() => {
+    vs = newVsCodeStub();
+    configChangeEmitter = new TestEventEmitter<ConfigurationChangeEvent>();
+    vs.workspace.onDidChangeConfiguration.callsFake(configChangeEmitter.event);
+    vs.workspace.getConfiguration.withArgs('colab').returns({
+      get: sinon
+        .stub<[string], boolean>()
+        .withArgs('serverMounting')
+        .callsFake(() => serverMountingEnabled),
+    } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
     authEmitter = new TestEventEmitter<AuthChangeEvent>();
     assignmentEmitter = new TestEventEmitter<AssignmentChangeEvent>();
     assignmentManager = sinon.createStubInstance(AssignmentManager);
@@ -70,7 +87,7 @@ describe('JupyterConnectionManager', () => {
     fetchStub = sinon.stub(global, 'fetch');
 
     manager = new JupyterConnectionManager(
-      newVsCodeStub().asVsCode(),
+      vs.asVsCode(),
       authEmitter.event,
       assignmentManager,
     );
@@ -100,6 +117,14 @@ describe('JupyterConnectionManager', () => {
   }
 
   describe('dispose', () => {
+    it('disposes the config changes listener', () => {
+      expect(configChangeEmitter.hasListeners()).to.be.true;
+
+      manager.dispose();
+
+      expect(configChangeEmitter.hasListeners()).to.be.false;
+    });
+
     it('disposes the auth changes listener', () => {
       expect(authEmitter.hasListeners()).to.be.true;
 
@@ -179,6 +204,67 @@ describe('JupyterConnectionManager', () => {
         await expect(manager.get('anything')).to.eventually.be.rejectedWith(
           /unauthorized/,
         );
+      });
+    });
+
+    describe('config changes', () => {
+      let affectsConfigStub: sinon.SinonStub<
+        [string, ConfigurationScope],
+        boolean
+      >;
+
+      beforeEach(() => {
+        affectsConfigStub = sinon.stub();
+        affectsConfigStub.withArgs('colab.serverMounting').returns(true);
+      });
+
+      it('fires event with single server when disabled', async () => {
+        // Cast needed due to overload.
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          DEFAULT_SERVER,
+        ]);
+        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+
+        serverMountingEnabled = false;
+        configChangeEmitter.fire({ affectsConfiguration: affectsConfigStub });
+
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+        await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
+          .undefined;
+      });
+
+      it('fires event with multiple servers when disabled', async () => {
+        const server2 = { ...DEFAULT_SERVER, endpoint: 'm-s-bar' };
+        // Cast needed due to overload.
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          DEFAULT_SERVER,
+          server2,
+        ]);
+        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+        await manager.getOrCreate(server2.endpoint);
+
+        serverMountingEnabled = false;
+        configChangeEmitter.fire({ affectsConfiguration: affectsConfigStub });
+
+        sinon.assert.calledOnceWithExactly(listener, [
+          DEFAULT_SERVER.endpoint,
+          server2.endpoint,
+        ]);
+        await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
+          .undefined;
+        await expect(manager.get(server2.endpoint)).to.eventually.be.undefined;
+      });
+
+      it('ignores unrelated config changes', async () => {
+        // Cast needed due to overload.
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          DEFAULT_SERVER,
+        ]);
+        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+
+        configChangeEmitter.fire({ affectsConfiguration: () => false });
+
+        sinon.assert.notCalled(listener);
       });
     });
 
