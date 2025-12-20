@@ -7,10 +7,11 @@
 import vscode, { QuickPickItem } from 'vscode';
 import { MultiStepInput } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
+import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer, UnownedServer } from '../../jupyter/servers';
 import { ServerStorage } from '../../jupyter/storage';
 import { PROMPT_SERVER_ALIAS, validateServerAlias } from '../server-picker';
-import { REMOVE_SERVER, RENAME_SERVER_ALIAS } from './constants';
+import { MOUNT_SERVER, REMOVE_SERVER, RENAME_SERVER_ALIAS } from './constants';
 
 /**
  * Prompt the user to select and rename the local alias used to identify an
@@ -55,6 +56,51 @@ export async function renameServerAlias(
 
       await serverStorage.store([{ ...selectedServer, label: alias }]);
     };
+  });
+}
+
+/**
+ * Mount's a Colab server as a workspace folder.
+ *
+ * - With no servers: no-ops.
+ * - With one server: mounts it directly.
+ * - With multiple servers: prompts the user to select one.
+ */
+// TODO: Consider making this multi-select.
+export async function mountServer(
+  vs: typeof vscode,
+  assignmentManager: AssignmentManager,
+  fs: ContentsFileSystemProvider,
+  withBackButton?: boolean,
+) {
+  const allServers = await assignmentManager.getServers('extension');
+  if (!allServers.length) {
+    return;
+  }
+  if (allServers.length === 1) {
+    fs.mount(allServers[0]);
+    return;
+  }
+
+  await MultiStepInput.run(vs, async (input) => {
+    const items: MountServerItem[] = allServers.map((s) => ({
+      label: s.label,
+      description: ServerCategory.VS_CODE,
+      value: s,
+    }));
+    const selectedServer = (
+      await input.showQuickPick({
+        title: MOUNT_SERVER.label,
+        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
+        items,
+      })
+    ).value;
+    if (!selectedServer) {
+      return;
+    }
+    fs.mount(selectedServer);
+
+    return undefined;
   });
 }
 
@@ -117,6 +163,10 @@ export async function removeServer(
 enum ServerCategory {
   VS_CODE = 'VS Code Server',
   COLAB_WEB = 'Colab Web Server',
+}
+
+interface MountServerItem extends QuickPickItem {
+  value?: ColabAssignedServer;
 }
 
 interface RemoveServerItem extends QuickPickItem {
