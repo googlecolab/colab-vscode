@@ -66,7 +66,6 @@ describe('JupyterConnectionManager', () => {
     };
     withRefreshingConnectionStub = sinon
       .stub(ProxiedJupyterClient, 'withRefreshingConnection')
-      .onFirstCall()
       .returns(jupyterClientStub);
     fetchStub = sinon.stub(global, 'fetch');
 
@@ -136,25 +135,51 @@ describe('JupyterConnectionManager', () => {
     });
   });
 
-  describe('onDidRevokeConnection', () => {
-    let listener: sinon.SinonStub<[string]>;
+  describe('onDidRevokeConnections', () => {
+    let listener: sinon.SinonStub<[string[]]>;
 
     beforeEach(() => {
       toggleAuth(AuthState.SIGNED_IN);
       listener = sinon.stub();
-      manager.onDidRevokeConnection(listener);
+      manager.onDidRevokeConnections(listener);
     });
 
-    it('fires event when user becomes unauthorized', async () => {
-      // Cast needed due to overload.
-      (assignmentManager.getServers as sinon.SinonStub).resolves([
-        DEFAULT_SERVER,
-      ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+    describe('auth changes', () => {
+      it('fires event when user becomes unauthorized', async () => {
+        // Cast needed due to overload.
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          DEFAULT_SERVER,
+        ]);
+        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
 
-      toggleAuth(AuthState.SIGNED_OUT);
+        toggleAuth(AuthState.SIGNED_OUT);
 
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+        await expect(manager.get('anything')).to.eventually.be.rejectedWith(
+          /unauthorized/,
+        );
+      });
+
+      it('fires single event with multiple servers when user becomes unauthorized', async () => {
+        const server2 = { ...DEFAULT_SERVER, endpoint: 'm-s-bar' };
+        // Cast needed due to overload.
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          DEFAULT_SERVER,
+          server2,
+        ]);
+        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+        await manager.getOrCreate(server2.endpoint);
+
+        toggleAuth(AuthState.SIGNED_OUT);
+
+        sinon.assert.calledOnceWithExactly(listener, [
+          DEFAULT_SERVER.endpoint,
+          server2.endpoint,
+        ]);
+        await expect(manager.get('anything')).to.eventually.be.rejectedWith(
+          /unauthorized/,
+        );
+      });
     });
 
     it('does not fire again while the user is unauthorized', async () => {
@@ -168,7 +193,7 @@ describe('JupyterConnectionManager', () => {
       toggleAuth(AuthState.SIGNED_OUT);
       toggleAuth(AuthState.SIGNED_OUT);
 
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
     });
 
     it('fires event when managed server is removed', async () => {
@@ -184,7 +209,9 @@ describe('JupyterConnectionManager', () => {
         removed: [{ server: DEFAULT_SERVER, userInitiated: true }],
       });
 
-      sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+      await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
+        .undefined;
     });
 
     it('does not fire for unrelated assignment changes', async () => {
@@ -202,6 +229,8 @@ describe('JupyterConnectionManager', () => {
       });
 
       sinon.assert.notCalled(listener);
+      await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.not.be
+        .undefined;
     });
   });
 
@@ -390,7 +419,7 @@ describe('JupyterConnectionManager', () => {
   });
 
   describe('drop', () => {
-    let listener: sinon.SinonStub<[string]>;
+    let listener: sinon.SinonStub<[string[]]>;
 
     function waitForClientDisposed() {
       return new Promise<void>((r) => {
@@ -403,7 +432,7 @@ describe('JupyterConnectionManager', () => {
     beforeEach(() => {
       toggleAuth(AuthState.SIGNED_IN);
       listener = sinon.stub();
-      manager.onDidRevokeConnection(listener);
+      manager.onDidRevokeConnections(listener);
     });
 
     it('throws if disposed', () => {
@@ -432,7 +461,7 @@ describe('JupyterConnectionManager', () => {
 
         expect(dropped).to.be.true;
         await expect(clientDisposed).to.be.eventually.fulfilled;
-        sinon.assert.calledOnceWithExactly(listener, DEFAULT_SERVER.endpoint);
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
       });
 
       it('drops it silently', async () => {

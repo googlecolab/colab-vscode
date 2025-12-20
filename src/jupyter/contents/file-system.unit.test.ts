@@ -120,7 +120,7 @@ describe('ContentsFileSystemProvider', () => {
   let vs: VsCodeStub;
   let jupyterStub: sinon.SinonStubbedInstance<JupyterConnectionManager>;
   let workspaceEmitter: TestEventEmitter<WorkspaceFoldersChangeEvent>;
-  let connectionEmitter: TestEventEmitter<string>;
+  let connectionEmitter: TestEventEmitter<string[]>;
   let fs: ContentsFileSystemProvider;
   let listener: sinon.SinonStub<[FileChangeEvent[]]>;
 
@@ -139,10 +139,10 @@ describe('ContentsFileSystemProvider', () => {
     jupyterStub = sinon.createStubInstance(JupyterConnectionManager);
     connectionEmitter = new TestEventEmitter();
     // Needed to work around the property being readonly.
-    Object.defineProperty(jupyterStub, 'onDidRevokeConnection', {
+    Object.defineProperty(jupyterStub, 'onDidRevokeConnections', {
       value: sinon.stub(),
     });
-    jupyterStub.onDidRevokeConnection.callsFake(connectionEmitter.event);
+    jupyterStub.onDidRevokeConnections.callsFake(connectionEmitter.event);
     fs = new ContentsFileSystemProvider(vs.asVsCode(), jupyterStub);
     listener = sinon.stub();
     fs.onDidChangeFile(listener);
@@ -207,7 +207,7 @@ describe('ContentsFileSystemProvider', () => {
         },
       ];
 
-      connectionEmitter.fire('m-s-foo');
+      connectionEmitter.fire(['m-s-foo']);
 
       sinon.assert.calledWith(vs.workspace.updateWorkspaceFolders, 0, 1);
     });
@@ -226,9 +226,39 @@ describe('ContentsFileSystemProvider', () => {
         },
       ];
 
-      connectionEmitter.fire('m-s-bar');
+      connectionEmitter.fire(['m-s-bar']);
 
-      sinon.assert.calledWith(vs.workspace.updateWorkspaceFolders, 1, 1);
+      sinon.assert.calledWith(vs.workspace.updateWorkspaceFolders, 0, 2, {
+        uri: TestUri.parse('colab://m-s-foo/'),
+        name: 'Colab CPU',
+      });
+    });
+
+    it("removes matching workspace folder when it's one of many including other folders", () => {
+      vs.workspace.workspaceFolders = [
+        {
+          uri: TestUri.parse('colab://m-s-foo/'),
+          name: 'Colab CPU',
+          index: 0,
+        },
+        {
+          uri: TestUri.parse('file://usr/home/'),
+          name: 'Not Colab',
+          index: 1,
+        },
+        {
+          uri: TestUri.parse('colab://m-s-bar/'),
+          name: 'Colab GPU',
+          index: 2,
+        },
+      ];
+
+      connectionEmitter.fire(['m-s-foo', 'm-s-bar']);
+
+      sinon.assert.calledWith(vs.workspace.updateWorkspaceFolders, 0, 3, {
+        uri: TestUri.parse('file://usr/home/'),
+        name: 'Not Colab',
+      });
     });
 
     it("no-ops when the removed server doesn't map to a workspace folder", () => {
@@ -240,7 +270,7 @@ describe('ContentsFileSystemProvider', () => {
         },
       ];
 
-      connectionEmitter.fire('m-s-bar');
+      connectionEmitter.fire(['m-s-bar']);
 
       sinon.assert.notCalled(vs.workspace.updateWorkspaceFolders);
     });
