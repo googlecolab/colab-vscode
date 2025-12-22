@@ -16,6 +16,7 @@ import vscode, {
   Uri,
   WorkspaceFoldersChangeEvent,
 } from 'vscode';
+import { buildColabFileUri } from '../../colab/files';
 import { log } from '../../common/logging';
 import { traceMethod } from '../../common/logging/decorators';
 import {
@@ -100,11 +101,7 @@ export class ContentsFileSystemProvider
   mount(server: ColabAssignedServer): void {
     this.guardDisposed();
 
-    const uri = this.vs.Uri.from({
-      scheme: 'colab',
-      authority: server.endpoint,
-      path: '/',
-    });
+    const uri = buildColabFileUri(this.vs, server);
     const existingFolder = this.vs.workspace.getWorkspaceFolder(uri);
     if (existingFolder) {
       log.info(`Server is already mounted: "${server.label}"`, existingFolder);

@@ -130,6 +130,23 @@ export interface VsCodeStub {
       typeof vscode.workspace.workspaceFolders
     >;
     textDocuments: vscode.TextDocument[];
+    fs: {
+      stat: sinon.SinonStubbedMember<typeof vscode.workspace.fs.stat>;
+      readDirectory: sinon.SinonStubbedMember<
+        typeof vscode.workspace.fs.readDirectory
+      >;
+      createDirectory: sinon.SinonStubbedMember<
+        typeof vscode.workspace.fs.createDirectory
+      >;
+      readFile: sinon.SinonStubbedMember<typeof vscode.workspace.fs.readFile>;
+      writeFile: sinon.SinonStubbedMember<typeof vscode.workspace.fs.writeFile>;
+      delete: sinon.SinonStubbedMember<typeof vscode.workspace.fs.delete>;
+      rename: sinon.SinonStubbedMember<typeof vscode.workspace.fs.rename>;
+      copy: sinon.SinonStubbedMember<typeof vscode.workspace.fs.copy>;
+      isWritableFileSystem: sinon.SinonStubbedMember<
+        typeof vscode.workspace.fs.isWritableFileSystem
+      >;
+    };
   };
   ExtensionMode: typeof vscode.ExtensionMode;
   FileType: typeof vscode.FileType;
@@ -221,6 +238,17 @@ export function newVsCodeStub(): VsCodeStub {
       onDidChangeWorkspaceFolders: sinon.stub(),
       workspaceFolders: undefined,
       textDocuments: [],
+      fs: {
+        stat: sinon.stub(),
+        readDirectory: sinon.stub(),
+        createDirectory: sinon.stub(),
+        readFile: sinon.stub(),
+        writeFile: sinon.stub(),
+        delete: sinon.stub(),
+        rename: sinon.stub(),
+        copy: sinon.stub(),
+        isWritableFileSystem: sinon.stub(),
+      },
     },
     ExtensionMode: ExtensionMode,
     FileType: FileType,

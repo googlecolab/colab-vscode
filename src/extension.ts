@@ -14,10 +14,12 @@ import { AuthStorage } from './auth/storage';
 import { ColabClient } from './colab/client';
 import {
   COLAB_TOOLBAR,
+  UPLOAD_FILE,
   MOUNT_SERVER,
   REMOVE_SERVER,
   SIGN_OUT,
 } from './colab/commands/constants';
+import { uploadFile } from './colab/commands/files';
 import { notebookToolbar } from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
 import { ConnectionRefreshController } from './colab/connection-refresher';
@@ -180,6 +182,9 @@ function registerCommands(
         await removeServer(vscode, assignmentManager, withBackButton);
       },
     ),
+    vscode.commands.registerCommand(UPLOAD_FILE.id, async (uri: vscode.Uri) => {
+      await uploadFile(vscode, assignmentManager, uri);
+    }),
     vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
     }),

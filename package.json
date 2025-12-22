@@ -98,6 +98,12 @@
       },
       {
         "category": "Colab",
+        "command": "colab.uploadFile",
+        "enablement": "colab.hasAssignedServer",
+        "title": "Upload File to Colab"
+      },
+      {
+        "category": "Colab",
         "command": "colab.signOut",
         "enablement": "colab.isSignedIn",
         "title": "Sign Out"
@@ -129,6 +135,13 @@
         {
           "command": "colab.toolbarCommand",
           "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "colab.uploadFile",
+          "group": "colab",
+          "when": "!explorerResourceIsFolder && resourceScheme == file"
         }
       ]
     }
