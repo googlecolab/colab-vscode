@@ -37,7 +37,6 @@ import {
 } from '../colab/headers';
 import { log } from '../common/logging';
 import { ProxiedJupyterClient } from './client';
-import { colabProxyWebSocket } from './colab-proxy-web-socket';
 import {
   AllServers,
   ColabAssignedServer,
@@ -220,7 +219,8 @@ export class AssignmentManager implements vscode.Disposable {
           connectionInformation: {
             ...c,
             fetch: colabProxyFetch(c.token),
-            WebSocket: colabProxyWebSocket(this.vs, c.token),
+            // TODO: Fix ArrayBuffer issue in #328.
+            // WebSocket: colabProxyWebSocket(this.vs, c.token),
           },
         };
       });
@@ -545,7 +545,8 @@ export class AssignmentManager implements vscode.Disposable {
         ),
         headers,
         fetch: colabProxyFetch(token),
-        WebSocket: colabProxyWebSocket(this.vs, token),
+        // TODO: Fix ArrayBuffer issue in #328.
+        // WebSocket: colabProxyWebSocket(this.vs, token),
       },
       dateAssigned,
     };
