@@ -12,48 +12,84 @@ import { buildColabFileUri } from '../files';
 import { UPLOAD_FILE } from './constants';
 
 /**
- * Uploads a file to a Colab server.
+ * Uploads one or more files or directories to a selected Colab server.
  *
- * - With no servers: warns the user no servers are found.
- * - With one server: uploads it directly.
- * - With multiple servers: prompts the user to select one to upload to.
+ * Prompts the user to select a target server, calculates the total number of
+ * files to be uploaded for progress tracking, and performs the upload
+ * recursively. It displays a progress notification during the operation and
+ * emits a final summary message upon completion.
+ *
+ * @param vs - The VS Code module.
+ * @param assignmentManager - The manager responsible for handling server
+ * assignments.
+ * @param uri - The primary URI of the file or folder to upload, e.g. the URI of
+ * the file which was right-clicked in the file explorer.
+ * @param uris - An optional array of URIs to upload, e.g. the other files or
+ * folders which were multi-selected.
+ * @returns A promise that resolves when the upload process is complete.
  */
-export async function uploadFile(
+export async function upload(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
   uri: vscode.Uri,
+  uris?: vscode.Uri[],
 ) {
   const selectedServer = await selectServer(vs, assignmentManager);
   if (!selectedServer) {
     return;
   }
-  const fileName = uri.path.split('/').pop();
-  if (!fileName) {
-    log.error(`Could not determine filename from uri: ${uri.toString()}`);
-    return;
-  }
 
-  const destinationUri = buildColabFileUri(vs, selectedServer, fileName);
+  const inputs = uris && uris.length > 0 ? uris : [uri];
+  const plan = await buildUploadPlan(vs, inputs, selectedServer);
+  const { operations } = plan;
+  let { failCount } = plan;
 
-  try {
+  const filesToUpload = operations.filter((op) => op.type === 'file');
+  const incrementPerFile =
+    filesToUpload.length > 0 ? 100 / filesToUpload.length : 0;
+  let successCount = 0;
+
+  if (operations.length > 0) {
     await vs.window.withProgress(
       {
         location: vs.ProgressLocation.Notification,
-        title: `Importing ${fileName} to ${selectedServer.label}...`,
+        title: `Uploading to ${selectedServer.label}...`,
         cancellable: false,
       },
-      async () => {
-        const content = await vs.workspace.fs.readFile(uri);
-        await vs.workspace.fs.writeFile(destinationUri, content);
+      async (progress) => {
+        for (const op of operations) {
+          try {
+            if (op.type === 'directory') {
+              await createDirectory(vs, op.dest);
+            } else {
+              const fileName = op.source.path.split('/').pop() ?? '';
+              progress.report({
+                message: `Importing ${fileName}...`,
+                increment: incrementPerFile,
+              });
+              const content = await vs.workspace.fs.readFile(op.source);
+              await vs.workspace.fs.writeFile(op.dest, content);
+              successCount++;
+            }
+          } catch (err) {
+            log.error(`Failed to process ${op.dest.toString()}`, err);
+            failCount++;
+          }
+        }
       },
     );
-    void vs.window.showInformationMessage(
-      `Successfully uploaded ${fileName} to ${selectedServer.label}`,
-    );
-  } catch (err: unknown) {
-    log.error('Failed to upload file', err);
-    const msg = err instanceof Error ? err.message : String(err);
-    void vs.window.showErrorMessage(`Failed to upload file: ${msg}`);
+  }
+
+  if (successCount > 0) {
+    const countPart = successCount > 1 ? 'items' : 'item';
+    const msg = `Successfully uploaded ${successCount.toString()} ${countPart} to ${selectedServer.label}`;
+    void vs.window.showInformationMessage(msg);
+  }
+
+  if (failCount > 0) {
+    const countPart = failCount > 1 ? 'items' : 'item';
+    const msg = `Failed to upload ${failCount.toString()} ${countPart}. Check logs for details.`;
+    void vs.window.showErrorMessage(msg);
   }
 }
 
@@ -84,4 +120,73 @@ async function selectServer(
 
 interface ServerItem extends QuickPickItem {
   value: ColabAssignedServer;
+}
+
+type UploadOperation =
+  | { type: 'directory'; dest: vscode.Uri }
+  | { type: 'file'; source: vscode.Uri; dest: vscode.Uri };
+
+async function buildUploadPlan(
+  vs: typeof vscode,
+  inputs: vscode.Uri[],
+  selectedServer: ColabAssignedServer,
+): Promise<{ operations: UploadOperation[]; failCount: number }> {
+  const operations: UploadOperation[] = [];
+  let failCount = 0;
+
+  const planUploadsRecursively = async (
+    source: vscode.Uri,
+    dest: vscode.Uri,
+    operations: UploadOperation[],
+  ) => {
+    const stat = await vs.workspace.fs.stat(source);
+    if (stat.type === vs.FileType.File) {
+      operations.push({ type: 'file', source, dest });
+    } else if (stat.type === vs.FileType.Directory) {
+      operations.push({ type: 'directory', dest });
+      const entries = await vs.workspace.fs.readDirectory(source);
+      for (const [name] of entries) {
+        try {
+          await planUploadsRecursively(
+            vs.Uri.joinPath(source, name),
+            vs.Uri.joinPath(dest, name),
+            operations,
+          );
+        } catch (err) {
+          log.error(`Failed to plan upload for ${name}`, err);
+          failCount++;
+        }
+      }
+    }
+  };
+
+  const serverRootUri = buildColabFileUri(vs, selectedServer);
+  for (const inputUri of inputs) {
+    const itemName = inputUri.path.split('/').pop();
+    if (!itemName) {
+      log.error(`Could not determine name from uri: ${inputUri.toString()}`);
+      failCount++;
+      continue;
+    }
+    const destUri = vs.Uri.joinPath(serverRootUri, itemName);
+    try {
+      await planUploadsRecursively(inputUri, destUri, operations);
+    } catch (err) {
+      log.error(`Failed to plan upload for ${itemName}`, err);
+      failCount++;
+    }
+  }
+  return { operations, failCount };
+}
+
+async function createDirectory(vs: typeof vscode, uri: vscode.Uri) {
+  try {
+    await vs.workspace.fs.createDirectory(uri);
+  } catch (err) {
+    const dirExists =
+      err instanceof vs.FileSystemError && err.name === 'FileExists';
+    if (!dirExists) {
+      throw err;
+    }
+  }
 }
