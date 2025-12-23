@@ -101,7 +101,12 @@ describe('File Commands', () => {
     });
 
     it('prompts user to select a server when multiple are assigned', async () => {
-      const otherServer = { ...DEFAULT_SERVER, id: randomUUID(), label: 'bar' };
+      const otherServer = {
+        ...DEFAULT_SERVER,
+        id: randomUUID(),
+        endpoint: 'm-s-bar',
+        label: 'bar',
+      };
       (assignmentManagerStub.getServers as sinon.SinonStub)
         .withArgs('extension')
         .resolves([DEFAULT_SERVER, otherServer]);
@@ -116,7 +121,7 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/my-file.txt'),
+        TestUri.parse('colab://m-s-bar/my-file.txt'),
         fileContent,
       );
       sinon.assert.calledWith(
@@ -126,7 +131,12 @@ describe('File Commands', () => {
     });
 
     it('does nothing if server selection is cancelled', async () => {
-      const otherServer = { ...DEFAULT_SERVER, id: randomUUID(), label: 'bar' };
+      const otherServer = {
+        ...DEFAULT_SERVER,
+        id: randomUUID(),
+        endpoint: 'm-s-bar',
+        label: 'bar',
+      };
       (assignmentManagerStub.getServers as sinon.SinonStub)
         .withArgs('extension')
         .resolves([DEFAULT_SERVER, otherServer]);

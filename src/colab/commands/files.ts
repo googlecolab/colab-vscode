@@ -24,8 +24,9 @@ import { UPLOAD } from './constants';
  * assignments.
  * @param uri - The primary URI of the file or folder to upload, e.g. the URI of
  * the file which was right-clicked in the file explorer.
- * @param uris - An optional array of URIs to upload, e.g. the other files or
- * folders which were multi-selected.
+ * @param uris - An optional array of all files and folders which should be
+ * uploaded. When provided, the primary URI, provided with `uri`, is assumed to
+ * be in this list.
  * @returns A promise that resolves when the upload process is complete.
  */
 export async function upload(
