@@ -9,6 +9,7 @@ import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { InputBox, QuickPick, QuickPickItem } from 'vscode';
 import { AssignmentManager } from '../../jupyter/assignments';
+import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { ServerStorage } from '../../jupyter/storage';
 import {
@@ -19,7 +20,7 @@ import {
 } from '../../test/helpers/quick-input';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { Variant } from '../api';
-import { removeServer, renameServerAlias } from './server';
+import { mountServer, removeServer, renameServerAlias } from './server';
 
 describe('Server Commands', () => {
   let vsCodeStub: VsCodeStub;
@@ -157,6 +158,112 @@ describe('Server Commands', () => {
           await expect(rename).to.eventually.be.fulfilled;
           sinon.assert.notCalled(serverStorageStub.store);
         });
+      });
+    });
+  });
+
+  describe('mountServer', () => {
+    let assignmentManagerStub: SinonStubbedInstance<AssignmentManager>;
+    let fsStub: SinonStubbedInstance<ContentsFileSystemProvider>;
+
+    beforeEach(() => {
+      assignmentManagerStub = sinon.createStubInstance(AssignmentManager);
+      fsStub = sinon.createStubInstance(ContentsFileSystemProvider);
+    });
+
+    it('does nothing when no servers are assigned', async () => {
+      // Type assertion needed due to overloading on getServers
+      (assignmentManagerStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([]);
+
+      await mountServer(vsCodeStub.asVsCode(), assignmentManagerStub, fsStub);
+
+      sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
+      sinon.assert.notCalled(fsStub.mount);
+    });
+
+    it('mounts the server directly when only one is assigned', async () => {
+      // Type assertion needed due to overloading on getServers
+      (assignmentManagerStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([defaultServer]);
+
+      await mountServer(vsCodeStub.asVsCode(), assignmentManagerStub, fsStub);
+
+      sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
+      sinon.assert.calledOnceWithExactly(fsStub.mount, defaultServer);
+    });
+
+    describe('when multiple servers are assigned', () => {
+      let additionalServer: ColabAssignedServer;
+
+      beforeEach(() => {
+        additionalServer = { ...defaultServer, id: randomUUID(), label: 'bar' };
+        // Type assertion needed due to overloading on getServers
+        (assignmentManagerStub.getServers as sinon.SinonStub)
+          .withArgs('extension')
+          .resolves([defaultServer, additionalServer]);
+      });
+
+      it('lists servers for selection', async () => {
+        void mountServer(vsCodeStub.asVsCode(), assignmentManagerStub, fsStub);
+        await quickPickStub.nextShow();
+
+        expect(quickPickStub.items).to.deep.equal([
+          {
+            label: defaultServer.label,
+            value: defaultServer,
+            description: 'VS Code Server',
+          },
+          {
+            label: additionalServer.label,
+            value: additionalServer,
+            description: 'VS Code Server',
+          },
+        ]);
+      });
+
+      it('mounts the selected server', async () => {
+        const mount = mountServer(
+          vsCodeStub.asVsCode(),
+          assignmentManagerStub,
+          fsStub,
+        );
+        await quickPickStub.nextShow();
+        quickPickStub.onDidChangeSelection.yield([
+          { label: defaultServer.label, value: defaultServer },
+        ]);
+
+        await expect(mount).to.eventually.be.fulfilled;
+        sinon.assert.calledOnceWithExactly(fsStub.mount, defaultServer);
+      });
+
+      it('does not mount if selection is cancelled', async () => {
+        const mount = mountServer(
+          vsCodeStub.asVsCode(),
+          assignmentManagerStub,
+          fsStub,
+        );
+        await quickPickStub.nextShow();
+        quickPickStub.onDidHide.yield();
+
+        await expect(mount).to.eventually.be.fulfilled;
+        sinon.assert.notCalled(fsStub.mount);
+      });
+
+      it('shows back button when requested', async () => {
+        void mountServer(
+          vsCodeStub.asVsCode(),
+          assignmentManagerStub,
+          fsStub,
+          true,
+        );
+        await quickPickStub.nextShow();
+
+        expect(quickPickStub.buttons).to.deep.equal([
+          vsCodeStub.QuickInputButtons.Back,
+        ]);
       });
     });
   });
