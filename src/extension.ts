@@ -14,7 +14,7 @@ import { AuthStorage } from './auth/storage';
 import { ColabClient } from './colab/client';
 import {
   COLAB_TOOLBAR,
-  UPLOAD_FILE,
+  UPLOAD,
   MOUNT_SERVER,
   REMOVE_SERVER,
   SIGN_OUT,
@@ -183,7 +183,7 @@ function registerCommands(
       },
     ),
     vscode.commands.registerCommand(
-      UPLOAD_FILE.id,
+      UPLOAD.id,
       async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
         await upload(vscode, assignmentManager, uri, uris);
       },

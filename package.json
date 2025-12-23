@@ -98,7 +98,7 @@
       },
       {
         "category": "Colab",
-        "command": "colab.uploadFile",
+        "command": "colab.upload",
         "enablement": "colab.hasAssignedServer",
         "title": "Upload to Colab"
       },
@@ -139,7 +139,7 @@
       ],
       "explorer/context": [
         {
-          "command": "colab.uploadFile",
+          "command": "colab.upload",
           "group": "colab",
           "when": "resourceScheme == file"
         }

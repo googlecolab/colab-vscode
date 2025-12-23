@@ -88,9 +88,9 @@ export const UPGRADE_TO_PRO: Command = {
   description: 'More machines, more quota, more Colab!',
 };
 
-/** Command to upload a file to a Colab server. */
-export const UPLOAD_FILE: RegisteredCommand = {
-  id: 'colab.uploadFile',
-  label: 'Upload File to Colab',
+/** Command to upload files to a Colab server. */
+export const UPLOAD: RegisteredCommand = {
+  id: 'colab.upload',
+  label: 'Upload to Colab',
   icon: 'cloud-upload',
 };

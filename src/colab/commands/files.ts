@@ -9,7 +9,7 @@ import { log } from '../../common/logging';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { buildColabFileUri } from '../files';
-import { UPLOAD_FILE } from './constants';
+import { UPLOAD } from './constants';
 
 /**
  * Uploads one or more files or directories to a selected Colab server.
@@ -111,7 +111,7 @@ async function selectServer(
       value: s,
     }));
     const selectedServer = await vs.window.showQuickPick(items, {
-      title: UPLOAD_FILE.label,
+      title: UPLOAD.label,
       placeHolder: 'Select a server to upload to',
     });
     return selectedServer?.value ?? undefined;
