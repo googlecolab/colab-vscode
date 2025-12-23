@@ -95,7 +95,8 @@
       {
         "category": "Colab",
         "command": "colab.mountServer",
-        "enablement": "colab.hasAssignedServer && config.colab.serverMounting",
+        "enablement": "colab.hasAssignedServer",
+        "when": "config.colab.serverMounting",
         "title": "Mount Server to Workspace"
       },
       {
