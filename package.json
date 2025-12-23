@@ -67,6 +67,14 @@
           ],
           "description": "Controls the verbosity of logs from the Colab extension. These can be found in the 'Colab' output channel."
         },
+        "colab.uploading": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enables the ability to upload files and folders to Colab servers from the explorer context menu (e.g. right-click a local file > _Upload to Colab_).",
+          "tags": [
+            "experimental"
+          ]
+        },
         "colab.serverMounting": {
           "type": "boolean",
           "default": false,
@@ -100,6 +108,7 @@
         "category": "Colab",
         "command": "colab.upload",
         "enablement": "colab.hasAssignedServer",
+        "when": "config.colab.uploading",
         "title": "Upload to Colab"
       },
       {
@@ -135,13 +144,17 @@
         {
           "command": "colab.toolbarCommand",
           "when": "false"
+        },
+        {
+          "command": "colab.upload",
+          "when": "false"
         }
       ],
       "explorer/context": [
         {
           "command": "colab.upload",
-          "group": "colab",
-          "when": "resourceScheme == file"
+          "group": "5b_importexport@11",
+          "when": "resourceScheme == file && config.colab.uploading"
         }
       ]
     }
