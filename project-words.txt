@@ -21,9 +21,12 @@ milli
 mocharc
 openapitools
 pkce
+plotly
+Plotly
 Pyright
 quickpick
 refreshable
+sess
 toggleable
 tombstoned
 toolsai

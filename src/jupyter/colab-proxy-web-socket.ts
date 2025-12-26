@@ -11,11 +11,12 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { warnOnDriveMount } from './drive-mount-warning';
+import { injectPlotlyConfig } from './plotly-config';
 
 /**
  * Returns a class which extends {@link WebSocket}, adds Colab's custom headers,
- * and intercepts {@link WebSocket.send} to warn users when on `drive.mount`
- * execution.
+ * intercepts {@link WebSocket.send} to warn users when on `drive.mount`
+ * execution, and auto-configures Plotly renderer for Colab compatibility.
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
@@ -67,11 +68,14 @@ export function colabProxyWebSocket(
     ) {
       warnOnDriveMount(vs, data);
 
+      // Auto-configure Plotly renderer for Colab compatibility
+      const modifiedData = injectPlotlyConfig(data);
+
       if (options === undefined || typeof options === 'function') {
         cb = options;
         options = {};
       }
-      super.send(data, options, cb);
+      super.send(modifiedData, options, cb);
     }
   };
 }
