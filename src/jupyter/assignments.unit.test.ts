@@ -497,13 +497,12 @@ describe('AssignmentManager', () => {
           });
         });
 
-        // TODO: Add back once ArrayBuffer issue in #328 is fixed.
-        // it('includes a custom WebSocket implementation', async () => {
-        //   const servers = await assignmentManager.getServers('extension');
-        //   assert.lengthOf(servers, 1);
-        //   const server = servers[0];
-        //   assert.isDefined(server.connectionInformation.WebSocket);
-        // });
+        it('includes a custom WebSocket implementation', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.WebSocket);
+        });
       });
     });
 
@@ -872,10 +871,9 @@ describe('AssignmentManager', () => {
         });
       });
 
-      // TODO: Add back once ArrayBuffer issue in #328 is fixed.
-      // it('includes a custom WebSocket implementation', () => {
-      //   assert.isDefined(assignedServer.connectionInformation.WebSocket);
-      // });
+      it('includes a custom WebSocket implementation', () => {
+        assert.isDefined(assignedServer.connectionInformation.WebSocket);
+      });
     });
 
     describe('with too many assigned servers', () => {
@@ -1206,10 +1204,9 @@ describe('AssignmentManager', () => {
         });
       });
 
-      // TODO: Add back once ArrayBuffer issue in #328 is fixed.
-      // it('includes a custom WebSocket implementation', () => {
-      //   assert.isDefined(refreshedServer.connectionInformation.WebSocket);
-      // });
+      it('includes a custom WebSocket implementation', () => {
+        assert.isDefined(refreshedServer.connectionInformation.WebSocket);
+      });
 
       it('emits an assignment change event', () => {
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
