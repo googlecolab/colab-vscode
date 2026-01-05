@@ -208,6 +208,23 @@ describe('colabProxyWebSocket', () => {
       );
     });
 
+    it('does not show warning notification if message is malformed', async () => {
+      const malformedMessage = 'non-json-format';
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        testToken,
+        TestWebSocket,
+      );
+      const testWebSocket = new wsc('ws://example.com/socket');
+
+      testWebSocket.send(malformedMessage, {});
+      await flush();
+
+      sinon.assert.notCalled(
+        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
+      );
+    });
+
     it('does not show warning notification if data is ArrayBuffer', async () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),

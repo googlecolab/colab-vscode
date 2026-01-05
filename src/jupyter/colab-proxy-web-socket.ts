@@ -11,6 +11,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { log } from '../common/logging';
 
 /**
  * Returns a class which extends {@link WebSocket}, adds Colab's custom headers,
@@ -75,7 +76,14 @@ export function colabProxyWebSocket(
     private warnOnDriveMount(rawJupyterMessage: string): void {
       if (!rawJupyterMessage) return;
 
-      const parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
+      let parsedJupyterMessage: unknown;
+      try {
+        parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
+      } catch (e) {
+        log.warn('Failed to parse Jupyter message to JSON:', e);
+        return;
+      }
+
       if (
         isExecuteRequest(parsedJupyterMessage) &&
         DRIVE_MOUNT_PATTERN.exec(parsedJupyterMessage.content.code)
