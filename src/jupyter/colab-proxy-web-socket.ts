@@ -55,8 +55,8 @@ export function colabProxyWebSocket(
 
     override send(
       data: BufferLike,
-      options: SendOptions | SendCallback,
-      cb?: SendCallback,
+      options: SendOptions | ((err?: Error) => void) | undefined,
+      cb?: (err?: Error) => void,
     ) {
       if (typeof data === 'string') {
         this.warnOnDriveMount(data);
@@ -116,7 +116,6 @@ export function colabProxyWebSocket(
 type SuperSend = WebSocket['send'];
 type BufferLike = Parameters<SuperSend>[0];
 type SendOptions = Parameters<SuperSend>[1];
-type SendCallback = Parameters<SuperSend>[2];
 
 function isExecuteRequest(
   message: unknown,
