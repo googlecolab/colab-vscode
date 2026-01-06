@@ -148,9 +148,7 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send(rawJupyterMessage, {});
       await flush();
 
-      sinon.assert.notCalled(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-      );
+      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
     });
 
     it('does not show warning notification if not executing drive.mount()', async () => {
@@ -168,9 +166,7 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send(rawJupyterMessage, {});
       await flush();
 
-      sinon.assert.notCalled(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-      );
+      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
     });
 
     it('does not show warning notification if message is empty', async () => {
@@ -184,9 +180,7 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send('', {});
       await flush();
 
-      sinon.assert.notCalled(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-      );
+      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
     });
 
     it('does not show warning notification if message is not Jupyter message format', async () => {
@@ -203,9 +197,7 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send(rawNonJupyterMessage, {});
       await flush();
 
-      sinon.assert.notCalled(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-      );
+      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
     });
 
     it('does not show warning notification if message is malformed', async () => {
@@ -220,9 +212,7 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send(malformedMessage, {});
       await flush();
 
-      sinon.assert.notCalled(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-      );
+      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
     });
 
     it('does not show warning notification if data is ArrayBuffer', async () => {
@@ -236,9 +226,7 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send(new ArrayBuffer(16), {});
       await flush();
 
-      sinon.assert.notCalled(
-        vsCodeStub.window.showWarningMessage as sinon.SinonStub,
-      );
+      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
     });
   });
 
