@@ -59,7 +59,7 @@ export function traceMethod(
         (resolvedValue: unknown) => {
           try {
             log.trace(
-              `${targetPrefix} Promise resolved, args and error:`,
+              `${targetPrefix} Promise resolved, args and value:`,
               ...args,
               resolvedValue,
             );
