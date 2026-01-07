@@ -46,5 +46,15 @@ describe('files', () => {
         buildColabFileUri(vs.asVsCode(), DEFAULT_SERVER, 'foo.txt').toString(),
       ).to.equal('colab://m-s-foo/foo.txt');
     });
+
+    it('builds relative file URIs', () => {
+      expect(
+        buildColabFileUri(
+          vs.asVsCode(),
+          DEFAULT_SERVER,
+          'foo/../bar.txt',
+        ).toString(),
+      ).to.equal('colab://m-s-foo/bar.txt');
+    });
   });
 });
