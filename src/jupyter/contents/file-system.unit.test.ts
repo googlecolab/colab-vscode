@@ -69,7 +69,7 @@ const CONTENT_DIR: {
     content: [
       {
         name: 'sample_data',
-        path: 'content/sample_data',
+        path: '/sample_data',
         created: '2025-12-11T14:34:40Z',
         lastModified: '2025-12-16T14:30:53.932129Z',
         content: '',
@@ -87,7 +87,7 @@ const CONTENT_DIR: {
 
 const FOO_CONTENT_DIR: Contents = {
   name: 'foo',
-  path: 'content/foo',
+  path: '/foo',
   type: 'directory',
   writable: true,
   created: '2025-12-11T14:34:40Z',
@@ -100,7 +100,7 @@ const FOO_CONTENT_DIR: Contents = {
 
 const FOO_CONTENT_FILE: Contents = {
   name: 'foo.txt',
-  path: 'content/foo.txt',
+  path: '/foo.txt',
   type: 'file',
   writable: true,
   created: '2025-12-16T14:30:53.932129Z',
@@ -300,7 +300,7 @@ describe('ContentsFileSystemProvider', () => {
       vs.workspace.workspaceFolders = undefined;
       vs.workspace.updateWorkspaceFolders
         .withArgs(0, 0, {
-          uri: uriStringMatch(`colab://${DEFAULT_SERVER.endpoint}/`),
+          uri: uriStringMatch(`colab://${DEFAULT_SERVER.endpoint}/content`),
           name: DEFAULT_SERVER.label,
         })
         .returns(true);
@@ -315,7 +315,7 @@ describe('ContentsFileSystemProvider', () => {
       vs.workspace.workspaceFolders = [];
       vs.workspace.updateWorkspaceFolders
         .withArgs(0, 0, {
-          uri: uriStringMatch(`colab://${DEFAULT_SERVER.endpoint}/`),
+          uri: uriStringMatch(`colab://${DEFAULT_SERVER.endpoint}/content`),
           name: DEFAULT_SERVER.label,
         })
         .returns(true);
@@ -329,14 +329,14 @@ describe('ContentsFileSystemProvider', () => {
       vs.workspace.getWorkspaceFolder.returns(undefined);
       vs.workspace.workspaceFolders = [
         {
-          uri: TestUri.parse('colab://m-s-foo/'),
+          uri: TestUri.parse('colab://m-s-foo/content'),
           name: 'Colab CPU',
           index: 0,
         },
       ];
       vs.workspace.updateWorkspaceFolders
         .withArgs(1, 0, {
-          uri: uriStringMatch(`colab://${DEFAULT_SERVER.endpoint}/`),
+          uri: uriStringMatch(`colab://${DEFAULT_SERVER.endpoint}/content`),
           name: DEFAULT_SERVER.label,
         })
         .returns(true);
@@ -406,9 +406,7 @@ describe('ContentsFileSystemProvider', () => {
     it('returns file stat', async () => {
       const contentsStub = stubClient('m-s-foo');
       const contents = CONTENT_DIR.withoutContents;
-      contentsStub.get
-        .withArgs({ path: 'content', content: 0 })
-        .resolves(contents);
+      contentsStub.get.withArgs({ path: '/', content: 0 }).resolves(contents);
 
       await expect(
         fs.stat(TestUri.parse('colab://m-s-foo/')),
@@ -484,7 +482,7 @@ describe('ContentsFileSystemProvider', () => {
     it('throws file system file not a directory errors for non-directory URIs', async () => {
       const contentsStub = stubClient('m-s-foo');
       contentsStub.get
-        .withArgs({ path: 'content/foo.txt', type: 'directory' })
+        .withArgs({ path: '/foo.txt', type: 'directory' })
         .resolves(FOO_CONTENT_FILE);
 
       await expect(
@@ -496,7 +494,7 @@ describe('ContentsFileSystemProvider', () => {
       const contentsStub = stubClient('m-s-foo');
       const contents = CONTENT_DIR.withContents;
       contentsStub.get
-        .withArgs({ path: 'content', type: 'directory' })
+        .withArgs({ path: '/', type: 'directory' })
         // TODO: Migrate to Open API 3.
         //
         // Unfortunately, the cast is currently needed since Swagger 2 (which
@@ -581,7 +579,7 @@ describe('ContentsFileSystemProvider', () => {
       await fs.createDirectory(TestUri.parse('colab://m-s-foo/foo'));
 
       sinon.assert.calledWithMatch(contentsStub.save, {
-        path: 'content/foo',
+        path: '/foo',
         model: {
           type: ContentsGetTypeEnum.Directory,
         },
@@ -818,7 +816,7 @@ describe('ContentsFileSystemProvider', () => {
           } else {
             await call;
             sinon.assert.calledWithMatch(contentsStub.save, {
-              path: 'content/foo.txt',
+              path: '/foo.txt',
               model: {
                 type: ContentsGetTypeEnum.File,
                 format: 'base64',
@@ -939,11 +937,11 @@ describe('ContentsFileSystemProvider', () => {
       const contentsStub = stubClient('m-s-foo');
       // stat call
       contentsStub.get
-        .withArgs({ path: 'content/foo', content: 0 })
+        .withArgs({ path: '/foo', content: 0 })
         .resolves(CONTENT_DIR.withoutContents);
       // readDirectory call
       contentsStub.get
-        .withArgs({ path: 'content/foo', type: 'directory' })
+        .withArgs({ path: '/foo', type: 'directory' })
         // TODO: Migrate to Open API 3.
         //
         // Unfortunately, the cast is currently needed since Swagger 2 (which
@@ -965,21 +963,21 @@ describe('ContentsFileSystemProvider', () => {
         recursive: true,
       });
 
-      sinon.assert.calledWith(contentsStub.delete, { path: 'content/foo' });
+      sinon.assert.calledWith(contentsStub.delete, { path: '/foo' });
     });
 
     it('deletes a file', async () => {
       const contentsStub = stubClient('m-s-foo');
       // When non-recursive, we check stat.
       contentsStub.get
-        .withArgs({ path: 'content/foo.txt', content: 0 })
+        .withArgs({ path: '/foo.txt', content: 0 })
         .resolves(FOO_CONTENT_FILE);
 
       await fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
         recursive: false,
       });
 
-      sinon.assert.calledWith(contentsStub.delete, { path: 'content/foo.txt' });
+      sinon.assert.calledWith(contentsStub.delete, { path: '/foo.txt' });
     });
 
     it('throws file system no permissions error on content forbidden responses', async () => {
@@ -1065,7 +1063,7 @@ describe('ContentsFileSystemProvider', () => {
       const contentsStub = stubClient('m-s-foo');
       contentsStub.get.resolves({
         name: 'bar.txt',
-        path: 'content/bar.txt',
+        path: '/bar.txt',
         type: 'file',
         writable: true,
         created: '2025-12-16T14:30:53.932129Z',
@@ -1096,27 +1094,25 @@ describe('ContentsFileSystemProvider', () => {
       );
 
       sinon.assert.calledWith(contentsStub.rename, {
-        path: 'content/foo.txt',
-        rename: { path: 'content/bar.txt' },
+        path: '/foo.txt',
+        rename: { path: '/bar.txt' },
       });
     });
 
     it('renames existing file when configured to overwrite', async () => {
       const contentsStub = stubClient('m-s-foo');
-      contentsStub.get
-        .withArgs({ path: 'content/bar.txt', content: 0 })
-        .resolves({
-          name: 'bar.txt',
-          path: 'content/bar.txt',
-          type: 'file',
-          writable: true,
-          created: '2025-12-16T14:30:53.932129Z',
-          lastModified: '2025-12-11T14:34:40Z',
-          size: 0,
-          mimetype: 'text/plain',
-          content: '',
-          format: 'text',
-        });
+      contentsStub.get.withArgs({ path: '/bar.txt', content: 0 }).resolves({
+        name: 'bar.txt',
+        path: '/bar.txt',
+        type: 'file',
+        writable: true,
+        created: '2025-12-16T14:30:53.932129Z',
+        lastModified: '2025-12-11T14:34:40Z',
+        size: 0,
+        mimetype: 'text/plain',
+        content: '',
+        format: 'text',
+      });
 
       await fs.rename(
         TestUri.parse('colab://m-s-foo/foo.txt'),
@@ -1125,8 +1121,8 @@ describe('ContentsFileSystemProvider', () => {
       );
 
       sinon.assert.calledWith(contentsStub.rename, {
-        path: 'content/foo.txt',
-        rename: { path: 'content/bar.txt' },
+        path: '/foo.txt',
+        rename: { path: '/bar.txt' },
       });
     });
 
