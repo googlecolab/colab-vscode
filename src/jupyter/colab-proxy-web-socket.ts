@@ -4,9 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
+import { handleDriveFsAuth } from '../auth/drive';
+import { ColabClient } from '../colab/client';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -20,7 +23,9 @@ import { log } from '../common/logging';
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
+  client: ColabClient,
   token: string,
+  endpoint: string,
   BaseWebSocket: typeof WebSocket = WebSocket,
 ) {
   // These custom headers are required for Colab's proxy WebSocket to work.
@@ -51,99 +56,108 @@ export function colabProxyWebSocket(
       } else {
         super(address, protocols, addColabHeaders(options));
       }
-    }
 
-    override send(
-      data: BufferLike,
-      options: SendOptions | ((err?: Error) => void) | undefined,
-      cb?: (err?: Error) => void,
-    ) {
-      if (typeof data === 'string') {
-        this.warnOnDriveMount(data);
-      }
+      this.addListener(
+        'message',
+        (data: WebSocket.RawData, isBinary: boolean) => {
+          if (!isBinary && typeof data === 'string') {
+            const message = JSON.parse(data) as unknown;
+            if (isColabAuthEphemeralRequest(message)) {
+              log.debug('Colab request message received...');
 
-      if (options === undefined || typeof options === 'function') {
-        cb = options;
-        options = {};
-      }
-      super.send(data, options, cb);
-    }
-
-    /**
-     * Displays a warning notification message in VS Code if `rawJupyterMessage`
-     * is an execute request containing `drive.mount()`.
-     */
-    private warnOnDriveMount(rawJupyterMessage: string): void {
-      if (!rawJupyterMessage) return;
-
-      let parsedJupyterMessage: unknown;
-      try {
-        parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
-      } catch (e) {
-        log.warn('Failed to parse Jupyter message to JSON:', e);
-        return;
-      }
-
-      if (
-        isExecuteRequest(parsedJupyterMessage) &&
-        DRIVE_MOUNT_PATTERN.exec(parsedJupyterMessage.content.code)
-      ) {
-        this.notifyDriveMountUnsupported();
-      }
-    }
-
-    private notifyDriveMountUnsupported(): void {
-      vs.window
-        .showWarningMessage(
-          `drive.mount is not currently supported in the extension. We're working on it! See the [wiki](${DRIVE_MOUNT_WIKI_LINK}) for workarounds and track this [issue](${DRIVE_MOUNT_ISSUE_LINK}) for progress.`,
-          DriveMountUnsupportedAction.VIEW_WORKAROUND,
-          DriveMountUnsupportedAction.VIEW_ISSUE,
-        )
-        .then((selectedAction) => {
-          switch (selectedAction) {
-            case DriveMountUnsupportedAction.VIEW_WORKAROUND:
-              vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_WIKI_LINK));
-              break;
-            case DriveMountUnsupportedAction.VIEW_ISSUE:
-              vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_ISSUE_LINK));
-              break;
+              const replyMsgId = uuid();
+              const replyMessage: ColabInputReplyMessage = {
+                msg_id: replyMsgId,
+                msg_type: 'input_reply',
+                header: {
+                  msg_id: replyMsgId,
+                  msg_type: 'input_reply',
+                  username: 'username',
+                  session: message.header.session,
+                  version: '5.0',
+                },
+                content: {
+                  value: {
+                    type: 'colab_reply',
+                    colab_msg_id: message.metadata.colab_msg_id,
+                  },
+                },
+                channel: 'stdin',
+                metadata: {},
+                parent_header: {},
+              };
+              handleDriveFsAuth(vs, client, endpoint)
+                .then(() => {
+                  this.send(JSON.stringify(replyMessage));
+                  log.debug('Input reply message sent: ', replyMessage);
+                })
+                .catch((e: unknown) => {
+                  replyMessage.content.value.error = e;
+                  this.send(JSON.stringify(replyMessage));
+                  log.error('Failed handling DriveFS auth propagation', e);
+                });
+            }
           }
-        });
+        },
+      );
     }
   };
 }
 
-type SuperSend = WebSocket['send'];
-type BufferLike = Parameters<SuperSend>[0];
-type SendOptions = Parameters<SuperSend>[1];
-
-function isExecuteRequest(
+function isColabAuthEphemeralRequest(
   message: unknown,
-): message is JupyterExecuteRequestMessage {
-  return ExecuteRequestSchema.safeParse(message).success;
+): message is ColabAuthEphemeralRequestMessage {
+  return ColabAuthEphemeralRequestSchema.safeParse(message).success;
 }
 
-interface JupyterExecuteRequestMessage {
-  header: { msg_type: 'execute_request' };
-  content: { code: string };
+interface ColabAuthEphemeralRequestMessage {
+  header: {
+    msg_type: 'colab_request';
+    session: string;
+  };
+  content: {
+    request: { authType: 'dfs_ephemeral' };
+  };
+  metadata: {
+    colab_request_type: 'request_auth';
+    colab_msg_id: number;
+  };
 }
 
-const ExecuteRequestSchema = z.object({
+interface ColabInputReplyMessage {
+  msg_id: string;
+  msg_type: 'input_reply';
+  header: {
+    msg_id: string;
+    msg_type: 'input_reply';
+    username: string;
+    session: string;
+    version: string;
+  };
+  content: {
+    value: {
+      type: 'colab_reply';
+      colab_msg_id: number;
+      error?: unknown;
+    };
+  };
+  channel: 'stdin';
+  metadata: object;
+  parent_header: object;
+}
+
+const ColabAuthEphemeralRequestSchema = z.object({
   header: z.object({
-    msg_type: z.literal('execute_request'),
+    msg_type: z.literal('colab_request'),
+    session: z.string(),
   }),
   content: z.object({
-    code: z.string(),
+    request: z.object({
+      authType: z.literal('dfs_ephemeral'),
+    }),
+  }),
+  metadata: z.object({
+    colab_request_type: z.literal('request_auth'),
+    colab_msg_id: z.number(),
   }),
 });
-
-const DRIVE_MOUNT_PATTERN = /drive\.mount\(.+\)/;
-const DRIVE_MOUNT_ISSUE_LINK =
-  'https://github.com/googlecolab/colab-vscode/issues/256';
-const DRIVE_MOUNT_WIKI_LINK =
-  'https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount';
-
-enum DriveMountUnsupportedAction {
-  VIEW_ISSUE = 'GitHub Issue',
-  VIEW_WORKAROUND = 'Workaround',
-}
