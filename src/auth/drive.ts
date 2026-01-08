@@ -75,14 +75,6 @@ export async function handleDriveFsAuth(
     newOAuthUrl.searchParams.set('redirect_uri', address);
 
     await vs.env.openExternal(vs.Uri.parse(newOAuthUrl.toString()));
-  } else {
-    propagateCredentialsAndSendReply(
-      ws,
-      client,
-      endpoint,
-      fileId,
-      requestMessageId,
-    );
   }
 }
 
