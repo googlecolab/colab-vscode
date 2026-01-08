@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
@@ -65,37 +64,13 @@ export function colabProxyWebSocket(
             if (isColabAuthEphemeralRequest(message)) {
               log.debug('Colab request message received...');
 
-              const replyMsgId = uuid();
-              const replyMessage: ColabInputReplyMessage = {
-                msg_id: replyMsgId,
-                msg_type: 'input_reply',
-                header: {
-                  msg_id: replyMsgId,
-                  msg_type: 'input_reply',
-                  username: 'username',
-                  session: message.header.session,
-                  version: '5.0',
-                },
-                content: {
-                  value: {
-                    type: 'colab_reply',
-                    colab_msg_id: message.metadata.colab_msg_id,
-                  },
-                },
-                channel: 'stdin',
-                metadata: {},
-                parent_header: {},
-              };
-              handleDriveFsAuth(vs, client, endpoint)
-                .then(() => {
-                  this.send(JSON.stringify(replyMessage));
-                  log.debug('Input reply message sent: ', replyMessage);
-                })
-                .catch((e: unknown) => {
-                  replyMessage.content.value.error = e;
-                  this.send(JSON.stringify(replyMessage));
-                  log.error('Failed handling DriveFS auth propagation', e);
-                });
+              void handleDriveFsAuth(
+                vs,
+                this,
+                client,
+                endpoint,
+                message.metadata.colab_msg_id,
+              );
             }
           }
         },
@@ -122,28 +97,6 @@ interface ColabAuthEphemeralRequestMessage {
     colab_request_type: 'request_auth';
     colab_msg_id: number;
   };
-}
-
-interface ColabInputReplyMessage {
-  msg_id: string;
-  msg_type: 'input_reply';
-  header: {
-    msg_id: string;
-    msg_type: 'input_reply';
-    username: string;
-    session: string;
-    version: string;
-  };
-  content: {
-    value: {
-      type: 'colab_reply';
-      colab_msg_id: number;
-      error?: unknown;
-    };
-  };
-  channel: 'stdin';
-  metadata: object;
-  parent_header: object;
 }
 
 const ColabAuthEphemeralRequestSchema = z.object({

@@ -28,7 +28,6 @@ export const REQUIRED_SCOPES = [
   'profile',
   'email',
   'https://www.googleapis.com/auth/colaboratory',
-  'https://www.googleapis.com/auth/drive', // Temp for POC
 ] as const;
 const PROVIDER_ID = 'google';
 const PROVIDER_LABEL = 'Google';
