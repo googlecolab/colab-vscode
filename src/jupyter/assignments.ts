@@ -220,7 +220,12 @@ export class AssignmentManager implements vscode.Disposable {
           connectionInformation: {
             ...c,
             fetch: colabProxyFetch(c.token),
-            WebSocket: colabProxyWebSocket(this.vs, c.token),
+            WebSocket: colabProxyWebSocket(
+              this.vs,
+              this.client,
+              c.token,
+              server.endpoint,
+            ),
           },
         };
       });
@@ -545,7 +550,7 @@ export class AssignmentManager implements vscode.Disposable {
         ),
         headers,
         fetch: colabProxyFetch(token),
-        WebSocket: colabProxyWebSocket(this.vs, token),
+        WebSocket: colabProxyWebSocket(this.vs, this.client, token, endpoint),
       },
       dateAssigned,
     };
