@@ -17,8 +17,42 @@
 name: Build and Test
 
 on:
+  # Triggered by other workflows (PRs)
   workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+      run_e2e:
+        required: false
+        type: boolean
+        default: false
+      environment_name:
+        required: false
+        type: string
+        default: ""
+
+  # Triggered manually via GitHub UI (for debugging)
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "The git ref to checkout (branch, tag, or SHA)"
+        required: false
+        default: "main"
+        type: string
+      run_e2e:
+        description: "Run E2E tests?"
+        required: true
+        type: boolean
+        default: true
+      environment_name:
+        description: "Environment to use"
+        required: true
+        type: choice # Provides a dropdown in the UI
+        options:
+          - "E2E Tests" # Default for debugging (skips approval)
+          - "E2E Tests (from forks)"
+        default: "E2E Tests"
 
 permissions:
   contents: read
@@ -34,13 +68,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+    # If this is an E2E run, it waits for approval. If standard PR, it runs instantly.
+    environment: ${{ inputs.environment_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          # This prevents a malicious PR from poisoning the cache for 'main'.
+          cache: ${{ inputs.ref == '' && 'npm' || '' }}
       - run: npm ci
       - name: Generate dummy config
         run: npm run generate:config
@@ -61,6 +100,8 @@ jobs:
     needs: generateConfig
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
@@ -85,13 +126,16 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     needs: generateConfig
+    environment: ${{ inputs.environment_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: ${{ inputs.ref == '' && 'npm' || '' }}
       - run: npm ci
       - name: Download generated config
         uses: actions/download-artifact@v4
@@ -111,6 +155,8 @@ jobs:
     needs: generateConfig
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
@@ -131,12 +177,12 @@ jobs:
 
   e2eTests:
     name: VS Code E2E Tests
+    # Only run if specifically requested via input
+    if: ${{ inputs.run_e2e }}
     permissions:
       actions: write
-    # This environment is protected and requires approval for PRs from forks.
-    # It provides the necessary variables and secrets to run the end-to-end
-    # tests.
-    environment: E2E Tests
+    # Dynamically select the environment (E2E Tests vs E2E Tests (from forks))
+    environment: ${{ inputs.environment_name }}
     strategy:
       matrix:
         # macos-latest and windows-latest can be added as we work towards a release.
@@ -154,6 +200,8 @@ jobs:
       COLAB_EXTENSION_CLIENT_NOT_SO_SECRET: ${{ secrets.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Use Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
