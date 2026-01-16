@@ -90,6 +90,14 @@
           "tags": [
             "experimental"
           ]
+        },
+        "colab.driveMounting": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables the ability to mount Google Drive to Colab server filesystems.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },

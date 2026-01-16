@@ -4,26 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import assert from 'assert';
-import * as http from 'http';
 import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
 import WebSocket from 'ws';
 import { ColabClient } from '../colab/client';
 import { log } from '../common/logging';
-import { LoopbackHandler, LoopbackServer } from '../common/loopback-server';
 
 export async function handleDriveFsAuth(
   vs: typeof vscode,
-  ws: WebSocket,
+  socket: WebSocket,
   client: ColabClient,
   endpoint: string,
   requestMessageId: number,
 ) {
   const fileId = vs.window.activeNotebookEditor?.notebook.uri.path ?? '';
-  log.debug(`Notebook file ID: ${fileId}`);
-  log.debug(`Endpoint: ${endpoint}`);
-
   const dryRunResult = await client.propagateDriveCredentials(endpoint, {
     authType: 'dfs_ephemeral',
     fileId,
@@ -31,8 +25,8 @@ export async function handleDriveFsAuth(
   });
 
   if (dryRunResult.success) {
-    propagateCredentialsAndSendReply(
-      ws,
+    await propagateCredentialsAndSendReply(
+      socket,
       client,
       endpoint,
       fileId,
@@ -42,96 +36,60 @@ export async function handleDriveFsAuth(
   }
 
   if (dryRunResult.unauthorizedRedirectUri) {
-    log.debug(
-      `Unauthorized redirect URI: ${dryRunResult.unauthorizedRedirectUri}`,
+    const yes = 'Connect to Google Drive';
+    const consent = await vs.window.showInformationMessage(
+      'Permit this notebook to access your Google Drive files?',
+      {
+        modal: true,
+        detail:
+          'This notebook is requesting access to your Google Drive files. Granting access to Google Drive will permit code executed in the notebook to modify files in your Google Drive. Make sure to review notebook code prior to allowing this access.',
+      },
+      yes,
     );
+    if (consent === yes) {
+      await vs.env.openExternal(
+        vs.Uri.parse(dryRunResult.unauthorizedRedirectUri),
+      );
 
-    const newOAuthUrl = new URL(dryRunResult.unauthorizedRedirectUri);
-    const clientId = newOAuthUrl.searchParams.get('client_id');
-    const redirectUri = newOAuthUrl.searchParams.get('redirect_uri');
-    assert(clientId);
-    assert(redirectUri);
-
-    const server = new LoopbackServer(
-      new DriveFsLoopbackHandler(
-        ws,
-        client,
-        endpoint,
-        redirectUri,
-        fileId,
-        requestMessageId,
-      ),
-    );
-    const port = await server.start();
-    const address = `http://127.0.0.1:${port.toString()}`;
-
-    // For POC, this hack swaps out the client ID and redirect URI in the OAuth
-    // consent URL, so I can get OAuth flow to loop back to VS Code in the end.
-    newOAuthUrl.searchParams.set(
-      'client_id',
-      // eslint-disable-next-line @cspell/spellchecker
-      '498676818669-8jg5qu96h3a66n7lem2lvsi2b8u0j4ob.apps.googleusercontent.com',
-    );
-    newOAuthUrl.searchParams.set('redirect_uri', address);
-
-    await vs.env.openExternal(vs.Uri.parse(newOAuthUrl.toString()));
-  }
-}
-
-class DriveFsLoopbackHandler implements LoopbackHandler {
-  constructor(
-    private readonly ws: WebSocket,
-    private readonly client: ColabClient,
-    private readonly endpoint: string,
-    private readonly redirectUri: string,
-    private readonly fileId: string,
-    private readonly requestMessageId: number,
-  ) {}
-
-  handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    // URL and Host are only missing on malformed requests.
-    assert(req.url);
-    assert(req.headers.host);
-    const url = new URL(req.url, `http://${req.headers.host}`);
-
-    if (req.method !== 'GET') {
-      res.writeHead(405, { Allow: 'GET' });
-      res.end('Method Not Allowed');
-      return;
+      const ctn = 'Continue';
+      const selection = await vs.window.showInformationMessage(
+        'Please complete the authorization in your browser. If done, click "Continue".',
+        { modal: true },
+        ctn,
+      );
+      if (selection === ctn) {
+        await propagateCredentialsAndSendReply(
+          socket,
+          client,
+          endpoint,
+          fileId,
+          requestMessageId,
+        );
+        return;
+      }
     }
 
-    const redirectUrl = new URL(this.redirectUri);
-    redirectUrl.search = url.search;
-    const newRedirectUri = redirectUrl.toString();
-    log.debug(`New redirect URL: ${newRedirectUri}`);
-
-    res.writeHead(302, { Location: newRedirectUri });
-    res.end();
-
-    propagateCredentialsAndSendReply(
-      this.ws,
-      this.client,
-      this.endpoint,
-      this.fileId,
-      this.requestMessageId,
+    sendDriveFsAuthReply(
+      socket,
+      requestMessageId,
+      new Error('User cancelled Google Drive authorization'),
     );
   }
 }
 
-function propagateCredentialsAndSendReply(
-  ws: WebSocket,
-  client: ColabClient,
-  endpoint: string,
-  fileId: string,
+function sendDriveFsAuthReply(
+  socket: WebSocket,
   requestMessageId: number,
+  err?: unknown,
 ) {
   const replyMsgId = uuid();
+  const replyMsgType = 'input_reply';
   const replyMessage: ColabInputReplyMessage = {
     msg_id: replyMsgId,
-    msg_type: 'input_reply',
+    msg_type: replyMsgType,
     header: {
       msg_id: replyMsgId,
-      msg_type: 'input_reply',
+      msg_type: replyMsgType,
       username: 'username',
       session: uuid(),
       version: '5.0',
@@ -148,27 +106,40 @@ function propagateCredentialsAndSendReply(
     parent_header: {},
   };
 
-  client
-    .propagateDriveCredentials(endpoint, {
+  if (err) {
+    replyMessage.content.value.error = err;
+  }
+
+  socket.send(JSON.stringify(replyMessage));
+}
+
+async function propagateCredentialsAndSendReply(
+  socket: WebSocket,
+  client: ColabClient,
+  endpoint: string,
+  fileId: string,
+  requestMessageId: number,
+): Promise<void> {
+  try {
+    const { success } = await client.propagateDriveCredentials(endpoint, {
       authType: 'dfs_ephemeral',
       fileId,
       dryRun: false,
-    })
-    .then(({ success }) => {
-      log.debug(`Credentials propagation success: ${String(success)}`);
-      if (!success) {
-        replyMessage.content.value.error = new Error(
-          'Credentials propagation unsuccessful',
-        );
-      }
-      ws.send(JSON.stringify(replyMessage));
-      log.debug('Input reply message sent: ', replyMessage);
-    })
-    .catch((e: unknown) => {
-      replyMessage.content.value.error = e;
-      ws.send(JSON.stringify(replyMessage));
-      log.error('Failed handling DriveFS auth propagation', e);
     });
+
+    if (success) {
+      sendDriveFsAuthReply(socket, requestMessageId);
+    } else {
+      sendDriveFsAuthReply(
+        socket,
+        requestMessageId,
+        new Error('Credentials propagation unsuccessful'),
+      );
+    }
+  } catch (e: unknown) {
+    log.error('Failed handling DriveFS auth propagation', e);
+    sendDriveFsAuthReply(socket, requestMessageId, e);
+  }
 }
 
 interface ColabInputReplyMessage {
