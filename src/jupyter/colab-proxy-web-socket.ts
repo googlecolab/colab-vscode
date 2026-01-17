@@ -26,6 +26,7 @@ export function colabProxyWebSocket(
   token: string,
   endpoint: string,
   BaseWebSocket: typeof WebSocket = WebSocket,
+  handleDriveFsAuthFn: typeof handleDriveFsAuth = handleDriveFsAuth,
 ) {
   // These custom headers are required for Colab's proxy WebSocket to work.
   const colabHeaders: Record<string, string> = {};
@@ -63,9 +64,16 @@ export function colabProxyWebSocket(
             .getConfiguration('colab')
             .get<boolean>('driveMounting', false);
           if (!isBinary && typeof data === 'string' && driveMountingEnabled) {
-            const message = JSON.parse(data) as unknown;
+            let message: unknown;
+            try {
+              message = JSON.parse(data) as unknown;
+            } catch (e) {
+              log.warn('Failed to parse received Jupyter message to JSON:', e);
+              return;
+            }
+
             if (isColabAuthEphemeralRequest(message)) {
-              void handleDriveFsAuth(
+              void handleDriveFsAuthFn(
                 vs,
                 this,
                 client,
@@ -80,7 +88,7 @@ export function colabProxyWebSocket(
 
     override send(
       data: BufferLike,
-      options: SendOptions | ((err?: Error) => void) | undefined,
+      options?: SendOptions | ((err?: Error) => void),
       cb?: (err?: Error) => void,
     ) {
       const driveMountingEnabled = vs.workspace
@@ -102,13 +110,11 @@ export function colabProxyWebSocket(
      * is an execute request containing `drive.mount()`.
      */
     private warnOnDriveMount(rawJupyterMessage: string): void {
-      if (!rawJupyterMessage) return;
-
       let parsedJupyterMessage: unknown;
       try {
         parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
       } catch (e) {
-        log.warn('Failed to parse Jupyter message to JSON:', e);
+        log.warn('Failed to parse sent Jupyter message to JSON:', e);
         return;
       }
 
