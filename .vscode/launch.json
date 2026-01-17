@@ -31,18 +31,20 @@
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "preLaunchTask": "npm: build"
+      "preLaunchTask": "npm: build:tests"
     },
     {
-      "name": "Extension Integration Tests",
+      "name": "Debug Integration Tests",
       "type": "extensionHost",
       "request": "launch",
-      "runtimeExecutable": "${execPath}",
+      "testConfiguration": "${workspaceFolder}/.vscode-test.mjs",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}",
-        "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+        "--timeout",
+        "0"
       ],
-      "preLaunchTask": "npm: compile"
+      "outFiles": ["${workspaceFolder}/out/**/*.js"],
+      "preLaunchTask": "npm: build:tests"
     }
   ]
 }

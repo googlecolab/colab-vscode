@@ -165,19 +165,11 @@ async function main(): Promise<void> {
       ? [
           testSetupOptions(
             'Unit Test Setup',
-            'src/test/unit-test-setup.ts',
-            'test/unit-test-setup.js',
-          ),
-          testSetupOptions(
-            'Integration Test Setup',
-            'src/test/integration-test-runner.ts',
-            'test/integration-test-runner.js',
+            'src/test/test-setup.ts',
+            'test/test-setup.js',
           ),
           testOptions('Unit Tests', 'src/**/*.unit.test.ts'),
-          testOptions('Integration Tests', [
-            'src/**/*.vscode.test.ts',
-            'src/test/suite/**/*.ts',
-          ]),
+          testOptions('Integration Tests', 'src/**/*.vscode.test.ts'),
           testOptions('E2E Tests', [
             'src/test/*.e2e.test.ts',
             'src/test/e2e.mocharc.js',

@@ -16,7 +16,7 @@
   "mochaExplorer.files": "out/test/**/*.unit.test.js",
   "mochaExplorer.require": [
     "source-map-support/register",
-    "./out/test/test/unit-test-setup.js"
+    "./out/test/test/test-setup.js"
   ],
   "mochaExplorer.watch": "out/**/*.js"
 }
