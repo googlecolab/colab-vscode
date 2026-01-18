@@ -72,7 +72,7 @@ export async function handleDriveFsAuth(
     sendDriveFsAuthReply(
       socket,
       requestMessageId,
-      new Error('User cancelled Google Drive authorization'),
+      'User cancelled Google Drive authorization',
     );
   }
 }
@@ -80,7 +80,7 @@ export async function handleDriveFsAuth(
 function sendDriveFsAuthReply(
   socket: WebSocket,
   requestMessageId: number,
-  err?: unknown,
+  err?: string,
 ) {
   const replyMsgId = uuid();
   const replyMsgType = 'input_reply';
@@ -133,12 +133,16 @@ async function propagateCredentialsAndSendReply(
       sendDriveFsAuthReply(
         socket,
         requestMessageId,
-        new Error('Credentials propagation unsuccessful'),
+        'Credentials propagation unsuccessful',
       );
     }
   } catch (e: unknown) {
     log.error('Failed handling DriveFS auth propagation', e);
-    sendDriveFsAuthReply(socket, requestMessageId, e);
+    sendDriveFsAuthReply(
+      socket,
+      requestMessageId,
+      e instanceof Error ? e.message : String(e),
+    );
   }
 }
 
@@ -156,7 +160,7 @@ interface ColabInputReplyMessage {
     value: {
       type: 'colab_reply';
       colab_msg_id: number;
-      error?: unknown;
+      error?: string;
     };
   };
   channel: 'stdin';
