@@ -16,6 +16,9 @@ import { ColabAssignedServer } from '../jupyter/servers';
  * propagating the credentials back to the Colab backend, and sending a reply
  * message to the Colab kernel via the provided WebSocket handle.
  *
+ * If the Colab server is already authorized, this function will skip the
+ * consent flow and directly propagate the existing credentials.
+ *
  * @param socket - Active WebSocket handle to send the reply message to Colab
  *   kernel
  * @param client - Colab API client to invoke the credentials propagation
