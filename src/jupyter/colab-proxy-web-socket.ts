@@ -14,6 +14,7 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
+import { ColabAssignedServer } from './servers';
 
 /**
  * Returns a class which extends {@link WebSocket}, adds Colab's custom headers,
@@ -23,14 +24,14 @@ import { log } from '../common/logging';
 export function colabProxyWebSocket(
   vs: typeof vscode,
   client: ColabClient,
-  token: string,
-  endpoint: string,
+  server: ColabAssignedServer,
   BaseWebSocket: typeof WebSocket = WebSocket,
   handleDriveFsAuthFn: typeof handleDriveFsAuth = handleDriveFsAuth,
 ) {
   // These custom headers are required for Colab's proxy WebSocket to work.
   const colabHeaders: Record<string, string> = {};
-  colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
+  colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] =
+    server.connectionInformation.token;
   colabHeaders[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
   const addColabHeaders = (
@@ -77,7 +78,7 @@ export function colabProxyWebSocket(
                 vs,
                 this,
                 client,
-                endpoint,
+                server,
                 message.metadata.colab_msg_id,
               );
             }

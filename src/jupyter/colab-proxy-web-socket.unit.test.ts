@@ -12,10 +12,14 @@ import WebSocket from 'ws';
 import { ColabClient } from '../colab/client';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { colabProxyWebSocket } from './colab-proxy-web-socket';
+import { ColabAssignedServer } from './servers';
 
 describe('colabProxyWebSocket', () => {
-  const testEndpoint = 'test-endpoint';
-  const testToken = 'test-token';
+  const testServer = {
+    connectionInformation: {
+      token: 'test-token',
+    },
+  } as ColabAssignedServer;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let handleDriveFsAuthStub: sinon.SinonStub;
@@ -51,8 +55,7 @@ describe('colabProxyWebSocket', () => {
         const wsc = colabProxyWebSocket(
           vsCodeStub.asVsCode(),
           colabClientStub,
-          testToken,
-          testEndpoint,
+          testServer,
           TestWebSocket,
         );
         new wsc('ws://example.com/socket', protocols, options);
@@ -79,8 +82,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -102,8 +104,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -134,8 +135,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -161,8 +161,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -181,8 +180,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -197,8 +195,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -216,8 +213,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -233,8 +229,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -249,8 +244,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -271,8 +265,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
@@ -312,8 +305,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -337,8 +329,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -358,8 +349,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -374,8 +364,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -390,8 +379,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -406,8 +394,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -426,8 +413,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -452,8 +438,7 @@ describe('colabProxyWebSocket', () => {
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
-        testToken,
-        testEndpoint,
+        testServer,
         TestWebSocket,
         handleDriveFsAuthStub,
       );
@@ -496,7 +481,7 @@ describe('colabProxyWebSocket', () => {
     options?: WebSocket.ClientOptions | ClientRequestArgs,
   ) {
     expect(options?.headers).to.deep.equal({
-      'X-Colab-Runtime-Proxy-Token': testToken,
+      'X-Colab-Runtime-Proxy-Token': testServer.connectionInformation.token,
       'X-Colab-Client-Agent': 'vscode',
     });
   }

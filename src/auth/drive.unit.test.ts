@@ -5,35 +5,31 @@
  */
 
 import sinon, { SinonStubbedInstance } from 'sinon';
-import { NotebookEditor, Uri } from 'vscode';
+import { Uri } from 'vscode';
 import WebSocket from 'ws';
 import { ColabClient } from '../colab/client';
-import { TestUri } from '../test/helpers/uri';
+import { ColabAssignedServer } from '../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { handleDriveFsAuth } from './drive';
 
 describe('handleDriveFsAuth', () => {
-  const testEndpoint = 'test-endpoint';
+  const testServer = {
+    label: 'Test Server',
+    endpoint: 'test-endpoint',
+  } as ColabAssignedServer;
   const testRequestMessageId = 1;
-  const testFileId = 'test-file-id';
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let webSocketStub: SinonStubbedInstance<WebSocket>;
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
-    vsCodeStub.window.activeNotebookEditor = {
-      notebook: {
-        uri: TestUri.from({ scheme: '', path: testFileId }),
-      },
-    } as SinonStubbedInstance<NotebookEditor>;
 
     colabClientStub = sinon.createStubInstance(ColabClient);
     colabClientStub.propagateDriveCredentials
-      .withArgs(testEndpoint, {
+      .withArgs(testServer.endpoint, {
         dryRun: false,
         authType: 'dfs_ephemeral',
-        fileId: testFileId,
       })
       .resolves({ success: true, unauthorizedRedirectUri: undefined });
 
@@ -45,10 +41,9 @@ describe('handleDriveFsAuth', () => {
 
     beforeEach(() => {
       colabClientStub.propagateDriveCredentials
-        .withArgs(testEndpoint, {
+        .withArgs(testServer.endpoint, {
           dryRun: true,
           authType: 'dfs_ephemeral',
-          fileId: testFileId,
         })
         .resolves({
           success: false,
@@ -61,20 +56,24 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.showInformationMessage,
-        sinon.match('Permit this notebook to access your Google Drive files'),
+        sinon.match(
+          `Permit "${testServer.label}" to access your Google Drive files`,
+        ),
       );
     });
 
     it('opens unauthorized redirect URI and shows "continue" dialog if consented', async () => {
       (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
         .withArgs(
-          sinon.match('Permit this notebook to access your Google Drive files'),
+          sinon.match(
+            `Permit "${testServer.label}" to access your Google Drive files`,
+          ),
         )
         .resolves('Connect to Google Drive');
 
@@ -82,7 +81,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
@@ -95,7 +94,7 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.calledWithMatch(
         vsCodeStub.window.showInformationMessage,
         sinon.match(
-          'Please complete the authorization in your browser. If done, click "Continue"',
+          'Please complete the authorization in your browser. Only once done, click "Continue"',
         ),
       );
     });
@@ -111,7 +110,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
@@ -130,7 +129,9 @@ describe('handleDriveFsAuth', () => {
     it('propagates credentials and sends reply if continued', async () => {
       (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
         .withArgs(
-          sinon.match('Permit this notebook to access your Google Drive files'),
+          sinon.match(
+            `Permit "${testServer.label}" to access your Google Drive files`,
+          ),
         )
         .resolves('Connect to Google Drive');
       (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
@@ -143,17 +144,16 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
       sinon.assert.calledWithExactly(
         colabClientStub.propagateDriveCredentials,
-        testEndpoint,
+        testServer.endpoint,
         {
           dryRun: false,
           authType: 'dfs_ephemeral',
-          fileId: testFileId,
         },
       );
       sinon.assert.calledOnceWithMatch(
@@ -172,7 +172,9 @@ describe('handleDriveFsAuth', () => {
     it('sends error reply if not continued', async () => {
       (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
         .withArgs(
-          sinon.match('Permit this notebook to access your Google Drive files'),
+          sinon.match(
+            `Permit "${testServer.label}" to access your Google Drive files`,
+          ),
         )
         .resolves('Connect to Google Drive');
       (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
@@ -185,7 +187,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
@@ -204,10 +206,9 @@ describe('handleDriveFsAuth', () => {
   describe('with existing authorization', () => {
     beforeEach(() => {
       colabClientStub.propagateDriveCredentials
-        .withArgs(testEndpoint, {
+        .withArgs(testServer.endpoint, {
           dryRun: true,
           authType: 'dfs_ephemeral',
-          fileId: testFileId,
         })
         .resolves({
           success: true,
@@ -220,7 +221,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
@@ -228,11 +229,10 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.notCalled(vsCodeStub.env.openExternal);
       sinon.assert.calledWithExactly(
         colabClientStub.propagateDriveCredentials,
-        testEndpoint,
+        testServer.endpoint,
         {
           dryRun: false,
           authType: 'dfs_ephemeral',
-          fileId: testFileId,
         },
       );
       sinon.assert.calledOnceWithMatch(
@@ -250,10 +250,9 @@ describe('handleDriveFsAuth', () => {
 
     it('sends error reply if credentials propagation API failed', async () => {
       colabClientStub.propagateDriveCredentials
-        .withArgs(testEndpoint, {
+        .withArgs(testServer.endpoint, {
           dryRun: false,
           authType: 'dfs_ephemeral',
-          fileId: testFileId,
         })
         .rejects(new Error('Credentials propagation failed'));
 
@@ -261,7 +260,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 
@@ -278,10 +277,9 @@ describe('handleDriveFsAuth', () => {
 
     it('sends error reply if credentials propagation returns unsuccessful', async () => {
       colabClientStub.propagateDriveCredentials
-        .withArgs(testEndpoint, {
+        .withArgs(testServer.endpoint, {
           dryRun: false,
           authType: 'dfs_ephemeral',
-          fileId: testFileId,
         })
         .resolves({ success: false, unauthorizedRedirectUri: undefined });
 
@@ -289,7 +287,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         webSocketStub,
         colabClientStub,
-        testEndpoint,
+        testServer,
         testRequestMessageId,
       );
 

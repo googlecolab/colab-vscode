@@ -673,7 +673,6 @@ describe('ColabClient', () => {
           version: '2',
           propagate: 'true',
         };
-        const fileId = 'mock-file-id';
         fetchStub
           .withArgs(
             urlMatcher({
@@ -696,7 +695,6 @@ describe('ColabClient', () => {
               path,
               queryParams,
               otherHeaders: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
-              formBody: { file_id: fileId },
             }),
           )
           .resolves(
@@ -707,7 +705,6 @@ describe('ColabClient', () => {
 
         const result = client.propagateDriveCredentials(endpoint, {
           authType,
-          fileId,
           dryRun,
         });
 

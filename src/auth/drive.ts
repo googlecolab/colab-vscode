@@ -9,18 +9,29 @@ import vscode from 'vscode';
 import WebSocket from 'ws';
 import { ColabClient } from '../colab/client';
 import { log } from '../common/logging';
+import { ColabAssignedServer } from '../jupyter/servers';
 
+/**
+ * Handles DriveFS authorization by triggering an OAuth consent flow,
+ * propagating the credentials back to the Colab backend, and sending a reply
+ * message to the Colab kernel via the provided WebSocket handle.
+ *
+ * @param socket - Active WebSocket handle to send the reply message to Colab
+ *   kernel
+ * @param client - Colab API client to invoke the credentials propagation
+ * @param server - Colab server information used for credentials propagation
+ * @param requestMessageId - The Colab auth request message ID to correlate the
+ *   reply message to
+ */
 export async function handleDriveFsAuth(
   vs: typeof vscode,
   socket: WebSocket,
   client: ColabClient,
-  endpoint: string,
+  server: ColabAssignedServer,
   requestMessageId: number,
 ) {
-  const fileId = vs.window.activeNotebookEditor?.notebook.uri.path ?? '';
-  const dryRunResult = await client.propagateDriveCredentials(endpoint, {
+  const dryRunResult = await client.propagateDriveCredentials(server.endpoint, {
     authType: 'dfs_ephemeral',
-    fileId,
     dryRun: true,
   });
 
@@ -28,51 +39,94 @@ export async function handleDriveFsAuth(
     await propagateCredentialsAndSendReply(
       socket,
       client,
-      endpoint,
-      fileId,
+      server.endpoint,
       requestMessageId,
     );
     return;
   }
 
   if (dryRunResult.unauthorizedRedirectUri) {
-    const yes = 'Connect to Google Drive';
-    const consent = await vs.window.showInformationMessage(
-      'Permit this notebook to access your Google Drive files?',
-      {
-        modal: true,
-        detail:
-          'This notebook is requesting access to your Google Drive files. Granting access to Google Drive will permit code executed in the notebook to modify files in your Google Drive. Make sure to review notebook code prior to allowing this access.',
-      },
-      yes,
+    const userConsentObtained = await obtainUserAuthConsent(
+      vs,
+      dryRunResult.unauthorizedRedirectUri,
+      server.label,
     );
-    if (consent === yes) {
-      await vs.env.openExternal(
-        vs.Uri.parse(dryRunResult.unauthorizedRedirectUri),
+    if (userConsentObtained) {
+      await propagateCredentialsAndSendReply(
+        socket,
+        client,
+        server.endpoint,
+        requestMessageId,
       );
-
-      const ctn = 'Continue';
-      const selection = await vs.window.showInformationMessage(
-        'Please complete the authorization in your browser. If done, click "Continue".',
-        { modal: true },
-        ctn,
-      );
-      if (selection === ctn) {
-        await propagateCredentialsAndSendReply(
-          socket,
-          client,
-          endpoint,
-          fileId,
-          requestMessageId,
-        );
-        return;
-      }
+      return;
     }
 
     sendDriveFsAuthReply(
       socket,
       requestMessageId,
-      'User cancelled Google Drive authorization',
+      /* err= */ 'User cancelled Google Drive authorization',
+    );
+  }
+}
+
+async function obtainUserAuthConsent(
+  vs: typeof vscode,
+  unauthorizedRedirectUri: string,
+  serverLabel: string,
+): Promise<boolean> {
+  const yes = 'Connect to Google Drive';
+  const consent = await vs.window.showInformationMessage(
+    `Permit "${serverLabel}" to access your Google Drive files?`,
+    {
+      modal: true,
+      detail:
+        'This Colab server is requesting access to your Google Drive files. Granting access to Google Drive will permit code executed in the Colab server to modify files in your Google Drive. Make sure to review notebook code prior to allowing this access.',
+    },
+    yes,
+  );
+  if (consent === yes) {
+    await vs.env.openExternal(vs.Uri.parse(unauthorizedRedirectUri));
+
+    const ctn = 'Continue';
+    const selection = await vs.window.showInformationMessage(
+      'Please complete the authorization in your browser. Only once done, click "Continue".',
+      { modal: true },
+      ctn,
+    );
+    if (selection === ctn) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function propagateCredentialsAndSendReply(
+  socket: WebSocket,
+  client: ColabClient,
+  endpoint: string,
+  requestMessageId: number,
+): Promise<void> {
+  try {
+    const { success } = await client.propagateDriveCredentials(endpoint, {
+      authType: 'dfs_ephemeral',
+      dryRun: false,
+    });
+
+    if (success) {
+      sendDriveFsAuthReply(socket, requestMessageId);
+    } else {
+      sendDriveFsAuthReply(
+        socket,
+        requestMessageId,
+        /* err= */ 'Credentials propagation unsuccessful',
+      );
+    }
+  } catch (e: unknown) {
+    log.error('Failed handling DriveFS auth propagation', e);
+    sendDriveFsAuthReply(
+      socket,
+      requestMessageId,
+      e instanceof Error ? e.message : String(e),
     );
   }
 }
@@ -111,39 +165,6 @@ function sendDriveFsAuthReply(
   }
 
   socket.send(JSON.stringify(replyMessage));
-}
-
-async function propagateCredentialsAndSendReply(
-  socket: WebSocket,
-  client: ColabClient,
-  endpoint: string,
-  fileId: string,
-  requestMessageId: number,
-): Promise<void> {
-  try {
-    const { success } = await client.propagateDriveCredentials(endpoint, {
-      authType: 'dfs_ephemeral',
-      fileId,
-      dryRun: false,
-    });
-
-    if (success) {
-      sendDriveFsAuthReply(socket, requestMessageId);
-    } else {
-      sendDriveFsAuthReply(
-        socket,
-        requestMessageId,
-        'Credentials propagation unsuccessful',
-      );
-    }
-  } catch (e: unknown) {
-    log.error('Failed handling DriveFS auth propagation', e);
-    sendDriveFsAuthReply(
-      socket,
-      requestMessageId,
-      e instanceof Error ? e.message : String(e),
-    );
-  }
 }
 
 interface ColabInputReplyMessage {

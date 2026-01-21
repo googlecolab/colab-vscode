@@ -113,7 +113,6 @@ export interface VsCodeStub {
     createQuickPick: sinon.SinonStubbedMember<
       typeof vscode.window.createQuickPick
     >;
-    activeNotebookEditor?: sinon.SinonStubbedInstance<vscode.NotebookEditor>;
   };
   workspace: {
     getConfiguration: sinon.SinonStubbedMember<

@@ -6,7 +6,6 @@
 
 import { UUID } from 'crypto';
 import * as https from 'https';
-import FormData from 'form-data';
 import fetch, { Request, RequestInit, Headers } from 'node-fetch';
 import { z } from 'zod';
 import { traceMethod } from '../common/logging/decorators';
@@ -291,8 +290,6 @@ export class ColabClient {
     endpoint: string,
     params: {
       authType: 'dfs_ephemeral';
-      // This notebook's file ID.
-      fileId: string;
       // If true, check if credentials are already propagated to the backend
       // and/or obtain an OAuth redirect URL.
       dryRun: boolean;
@@ -315,15 +312,11 @@ export class ColabClient {
       z.object({ token: z.string() }),
     );
 
-    const formBody = new FormData();
-    formBody.append('file_id', params.fileId);
-
     return await this.issueRequest(
       url,
       {
         method: 'POST',
         headers: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
-        body: formBody,
         signal,
       },
       CredentialsPropagationResultSchema,
