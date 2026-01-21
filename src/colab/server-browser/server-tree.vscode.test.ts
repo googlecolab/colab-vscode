@@ -118,18 +118,21 @@ describe('ServerTreeProvider', () => {
         (assignmentStub.getServers as sinon.SinonStub).returns([]);
       });
 
-      it('returns no items with unauthorized', async () => {
-        await expect(tree.getChildren(undefined)).to.eventually.deep.equal([]);
+      const authStates = [AuthState.SIGNED_OUT, AuthState.SIGNED_IN] as const;
 
-        sinon.assert.notCalled(fsStub.readDirectory);
-      });
+      authStates.forEach((authState) => {
+        const state =
+          authState === AuthState.SIGNED_IN ? 'authorized' : 'unauthorized';
 
-      it('returns no items while authorized', async () => {
-        toggleAuth(AuthState.SIGNED_IN);
+        it(`returns no items while ${state}`, async () => {
+          toggleAuth(authState);
 
-        await expect(tree.getChildren(undefined)).to.eventually.deep.equal([]);
+          await expect(tree.getChildren(undefined)).to.eventually.deep.equal(
+            [],
+          );
 
-        sinon.assert.notCalled(fsStub.readDirectory);
+          sinon.assert.notCalled(fsStub.readDirectory);
+        });
       });
     });
 
@@ -140,7 +143,7 @@ describe('ServerTreeProvider', () => {
         ]);
       });
 
-      it('returns no items with unauthorized', async () => {
+      it('returns no items while unauthorized', async () => {
         await expect(tree.getChildren(undefined)).to.eventually.deep.equal([]);
 
         sinon.assert.notCalled(fsStub.readDirectory);
@@ -310,7 +313,7 @@ describe('ServerTreeProvider', () => {
         ]);
       });
 
-      it('returns no items with unauthorized', async () => {
+      it('returns no items while unauthorized', async () => {
         await expect(tree.getChildren(undefined)).to.eventually.deep.equal([]);
 
         sinon.assert.notCalled(fsStub.readDirectory);

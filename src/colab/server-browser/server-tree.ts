@@ -151,17 +151,19 @@ export class ServerTreeProvider
 
       // Sort: Directories first, then alphabetical by name.
       entries.sort((a, b) => {
-        if (a[1] !== b[1]) {
-          return b[1] === FileType.Directory ? 1 : -1;
+        const [aName, aType] = a;
+        const [bName, bType] = b;
+        if (aType !== bType) {
+          return bType === FileType.Directory ? 1 : -1;
         }
-        return a[0].localeCompare(b[0]);
+        return aName.localeCompare(bName);
       });
 
       return entries.map(([name, type]) => {
         const itemUri = Uri.joinPath(uri, name);
         const uriString = itemUri.toString();
         const existing = this.serverItemsByUri.get(uriString);
-        if (existing && existing.type === type) {
+        if (existing?.type === type) {
           return existing;
         }
 
@@ -186,12 +188,11 @@ export class ServerTreeProvider
   }
 
   private guardDisposed() {
-    if (!this.isDisposed) {
-      return;
+    if (this.isDisposed) {
+      throw new Error(
+        'ServerTreeProvider cannot be used after it has been disposed.',
+      );
     }
-    throw new Error(
-      'ServerTreeProvider cannot be used after it has been disposed.',
-    );
   }
 }
 
