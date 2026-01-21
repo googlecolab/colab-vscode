@@ -134,6 +134,31 @@
         }
       }
     },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "colab-extension",
+          "title": "Colab",
+          "icon": "$(colab-logo)"
+        }
+      ]
+    },
+    "views": {
+      "colab-extension": [
+        {
+          "id": "colab-servers-view",
+          "icon": "$(remote-explorer)",
+          "name": "Colab",
+          "when": "colab.extensionMode == Development"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "colab-servers-view",
+        "contents": "No assigned Colab servers."
+      }
+    ],
     "menus": {
       "notebook/toolbar": [
         {

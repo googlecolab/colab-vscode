@@ -26,6 +26,7 @@ import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
 import { ServerKeepAliveController } from './colab/keep-alive';
+import { ServerTreeProvider } from './colab/server-browser/server-tree';
 import { ServerPicker } from './colab/server-picker';
 import { CONFIG } from './colab-config';
 import { initializeLogger, log } from './common/logging';
@@ -41,6 +42,8 @@ import { ExtensionUriHandler } from './system/uri';
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
+  const mode = vscode.ExtensionMode[context.extensionMode];
+  vscode.commands.executeCommand('setContext', 'colab.extensionMode', mode);
   const logging = initializeLogger(vscode, context.extensionMode);
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
@@ -89,6 +92,12 @@ export async function activate(context: vscode.ExtensionContext) {
     assignmentManager,
   );
   const fs = new ContentsFileSystemProvider(vscode, jupyterConnections);
+  const serverTreeView = new ServerTreeProvider(
+    assignmentManager,
+    authProvider.onDidChangeSessions,
+    assignmentManager.onDidAssignmentsChange,
+    fs.onDidChangeFile,
+  );
   const connections = new ConnectionRefreshController(assignmentManager);
   const keepServersAlive = new ServerKeepAliveController(
     vscode,
@@ -109,6 +118,9 @@ export async function activate(context: vscode.ExtensionContext) {
   const disposeFs = vscode.workspace.registerFileSystemProvider('colab', fs, {
     isCaseSensitive: true,
   });
+  const disposeTreeView = vscode.window.createTreeView('colab-servers-view', {
+    treeDataProvider: serverTreeView,
+  });
 
   context.subscriptions.push(
     logging,
@@ -120,6 +132,7 @@ export async function activate(context: vscode.ExtensionContext) {
     serverProvider,
     jupyterConnections,
     disposeFs,
+    disposeTreeView,
     connections,
     keepServersAlive,
     ...consumptionMonitor.disposables,
