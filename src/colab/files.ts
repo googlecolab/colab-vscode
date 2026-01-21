@@ -21,9 +21,12 @@ export function buildColabFileUri(
   server: ColabAssignedServer,
   filePath = '',
 ): Uri {
-  return vs.Uri.from({
-    scheme: 'colab',
-    authority: server.endpoint,
-    path: '/' + filePath,
-  });
+  return vs.Uri.joinPath(
+    vs.Uri.from({
+      scheme: 'colab',
+      authority: server.endpoint,
+      path: '/',
+    }),
+    filePath,
+  );
 }

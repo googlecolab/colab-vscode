@@ -101,7 +101,7 @@ export class ContentsFileSystemProvider
   mount(server: ColabAssignedServer): void {
     this.guardDisposed();
 
-    const uri = buildColabFileUri(this.vs, server);
+    const uri = buildColabFileUri(this.vs, server, 'content');
     const existingFolder = this.vs.workspace.getWorkspaceFolder(uri);
     if (existingFolder) {
       log.info(`Server is already mounted: "${server.label}"`, existingFolder);
@@ -161,7 +161,7 @@ export class ContentsFileSystemProvider
   async stat(uri: Uri): Promise<FileStat> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = this.uriToPath(uri);
+    const path = uri.path;
     try {
       const client = await this.getOrCreateClient(uri);
       const content = await client.get({ path, content: 0 });
@@ -183,7 +183,7 @@ export class ContentsFileSystemProvider
   async readDirectory(uri: Uri): Promise<[string, FileType][]> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = this.uriToPath(uri);
+    const path = uri.path;
     try {
       const client = await this.getOrCreateClient(uri);
       const dir = await client.get({
@@ -218,7 +218,7 @@ export class ContentsFileSystemProvider
   async createDirectory(uri: Uri): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = this.uriToPath(uri);
+    const path = uri.path;
     try {
       const client = await this.getOrCreateClient(uri);
       await client.save({
@@ -245,7 +245,7 @@ export class ContentsFileSystemProvider
   async readFile(uri: Uri): Promise<Uint8Array> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = this.uriToPath(uri);
+    const path = uri.path;
     try {
       const client = await this.getOrCreateClient(uri);
       const content = await client.get({
@@ -294,7 +294,7 @@ export class ContentsFileSystemProvider
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
     const client = await this.getOrCreateClient(uri);
-    const path = this.uriToPath(uri);
+    const path = uri.path;
     try {
       const exists = await this.fileExists(client, path);
       if (!options.create && !exists) {
@@ -340,7 +340,7 @@ export class ContentsFileSystemProvider
   ): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = this.uriToPath(uri);
+    const path = uri.path;
     try {
       if (!options.recursive) {
         const stat = await this.stat(uri);
@@ -393,8 +393,8 @@ export class ContentsFileSystemProvider
     }
 
     const client = await this.getOrCreateClient(oldUri);
-    const oldPath = this.uriToPath(oldUri);
-    const newPath = this.uriToPath(newUri);
+    const oldPath = oldUri.path;
+    const newPath = newUri.path;
 
     const newUriExists = await this.fileExists(client, newPath);
     if (!options.overwrite) {
@@ -488,16 +488,6 @@ export class ContentsFileSystemProvider
       currentFolders.length,
       ...foldersToKeep,
     );
-  }
-
-  // Jupyter expects paths relative to root, without the leading slash.
-  // We want the workspace root to correspond to `/content` on the Jupyter server.
-  private uriToPath(uri: Uri): string {
-    let path = uri.path;
-    if (path.startsWith('/')) {
-      path = path.slice(1);
-    }
-    return path ? `content/${path}` : 'content';
   }
 
   private handleError(error: unknown): never {
