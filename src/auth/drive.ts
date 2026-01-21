@@ -61,14 +61,13 @@ export async function handleDriveFsAuth(
         server.endpoint,
         requestMessageId,
       );
-      return;
+    } else {
+      sendDriveFsAuthReply(
+        socket,
+        requestMessageId,
+        /* err= */ 'User cancelled Google Drive authorization',
+      );
     }
-
-    sendDriveFsAuthReply(
-      socket,
-      requestMessageId,
-      /* err= */ 'User cancelled Google Drive authorization',
-    );
   }
 }
 
