@@ -31,7 +31,10 @@ describe('handleDriveFsAuth', () => {
         dryRun: false,
         authType: 'dfs_ephemeral',
       })
-      .resolves({ success: true, unauthorizedRedirectUri: undefined });
+      .resolves({
+        success: true,
+        unauthorizedRedirectUri: undefined,
+      });
 
     webSocketStub = sinon.createStubInstance(WebSocket);
   });
@@ -68,44 +71,98 @@ describe('handleDriveFsAuth', () => {
       );
     });
 
-    it('opens unauthorized redirect URI and shows "continue" dialog if consented', async () => {
-      (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
-        .withArgs(
+    describe('with user consent to connect', () => {
+      beforeEach(() => {
+        (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
+          .withArgs(
+            sinon.match(
+              `Permit "${testServer.label}" to access your Google Drive files`,
+            ),
+          )
+          .resolves('Connect to Google Drive');
+      });
+
+      it('opens unauthorized redirect URI and shows "continue" dialog', async () => {
+        await handleDriveFsAuth(
+          vsCodeStub.asVsCode(),
+          webSocketStub,
+          colabClientStub,
+          testServer,
+          testRequestMessageId,
+        );
+
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.env.openExternal,
+          sinon.match(function (url: Uri) {
+            return url.toString().startsWith(testUnauthorizedRedirectUri);
+          }),
+        );
+        sinon.assert.calledWithMatch(
+          vsCodeStub.window.showInformationMessage,
           sinon.match(
-            `Permit "${testServer.label}" to access your Google Drive files`,
+            'Please complete the authorization in your browser. Only once done, click "Continue"',
           ),
-        )
-        .resolves('Connect to Google Drive');
+        );
+      });
 
-      await handleDriveFsAuth(
-        vsCodeStub.asVsCode(),
-        webSocketStub,
-        colabClientStub,
-        testServer,
-        testRequestMessageId,
-      );
+      it('propagates credentials and sends reply if user continued', async () => {
+        (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
+          .withArgs(
+            sinon.match('Please complete the authorization in your browser'),
+          )
+          .resolves('Continue');
 
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.env.openExternal,
-        sinon.match(function (url: Uri) {
-          return url.toString().startsWith(testUnauthorizedRedirectUri);
-        }),
-      );
-      sinon.assert.calledWithMatch(
-        vsCodeStub.window.showInformationMessage,
-        sinon.match(
-          'Please complete the authorization in your browser. Only once done, click "Continue"',
-        ),
-      );
+        await handleDriveFsAuth(
+          vsCodeStub.asVsCode(),
+          webSocketStub,
+          colabClientStub,
+          testServer,
+          testRequestMessageId,
+        );
+
+        sinon.assert.calledWithExactly(
+          colabClientStub.propagateDriveCredentials,
+          testServer.endpoint,
+          {
+            dryRun: false,
+            authType: 'dfs_ephemeral',
+          },
+        );
+        sinon.assert.calledOnceWithMatch(
+          webSocketStub.send,
+          sinon.match(function (data: string) {
+            return (
+              data.includes('input_reply') &&
+              data.includes('colab_reply') &&
+              data.includes(`"colab_msg_id":${String(testRequestMessageId)}`) &&
+              !data.includes('error')
+            );
+          }),
+        );
+      });
+
+      it('sends error reply if user not continued', async () => {
+        await handleDriveFsAuth(
+          vsCodeStub.asVsCode(),
+          webSocketStub,
+          colabClientStub,
+          testServer,
+          testRequestMessageId,
+        );
+
+        sinon.assert.calledOnceWithMatch(
+          webSocketStub.send,
+          sinon.match(function (data: string) {
+            return (
+              data.includes('error') &&
+              data.includes('User cancelled Google Drive authorization')
+            );
+          }),
+        );
+      });
     });
 
-    it('sends error reply if not consented', async () => {
-      (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
-        .withArgs(
-          sinon.match('Permit this notebook to access your Google Drive files'),
-        )
-        .resolves(undefined);
-
+    it('sends error reply if user not consented', async () => {
       await handleDriveFsAuth(
         vsCodeStub.asVsCode(),
         webSocketStub,
@@ -115,82 +172,6 @@ describe('handleDriveFsAuth', () => {
       );
 
       sinon.assert.notCalled(vsCodeStub.env.openExternal);
-      sinon.assert.calledOnceWithMatch(
-        webSocketStub.send,
-        sinon.match(function (data: string) {
-          return (
-            data.includes('error') &&
-            data.includes('User cancelled Google Drive authorization')
-          );
-        }),
-      );
-    });
-
-    it('propagates credentials and sends reply if continued', async () => {
-      (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
-        .withArgs(
-          sinon.match(
-            `Permit "${testServer.label}" to access your Google Drive files`,
-          ),
-        )
-        .resolves('Connect to Google Drive');
-      (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
-        .withArgs(
-          sinon.match('Please complete the authorization in your browser'),
-        )
-        .resolves('Continue');
-
-      await handleDriveFsAuth(
-        vsCodeStub.asVsCode(),
-        webSocketStub,
-        colabClientStub,
-        testServer,
-        testRequestMessageId,
-      );
-
-      sinon.assert.calledWithExactly(
-        colabClientStub.propagateDriveCredentials,
-        testServer.endpoint,
-        {
-          dryRun: false,
-          authType: 'dfs_ephemeral',
-        },
-      );
-      sinon.assert.calledOnceWithMatch(
-        webSocketStub.send,
-        sinon.match(function (data: string) {
-          return (
-            data.includes('input_reply') &&
-            data.includes('colab_reply') &&
-            data.includes(`"colab_msg_id":${String(testRequestMessageId)}`) &&
-            !data.includes('error')
-          );
-        }),
-      );
-    });
-
-    it('sends error reply if not continued', async () => {
-      (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
-        .withArgs(
-          sinon.match(
-            `Permit "${testServer.label}" to access your Google Drive files`,
-          ),
-        )
-        .resolves('Connect to Google Drive');
-      (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
-        .withArgs(
-          sinon.match('Please complete the authorization in your browser'),
-        )
-        .resolves(undefined);
-
-      await handleDriveFsAuth(
-        vsCodeStub.asVsCode(),
-        webSocketStub,
-        colabClientStub,
-        testServer,
-        testRequestMessageId,
-      );
-
       sinon.assert.calledOnceWithMatch(
         webSocketStub.send,
         sinon.match(function (data: string) {
@@ -281,7 +262,10 @@ describe('handleDriveFsAuth', () => {
           dryRun: false,
           authType: 'dfs_ephemeral',
         })
-        .resolves({ success: false, unauthorizedRedirectUri: undefined });
+        .resolves({
+          success: false,
+          unauthorizedRedirectUri: undefined,
+        });
 
       await handleDriveFsAuth(
         vsCodeStub.asVsCode(),
