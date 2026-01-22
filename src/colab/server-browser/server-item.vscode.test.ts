@@ -11,7 +11,7 @@ import { ServerItem } from './server-item';
 
 describe('ServerItem', () => {
   it('constructs servers', () => {
-    const serverUri = Uri.parse('colab://m-s-foo/');
+    const serverUri = Uri.parse('colab://m-s-foo/content');
 
     const item = new ServerItem(
       'm-s-foo',
@@ -21,7 +21,7 @@ describe('ServerItem', () => {
     );
 
     expect(item).to.deep.equal({
-      id: 'colab://m-s-foo/',
+      id: 'colab://m-s-foo/content',
       endpoint: 'm-s-foo',
       type: FileType.Directory,
       uri: serverUri,

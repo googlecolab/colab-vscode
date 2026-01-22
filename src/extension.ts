@@ -26,6 +26,8 @@ import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
 import { ServerKeepAliveController } from './colab/keep-alive';
+import { newFile, newFolder } from './colab/server-browser/commands';
+import { ServerItem } from './colab/server-browser/server-item';
 import { ServerTreeProvider } from './colab/server-browser/server-tree';
 import { ServerPicker } from './colab/server-picker';
 import { CONFIG } from './colab-config';
@@ -204,6 +206,15 @@ function registerCommands(
     vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
     }),
+    vscode.commands.registerCommand('colab.newFile', (node: ServerItem) => {
+      void newFile(vscode, node);
+    }),
+    vscode.commands.registerCommand(
+      'colab.newFolder',
+      (originItem: ServerItem) => {
+        void newFolder(vscode, originItem);
+      },
+    ),
   ];
 }
 

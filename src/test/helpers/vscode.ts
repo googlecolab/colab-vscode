@@ -100,6 +100,7 @@ export interface VsCodeStub {
       typeof vscode.window.showErrorMessage
     >;
     showQuickPick: sinon.SinonStubbedMember<typeof vscode.window.showQuickPick>;
+    showInputBox: sinon.SinonStubbedMember<typeof vscode.window.showInputBox>;
     createOutputChannel: sinon.SinonStubbedMember<
       typeof vscode.window.createOutputChannel
     >;
@@ -226,6 +227,7 @@ export function newVsCodeStub(): VsCodeStub {
       showWarningMessage: sinon.stub(),
       showErrorMessage: sinon.stub(),
       showQuickPick: sinon.stub(),
+      showInputBox: sinon.stub(),
       createOutputChannel: sinon.stub(),
       createInputBox: sinon.stub(),
       createQuickPick: sinon.stub(),

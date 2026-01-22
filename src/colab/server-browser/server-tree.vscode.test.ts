@@ -164,7 +164,7 @@ describe('ServerTreeProvider', () => {
               resourceUri: DEFAULT_SERVER_URI,
               label: DEFAULT_SERVER.label,
               collapsibleState: TreeItemCollapsibleState.Collapsed,
-              contextValue: 'folder',
+              contextValue: 'server',
             },
           ]);
         });

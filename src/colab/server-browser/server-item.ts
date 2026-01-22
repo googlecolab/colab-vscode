@@ -16,6 +16,8 @@ import { FileType, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
  * - 'file' for files
  */
 export class ServerItem extends TreeItem {
+  override contextValue: 'server' | 'folder' | 'file';
+
   constructor(
     readonly endpoint: string,
     label: string,
@@ -42,7 +44,7 @@ export class ServerItem extends TreeItem {
         arguments: [uri],
       };
     }
-    if (uri.path === '/') {
+    if (uri.path === '/content') {
       this.contextValue = 'server';
     } else {
       this.contextValue = type === FileType.Directory ? 'folder' : 'file';
