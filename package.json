@@ -135,6 +135,10 @@
       {
         "command": "colab.download",
         "title": "Download..."
+      },
+      {
+        "command": "colab.renameFile",
+        "title": "Rename"
       }
     ],
     "icons": {
@@ -210,6 +214,11 @@
           "command": "colab.download",
           "when": "view == colab-servers-view && viewItem == file",
           "group": "5b_importexport"
+        },
+        {
+          "command": "colab.renameFile",
+          "when": "view == colab-servers-view && viewItem != server",
+          "group": "7_modification"
         }
       ]
     }

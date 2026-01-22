@@ -106,6 +106,40 @@ export async function download(vs: typeof vscode, contextItem: ServerItem) {
   );
 }
 
+/**
+ * Renames a file or folder on the Colab server.
+ */
+export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
+  const oldName = contextItem.uri.path.split('/').pop() ?? '';
+  const destination = vs.Uri.joinPath(contextItem.uri, '..');
+
+  const newName = await vs.window.showInputBox({
+    title: 'Rename',
+    prompt: 'Enter the new name',
+    value: oldName,
+    validateInput: async (value) => {
+      if (value === oldName) {
+        return undefined;
+      }
+      return validateFileOrFolder(vs, destination, value);
+    },
+  });
+
+  if (!newName || newName === oldName) {
+    return;
+  }
+
+  const newUri = vs.Uri.joinPath(destination, newName);
+  try {
+    await vs.workspace.fs.rename(contextItem.uri, newUri, { overwrite: false });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'unknown error';
+    void vs.window.showErrorMessage(
+      `Failed to rename "${oldName}" to "${newName}": ${msg}`,
+    );
+  }
+}
+
 async function validateFileOrFolder(
   vs: typeof vscode,
   destination: Uri,

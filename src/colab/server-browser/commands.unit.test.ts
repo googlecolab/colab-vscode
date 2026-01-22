@@ -11,7 +11,7 @@ import { FileStat } from 'vscode';
 import { TestFileSystemError } from '../../test/helpers/errors';
 import { TestUri } from '../../test/helpers/uri';
 import { FileType, newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { download, newFile, newFolder } from './commands';
+import { download, newFile, newFolder, renameFile } from './commands';
 import type { ServerItem } from './server-item';
 
 const CONTENT_ROOT = buildServerItem('folder', 'colab://m-s-foo/content');
@@ -270,6 +270,76 @@ describe('Server Browser Commands', () => {
       await download(vs, CONTENT_ROOT);
 
       sinon.assert.notCalled(vsStub.window.showSaveDialog);
+    });
+  });
+
+  describe('renameFile', () => {
+    it('renames a file successfully', async () => {
+      vsStub.window.showInputBox.resolves('renamed.txt');
+      vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+
+      await renameFile(vs, FILE_ITEM);
+
+      sinon.assert.calledWith(
+        vsStub.workspace.fs.rename,
+        FILE_ITEM.uri,
+        TestUri.parse('colab://m-s-foo/content/renamed.txt'),
+        { overwrite: false },
+      );
+    });
+
+    it('does nothing if user cancels input box', async () => {
+      vsStub.window.showInputBox.resolves(undefined);
+
+      await renameFile(vs, FILE_ITEM);
+
+      sinon.assert.notCalled(vsStub.workspace.fs.rename);
+    });
+
+    it('does nothing if name is unchanged', async () => {
+      vsStub.window.showInputBox.resolves('foo.txt');
+
+      await renameFile(vs, FILE_ITEM);
+
+      sinon.assert.notCalled(vsStub.workspace.fs.rename);
+    });
+
+    it('shows error message if rename fails', async () => {
+      vsStub.window.showInputBox.resolves('renamed.txt');
+      vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+      vsStub.workspace.fs.rename.rejects(new Error('fail'));
+
+      await renameFile(vs, FILE_ITEM);
+
+      sinon.assert.calledWith(
+        vsStub.window.showErrorMessage,
+        'Failed to rename "foo.txt" to "renamed.txt": fail',
+      );
+    });
+
+    it('validates existence of new name', async () => {
+      vsStub.window.showInputBox.resolves('renamed.txt');
+      vsStub.workspace.fs.stat.resolves(SOME_FILE);
+
+      await renameFile(vs, FILE_ITEM);
+
+      const validate =
+        vsStub.window.showInputBox.firstCall.args[0]?.validateInput;
+      assert(validate);
+      expect(await validate('existing.txt')).to.equal(
+        'A file or folder with this name already exists',
+      );
+    });
+
+    it('allows same name during validation', async () => {
+      vsStub.window.showInputBox.resolves('foo.txt');
+
+      await renameFile(vs, FILE_ITEM);
+
+      const validate =
+        vsStub.window.showInputBox.firstCall.args[0]?.validateInput;
+      assert(validate);
+      expect(await validate('foo.txt')).to.be.undefined;
     });
   });
 });
