@@ -141,8 +141,28 @@
         "title": "New Folder..."
       },
       {
+        "command": "colab.cut",
+        "title": "Cut"
+      },
+      {
+        "command": "colab.copy",
+        "title": "Copy"
+      },
+      {
+        "command": "colab.paste",
+        "title": "Paste"
+      },
+      {
         "command": "colab.download",
         "title": "Download..."
+      },
+      {
+        "command": "colab.copyPath",
+        "title": "Copy Path"
+      },
+      {
+        "command": "colab.copyRelativePath",
+        "title": "Copy Relative Path"
       },
       {
         "command": "colab.renameFile",
@@ -213,6 +233,11 @@
       ],
       "view/item/context": [
         {
+          "command": "colab.mountServer",
+          "when": "view == colab-servers-view && config.colab.serverMounting",
+          "group": "control"
+        },
+        {
           "command": "colab.newFile",
           "when": "view == colab-servers-view",
           "group": "navigation"
@@ -223,9 +248,34 @@
           "group": "navigation"
         },
         {
+          "command": "colab.cut",
+          "when": "view == colab-servers-view && viewItem != server",
+          "group": "1_cutcopypaste"
+        },
+        {
+          "command": "colab.copy",
+          "when": "view == colab-servers-view && viewItem != server",
+          "group": "1_cutcopypaste"
+        },
+        {
+          "command": "colab.paste",
+          "when": "view == colab-servers-view",
+          "group": "1_cutcopypaste"
+        },
+        {
           "command": "colab.download",
           "when": "view == colab-servers-view && viewItem == file",
           "group": "5b_importexport"
+        },
+        {
+          "command": "colab.copyPath",
+          "when": "view == colab-servers-view && viewItem != server",
+          "group": "6_copypath"
+        },
+        {
+          "command": "colab.copyRelativePath",
+          "when": "view == colab-servers-view && viewItem != server",
+          "group": "6_copypath"
         },
         {
           "command": "colab.renameFile",
