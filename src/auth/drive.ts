@@ -33,28 +33,34 @@ export async function handleDriveFsAuth(
   server: ColabAssignedServer,
   requestMessageId: number,
 ): Promise<void> {
-  const dryRunResult = await client.propagateDriveCredentials(server.endpoint, {
-    authType: 'dfs_ephemeral',
-    dryRun: true,
-  });
-
-  if (dryRunResult.success) {
-    await propagateCredentialsAndSendReply(
-      socket,
-      client,
+  try {
+    // Dry run to check if authorization is needed.
+    const dryRunResult = await client.propagateDriveCredentials(
       server.endpoint,
-      requestMessageId,
+      {
+        authType: 'dfs_ephemeral',
+        dryRun: true,
+      },
     );
-    return;
-  }
 
-  if (dryRunResult.unauthorizedRedirectUri) {
-    const userConsentObtained = await obtainUserAuthConsent(
-      vs,
-      dryRunResult.unauthorizedRedirectUri,
-      server.label,
-    );
-    if (userConsentObtained) {
+    if (dryRunResult.success) {
+      // Already authorized; propagate credentials directly.
+      await propagateCredentialsAndSendReply(
+        socket,
+        client,
+        server.endpoint,
+        requestMessageId,
+      );
+    } else if (dryRunResult.unauthorizedRedirectUri) {
+      // Need to obtain user consent and then propagate credentials.
+      const userConsentObtained = await obtainUserAuthConsent(
+        vs,
+        dryRunResult.unauthorizedRedirectUri,
+        server.label,
+      );
+      if (!userConsentObtained) {
+        throw new Error('User cancelled Google Drive authorization');
+      }
       await propagateCredentialsAndSendReply(
         socket,
         client,
@@ -62,12 +68,23 @@ export async function handleDriveFsAuth(
         requestMessageId,
       );
     } else {
-      sendDriveFsAuthReply(
-        socket,
-        requestMessageId,
-        /* err= */ 'User cancelled Google Drive authorization',
+      // Not already authorized and no auth consent URL returned. This
+      // technically shouldn't happen, but just in case.
+      throw new Error(
+        `Credentials propagation dry run returned unexpected results: ${JSON.stringify(dryRunResult)}`,
       );
     }
+  } catch (e: unknown) {
+    log.error('Failed handling DriveFS auth propagation', e);
+    sendDriveFsAuthReply(
+      socket,
+      requestMessageId,
+      /* err= */ e instanceof Error
+        ? e.message
+        : typeof e === 'string'
+          ? e
+          : 'unknown error',
+    );
   }
 }
 
@@ -108,28 +125,15 @@ async function propagateCredentialsAndSendReply(
   endpoint: string,
   requestMessageId: number,
 ): Promise<void> {
-  try {
-    const { success } = await client.propagateDriveCredentials(endpoint, {
-      authType: 'dfs_ephemeral',
-      dryRun: false,
-    });
+  const { success } = await client.propagateDriveCredentials(endpoint, {
+    authType: 'dfs_ephemeral',
+    dryRun: false,
+  });
 
-    if (!success) {
-      throw new Error('Credentials propagation unsuccessful');
-    }
-    sendDriveFsAuthReply(socket, requestMessageId);
-  } catch (e: unknown) {
-    log.error('Failed handling DriveFS auth propagation', e);
-    sendDriveFsAuthReply(
-      socket,
-      requestMessageId,
-      /* err= */ e instanceof Error
-        ? e.message
-        : typeof e === 'string'
-          ? e
-          : 'unknown error',
-    );
+  if (!success) {
+    throw new Error('Credentials propagation unsuccessful');
   }
+  sendDriveFsAuthReply(socket, requestMessageId);
 }
 
 function sendDriveFsAuthReply(

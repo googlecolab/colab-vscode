@@ -39,6 +39,63 @@ describe('handleDriveFsAuth', () => {
     webSocketStub = sinon.createStubInstance(WebSocket);
   });
 
+  it('sends error reply if credentials propagation dry run failed', async () => {
+    const errMsg = 'Credentials propagation dry run failed';
+    colabClientStub.propagateDriveCredentials
+      .withArgs(testServer.endpoint, {
+        dryRun: true,
+        authType: 'dfs_ephemeral',
+      })
+      .rejects(new Error(errMsg));
+
+    await handleDriveFsAuth(
+      vsCodeStub.asVsCode(),
+      webSocketStub,
+      colabClientStub,
+      testServer,
+      testRequestMessageId,
+    );
+
+    sinon.assert.calledOnceWithMatch(
+      webSocketStub.send,
+      sinon.match(function (data: string) {
+        return data.includes('error') && data.includes(errMsg);
+      }),
+    );
+  });
+
+  it('sends error reply if credentials propagation dry run returned unexpected results', async () => {
+    colabClientStub.propagateDriveCredentials
+      .withArgs(testServer.endpoint, {
+        dryRun: true,
+        authType: 'dfs_ephemeral',
+      })
+      .resolves({
+        success: false,
+        unauthorizedRedirectUri: undefined,
+      });
+
+    await handleDriveFsAuth(
+      vsCodeStub.asVsCode(),
+      webSocketStub,
+      colabClientStub,
+      testServer,
+      testRequestMessageId,
+    );
+
+    sinon.assert.calledOnceWithMatch(
+      webSocketStub.send,
+      sinon.match(function (data: string) {
+        return (
+          data.includes('error') &&
+          data.includes(
+            'Credentials propagation dry run returned unexpected results',
+          )
+        );
+      }),
+    );
+  });
+
   describe('with no existing authorization', () => {
     const testUnauthorizedRedirectUri = 'http://test-oauth-uri';
 
@@ -230,12 +287,13 @@ describe('handleDriveFsAuth', () => {
     });
 
     it('sends error reply if credentials propagation API failed', async () => {
+      const errMsg = 'Credentials propagation failed';
       colabClientStub.propagateDriveCredentials
         .withArgs(testServer.endpoint, {
           dryRun: false,
           authType: 'dfs_ephemeral',
         })
-        .rejects(new Error('Credentials propagation failed'));
+        .rejects(new Error(errMsg));
 
       await handleDriveFsAuth(
         vsCodeStub.asVsCode(),
@@ -248,10 +306,7 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.calledOnceWithMatch(
         webSocketStub.send,
         sinon.match(function (data: string) {
-          return (
-            data.includes('error') &&
-            data.includes('Credentials propagation failed')
-          );
+          return data.includes('error') && data.includes(errMsg);
         }),
       );
     });
