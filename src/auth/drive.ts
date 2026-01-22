@@ -149,7 +149,6 @@ function sendDriveFsAuthReply(
     header: {
       msg_id: replyMsgId,
       msg_type: replyMsgType,
-      username: 'username',
       session: uuid(),
       version: '5.0',
     },
@@ -178,7 +177,6 @@ interface ColabInputReplyMessage {
   header: {
     msg_id: string;
     msg_type: 'input_reply';
-    username: string;
     session: string;
     version: string;
   };
