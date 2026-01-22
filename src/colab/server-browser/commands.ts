@@ -109,6 +109,7 @@ export async function download(vs: typeof vscode, contextItem: ServerItem) {
 /**
  * Renames a file or folder on the Colab server.
  */
+// TODO: Look into preserving expanded state of renamed folders.
 export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
   const oldName = contextItem.uri.path.split('/').pop() ?? '';
   const destination = vs.Uri.joinPath(contextItem.uri, '..');
