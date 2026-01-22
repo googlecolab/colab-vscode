@@ -141,6 +141,29 @@ export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
   }
 }
 
+/**
+ * Deletes a file or folder on the Colab server.
+ */
+export async function deleteFile(vs: typeof vscode, contextItem: ServerItem) {
+  const name = contextItem.uri.path.split('/').pop() ?? '';
+  const confirmation = await vs.window.showWarningMessage(
+    `Are you sure you want to delete "${name}"?`,
+    { modal: true },
+    'Delete',
+  );
+
+  if (confirmation !== 'Delete') {
+    return;
+  }
+
+  try {
+    await vs.workspace.fs.delete(contextItem.uri, { recursive: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'unknown error';
+    void vs.window.showErrorMessage(`Failed to delete "${name}": ${msg}`);
+  }
+}
+
 async function validateFileOrFolder(
   vs: typeof vscode,
   destination: Uri,
