@@ -131,6 +131,10 @@
       {
         "command": "colab.newFolder",
         "title": "New Folder..."
+      },
+      {
+        "command": "colab.download",
+        "title": "Download..."
       }
     ],
     "icons": {
@@ -201,6 +205,11 @@
           "command": "colab.newFolder",
           "when": "view == colab-servers-view",
           "group": "navigation"
+        },
+        {
+          "command": "colab.download",
+          "when": "view == colab-servers-view && viewItem == file",
+          "group": "5b_importexport"
         }
       ]
     }

@@ -26,7 +26,7 @@ import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
 import { ServerKeepAliveController } from './colab/keep-alive';
-import { newFile, newFolder } from './colab/server-browser/commands';
+import { download, newFile, newFolder } from './colab/server-browser/commands';
 import { ServerItem } from './colab/server-browser/server-item';
 import { ServerTreeProvider } from './colab/server-browser/server-tree';
 import { ServerPicker } from './colab/server-picker';
@@ -216,6 +216,12 @@ function registerCommands(
       'colab.newFolder',
       (contextItem: ServerItem) => {
         void newFolder(vscode, contextItem);
+      },
+    ),
+    vscode.commands.registerCommand(
+      'colab.download',
+      (contextItem: ServerItem) => {
+        void download(vscode, contextItem);
       },
     ),
   ];

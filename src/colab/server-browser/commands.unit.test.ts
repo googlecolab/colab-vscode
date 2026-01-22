@@ -11,7 +11,7 @@ import { FileStat } from 'vscode';
 import { TestFileSystemError } from '../../test/helpers/errors';
 import { TestUri } from '../../test/helpers/uri';
 import { FileType, newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { newFile, newFolder } from './commands';
+import { download, newFile, newFolder } from './commands';
 import type { ServerItem } from './server-item';
 
 const CONTENT_ROOT = buildServerItem('folder', 'colab://m-s-foo/content');
@@ -220,6 +220,56 @@ describe('Server Browser Commands', () => {
       expect(await validate('existing.txt')).to.equal(
         'A file or folder with this name already exists',
       );
+    });
+  });
+
+  describe('download', () => {
+    beforeEach(() => {
+      vsStub.window.withProgress.callsFake((_options, task) => {
+        return task(
+          { report: sinon.stub() },
+          new vsStub.CancellationTokenSource().token,
+        );
+      });
+    });
+
+    it('downloads a file successfully', async () => {
+      const localUri = TestUri.file('/local/path/foo.txt');
+      vsStub.window.showSaveDialog.resolves(localUri);
+      const content = new Uint8Array([1, 2, 3]);
+      vsStub.workspace.fs.readFile.resolves(content);
+
+      await download(vs, FILE_ITEM);
+
+      sinon.assert.calledWith(vsStub.workspace.fs.readFile, FILE_ITEM.uri);
+      sinon.assert.calledWith(vsStub.workspace.fs.writeFile, localUri, content);
+    });
+
+    it('does nothing if user cancels save dialog', async () => {
+      vsStub.window.showSaveDialog.resolves(undefined);
+
+      await download(vs, FILE_ITEM);
+
+      sinon.assert.notCalled(vsStub.workspace.fs.readFile);
+    });
+
+    it('shows error message if download fails', async () => {
+      const localUri = TestUri.file('/local/path/foo.txt');
+      vsStub.window.showSaveDialog.resolves(localUri);
+      vsStub.workspace.fs.readFile.rejects(new Error('fail'));
+
+      await download(vs, FILE_ITEM);
+
+      sinon.assert.calledWith(
+        vsStub.window.showErrorMessage,
+        'Failed to download foo.txt: fail',
+      );
+    });
+
+    it('does nothing if item is not a file', async () => {
+      await download(vs, CONTENT_ROOT);
+
+      sinon.assert.notCalled(vsStub.window.showSaveDialog);
     });
   });
 });
