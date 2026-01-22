@@ -32,7 +32,7 @@ export async function handleDriveFsAuth(
   client: ColabClient,
   server: ColabAssignedServer,
   requestMessageId: number,
-) {
+): Promise<void> {
   const dryRunResult = await client.propagateDriveCredentials(server.endpoint, {
     authType: 'dfs_ephemeral',
     dryRun: true,
