@@ -230,12 +230,6 @@ function registerCommands(
       },
     ),
     vscode.commands.registerCommand(
-      'colab.download',
-      (contextItem: ServerItem) => {
-        void download(vscode, contextItem);
-      },
-    ),
-    vscode.commands.registerCommand(
       'colab.renameFile',
       (contextItem: ServerItem) => {
         void renameFile(vscode, contextItem);
