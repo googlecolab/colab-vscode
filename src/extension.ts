@@ -27,6 +27,7 @@ import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
 import { ServerKeepAliveController } from './colab/keep-alive';
 import {
+  deleteFile,
   download,
   newFile,
   newFolder,
@@ -233,6 +234,12 @@ function registerCommands(
       'colab.renameFile',
       (contextItem: ServerItem) => {
         void renameFile(vscode, contextItem);
+      },
+    ),
+    vscode.commands.registerCommand(
+      'colab.deleteFile',
+      (contextItem: ServerItem) => {
+        void deleteFile(vscode, contextItem);
       },
     ),
   ];

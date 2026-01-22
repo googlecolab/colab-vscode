@@ -11,7 +11,13 @@ import { FileStat } from 'vscode';
 import { TestFileSystemError } from '../../test/helpers/errors';
 import { TestUri } from '../../test/helpers/uri';
 import { FileType, newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { download, newFile, newFolder, renameFile } from './commands';
+import {
+  deleteFile,
+  download,
+  newFile,
+  newFolder,
+  renameFile,
+} from './commands';
 import type { ServerItem } from './server-item';
 
 const CONTENT_ROOT = buildServerItem('folder', 'colab://m-s-foo/content');
@@ -340,6 +346,40 @@ describe('Server Browser Commands', () => {
         vsStub.window.showInputBox.firstCall.args[0]?.validateInput;
       assert(validate);
       expect(await validate('foo.txt')).to.be.undefined;
+    });
+  });
+
+  describe('deleteFile', () => {
+    it('deletes a file successfully after confirmation', async () => {
+      // Cast necessary due to overloading.
+      (vsStub.window.showWarningMessage as sinon.SinonStub).resolves('Delete');
+
+      await deleteFile(vs, FILE_ITEM);
+
+      sinon.assert.calledWith(vsStub.workspace.fs.delete, FILE_ITEM.uri, {
+        recursive: true,
+      });
+    });
+
+    it('does nothing if user cancels confirmation', async () => {
+      vsStub.window.showWarningMessage.resolves(undefined);
+
+      await deleteFile(vs, FILE_ITEM);
+
+      sinon.assert.notCalled(vsStub.workspace.fs.delete);
+    });
+
+    it('shows error message if deletion fails', async () => {
+      // Cast necessary due to overloading.
+      (vsStub.window.showWarningMessage as sinon.SinonStub).resolves('Delete');
+      vsStub.workspace.fs.delete.rejects(new Error('fail'));
+
+      await deleteFile(vs, FILE_ITEM);
+
+      sinon.assert.calledWith(
+        vsStub.window.showErrorMessage,
+        'Failed to delete "foo.txt": fail',
+      );
     });
   });
 });
