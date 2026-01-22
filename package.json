@@ -75,6 +75,14 @@
             "experimental"
           ]
         },
+        "colab.activityBar": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enables the Colab activity bar where you can view servers and interact with their `/content` directories.",
+          "tags": [
+            "experimental"
+          ]
+        },
         "colab.serverMounting": {
           "type": "boolean",
           "default": false,
@@ -169,7 +177,7 @@
           "id": "colab-servers-view",
           "icon": "$(remote-explorer)",
           "name": "Colab",
-          "when": "colab.extensionMode == Development"
+          "when": "config.colab.activityBar"
         }
       ]
     },
