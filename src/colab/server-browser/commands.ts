@@ -71,12 +71,12 @@ export async function newFolder(vs: typeof vscode, contextItem: ServerItem) {
 /**
  * Downloads a file from the Colab server to the local filesystem.
  */
-export async function download(vs: typeof vscode, item: ServerItem) {
-  if (item.type !== vs.FileType.File) {
+export async function download(vs: typeof vscode, contextItem: ServerItem) {
+  if (contextItem.type !== vs.FileType.File) {
     return;
   }
 
-  const fileName = item.uri.path.split('/').pop() ?? 'file';
+  const fileName = contextItem.uri.path.split('/').pop() ?? 'file';
   const targetUri = await vs.window.showSaveDialog({
     defaultUri: vs.Uri.file(fileName),
     title: 'Download File',
@@ -94,11 +94,13 @@ export async function download(vs: typeof vscode, item: ServerItem) {
     },
     async () => {
       try {
-        const content = await vs.workspace.fs.readFile(item.uri);
+        const content = await vs.workspace.fs.readFile(contextItem.uri);
         await vs.workspace.fs.writeFile(targetUri, content);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'unknown error';
-        void vs.window.showErrorMessage(`Failed to download ${fileName}: ${msg}`);
+        void vs.window.showErrorMessage(
+          `Failed to download ${fileName}: ${msg}`,
+        );
       }
     },
   );
