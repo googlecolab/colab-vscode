@@ -114,21 +114,20 @@ async function propagateCredentialsAndSendReply(
       dryRun: false,
     });
 
-    if (success) {
-      sendDriveFsAuthReply(socket, requestMessageId);
-    } else {
-      sendDriveFsAuthReply(
-        socket,
-        requestMessageId,
-        /* err= */ 'Credentials propagation unsuccessful',
-      );
+    if (!success) {
+      throw new Error('Credentials propagation unsuccessful');
     }
+    sendDriveFsAuthReply(socket, requestMessageId);
   } catch (e: unknown) {
     log.error('Failed handling DriveFS auth propagation', e);
     sendDriveFsAuthReply(
       socket,
       requestMessageId,
-      e instanceof Error ? e.message : String(e),
+      /* err= */ e instanceof Error
+        ? e.message
+        : typeof e === 'string'
+          ? e
+          : 'unknown error',
     );
   }
 }
