@@ -74,6 +74,7 @@ export function colabProxyWebSocket(
             }
 
             if (isColabAuthEphemeralRequest(message)) {
+              log.trace('Colab request message received:', message);
               void handleDriveFsAuthFn(
                 vs,
                 this,

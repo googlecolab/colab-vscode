@@ -42,6 +42,7 @@ export async function handleDriveFsAuth(
         dryRun: true,
       },
     );
+    log.trace('Drive credentials propagation dry run:', dryRunResult);
 
     if (dryRunResult.success) {
       // Already authorized; propagate credentials directly.
@@ -125,12 +126,13 @@ async function propagateCredentialsAndSendReply(
   endpoint: string,
   requestMessageId: number,
 ): Promise<void> {
-  const { success } = await client.propagateDriveCredentials(endpoint, {
+  const propagationResult = await client.propagateDriveCredentials(endpoint, {
     authType: 'dfs_ephemeral',
     dryRun: false,
   });
+  log.trace('Drive credentials propagation:', propagationResult);
 
-  if (!success) {
+  if (!propagationResult.success) {
     throw new Error('Credentials propagation unsuccessful');
   }
   sendDriveFsAuthReply(socket, requestMessageId);
@@ -169,6 +171,7 @@ function sendDriveFsAuthReply(
   }
 
   socket.send(JSON.stringify(replyMessage));
+  log.trace('Input reply message sent:', replyMessage);
 }
 
 interface ColabInputReplyMessage {
