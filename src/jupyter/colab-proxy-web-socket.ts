@@ -68,7 +68,7 @@ export function colabProxyWebSocket(
             let message: unknown;
             try {
               message = JSON.parse(data) as unknown;
-            } catch (e) {
+            } catch (e: unknown) {
               log.warn('Failed to parse received Jupyter message to JSON:', e);
               return;
             }
@@ -115,7 +115,7 @@ export function colabProxyWebSocket(
       let parsedJupyterMessage: unknown;
       try {
         parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
-      } catch (e) {
+      } catch (e: unknown) {
         log.warn('Failed to parse sent Jupyter message to JSON:', e);
         return;
       }

@@ -10,7 +10,7 @@ import WebSocket from 'ws';
 import { ColabClient } from '../colab/client';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { handleDriveFsAuth } from './drive';
+import { handleDriveFsAuth, ColabInputReplyMessage } from './drive';
 
 describe('handleDriveFsAuth', () => {
   const testServer = {
@@ -59,7 +59,11 @@ describe('handleDriveFsAuth', () => {
     sinon.assert.calledOnceWithMatch(
       webSocketStub.send,
       sinon.match(function (data: string) {
-        return data.includes('error') && data.includes(errMsg);
+        const message = JSON.parse(data) as unknown;
+        return (
+          isColabInputReplyMessage(message) &&
+          message.content.value.error === errMsg
+        );
       }),
     );
   });
@@ -86,9 +90,10 @@ describe('handleDriveFsAuth', () => {
     sinon.assert.calledOnceWithMatch(
       webSocketStub.send,
       sinon.match(function (data: string) {
+        const message = JSON.parse(data) as unknown;
         return (
-          data.includes('error') &&
-          data.includes(
+          isColabInputReplyMessage(message) &&
+          message.content.value.error?.includes(
             'Credentials propagation dry run returned unexpected results',
           )
         );
@@ -188,11 +193,11 @@ describe('handleDriveFsAuth', () => {
         sinon.assert.calledOnceWithMatch(
           webSocketStub.send,
           sinon.match(function (data: string) {
+            const message = JSON.parse(data) as unknown;
             return (
-              data.includes('input_reply') &&
-              data.includes('colab_reply') &&
-              data.includes(`"colab_msg_id":${String(testRequestMessageId)}`) &&
-              !data.includes('error')
+              isColabInputReplyMessage(message) &&
+              message.content.value.colab_msg_id === testRequestMessageId &&
+              !message.content.value.error
             );
           }),
         );
@@ -210,9 +215,11 @@ describe('handleDriveFsAuth', () => {
         sinon.assert.calledOnceWithMatch(
           webSocketStub.send,
           sinon.match(function (data: string) {
+            const message = JSON.parse(data) as unknown;
             return (
-              data.includes('error') &&
-              data.includes('User cancelled Google Drive authorization')
+              isColabInputReplyMessage(message) &&
+              message.content.value.error ===
+                'User cancelled Google Drive authorization'
             );
           }),
         );
@@ -232,9 +239,11 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.calledOnceWithMatch(
         webSocketStub.send,
         sinon.match(function (data: string) {
+          const message = JSON.parse(data) as unknown;
           return (
-            data.includes('error') &&
-            data.includes('User cancelled Google Drive authorization')
+            isColabInputReplyMessage(message) &&
+            message.content.value.error ===
+              'User cancelled Google Drive authorization'
           );
         }),
       );
@@ -276,11 +285,11 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.calledOnceWithMatch(
         webSocketStub.send,
         sinon.match(function (data: string) {
+          const message = JSON.parse(data) as unknown;
           return (
-            data.includes('input_reply') &&
-            data.includes('colab_reply') &&
-            data.includes(`"colab_msg_id":${String(testRequestMessageId)}`) &&
-            !data.includes('error')
+            isColabInputReplyMessage(message) &&
+            message.content.value.colab_msg_id === testRequestMessageId &&
+            !message.content.value.error
           );
         }),
       );
@@ -306,7 +315,11 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.calledOnceWithMatch(
         webSocketStub.send,
         sinon.match(function (data: string) {
-          return data.includes('error') && data.includes(errMsg);
+          const message = JSON.parse(data) as unknown;
+          return (
+            isColabInputReplyMessage(message) &&
+            message.content.value.error === errMsg
+          );
         }),
       );
     });
@@ -333,12 +346,36 @@ describe('handleDriveFsAuth', () => {
       sinon.assert.calledOnceWithMatch(
         webSocketStub.send,
         sinon.match(function (data: string) {
+          const message = JSON.parse(data) as unknown;
           return (
-            data.includes('error') &&
-            data.includes('Credentials propagation unsuccessful')
+            isColabInputReplyMessage(message) &&
+            message.content.value.error ===
+              'Credentials propagation unsuccessful'
           );
         }),
       );
     });
   });
 });
+
+function isColabInputReplyMessage(
+  message: unknown,
+): message is ColabInputReplyMessage {
+  return (
+    typeof message === 'object' &&
+    !!message &&
+    'header' in message &&
+    typeof message.header === 'object' &&
+    !!message.header &&
+    'msg_type' in message.header &&
+    message.header.msg_type === 'input_reply' &&
+    'content' in message &&
+    typeof message.content === 'object' &&
+    !!message.content &&
+    'value' in message.content &&
+    typeof message.content.value === 'object' &&
+    !!message.content.value &&
+    'type' in message.content.value &&
+    message.content.value.type === 'colab_reply'
+  );
+}

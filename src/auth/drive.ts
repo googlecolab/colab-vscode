@@ -12,6 +12,30 @@ import { log } from '../common/logging';
 import { ColabAssignedServer } from '../jupyter/servers';
 
 /**
+ * Colab's `input_reply` message format for replying to Drive auth requests.
+ */
+export interface ColabInputReplyMessage {
+  msg_id: string;
+  msg_type: 'input_reply';
+  header: {
+    msg_id: string;
+    msg_type: 'input_reply';
+    session: string;
+    version: string;
+  };
+  content: {
+    value: {
+      type: 'colab_reply';
+      colab_msg_id: number;
+      error?: string;
+    };
+  };
+  channel: 'stdin';
+  metadata: object;
+  parent_header: object;
+}
+
+/**
  * Handles DriveFS authorization by triggering an OAuth consent flow,
  * propagating the credentials back to the Colab backend, and sending a reply
  * message to the Colab kernel via the provided WebSocket handle.
@@ -172,25 +196,4 @@ function sendDriveFsAuthReply(
 
   socket.send(JSON.stringify(replyMessage));
   log.trace('Input reply message sent:', replyMessage);
-}
-
-interface ColabInputReplyMessage {
-  msg_id: string;
-  msg_type: 'input_reply';
-  header: {
-    msg_id: string;
-    msg_type: 'input_reply';
-    session: string;
-    version: string;
-  };
-  content: {
-    value: {
-      type: 'colab_reply';
-      colab_msg_id: number;
-      error?: string;
-    };
-  };
-  channel: 'stdin';
-  metadata: object;
-  parent_header: object;
 }
