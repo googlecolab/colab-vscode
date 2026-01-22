@@ -50,8 +50,6 @@ import { ExtensionUriHandler } from './system/uri';
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
-  const mode = vscode.ExtensionMode[context.extensionMode];
-  vscode.commands.executeCommand('setContext', 'colab.extensionMode', mode);
   const logging = initializeLogger(vscode, context.extensionMode);
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
