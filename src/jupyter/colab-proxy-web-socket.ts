@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from 'vscode';
+import vscode, { Disposable, ConfigurationChangeEvent } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
 import { handleDriveFsAuth } from '../auth/drive';
@@ -46,7 +46,11 @@ export function colabProxyWebSocket(
     return { ...options, headers };
   };
 
-  return class ColabWebSocket extends BaseWebSocket {
+  return class ColabWebSocket extends BaseWebSocket implements Disposable {
+    private driveMountingEnabled: boolean;
+    private disposed = false;
+    private disposables: Disposable[] = [];
+
     constructor(
       address: string | URL,
       protocols?: string | string[] | WebSocket.ClientOptions,
@@ -58,34 +62,61 @@ export function colabProxyWebSocket(
         super(address, protocols, addColabHeaders(options));
       }
 
-      this.addListener(
-        'message',
-        (data: WebSocket.RawData, isBinary: boolean) => {
-          const driveMountingEnabled = vs.workspace
+      this.driveMountingEnabled = vs.workspace
+        .getConfiguration('colab')
+        .get<boolean>('driveMounting', false);
+      const configListener = vs.workspace.onDidChangeConfiguration(
+        (e: ConfigurationChangeEvent) => {
+          if (!e.affectsConfiguration('colab.driveMounting')) {
+            return;
+          }
+          this.driveMountingEnabled = vs.workspace
             .getConfiguration('colab')
             .get<boolean>('driveMounting', false);
-          if (!isBinary && typeof data === 'string' && driveMountingEnabled) {
-            let message: unknown;
-            try {
-              message = JSON.parse(data) as unknown;
-            } catch (e: unknown) {
-              log.warn('Failed to parse received Jupyter message to JSON:', e);
-              return;
-            }
-
-            if (isColabAuthEphemeralRequest(message)) {
-              log.trace('Colab request message received:', message);
-              void handleDriveFsAuthFn(
-                vs,
-                this,
-                client,
-                server,
-                message.metadata.colab_msg_id,
-              );
-            }
-          }
         },
       );
+      this.disposables.push(configListener);
+
+      this.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
+        if (
+          !isBinary &&
+          typeof data === 'string' &&
+          this.driveMountingEnabled
+        ) {
+          let message: unknown;
+          try {
+            message = JSON.parse(data) as unknown;
+          } catch (e: unknown) {
+            log.warn('Failed to parse received Jupyter message to JSON:', e);
+            return;
+          }
+
+          if (isColabAuthEphemeralRequest(message)) {
+            log.trace('Colab request message received:', message);
+            void handleDriveFsAuthFn(
+              vs,
+              this,
+              client,
+              server,
+              message.metadata.colab_msg_id,
+            );
+          }
+        }
+      });
+    }
+
+    dispose() {
+      if (this.disposed) {
+        return;
+      }
+      this.disposed = true;
+
+      for (const d of this.disposables) {
+        d.dispose();
+      }
+      this.disposables = [];
+
+      this.removeAllListeners('message');
     }
 
     override send(
@@ -93,10 +124,9 @@ export function colabProxyWebSocket(
       options?: SendOptions | ((err?: Error) => void),
       cb?: (err?: Error) => void,
     ) {
-      const driveMountingEnabled = vs.workspace
-        .getConfiguration('colab')
-        .get<boolean>('driveMounting', false);
-      if (typeof data === 'string' && !driveMountingEnabled) {
+      this.guardDisposed();
+
+      if (typeof data === 'string' && !this.driveMountingEnabled) {
         this.warnOnDriveMount(data);
       }
 
@@ -145,6 +175,14 @@ export function colabProxyWebSocket(
               break;
           }
         });
+    }
+
+    private guardDisposed(): void {
+      if (this.disposed) {
+        throw new Error(
+          'ColabWebSocket cannot be used after it has been disposed.',
+        );
+      }
     }
   };
 }

@@ -7,9 +7,15 @@
 import { ClientRequestArgs } from 'http';
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
-import { Uri, WorkspaceConfiguration } from 'vscode';
+import {
+  Uri,
+  WorkspaceConfiguration,
+  ConfigurationChangeEvent,
+  Disposable,
+} from 'vscode';
 import WebSocket from 'ws';
 import { ColabClient } from '../colab/client';
+import { TestEventEmitter } from '../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { colabProxyWebSocket } from './colab-proxy-web-socket';
 import { ColabAssignedServer } from './servers';
@@ -21,10 +27,12 @@ describe('colabProxyWebSocket', () => {
     },
   } as ColabAssignedServer;
   let vsCodeStub: VsCodeStub;
+  let configChangeEmitter: TestEventEmitter<ConfigurationChangeEvent>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let handleDriveFsAuthStub: sinon.SinonStub;
 
   beforeEach(() => {
+    configChangeEmitter = new TestEventEmitter<ConfigurationChangeEvent>();
     vsCodeStub = newVsCodeStub();
     vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
       get: sinon
@@ -32,6 +40,9 @@ describe('colabProxyWebSocket', () => {
         .withArgs('driveMounting')
         .returns(false),
     } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
+    vsCodeStub.workspace.onDidChangeConfiguration.callsFake(
+      configChangeEmitter.event,
+    );
     colabClientStub = sinon.createStubInstance(ColabClient);
     handleDriveFsAuthStub = sinon.stub().resolves();
   });
@@ -256,12 +267,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not show warning notification if driveMounting is enabled', async () => {
-      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
-        get: sinon
-          .stub<[string], boolean>()
-          .withArgs('driveMounting')
-          .returns(true),
-      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -269,6 +274,16 @@ describe('colabProxyWebSocket', () => {
         TestWebSocket,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
+      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
+        get: sinon
+          .stub<[string], boolean>()
+          .withArgs('driveMounting')
+          .returns(true),
+      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
+      configChangeEmitter.fire({
+        affectsConfiguration: (section: string) =>
+          section === 'colab.driveMounting',
+      } as ConfigurationChangeEvent);
 
       testWebSocket.send(rawDriveMountMessage);
       await flush();
@@ -429,12 +444,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleDriveFsAuth if driveMounting is disabled', () => {
-      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
-        get: sinon
-          .stub<[string], boolean>()
-          .withArgs('driveMounting')
-          .returns(false),
-      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -443,6 +452,16 @@ describe('colabProxyWebSocket', () => {
         handleDriveFsAuthStub,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
+      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
+        get: sinon
+          .stub<[string], boolean>()
+          .withArgs('driveMounting')
+          .returns(false),
+      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
+      configChangeEmitter.fire({
+        affectsConfiguration: (section: string) =>
+          section === 'colab.driveMounting',
+      } as ConfigurationChangeEvent);
 
       testWebSocket.emit(
         'message',
@@ -451,6 +470,43 @@ describe('colabProxyWebSocket', () => {
       );
 
       sinon.assert.notCalled(handleDriveFsAuthStub);
+    });
+  });
+
+  describe('dispose', () => {
+    let testWebSocket: TestWebSocket & Disposable;
+    beforeEach(() => {
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        TestWebSocket,
+      );
+      testWebSocket = new wsc('ws://example.com/socket');
+    });
+
+    it('disposes the config change listener', () => {
+      expect(configChangeEmitter.hasListeners()).to.be.true;
+
+      testWebSocket.dispose();
+
+      expect(configChangeEmitter.hasListeners()).to.be.false;
+    });
+
+    it('removes the message event listener', () => {
+      expect(testWebSocket.listenerCount('message')).to.equal(1);
+
+      testWebSocket.dispose();
+
+      expect(testWebSocket.listenerCount('message')).to.equal(0);
+    });
+
+    it('blocks send after disposed', () => {
+      testWebSocket.dispose();
+
+      expect(() => {
+        testWebSocket.send('test message');
+      }).to.throw(/ColabWebSocket cannot be used after it has been disposed/);
     });
   });
 
