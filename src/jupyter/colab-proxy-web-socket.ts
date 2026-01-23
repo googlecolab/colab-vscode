@@ -48,7 +48,9 @@ export function colabProxyWebSocket(
   };
 
   return class ColabWebSocket extends BaseWebSocket implements Disposable {
+    /** Unique session ID used in Colab `input_reply` messages. */
     private readonly sessionId = uuid();
+
     private driveMountingEnabled: boolean;
     private disposed = false;
     private disposables: Disposable[] = [];
