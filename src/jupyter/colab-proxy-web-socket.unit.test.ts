@@ -53,6 +53,10 @@ describe('colabProxyWebSocket', () => {
     handleDriveFsAuthStub = sinon.stub();
   });
 
+  afterEach(() => {
+    sinon.restore();
+  });
+
   describe('constructor', () => {
     const tests = [
       {

@@ -35,6 +35,10 @@ describe('handleDriveFsAuth', () => {
       });
   });
 
+  afterEach(() => {
+    sinon.restore();
+  });
+
   it('throws an error if credentials propagation dry run failed', async () => {
     const errMsg = 'Credentials propagation dry run failed';
     colabClientStub.propagateDriveCredentials
