@@ -14,10 +14,14 @@ import {
   Disposable,
 } from 'vscode';
 import WebSocket from 'ws';
+import { handleDriveFsAuth } from '../auth/drive';
 import { ColabClient } from '../colab/client';
 import { TestEventEmitter } from '../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { colabProxyWebSocket } from './colab-proxy-web-socket';
+import {
+  colabProxyWebSocket,
+  ColabInputReplyMessage,
+} from './colab-proxy-web-socket';
 import { ColabAssignedServer } from './servers';
 
 describe('colabProxyWebSocket', () => {
@@ -29,7 +33,9 @@ describe('colabProxyWebSocket', () => {
   let vsCodeStub: VsCodeStub;
   let configChangeEmitter: TestEventEmitter<ConfigurationChangeEvent>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
-  let handleDriveFsAuthStub: sinon.SinonStub;
+  let handleDriveFsAuthStub: sinon.SinonStubbedFunction<
+    typeof handleDriveFsAuth
+  >;
 
   beforeEach(() => {
     configChangeEmitter = new TestEventEmitter<ConfigurationChangeEvent>();
@@ -44,7 +50,7 @@ describe('colabProxyWebSocket', () => {
       configChangeEmitter.event,
     );
     colabClientStub = sinon.createStubInstance(ColabClient);
-    handleDriveFsAuthStub = sinon.stub().resolves();
+    handleDriveFsAuthStub = sinon.stub();
   });
 
   describe('constructor', () => {
@@ -293,17 +299,15 @@ describe('colabProxyWebSocket', () => {
   });
 
   describe('message event', () => {
+    const testRequestMessageId = 123;
     const rawColabRequestMessage = JSON.stringify({
-      header: {
-        msg_type: 'colab_request',
-        session: 'session-id',
-      },
+      header: { msg_type: 'colab_request' },
       content: {
         request: { authType: 'dfs_ephemeral' },
       },
       metadata: {
         colab_request_type: 'request_auth',
-        colab_msg_id: 1,
+        colab_msg_id: testRequestMessageId,
       },
     });
 
@@ -316,7 +320,13 @@ describe('colabProxyWebSocket', () => {
       } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
     });
 
-    it('triggers handleDriveFsAuth if message is a dfs_ephemeral colab_request', () => {
+    it('triggers handleDriveFsAuth and sends a reply if message is a dfs_ephemeral colab_request', async () => {
+      const driveFsAuthHandled = new Promise<void>((resolve) => {
+        handleDriveFsAuthStub.callsFake(() => {
+          resolve();
+          return Promise.resolve();
+        });
+      });
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -325,6 +335,7 @@ describe('colabProxyWebSocket', () => {
         handleDriveFsAuthStub,
       );
       const testWebSocket = new wsc('ws://example.com/socket');
+      const sendSpy = sinon.spy(testWebSocket, 'send');
 
       testWebSocket.emit(
         'message',
@@ -332,12 +343,60 @@ describe('colabProxyWebSocket', () => {
         /* isBinary= */ false,
       );
 
-      sinon.assert.calledOnce(handleDriveFsAuthStub);
+      await expect(driveFsAuthHandled).to.eventually.be.fulfilled;
+      sinon.assert.calledOnceWithMatch(
+        sendSpy,
+        sinon.match((data: string) => {
+          const message = JSON.parse(data) as unknown;
+          return (
+            isColabInputReplyMessage(message) &&
+            message.content.value.colab_msg_id === testRequestMessageId &&
+            !message.content.value.error
+          );
+        }),
+      );
+    });
+
+    it('sends an error reply if handleDriveFsAuth throws an error', async () => {
+      const errMsg = 'test error message';
+      const handleDriveFsAuthFailed = new Promise<void>((resolve) => {
+        handleDriveFsAuthStub.callsFake(() => {
+          resolve();
+          return Promise.reject(new Error(errMsg));
+        });
+      });
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        TestWebSocket,
+        handleDriveFsAuthStub,
+      );
+      const testWebSocket = new wsc('ws://example.com/socket');
+      const sendSpy = sinon.spy(testWebSocket, 'send');
+
+      testWebSocket.emit(
+        'message',
+        rawColabRequestMessage,
+        /* isBinary= */ false,
+      );
+
+      await expect(handleDriveFsAuthFailed).to.eventually.be.fulfilled;
+      sinon.assert.calledOnceWithMatch(
+        sendSpy,
+        sinon.match((data: string) => {
+          const message = JSON.parse(data) as unknown;
+          return (
+            isColabInputReplyMessage(message) &&
+            message.content.value.error === errMsg
+          );
+        }),
+      );
     });
 
     it('does not trigger handleDriveFsAuth if message is not a colab_request', () => {
       const rawMessage = JSON.stringify({
-        header: { msg_type: 'execute_reply', session: 'session-id' },
+        header: { msg_type: 'execute_reply' },
         content: { request: { authType: 'dfs_ephemeral' } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
       });
@@ -357,7 +416,7 @@ describe('colabProxyWebSocket', () => {
 
     it('does not trigger handleDriveFsAuth if message is not dfs_ephemeral', () => {
       const rawMessage = JSON.stringify({
-        header: { msg_type: 'colab_request', session: 'session-id' },
+        header: { msg_type: 'colab_request' },
         content: { request: { authType: 'dfs_persistent' } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
       });
@@ -545,4 +604,26 @@ describe('colabProxyWebSocket', () => {
 
 async function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function isColabInputReplyMessage(
+  message: unknown,
+): message is ColabInputReplyMessage {
+  return (
+    typeof message === 'object' &&
+    !!message &&
+    'header' in message &&
+    typeof message.header === 'object' &&
+    !!message.header &&
+    'msg_type' in message.header &&
+    message.header.msg_type === 'input_reply' &&
+    'content' in message &&
+    typeof message.content === 'object' &&
+    !!message.content &&
+    'value' in message.content &&
+    typeof message.content.value === 'object' &&
+    !!message.content.value &&
+    'type' in message.content.value &&
+    message.content.value.type === 'colab_reply'
+  );
 }

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { v4 as uuid } from 'uuid';
 import vscode, { Disposable, ConfigurationChangeEvent } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
@@ -47,6 +48,7 @@ export function colabProxyWebSocket(
   };
 
   return class ColabWebSocket extends BaseWebSocket implements Disposable {
+    private readonly sessionId = uuid();
     private driveMountingEnabled: boolean;
     private disposed = false;
     private disposables: Disposable[] = [];
@@ -77,32 +79,36 @@ export function colabProxyWebSocket(
       );
       this.disposables.push(configListener);
 
-      this.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
-        if (
-          !isBinary &&
-          typeof data === 'string' &&
-          this.driveMountingEnabled
-        ) {
-          let message: unknown;
-          try {
-            message = JSON.parse(data) as unknown;
-          } catch (e: unknown) {
-            log.warn('Failed to parse received Jupyter message to JSON:', e);
-            return;
-          }
+      this.addListener(
+        'message',
+        (data: WebSocket.RawData, isBinary: boolean) => {
+          if (
+            !isBinary &&
+            typeof data === 'string' &&
+            this.driveMountingEnabled
+          ) {
+            let message: unknown;
+            try {
+              message = JSON.parse(data) as unknown;
+            } catch (e: unknown) {
+              log.warn('Failed to parse received Jupyter message to JSON:', e);
+              return;
+            }
 
-          if (isColabAuthEphemeralRequest(message)) {
-            log.trace('Colab request message received:', message);
-            void handleDriveFsAuthFn(
-              vs,
-              this,
-              client,
-              server,
-              message.metadata.colab_msg_id,
-            );
+            if (isColabAuthEphemeralRequest(message)) {
+              log.trace('Colab request message received:', message);
+              handleDriveFsAuthFn(vs, client, server)
+                .then(() => {
+                  this.sendInputReply(message.metadata.colab_msg_id);
+                })
+                .catch((err: unknown) => {
+                  log.error('Failed handling DriveFS auth propagation', err);
+                  this.sendInputReply(message.metadata.colab_msg_id, err);
+                });
+            }
           }
-        }
-      });
+        },
+      );
     }
 
     dispose() {
@@ -110,12 +116,10 @@ export function colabProxyWebSocket(
         return;
       }
       this.disposed = true;
-
       for (const d of this.disposables) {
         d.dispose();
       }
       this.disposables = [];
-
       this.removeAllListeners('message');
     }
 
@@ -177,6 +181,44 @@ export function colabProxyWebSocket(
         });
     }
 
+    private sendInputReply(requestMessageId: number, err?: unknown) {
+      const replyMsgId = uuid();
+      const replyMsgType = 'input_reply';
+      const replyMessage: ColabInputReplyMessage = {
+        msg_id: replyMsgId,
+        msg_type: replyMsgType,
+        header: {
+          msg_id: replyMsgId,
+          msg_type: replyMsgType,
+          session: this.sessionId,
+          version: '5.0',
+        },
+        content: {
+          value: {
+            type: 'colab_reply',
+            colab_msg_id: requestMessageId,
+          },
+        },
+        channel: 'stdin',
+        // The following fields are required but can be empty.
+        metadata: {},
+        parent_header: {},
+      };
+
+      if (err) {
+        if (err instanceof Error) {
+          replyMessage.content.value.error = err.message;
+        } else if (typeof err === 'string') {
+          replyMessage.content.value.error = err;
+        } else {
+          replyMessage.content.value.error = 'unknown error';
+        }
+      }
+
+      this.send(JSON.stringify(replyMessage));
+      log.trace('Input reply message sent:', replyMessage);
+    }
+
     private guardDisposed(): void {
       if (this.disposed) {
         throw new Error(
@@ -185,6 +227,30 @@ export function colabProxyWebSocket(
       }
     }
   };
+}
+
+/**
+ * Colab's `input_reply` message format for replying to Drive auth requests.
+ */
+export interface ColabInputReplyMessage {
+  msg_id: string;
+  msg_type: 'input_reply';
+  header: {
+    msg_id: string;
+    msg_type: 'input_reply';
+    session: string;
+    version: string;
+  };
+  content: {
+    value: {
+      type: 'colab_reply';
+      colab_msg_id: number;
+      error?: string;
+    };
+  };
+  channel: 'stdin';
+  metadata: object;
+  parent_header: object;
 }
 
 type SuperSend = WebSocket['send'];
@@ -209,10 +275,7 @@ interface JupyterExecuteRequestMessage {
 }
 
 interface ColabAuthEphemeralRequestMessage {
-  header: {
-    msg_type: 'colab_request';
-    session: string;
-  };
+  header: { msg_type: 'colab_request' };
   content: {
     request: { authType: 'dfs_ephemeral' };
   };
@@ -234,7 +297,6 @@ const ExecuteRequestSchema = z.object({
 const ColabAuthEphemeralRequestSchema = z.object({
   header: z.object({
     msg_type: z.literal('colab_request'),
-    session: z.string(),
   }),
   content: z.object({
     request: z.object({
