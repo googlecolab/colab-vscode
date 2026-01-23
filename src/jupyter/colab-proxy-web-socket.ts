@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { randomUUID } from 'crypto';
 import vscode from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
@@ -110,6 +111,92 @@ export function colabProxyWebSocket(
           }
         });
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    override on(event: string, listener: (...args: any[]) => void): this {
+      if (event === 'message') {
+        const wrappedListener = (data: WebSocket.Data, isBinary: boolean) => {
+          if (typeof data === 'string') {
+            try {
+              const message = JSON.parse(data);
+              if (
+                isInputRequest(message) &&
+                this.handleAuthRequest(message)
+              ) {
+                // If handled, do not call original listener.
+                return;
+              }
+            } catch (e) {
+              // Ignore parse errors, just pass through.
+            }
+          }
+          listener(data, isBinary);
+        };
+        super.on(event, wrappedListener);
+        return this;
+      }
+      super.on(event, listener);
+      return this;
+    }
+
+    private handleAuthRequest(message: JupyterInputRequestMessage): boolean {
+      const match = COLAB_AUTH_PATTERN.exec(message.content.prompt);
+      if (!match) {
+        return false;
+      }
+
+      const url = match[1];
+      void this.promptForAuthCode(url, message);
+      return true;
+    }
+
+    private async promptForAuthCode(
+      url: string,
+      originalMessage: JupyterInputRequestMessage,
+    ): Promise<void> {
+      const action = await vs.window.showInformationMessage(
+        'Colab is requesting authentication. Open the link to authenticate, copy the verification code, and paste it here.',
+        'Open URL',
+      );
+
+      if (action === 'Open URL') {
+        await vs.env.openExternal(vs.Uri.parse(url));
+      }
+
+      const code = await vs.window.showInputBox({
+        title: 'Colab Authentication',
+        prompt: 'Enter the verification code from the browser',
+        ignoreFocusOut: true,
+        placeHolder: 'Paste code here',
+      });
+
+      if (code) {
+        this.sendInputReply(code, originalMessage);
+      }
+    }
+
+    private sendInputReply(
+      value: string,
+      originalMessage: JupyterInputRequestMessage,
+    ): void {
+      const reply: JupyterInputReplyMessage = {
+        header: {
+          msg_type: 'input_reply',
+          session: originalMessage.header.session,
+          msg_id: randomUUID(),
+          date: new Date().toISOString(),
+          version: '5.3',
+        },
+        content: {
+          value,
+          status: 'ok',
+        },
+        parent_header: originalMessage.header,
+        metadata: originalMessage.metadata,
+        channel: originalMessage.channel,
+      };
+      this.send(JSON.stringify(reply), undefined);
+    }
   };
 }
 
@@ -147,3 +234,49 @@ enum DriveMountUnsupportedAction {
   VIEW_ISSUE = 'GitHub Issue',
   VIEW_WORKAROUND = 'Workaround',
 }
+
+function isInputRequest(
+  message: unknown,
+): message is JupyterInputRequestMessage {
+  return InputRequestSchema.safeParse(message).success;
+}
+
+interface JupyterInputRequestMessage {
+  header: { msg_type: 'input_request'; session: string; msg_id: string };
+  content: { prompt: string; password: boolean };
+  parent_header: unknown;
+  metadata: unknown;
+  channel: string;
+}
+
+const InputRequestSchema = z.object({
+  header: z.object({
+    msg_type: z.literal('input_request'),
+    session: z.string(),
+    msg_id: z.string(),
+  }),
+  content: z.object({
+    prompt: z.string(),
+    password: z.boolean(),
+  }),
+  parent_header: z.unknown(),
+  metadata: z.unknown(),
+  channel: z.string(),
+});
+
+interface JupyterInputReplyMessage {
+  header: {
+    msg_type: 'input_reply';
+    session: string;
+    msg_id: string;
+    date: string;
+    version: string;
+  };
+  content: { value: string; status: 'ok' };
+  parent_header: unknown;
+  metadata: unknown;
+  channel: string;
+}
+
+const COLAB_AUTH_PATTERN =
+  /Go to the following link in your browser:\s+(https:\/\/[^\s]+)\s+Enter verification code:/;
