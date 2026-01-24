@@ -105,7 +105,11 @@ export function colabProxyWebSocket(
                 })
                 .catch((err: unknown) => {
                   log.error('Failed handling DriveFS auth propagation', err);
-                  this.sendInputReply(message.metadata.colab_msg_id, err);
+                  const errorToSend = err instanceof Error ? err : String(err);
+                  this.sendInputReply(
+                    message.metadata.colab_msg_id,
+                    errorToSend,
+                  );
                 });
             }
           }
@@ -250,10 +254,13 @@ export function colabProxyWebSocket(
       value: string,
       originalMessage: JupyterInputRequestMessage,
     ): void;
-    private sendInputReply(requestMessageId: number, err?: unknown): void;
+    private sendInputReply(
+      requestMessageId: number,
+      err?: Error | string,
+    ): void;
     private sendInputReply(
       valueOrId: string | number,
-      messageOrErr?: unknown,
+      messageOrErr?: JupyterInputRequestMessage | Error | string,
     ): void {
       if (typeof valueOrId === 'string') {
         const value = valueOrId;
@@ -279,7 +286,7 @@ export function colabProxyWebSocket(
       }
 
       const requestMessageId = valueOrId;
-      const err = messageOrErr;
+      const err = messageOrErr as Error | string | undefined;
       const replyMsgId = uuid();
       const replyMsgType = 'input_reply';
       const replyMessage: ColabInputReplyMessage = {
