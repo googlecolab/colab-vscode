@@ -293,7 +293,7 @@ describe('colabProxyWebSocket', () => {
       );
       const ws = new wsc('ws://example.com/socket');
       const sendSpy = sinon.spy(ws, 'send');
-      ws.on('message', () => { });
+      ws.on('message', () => { /* no-op */ });
 
       ws.emit('message', rawAuthMessage);
 
@@ -303,12 +303,15 @@ describe('colabProxyWebSocket', () => {
       await flush();
 
       sinon.assert.calledOnce(sendSpy);
-      const sentMessage = JSON.parse(sendSpy.firstCall.args[0] as string);
+      const sentMessage = JSON.parse(sendSpy.firstCall.args[0] as string) as {
+        header: { msg_type: string };
+        content: { value: string };
+      };
       expect(sentMessage.header.msg_type).to.equal('input_reply');
       expect(sentMessage.content.value).to.equal('12345');
     });
 
-    it('does not intercept other messages', async () => {
+    it('does not intercept other messages', () => {
       const otherMessage = JSON.stringify({
         header: { msg_type: 'other_request' },
         content: { some: 'content' },

@@ -118,7 +118,7 @@ export function colabProxyWebSocket(
         const wrappedListener = (data: WebSocket.Data, isBinary: boolean) => {
           if (typeof data === 'string') {
             try {
-              const message = JSON.parse(data);
+              const message: unknown = JSON.parse(data);
               if (
                 isInputRequest(message) &&
                 this.handleAuthRequest(message)
@@ -126,7 +126,7 @@ export function colabProxyWebSocket(
                 // If handled, do not call original listener.
                 return;
               }
-            } catch (e) {
+            } catch (_) {
               // Ignore parse errors, just pass through.
             }
           }
