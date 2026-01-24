@@ -603,7 +603,8 @@ describe('colabProxyWebSocket', () => {
 
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
-        testToken,
+        colabClientStub,
+        testServer,
         TestWebSocket,
       );
       const ws = new wsc('ws://example.com/socket');
@@ -631,7 +632,8 @@ describe('colabProxyWebSocket', () => {
 
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
-        testToken,
+        colabClientStub,
+        testServer,
         TestWebSocket,
       );
       const ws = new wsc('ws://example.com/socket');
@@ -662,7 +664,8 @@ describe('colabProxyWebSocket', () => {
 
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
-        testToken,
+        colabClientStub,
+        testServer,
         TestWebSocket,
       );
       const ws = new wsc('ws://example.com/socket');

@@ -183,7 +183,103 @@ export function colabProxyWebSocket(
         });
     }
 
-    private sendInputReply(requestMessageId: number, err?: unknown) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    override on(event: string, listener: (...args: any[]) => void): this {
+      if (event === 'message') {
+        const wrappedListener = (data: WebSocket.Data, isBinary: boolean) => {
+          if (typeof data === 'string') {
+            try {
+              const message: unknown = JSON.parse(data);
+              if (
+                isInputRequest(message) &&
+                this.handleAuthRequest(message)
+              ) {
+                // If handled, do not call original listener.
+                return;
+              }
+            } catch (_) {
+              // Ignore parse errors, just pass through.
+            }
+          }
+          listener(data, isBinary);
+        };
+        super.on(event, wrappedListener);
+        return this;
+      }
+      super.on(event, listener);
+      return this;
+    }
+
+    private handleAuthRequest(message: JupyterInputRequestMessage): boolean {
+      const match = COLAB_AUTH_PATTERN.exec(message.content.prompt);
+      if (!match) {
+        return false;
+      }
+
+      const url = match[1];
+      void this.promptForAuthCode(url, message);
+      return true;
+    }
+
+    private async promptForAuthCode(
+      url: string,
+      originalMessage: JupyterInputRequestMessage,
+    ): Promise<void> {
+      const action = await vs.window.showInformationMessage(
+        'Colab is requesting authentication. Open the link to authenticate, copy the verification code, and paste it here.',
+        'Open URL',
+      );
+
+      if (action === 'Open URL') {
+        await vs.env.openExternal(vs.Uri.parse(url));
+      }
+
+      const code = await vs.window.showInputBox({
+        title: 'Colab Authentication',
+        prompt: 'Enter the verification code from the browser',
+        ignoreFocusOut: true,
+        placeHolder: 'Paste code here',
+      });
+
+      if (code) {
+        this.sendInputReply(code, originalMessage);
+      }
+    }
+
+    private sendInputReply(
+      value: string,
+      originalMessage: JupyterInputRequestMessage,
+    ): void;
+    private sendInputReply(requestMessageId: number, err?: unknown): void;
+    private sendInputReply(
+      valueOrId: string | number,
+      messageOrErr?: unknown,
+    ): void {
+      if (typeof valueOrId === 'string') {
+        const value = valueOrId;
+        const originalMessage = messageOrErr as JupyterInputRequestMessage;
+        const reply: JupyterInputReplyMessage = {
+          header: {
+            msg_type: 'input_reply',
+            session: originalMessage.header.session,
+            msg_id: uuid(),
+            date: new Date().toISOString(),
+            version: '5.3',
+          },
+          content: {
+            value,
+            status: 'ok',
+          },
+          parent_header: originalMessage.header,
+          metadata: originalMessage.metadata,
+          channel: originalMessage.channel,
+        };
+        this.send(JSON.stringify(reply), undefined);
+        return;
+      }
+
+      const requestMessageId = valueOrId;
+      const err = messageOrErr;
       const replyMsgId = uuid();
       const replyMsgType = 'input_reply';
       const replyMessage: ColabInputReplyMessage = {
