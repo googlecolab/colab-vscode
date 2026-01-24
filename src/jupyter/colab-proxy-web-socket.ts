@@ -4,15 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID } from 'crypto';
-import vscode from 'vscode';
+import { v4 as uuid } from 'uuid';
+import vscode, { Disposable, ConfigurationChangeEvent } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
+import { handleDriveFsAuth } from '../auth/drive';
+import { ColabClient } from '../colab/client';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
+import { ColabAssignedServer } from './servers';
 
 /**
  * Returns a class which extends {@link WebSocket}, adds Colab's custom headers,
@@ -21,12 +24,15 @@ import { log } from '../common/logging';
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
-  token: string,
+  client: ColabClient,
+  server: ColabAssignedServer,
   BaseWebSocket: typeof WebSocket = WebSocket,
+  handleDriveFsAuthFn: typeof handleDriveFsAuth = handleDriveFsAuth,
 ) {
   // These custom headers are required for Colab's proxy WebSocket to work.
   const colabHeaders: Record<string, string> = {};
-  colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
+  colabHeaders[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] =
+    server.connectionInformation.token;
   colabHeaders[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
   const addColabHeaders = (
@@ -41,7 +47,14 @@ export function colabProxyWebSocket(
     return { ...options, headers };
   };
 
-  return class ColabWebSocket extends BaseWebSocket {
+  return class ColabWebSocket extends BaseWebSocket implements Disposable {
+    /** Unique session ID used in Colab `input_reply` messages. */
+    private readonly sessionId = uuid();
+
+    private driveMountingEnabled: boolean;
+    private disposed = false;
+    private disposables: Disposable[] = [];
+
     constructor(
       address: string | URL,
       protocols?: string | string[] | WebSocket.ClientOptions,
@@ -52,14 +65,74 @@ export function colabProxyWebSocket(
       } else {
         super(address, protocols, addColabHeaders(options));
       }
+
+      this.driveMountingEnabled = vs.workspace
+        .getConfiguration('colab')
+        .get<boolean>('driveMounting', false);
+      const configListener = vs.workspace.onDidChangeConfiguration(
+        (e: ConfigurationChangeEvent) => {
+          if (!e.affectsConfiguration('colab.driveMounting')) {
+            return;
+          }
+          this.driveMountingEnabled = vs.workspace
+            .getConfiguration('colab')
+            .get<boolean>('driveMounting', false);
+        },
+      );
+      this.disposables.push(configListener);
+
+      this.addListener(
+        'message',
+        (data: WebSocket.RawData, isBinary: boolean) => {
+          if (
+            !isBinary &&
+            typeof data === 'string' &&
+            this.driveMountingEnabled
+          ) {
+            let message: unknown;
+            try {
+              message = JSON.parse(data) as unknown;
+            } catch (e: unknown) {
+              log.warn('Failed to parse received Jupyter message to JSON:', e);
+              return;
+            }
+
+            if (isColabAuthEphemeralRequest(message)) {
+              log.trace('Colab request message received:', message);
+              handleDriveFsAuthFn(vs, client, server)
+                .then(() => {
+                  this.sendInputReply(message.metadata.colab_msg_id);
+                })
+                .catch((err: unknown) => {
+                  log.error('Failed handling DriveFS auth propagation', err);
+                  this.sendInputReply(message.metadata.colab_msg_id, err);
+                });
+            }
+          }
+        },
+      );
+    }
+
+    dispose() {
+      if (this.disposed) {
+        return;
+      }
+      this.disposed = true;
+      for (const d of this.disposables) {
+        d.dispose();
+      }
+      this.disposables = [];
+      this.removeAllListeners('message');
     }
 
     override send(
       data: BufferLike,
-      options: SendOptions | ((err?: Error) => void) | undefined,
+      options?: SendOptions | ((err?: Error) => void),
       cb?: (err?: Error) => void,
     ) {
-      if (typeof data === 'string') {
+      this.guardDisposed();
+
+      if (typeof data === 'string' && !this.driveMountingEnabled) {
         this.warnOnDriveMount(data);
       }
 
@@ -75,13 +148,11 @@ export function colabProxyWebSocket(
      * is an execute request containing `drive.mount()`.
      */
     private warnOnDriveMount(rawJupyterMessage: string): void {
-      if (!rawJupyterMessage) return;
-
       let parsedJupyterMessage: unknown;
       try {
         parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
-      } catch (e) {
-        log.warn('Failed to parse Jupyter message to JSON:', e);
+      } catch (e: unknown) {
+        log.warn('Failed to parse sent Jupyter message to JSON:', e);
         return;
       }
 
@@ -112,92 +183,76 @@ export function colabProxyWebSocket(
         });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    override on(event: string, listener: (...args: any[]) => void): this {
-      if (event === 'message') {
-        const wrappedListener = (data: WebSocket.Data, isBinary: boolean) => {
-          if (typeof data === 'string') {
-            try {
-              const message: unknown = JSON.parse(data);
-              if (
-                isInputRequest(message) &&
-                this.handleAuthRequest(message)
-              ) {
-                // If handled, do not call original listener.
-                return;
-              }
-            } catch (_) {
-              // Ignore parse errors, just pass through.
-            }
-          }
-          listener(data, isBinary);
-        };
-        super.on(event, wrappedListener);
-        return this;
-      }
-      super.on(event, listener);
-      return this;
-    }
-
-    private handleAuthRequest(message: JupyterInputRequestMessage): boolean {
-      const match = COLAB_AUTH_PATTERN.exec(message.content.prompt);
-      if (!match) {
-        return false;
-      }
-
-      const url = match[1];
-      void this.promptForAuthCode(url, message);
-      return true;
-    }
-
-    private async promptForAuthCode(
-      url: string,
-      originalMessage: JupyterInputRequestMessage,
-    ): Promise<void> {
-      const action = await vs.window.showInformationMessage(
-        'Colab is requesting authentication. Open the link to authenticate, copy the verification code, and paste it here.',
-        'Open URL',
-      );
-
-      if (action === 'Open URL') {
-        await vs.env.openExternal(vs.Uri.parse(url));
-      }
-
-      const code = await vs.window.showInputBox({
-        title: 'Colab Authentication',
-        prompt: 'Enter the verification code from the browser',
-        ignoreFocusOut: true,
-        placeHolder: 'Paste code here',
-      });
-
-      if (code) {
-        this.sendInputReply(code, originalMessage);
-      }
-    }
-
-    private sendInputReply(
-      value: string,
-      originalMessage: JupyterInputRequestMessage,
-    ): void {
-      const reply: JupyterInputReplyMessage = {
+    private sendInputReply(requestMessageId: number, err?: unknown) {
+      const replyMsgId = uuid();
+      const replyMsgType = 'input_reply';
+      const replyMessage: ColabInputReplyMessage = {
+        msg_id: replyMsgId,
+        msg_type: replyMsgType,
         header: {
-          msg_type: 'input_reply',
-          session: originalMessage.header.session,
-          msg_id: randomUUID(),
-          date: new Date().toISOString(),
-          version: '5.3',
+          msg_id: replyMsgId,
+          msg_type: replyMsgType,
+          session: this.sessionId,
+          version: '5.0',
         },
         content: {
-          value,
-          status: 'ok',
+          value: {
+            type: 'colab_reply',
+            colab_msg_id: requestMessageId,
+          },
         },
-        parent_header: originalMessage.header,
-        metadata: originalMessage.metadata,
-        channel: originalMessage.channel,
+        channel: 'stdin',
+        // The following fields are required but can be empty.
+        metadata: {},
+        parent_header: {},
       };
-      this.send(JSON.stringify(reply), undefined);
+
+      if (err) {
+        if (err instanceof Error) {
+          replyMessage.content.value.error = err.message;
+        } else if (typeof err === 'string') {
+          replyMessage.content.value.error = err;
+        } else {
+          replyMessage.content.value.error = 'unknown error';
+        }
+      }
+
+      this.send(JSON.stringify(replyMessage));
+      log.trace('Input reply message sent:', replyMessage);
+    }
+
+    private guardDisposed(): void {
+      if (this.disposed) {
+        throw new Error(
+          'ColabWebSocket cannot be used after it has been disposed.',
+        );
+      }
     }
   };
+}
+
+/**
+ * Colab's `input_reply` message format for replying to Drive auth requests.
+ */
+export interface ColabInputReplyMessage {
+  msg_id: string;
+  msg_type: 'input_reply';
+  header: {
+    msg_id: string;
+    msg_type: 'input_reply';
+    session: string;
+    version: string;
+  };
+  content: {
+    value: {
+      type: 'colab_reply';
+      colab_msg_id: number;
+      error?: string;
+    };
+  };
+  channel: 'stdin';
+  metadata: object;
+  parent_header: object;
 }
 
 type SuperSend = WebSocket['send'];
@@ -210,9 +265,26 @@ function isExecuteRequest(
   return ExecuteRequestSchema.safeParse(message).success;
 }
 
+function isColabAuthEphemeralRequest(
+  message: unknown,
+): message is ColabAuthEphemeralRequestMessage {
+  return ColabAuthEphemeralRequestSchema.safeParse(message).success;
+}
+
 interface JupyterExecuteRequestMessage {
   header: { msg_type: 'execute_request' };
   content: { code: string };
+}
+
+interface ColabAuthEphemeralRequestMessage {
+  header: { msg_type: 'colab_request' };
+  content: {
+    request: { authType: 'dfs_ephemeral' };
+  };
+  metadata: {
+    colab_request_type: 'request_auth';
+    colab_msg_id: number;
+  };
 }
 
 const ExecuteRequestSchema = z.object({
@@ -221,6 +293,21 @@ const ExecuteRequestSchema = z.object({
   }),
   content: z.object({
     code: z.string(),
+  }),
+});
+
+const ColabAuthEphemeralRequestSchema = z.object({
+  header: z.object({
+    msg_type: z.literal('colab_request'),
+  }),
+  content: z.object({
+    request: z.object({
+      authType: z.literal('dfs_ephemeral'),
+    }),
+  }),
+  metadata: z.object({
+    colab_request_type: z.literal('request_auth'),
+    colab_msg_id: z.number(),
   }),
 });
 

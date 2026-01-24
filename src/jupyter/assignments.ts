@@ -220,7 +220,7 @@ export class AssignmentManager implements vscode.Disposable {
           connectionInformation: {
             ...c,
             fetch: colabProxyFetch(c.token),
-            WebSocket: colabProxyWebSocket(this.vs, c.token),
+            WebSocket: colabProxyWebSocket(this.vs, this.client, server),
           },
         };
       });
@@ -531,7 +531,7 @@ export class AssignmentManager implements vscode.Disposable {
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
     headers[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
-    return {
+    const colabServer: ColabAssignedServer = {
       id: server.id,
       label: server.label,
       variant: server.variant,
@@ -545,9 +545,15 @@ export class AssignmentManager implements vscode.Disposable {
         ),
         headers,
         fetch: colabProxyFetch(token),
-        WebSocket: colabProxyWebSocket(this.vs, token),
       },
       dateAssigned,
+    };
+    return {
+      ...colabServer,
+      connectionInformation: {
+        ...colabServer.connectionInformation,
+        WebSocket: colabProxyWebSocket(this.vs, this.client, colabServer),
+      },
     };
   }
 
