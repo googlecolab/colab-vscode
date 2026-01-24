@@ -576,7 +576,11 @@ describe('colabProxyWebSocket', () => {
   describe('on', () => {
     const authUrl = 'https://accounts.google.com/o/oauth2/auth?client_id=123';
     const rawAuthMessage = JSON.stringify({
-      header: { msg_type: 'input_request', session: 'session-id', msg_id: 'msg-id' },
+      header: {
+        msg_type: 'input_request',
+        session: 'session-id',
+        msg_id: 'msg-id',
+      },
       content: {
         prompt: `Go to the following link in your browser:\n\n${authUrl}\n\nEnter verification code:`,
         password: false,
@@ -638,7 +642,9 @@ describe('colabProxyWebSocket', () => {
       );
       const ws = new wsc('ws://example.com/socket');
       const sendSpy = sinon.spy(ws, 'send');
-      ws.on('message', () => { /* no-op */ });
+      ws.on('message', () => {
+        /* no-op */
+      });
 
       ws.emit('message', rawAuthMessage);
 

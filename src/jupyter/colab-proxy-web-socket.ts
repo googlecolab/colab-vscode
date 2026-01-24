@@ -194,10 +194,7 @@ export function colabProxyWebSocket(
           if (typeof data === 'string') {
             try {
               const message: unknown = JSON.parse(data);
-              if (
-                isInputRequest(message) &&
-                this.handleAuthRequest(message)
-              ) {
+              if (isInputRequest(message) && this.handleAuthRequest(message)) {
                 // If handled, do not call original listener.
                 return;
               }
