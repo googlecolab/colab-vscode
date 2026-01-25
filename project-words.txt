@@ -18,6 +18,7 @@ jupyterclient
 kernelspecs
 KHTML
 milli
+millis
 mocharc
 openapitools
 pkce
