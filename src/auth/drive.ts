@@ -27,6 +27,7 @@ export async function handleDriveFsAuth(
   client: ColabClient,
   server: ColabAssignedServer,
 ): Promise<void> {
+  log.debug('Random real code change');
   // Dry run to check if authorization is needed.
   const dryRunResult = await client.propagateDriveCredentials(server.endpoint, {
     authType: 'dfs_ephemeral',
