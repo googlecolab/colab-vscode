@@ -36,3 +36,4 @@ vscode
 vsdiag
 vulnz
 xssi
+random
