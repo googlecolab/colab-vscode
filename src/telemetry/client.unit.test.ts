@@ -66,6 +66,7 @@ describe('ClearcutClient', () => {
         // Log an event to trigger the first flush.
         client.log(firstLog);
         sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+        fetchStub.resetHistory();
       });
 
       it('queues events to send in batch after the flush interval has passed', async () => {
@@ -78,7 +79,7 @@ describe('ClearcutClient', () => {
 
         // Advance time to reach the flush interval.
         await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+        sinon.assert.notCalled(fetchStub);
 
         // Now that the interval's reached, the next log should trigger a flush.
         const thirdLog = {
@@ -88,15 +89,13 @@ describe('ClearcutClient', () => {
         client.log(thirdLog);
 
         // Verify that the two queued events were sent in a batch.
-        sinon.assert.calledTwice(fetchStub);
-        sinon.assert.calledWithExactly(
-          fetchStub.secondCall,
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
           logRequest([secondLog, thirdLog]),
         );
       });
 
       it('drops oldest events when max pending events is exceeded', async () => {
-        fetchStub.resetHistory();
         const oldestEvent = {
           ...DEFAULT_LOG,
           timestamp: new Date(NOW).toISOString(),
