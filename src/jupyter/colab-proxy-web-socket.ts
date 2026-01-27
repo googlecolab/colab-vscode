@@ -78,32 +78,47 @@ export function colabProxyWebSocket(
         },
       );
       this.disposables.push(configListener);
+    }
 
-      // JACK'S FEEDBACK: Direct listener instead of on() override
-      this.addListener(
-        'message',
-        (data: WebSocket.RawData, isBinary: boolean) => {
-          if (isBinary || typeof data !== 'string' || !this.driveMountingEnabled) return;
+    override emit(event: string | symbol, ...args: any[]): boolean {
+      if (event === 'message') {
+        const data = args[0] as WebSocket.RawData;
+        const isBinary = args[1] as boolean;
 
+        if (!isBinary && typeof data === 'string') {
           let message: unknown;
           try {
             message = JSON.parse(data);
-          } catch (e) { return; }
+          } catch (e) {
+            // parsing failed, just emit
+            return super.emit(event, ...args);
+          }
 
-          if (isColabAuthEphemeralRequest(message)) {
+          if (this.driveMountingEnabled && isColabAuthEphemeralRequest(message)) {
             handleDriveFsAuthFn(vs, client, server)
               .then(() => this.sendInputReply(message.metadata.colab_msg_id))
               .catch((err: unknown) => this.sendInputReply(message.metadata.colab_msg_id, err as Error));
+            return true; // Suppress message
           }
 
           if (isInputRequest(message)) {
-            const match = COLAB_AUTH_PATTERN.exec(message.content.prompt);
-            if (match) {
-              void this.promptForAuthCode(match[1], message);
+            const prompt = message.content.prompt;
+            if (prompt.includes('accounts.google.com/o/oauth2/auth')) {
+              const match = COLAB_AUTH_PATTERN.exec(prompt);
+              if (match) {
+                void this.promptForAuthCode(match[1], message);
+                return true; // Suppress message
+              } else {
+                log.warn(
+                  'Input request prompt contained auth URL but did not match full pattern:',
+                  prompt,
+                );
+              }
             }
           }
-        },
-      );
+        }
+      }
+      return super.emit(event, ...args);
     }
 
     dispose() {
@@ -364,5 +379,4 @@ const InputRequestSchema = z.object({
 
 
 
-const COLAB_AUTH_PATTERN =
-  /Go to the following link in your browser:\s+(https:\/\/[^\s]+)\s+Enter verification code:/;
+const COLAB_AUTH_PATTERN = /(https:\/\/accounts\.google\.com\/o\/oauth2\/auth[^\s]*)/;
