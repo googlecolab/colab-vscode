@@ -159,6 +159,13 @@
       {
         "command": "colab.deleteFile",
         "title": "Delete"
+      },
+      {
+        "category": "Colab",
+        "command": "colab.openTerminal",
+        "enablement": "colab.hasAssignedServer",
+        "title": "Open Colab Terminal",
+        "icon": "$(terminal)"
       }
     ],
     "icons": {
