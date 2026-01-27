@@ -162,6 +162,13 @@
         "command": "colab.refreshServersView",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "category": "Colab",
+        "command": "colab.openTerminal",
+        "enablement": "colab.hasAssignedServer",
+        "title": "Open Colab Terminal",
+        "icon": "$(terminal)"
       }
     ],
     "icons": {
