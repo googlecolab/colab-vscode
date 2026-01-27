@@ -8,6 +8,16 @@ import fetch, { Request } from 'node-fetch';
 import { Disposable } from 'vscode';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 
+// The Clearcut endpoint.
+const LOGS_ENDPOINT = 'https://play.googleapis.com/log';
+// The source identifier for Colab VS Code logs.
+export const LOG_SOURCE = 'COLAB_VSCODE';
+// Maximum number of pending events before flushing. When exceeded, events will
+// be dropped from the front of the queue.
+export const MAX_PENDING_EVENTS = 1000;
+// Minimum wait time between flushes in milliseconds.
+export const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
+
 // The Colab log event structure.
 // TODO: Convert to proto definition.
 // TODO: Record events for MVP CUJs.
@@ -31,15 +41,9 @@ interface LogEvent {
 
 // The Clearcut log request structure.
 interface LogRequest {
-  log_source: 'COLAB_VSCODE';
+  log_source: typeof LOG_SOURCE;
   log_event: LogEvent[];
 }
-
-// Maximum number of pending events before flushing. When exceeded, events will
-// be dropped from the front of the queue.
-export const MAX_PENDING_EVENTS = 1000;
-// Minimum wait time between flushes in milliseconds.
-export const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
 
 /**
  * A client for sending logs to Clearcut.
@@ -62,6 +66,7 @@ export class ClearcutClient implements Disposable {
     // In theory, we shouldn't exceed MAX_PENDING_EVENTS, but for posterity, we
     // guard against it here.
     if (numPendingEvents >= MAX_PENDING_EVENTS) {
+      // Drop oldest events to make room.
       this.pendingEvents.splice(0, numPendingEvents - MAX_PENDING_EVENTS + 1);
     }
 
@@ -85,10 +90,10 @@ export class ClearcutClient implements Disposable {
   /** Sends a log request to Clearcut. */
   private async issueRequest(events: LogEvent[]) {
     const logRequest: LogRequest = {
-      log_source: 'COLAB_VSCODE',
+      log_source: LOG_SOURCE,
       log_event: events,
     };
-    const request = new Request('https://play.googleapis.com/log', {
+    const request = new Request(LOGS_ENDPOINT, {
       method: 'POST',
       body: JSON.stringify(logRequest),
       headers: {
