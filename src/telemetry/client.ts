@@ -55,13 +55,25 @@ export class ClearcutClient implements Disposable {
   // The time when the next flush request is allowed.
   private nextFlush = new Date();
 
+  private isDisposed = false;
+
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
     // Flush any remaining events before disposing.
     this.flush(/* force= */ true);
   }
 
   /** Queues a Colab log event for sending to Clearcut. */
   log(event: ColabLogEvent) {
+    if (this.isDisposed) {
+      throw new Error(
+        'ClearcutClient cannot be used after it has been disposed.',
+      );
+    }
+
     const numPendingEvents = this.pendingEvents.length;
     // In theory, we shouldn't exceed MAX_PENDING_EVENTS, but for posterity, we
     // guard against it here.

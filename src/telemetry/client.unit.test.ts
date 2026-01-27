@@ -42,21 +42,33 @@ describe('ClearcutClient', () => {
       sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
     });
 
-    it('throws an error when Clearcut responds with a non-200 status', async () => {
-      fetchStub.resolves(new Response('', { status: 500 }));
-      // Since log is sync (fires and forgets), spy on internal error handling
-      const requestSpy = sinon.spy(
-        client as unknown as { issueRequest: () => Promise<void> },
-        'issueRequest',
-      );
+    describe('throws an error', () => {
+      it('when Clearcut responds with a non-200 status', async () => {
+        fetchStub.resolves(new Response('', { status: 500 }));
+        // Since log is sync (fires and forgets), spy on internal error handling
+        const requestSpy = sinon.spy(
+          client as unknown as { issueRequest: () => Promise<void> },
+          'issueRequest',
+        );
 
-      client.log(DEFAULT_LOG);
+        client.log(DEFAULT_LOG);
 
-      let error: Error | undefined;
-      await requestSpy.firstCall.returnValue.catch((e: unknown) => {
-        error = e as Error;
+        let error: Error | undefined;
+        await requestSpy.firstCall.returnValue.catch((e: unknown) => {
+          error = e as Error;
+        });
+        expect(error?.message).to.include('Failed to issue request');
       });
-      expect(error?.message).to.include('Failed to issue request');
+
+      it('when the client is disposed', () => {
+        client.dispose();
+
+        expect(() => {
+          client.log(DEFAULT_LOG);
+        }).to.throw(
+          'ClearcutClient cannot be used after it has been disposed.',
+        );
+      });
     });
 
     describe('while waiting between flushes', () => {
