@@ -11,12 +11,12 @@ import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 // The Clearcut endpoint.
 const LOGS_ENDPOINT = 'https://play.googleapis.com/log';
 // The source identifier for Colab VS Code logs.
-export const LOG_SOURCE = 'COLAB_VSCODE';
+const LOG_SOURCE = 'COLAB_VSCODE';
 // Maximum number of pending events before flushing. When exceeded, events will
 // be dropped from the front of the queue.
-export const MAX_PENDING_EVENTS = 1000;
+const MAX_PENDING_EVENTS = 1000;
 // Minimum wait time between flushes in milliseconds.
-export const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
+const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
 
 // The Colab log event structure.
 // TODO: Convert to proto definition.
@@ -110,3 +110,10 @@ export class ClearcutClient implements Disposable {
     }
   }
 }
+
+export const TEST_ONLY = {
+  LOGS_ENDPOINT,
+  LOG_SOURCE,
+  MAX_PENDING_EVENTS,
+  MIN_WAIT_BETWEEN_FLUSHES_MS,
+};

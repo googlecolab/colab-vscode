@@ -8,12 +8,7 @@ import { expect } from 'chai';
 import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
-import {
-  ClearcutClient,
-  ColabLogEvent,
-  MAX_PENDING_EVENTS,
-  MIN_WAIT_BETWEEN_FLUSHES_MS,
-} from './client';
+import { ClearcutClient, ColabLogEvent, TEST_ONLY } from './client';
 
 const NOW = Date.now();
 const DEFAULT_LOG: ColabLogEvent = {
@@ -82,7 +77,7 @@ describe('ClearcutClient', () => {
         client.log(secondLog);
 
         // Advance time to reach the flush interval.
-        await fakeClock.tickAsync(MIN_WAIT_BETWEEN_FLUSHES_MS);
+        await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
         sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
 
         // Now that the interval's reached, the next log should trigger a flush.
@@ -110,15 +105,15 @@ describe('ClearcutClient', () => {
 
         // Log MAX_PENDING_EVENTS more events to exceed the limit.
         const newEvents: ColabLogEvent[] = [];
-        for (let i = 0; i < MAX_PENDING_EVENTS; i++) {
+        for (let i = 0; i < TEST_ONLY.MAX_PENDING_EVENTS; i++) {
           const logEvent = {
             ...DEFAULT_LOG,
             timestamp: new Date(NOW + i).toISOString(),
           };
           newEvents.push(logEvent);
           // Advance time to allow flush of last event
-          if (i === MAX_PENDING_EVENTS - 1) {
-            await fakeClock.tickAsync(MIN_WAIT_BETWEEN_FLUSHES_MS);
+          if (i === TEST_ONLY.MAX_PENDING_EVENTS - 1) {
+            await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
           }
           client.log(logEvent);
         }
@@ -168,10 +163,10 @@ function logRequest(events: ColabLogEvent[]): Request {
   const logEvents = events.map((event) => ({
     source_extension_json: JSON.stringify(event),
   }));
-  return new Request('https://play.googleapis.com/log', {
+  return new Request(TEST_ONLY.LOGS_ENDPOINT, {
     method: 'POST',
     body: JSON.stringify({
-      log_source: 'COLAB_VSCODE',
+      log_source: TEST_ONLY.LOG_SOURCE,
       log_event: logEvents,
     }),
     headers: {
