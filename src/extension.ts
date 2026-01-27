@@ -18,10 +18,12 @@ import {
   MOUNT_SERVER,
   REMOVE_SERVER,
   SIGN_OUT,
+  OPEN_TERMINAL,
 } from './colab/commands/constants';
 import { upload } from './colab/commands/files';
 import { notebookToolbar } from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
+import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
@@ -238,6 +240,12 @@ function registerCommands(
       'colab.deleteFile',
       (contextItem: ServerItem) => {
         void deleteFile(vscode, contextItem);
+      },
+    ),
+    vscode.commands.registerCommand(
+      OPEN_TERMINAL.id,
+      async (withBackButton?: boolean) => {
+        await openTerminal(vscode, assignmentManager, withBackButton);
       },
     ),
   ];
