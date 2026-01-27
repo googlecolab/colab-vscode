@@ -16,25 +16,24 @@ dotenv.config();
 
 const ColabEnvironments = ['production', 'sandbox', 'local'] as const;
 
-// --- FIX START: Add Fallbacks here ---
 const envConfig = {
-  // If env is missing (CI/Fork), default to 'local'
-  env: process.env.COLAB_EXTENSION_ENVIRONMENT || 'local',
-
-  // If ID is missing, use a dummy value
-  clientId: process.env.COLAB_EXTENSION_CLIENT_ID || 'dummy-client-id',
-
-  // If Secret is missing, use a dummy value
-  clientNotSoSecret: process.env.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET || 'dummy-client-secret',
+  env: process.env.COLAB_EXTENSION_ENVIRONMENT,
+  clientId: process.env.COLAB_EXTENSION_CLIENT_ID,
+  clientNotSoSecret: process.env.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET,
 };
-// --- FIX END ---
 
 let colabApiDomain: string;
 let colabGapiApiDomain: string;
-
 try {
-  // --- DELETED: The 'if (!envConfig.env) throw Error' blocks are gone! ---
-
+  if (!envConfig.env) {
+    throw new Error('COLAB_EXTENSION_ENVIRONMENT is not set');
+  }
+  if (!envConfig.clientId) {
+    throw new Error('COLAB_EXTENSION_CLIENT_ID is not set');
+  }
+  if (!envConfig.clientNotSoSecret) {
+    throw new Error('COLAB_EXTENSION_CLIENT_NOT_SO_SECRET is not set');
+  }
   switch (envConfig.env) {
     case 'production':
       colabApiDomain = 'https://colab.research.google.com';
@@ -50,7 +49,6 @@ try {
       colabGapiApiDomain = 'https://staging-colab.sandbox.googleapis.com';
       break;
     default:
-      // This is now safe because we default to 'local' if missing
       throw new Error(
         `Unknown COLAB_EXTENSION_ENVIRONMENT: "${envConfig.env}", expected one of: ${Object.values(ColabEnvironments).join(', ')}`,
       );
