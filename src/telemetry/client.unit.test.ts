@@ -8,6 +8,7 @@ import { expect } from 'chai';
 import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
+import { Deferred } from '../test/helpers/async';
 import { ClearcutClient, ColabLogEvent, TEST_ONLY } from './client';
 
 const NOW = Date.now();
@@ -19,6 +20,13 @@ const DEFAULT_LOG: ColabLogEvent = {
   ui_kind: 'UI_KIND_DESKTOP',
   vscode_version: '1.108.1',
 };
+const LOG_RESPONSE = {
+  next_request_wait_millis: 15 * 60 * 1000,
+};
+const FETCH_RESPONSE_OK = new Response(JSON.stringify(LOG_RESPONSE), {
+  status: 200,
+});
+const FETCH_RESPONSE_500 = new Response('', { status: 500 });
 
 describe('ClearcutClient', () => {
   let client: ClearcutClient;
@@ -44,7 +52,7 @@ describe('ClearcutClient', () => {
 
     describe('throws an error', () => {
       it('when Clearcut responds with a non-200 status', async () => {
-        fetchStub.resolves(new Response('', { status: 500 }));
+        fetchStub.resolves(FETCH_RESPONSE_500);
         // Since log is sync (fires and forgets), spy on internal error handling
         const requestSpy = sinon.spy(
           client as unknown as { issueRequest: () => Promise<void> },
@@ -74,40 +82,90 @@ describe('ClearcutClient', () => {
     describe('while waiting between flushes', () => {
       const firstLog = DEFAULT_LOG;
 
-      beforeEach(() => {
+      describe('queues events to send in batch', () => {
+        it('when the flush interval has not passed', async () => {
+          fetchStub.resolves(FETCH_RESPONSE_OK);
+
+          // Log an event to trigger the first flush.
+          client.log(firstLog);
+          sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+          fetchStub.resetHistory();
+
+          // While waiting for the flush interval to pass, log an event.
+          const secondLog = {
+            ...DEFAULT_LOG,
+            timestamp: new Date(NOW + 1).toISOString(),
+          };
+          client.log(secondLog);
+
+          // Advance time to reach the flush interval.
+          await fakeClock.tickAsync(15 * 60 * 1000);
+          sinon.assert.notCalled(fetchStub);
+
+          // Now that the interval's reached, the next log should trigger a
+          // flush.
+          const thirdLog = {
+            ...DEFAULT_LOG,
+            timestamp: new Date(NOW + 2).toISOString(),
+          };
+          client.log(thirdLog);
+
+          // Verify that the two queued events were sent in a batch.
+          sinon.assert.calledOnceWithExactly(
+            fetchStub,
+            logRequest([secondLog, thirdLog]),
+          );
+        });
+
+        it('when a flush is already pending', async () => {
+          const flushPending = new Deferred<void>();
+          fetchStub.onFirstCall().callsFake(async () => {
+            await flushPending.promise;
+            return FETCH_RESPONSE_OK;
+          });
+
+          // Log an event to trigger the first flush.
+          client.log(firstLog);
+          sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+          fetchStub.resetHistory();
+
+          // While waiting for the previous flush to resolve, log an event.
+          const secondLog = {
+            ...DEFAULT_LOG,
+            timestamp: new Date(NOW + 1).toISOString(),
+          };
+          client.log(secondLog);
+
+          // Resolve the pending flush and advance time to reach the flush
+          // interval.
+          flushPending.resolve();
+          await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
+          sinon.assert.notCalled(fetchStub);
+
+          // Now that the interval's reached and the previous flush has
+          // resolved, the next log should trigger a flush.
+          const thirdLog = {
+            ...DEFAULT_LOG,
+            timestamp: new Date(NOW + 2).toISOString(),
+          };
+          client.log(thirdLog);
+
+          // Verify that the two queued events were sent in a batch.
+          sinon.assert.calledOnceWithExactly(
+            fetchStub,
+            logRequest([secondLog, thirdLog]),
+          );
+        });
+      });
+
+      it('drops oldest events when max pending events is exceeded', async () => {
+        fetchStub.resolves(FETCH_RESPONSE_OK);
+
         // Log an event to trigger the first flush.
         client.log(firstLog);
         sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
         fetchStub.resetHistory();
-      });
 
-      it('queues events to send in batch after the flush interval has passed', async () => {
-        // While waiting for the flush interval to pass, log an event.
-        const secondLog = {
-          ...DEFAULT_LOG,
-          timestamp: new Date(NOW + 1).toISOString(),
-        };
-        client.log(secondLog);
-
-        // Advance time to reach the flush interval.
-        await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
-        sinon.assert.notCalled(fetchStub);
-
-        // Now that the interval's reached, the next log should trigger a flush.
-        const thirdLog = {
-          ...DEFAULT_LOG,
-          timestamp: new Date(NOW + 2).toISOString(),
-        };
-        client.log(thirdLog);
-
-        // Verify that the two queued events were sent in a batch.
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([secondLog, thirdLog]),
-        );
-      });
-
-      it('drops oldest events when max pending events is exceeded', async () => {
         const oldestEvent = {
           ...DEFAULT_LOG,
           timestamp: new Date(NOW).toISOString(),
@@ -124,7 +182,7 @@ describe('ClearcutClient', () => {
           newEvents.push(logEvent);
           // Advance time to allow flush of last event
           if (i === TEST_ONLY.MAX_PENDING_EVENTS - 1) {
-            await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+            await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
           }
           client.log(logEvent);
         }
@@ -142,29 +200,64 @@ describe('ClearcutClient', () => {
       sinon.assert.notCalled(fetchStub);
     });
 
-    it('forces a flush regardless of the flush interval', () => {
-      // Log an event to trigger the first flush.
-      client.log(DEFAULT_LOG);
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+    describe('forces a flush', () => {
+      it('when the flush interval has not passed', () => {
+        fetchStub.resolves(FETCH_RESPONSE_OK);
 
-      // While the flush interval has not passed, log another event. This event
-      // should get queued.
-      const otherLog = {
-        ...DEFAULT_LOG,
-        timestamp: new Date(NOW + 1).toISOString(),
-      };
-      client.log(otherLog);
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+        // Log an event to trigger the first flush.
+        client.log(DEFAULT_LOG);
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
+          logRequest([DEFAULT_LOG]),
+        );
+        fetchStub.resetHistory();
 
-      client.dispose();
+        // While the flush interval has not passed, log another event. This
+        // event should get queued.
+        const otherLog = {
+          ...DEFAULT_LOG,
+          timestamp: new Date(NOW + 1).toISOString(),
+        };
+        client.log(otherLog);
+        sinon.assert.notCalled(fetchStub);
 
-      // Even though the flush interval has not passed, a second flush should
-      // have been triggered by dispose.
-      sinon.assert.calledTwice(fetchStub);
-      sinon.assert.calledWithExactly(
-        fetchStub.secondCall,
-        logRequest([otherLog]),
-      );
+        client.dispose();
+
+        // Even though the flush interval has not passed, a second flush should
+        // have been triggered by dispose.
+        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      });
+
+      it('when a flush is already pending', () => {
+        const flushPending = new Deferred<void>();
+        fetchStub.onFirstCall().callsFake(async () => {
+          await flushPending.promise; // Never resolved
+          return FETCH_RESPONSE_OK;
+        });
+
+        // Log an event to trigger the first flush.
+        client.log(DEFAULT_LOG);
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
+          logRequest([DEFAULT_LOG]),
+        );
+        fetchStub.resetHistory();
+
+        // While the flush is still pending, log another event. This event
+        // should get queued.
+        const otherLog = {
+          ...DEFAULT_LOG,
+          timestamp: new Date(NOW + 1).toISOString(),
+        };
+        client.log(otherLog);
+        sinon.assert.notCalled(fetchStub);
+
+        client.dispose();
+
+        // Even though the first flush has not resolved, a second flush should
+        // have been triggered by dispose.
+        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      });
     });
   });
 });
