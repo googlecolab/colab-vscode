@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 
 // The Clearcut endpoint.
-const LOGS_ENDPOINT = 'https://play.googleapis.com/log';
+const LOGS_ENDPOINT = 'https://play.googleapis.com/log?format=json_proto';
 // The source identifier for Colab VS Code logs.
 const LOG_SOURCE = 'COLAB_VSCODE';
 // Maximum number of pending events before flushing. When exceeded, events will
@@ -45,17 +45,23 @@ interface LogRequest {
   log_event: LogEvent[];
 }
 
+// The Clearcut log response structure.
+interface LogResponse {
+  // Minimum wait time before the next request in milliseconds.
+  next_request_wait_millis: number;
+}
+
 /**
  * A client for sending logs to Clearcut.
  */
 export class ClearcutClient implements Disposable {
-  // Queue of events to be flushed to Clearcut.
-  private pendingEvents: LogEvent[] = [];
-
+  private isDisposed = false;
+  // Whether a flush request is currently in progress.
+  private isDoingFlush = false;
   // The time when the next flush request is allowed.
   private nextFlush = new Date();
-
-  private isDisposed = false;
+  // Queue of events to be flushed to Clearcut.
+  private pendingEvents: LogEvent[] = [];
 
   dispose() {
     if (this.isDisposed) {
@@ -63,7 +69,7 @@ export class ClearcutClient implements Disposable {
     }
     this.isDisposed = true;
     // Flush any remaining events before disposing.
-    this.flush(/* force= */ true);
+    void this.flush(/* force= */ true);
   }
 
   /** Queues a Colab log event for sending to Clearcut. */
@@ -83,24 +89,39 @@ export class ClearcutClient implements Disposable {
     }
 
     this.pendingEvents.push({ source_extension_json: JSON.stringify(event) });
-    this.flush();
+    void this.flush();
   }
 
   /** Flushes queued events to Clearcut. */
-  private flush(force = false) {
-    const canFlush = force || new Date() >= this.nextFlush;
+  private async flush(force = false) {
+    const canFlush =
+      force || (!this.isDoingFlush && new Date() >= this.nextFlush);
     if (this.pendingEvents.length === 0 || !canFlush) {
       return;
     }
 
     const events = this.pendingEvents;
     this.pendingEvents = [];
-    this.nextFlush = new Date(Date.now() + MIN_WAIT_BETWEEN_FLUSHES_MS);
-    void this.issueRequest(events);
+    this.isDoingFlush = true;
+
+    try {
+      const waitBetweenFlushesMs = await this.issueRequest(events);
+      this.nextFlush = new Date(Date.now() + waitBetweenFlushesMs);
+    } catch (err) {
+      this.nextFlush = new Date(Date.now() + MIN_WAIT_BETWEEN_FLUSHES_MS);
+      throw err;
+    } finally {
+      this.isDoingFlush = false;
+    }
   }
 
-  /** Sends a log request to Clearcut. */
-  private async issueRequest(events: LogEvent[]) {
+  /**
+   * Sends a log request to Clearcut.
+   *
+   * @param events - The log events to send.
+   * @returns - The minimum wait time before the next request in milliseconds.
+   */
+  private async issueRequest(events: LogEvent[]): Promise<number> {
     const logRequest: LogRequest = {
       log_source: LOG_SOURCE,
       log_event: events,
@@ -113,13 +134,18 @@ export class ClearcutClient implements Disposable {
       },
     });
     const response = await fetch(request);
-    // TODO: Rate-limit based on next_request_wait_millis in response.
     // TODO: Retry on 401 and 5xx.
     if (!response.ok) {
       throw new Error(
         `Failed to issue request ${request.method} ${request.url}: ${response.statusText}`,
       );
     }
+    const { next_request_wait_millis: waitMillis } =
+      (await response.json()) as LogResponse;
+    return Number.isInteger(waitMillis) &&
+      waitMillis > MIN_WAIT_BETWEEN_FLUSHES_MS
+      ? waitMillis
+      : MIN_WAIT_BETWEEN_FLUSHES_MS;
   }
 }
 
@@ -127,5 +153,4 @@ export const TEST_ONLY = {
   LOGS_ENDPOINT,
   LOG_SOURCE,
   MAX_PENDING_EVENTS,
-  MIN_WAIT_BETWEEN_FLUSHES_MS,
 };
