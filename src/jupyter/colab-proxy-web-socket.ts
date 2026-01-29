@@ -235,7 +235,9 @@ export function colabProxyWebSocket(
 }
 
 /**
- * Colab's `input_reply` message format for replying to Drive auth requests.
+ * Colab's `input_reply` message format for replying to Drive auth requests,
+ * with a different `content` and `parent_header` structure from the standard
+ * Jupyter {@link KernelMessage.IInputReplyMsg}.
  */
 export interface ColabInputReplyMessage
   extends Omit<KernelMessage.IInputReplyMsg, 'content' | 'parent_header'> {
