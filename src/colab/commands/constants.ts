@@ -68,6 +68,14 @@ export const MOUNT_SERVER: RegisteredCommand = {
   description: 'Reloads VS Code if a Workspace is not already open.',
 };
 
+/** Command to add a code snippet to mount Drive. */
+export const MOUNT_DRIVE: RegisteredCommand = {
+  id: 'colab.mountDrive',
+  label: 'Mount Google Drive to Server',
+  icon: 'file-code',
+  description: 'Generates a code snippet to mount Google Drive.',
+};
+
 /** Command to remove a server. */
 export const REMOVE_SERVER: RegisteredCommand = {
   id: 'colab.removeServer',

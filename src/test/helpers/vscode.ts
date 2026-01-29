@@ -10,8 +10,15 @@ import { FakeAuthenticationProviderManager } from './authentication';
 import { TestCancellationTokenSource } from './cancellation';
 import { TestFileSystemError } from './errors';
 import { TestEventEmitter } from './events';
+import {
+  NotebookCellKind,
+  TestNotebookCellData,
+  TestNotebookEdit,
+  TestNotebookRange,
+} from './notebook';
 import { TestThemeIcon } from './theme';
 import { TestUri } from './uri';
+import { TestWorkspaceEdit } from './workspace';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 class TestQuickInputButtons implements vscode.QuickInputButtons {
@@ -74,6 +81,11 @@ export interface VsCodeStub {
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
   QuickPickItemKind: typeof QuickPickItemKind;
+  NotebookCellKind: typeof NotebookCellKind;
+  NotebookCellData: typeof TestNotebookCellData;
+  NotebookEdit: typeof TestNotebookEdit;
+  NotebookRange: typeof TestNotebookRange;
+  WorkspaceEdit: typeof TestWorkspaceEdit;
   DiagnosticSeverity: typeof DiagnosticSeverity;
   FileSystemError: typeof FileSystemError;
   commands: {
@@ -113,6 +125,12 @@ export interface VsCodeStub {
     createQuickPick: sinon.SinonStubbedMember<
       typeof vscode.window.createQuickPick
     >;
+    activeNotebookEditor?: {
+      notebook: {
+        uri: TestUri;
+      };
+      selection: sinon.SinonStubbedMember<TestNotebookRange>;
+    };
   };
   workspace: {
     getConfiguration: sinon.SinonStubbedMember<
@@ -130,6 +148,7 @@ export interface VsCodeStub {
     onDidChangeWorkspaceFolders: sinon.SinonStubbedMember<
       typeof vscode.workspace.onDidChangeWorkspaceFolders
     >;
+    applyEdit: sinon.SinonStubbedMember<typeof vscode.workspace.applyEdit>;
     workspaceFolders: sinon.SinonStubbedMember<
       typeof vscode.workspace.workspaceFolders
     >;
@@ -205,13 +224,18 @@ export function newVsCodeStub(): VsCodeStub {
         authentication: { ...this.authentication } as Partial<
           typeof vscode.authentication
         > as typeof vscode.authentication,
-      } as Partial<typeof vscode> as typeof vscode;
+      } as unknown as Partial<typeof vscode> as typeof vscode;
     },
     ThemeIcon: TestThemeIcon,
     Uri: TestUri,
     CancellationTokenSource: TestCancellationTokenSource,
     EventEmitter: TestEventEmitter,
     QuickPickItemKind: QuickPickItemKind,
+    NotebookCellKind: NotebookCellKind,
+    NotebookCellData: TestNotebookCellData,
+    NotebookEdit: TestNotebookEdit,
+    NotebookRange: TestNotebookRange,
+    WorkspaceEdit: TestWorkspaceEdit,
     DiagnosticSeverity: DiagnosticSeverity,
     FileSystemError: TestFileSystemError,
     commands: {
@@ -242,6 +266,7 @@ export function newVsCodeStub(): VsCodeStub {
       updateWorkspaceFolders: sinon.stub(),
       onDidChangeConfiguration: sinon.stub(),
       onDidChangeWorkspaceFolders: sinon.stub(),
+      applyEdit: sinon.stub(),
       workspaceFolders: undefined,
       textDocuments: [],
       fs: {

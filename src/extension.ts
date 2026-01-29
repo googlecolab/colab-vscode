@@ -15,12 +15,16 @@ import { ColabClient } from './colab/client';
 import {
   COLAB_TOOLBAR,
   UPLOAD,
+  MOUNT_DRIVE,
   MOUNT_SERVER,
   REMOVE_SERVER,
   SIGN_OUT,
 } from './colab/commands/constants';
 import { upload } from './colab/commands/files';
-import { notebookToolbar } from './colab/commands/notebook';
+import {
+  notebookToolbar,
+  insertCodeCellBelow,
+} from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
@@ -195,6 +199,14 @@ function registerCommands(
         await mountServer(vscode, assignmentManager, fs, withBackButton);
       },
     ),
+    vscode.commands.registerCommand(MOUNT_DRIVE.id, async () => {
+      await insertCodeCellBelow(
+        vscode,
+        `from google.colab import drive
+drive.mount('/content/drive')`,
+        'python',
+      );
+    }),
     vscode.commands.registerCommand(
       REMOVE_SERVER.id,
       async (withBackButton?: boolean) => {
