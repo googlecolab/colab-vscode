@@ -8,6 +8,7 @@ import vscode, { QuickPickItem } from 'vscode';
 import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import {
+  MOUNT_DRIVE,
   MOUNT_SERVER,
   OPEN_COLAB_WEB,
   REMOVE_SERVER,
@@ -46,6 +47,39 @@ export async function notebookToolbar(
   }
 }
 
+/**
+ * Inserts a new code cell in the active notebook below the last selected cell.
+ *
+ * @param cellContent - Code content to add in the new cell.
+ * @param languageId - Language of the code.
+ * @returns `true` if cell is inserted successfully; `false` otherwise.
+ */
+export async function insertCodeCellBelow(
+  vs: typeof vscode,
+  cellContent: string,
+  languageId: string,
+): Promise<boolean> {
+  const editor = vs.window.activeNotebookEditor;
+  if (!editor) {
+    return false;
+  }
+
+  const currentCell = editor.selection.start;
+  const newCellData = new vs.NotebookCellData(
+    vs.NotebookCellKind.Code,
+    cellContent,
+    languageId,
+  );
+  const edit = new vs.WorkspaceEdit();
+  edit.set(editor.notebook.uri, [
+    new vs.NotebookEdit(
+      new vs.NotebookRange(currentCell + 1, currentCell + 1),
+      [newCellData],
+    ),
+  ]);
+  return await vs.workspace.applyEdit(edit);
+}
+
 interface NotebookCommand extends QuickPickItem {
   invoke: () => Thenable<void> | void;
 }
@@ -74,9 +108,21 @@ async function getAvailableCommands(
     return externalCommands;
   }
   const serverCommands: NotebookCommand[] = [];
-  const includeMountServer = vs.workspace
-    .getConfiguration('colab')
-    .get<boolean>('serverMounting', false);
+  const colabConfigs = vs.workspace.getConfiguration('colab');
+
+  const includeMountDrive = colabConfigs.get<boolean>('driveMounting', false);
+  if (includeMountDrive) {
+    serverCommands.push({
+      label: MOUNT_DRIVE.label,
+      iconPath: commandThemeIcon(vs, MOUNT_DRIVE),
+      description: MOUNT_DRIVE.description,
+      invoke: () => {
+        return vs.commands.executeCommand(MOUNT_DRIVE.id);
+      },
+    });
+  }
+
+  const includeMountServer = colabConfigs.get<boolean>('serverMounting', false);
   if (includeMountServer) {
     serverCommands.push({
       label: MOUNT_SERVER.label,

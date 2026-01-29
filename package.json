@@ -110,6 +110,13 @@
     "commands": [
       {
         "category": "Colab",
+        "command": "colab.mountDrive",
+        "enablement": "colab.hasAssignedServer",
+        "when": "config.colab.driveMounting",
+        "title": "Mount Google Drive to Server..."
+      },
+      {
+        "category": "Colab",
         "command": "colab.mountServer",
         "enablement": "colab.hasAssignedServer",
         "when": "config.colab.serverMounting",
