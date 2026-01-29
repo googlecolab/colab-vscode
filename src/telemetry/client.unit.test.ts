@@ -98,7 +98,7 @@ describe('ClearcutClient', () => {
         client.log(secondLog);
 
         // Advance time to reach the flush interval.
-        await fakeClock.tickAsync(15 * 60 * 1000);
+        await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
         sinon.assert.notCalled(fetchStub);
 
         // Now that the interval's reached, the next log should trigger a
@@ -190,6 +190,65 @@ describe('ClearcutClient', () => {
       });
     });
   });
+
+  it('uses the flush interval in the log response', async () => {
+    fetchStub.resolves(FETCH_RESPONSE_OK);
+
+    // Log an event to trigger the first flush.
+    client.log(DEFAULT_LOG);
+    sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+    fetchStub.resetHistory();
+
+    // Advance time to reach the flush interval.
+    client.log(DEFAULT_LOG);
+    await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
+    sinon.assert.notCalled(fetchStub);
+
+    // Trigger flush
+    client.log(DEFAULT_LOG);
+    sinon.assert.calledOnce(fetchStub);
+  });
+
+  const conditions = [
+    {
+      condition: 'the response is invalid json',
+      responseBody: 'foo',
+    },
+    {
+      condition: 'the response is missing next_request_wait_millis',
+      responseBody: JSON.stringify({}),
+    },
+    {
+      condition: 'the response has an invalid next_request_wait_millis',
+      responseBody: JSON.stringify({ next_request_wait_millis: 'foo' }),
+    },
+    {
+      condition:
+        'the response has a next_request_wait_millis that is less than the minimum wait',
+      responseBody: JSON.stringify({
+        next_request_wait_millis: TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS - 10,
+      }),
+    },
+  ];
+  for (const { condition, responseBody } of conditions) {
+    it(`defaults to the minimum flush interval when ${condition}`, async () => {
+      fetchStub.resolves(new Response(responseBody, { status: 200 }));
+
+      // Log an event to trigger the first flush.
+      client.log(DEFAULT_LOG);
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      fetchStub.resetHistory();
+
+      // Advance time to reach the flush interval.
+      client.log(DEFAULT_LOG);
+      await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+      sinon.assert.notCalled(fetchStub);
+
+      // Trigger flush
+      client.log(DEFAULT_LOG);
+      sinon.assert.calledOnce(fetchStub);
+    });
+  }
 
   describe('dispose', () => {
     it('does nothing when there are no pending events', () => {

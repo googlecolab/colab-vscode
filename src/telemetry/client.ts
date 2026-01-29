@@ -7,6 +7,7 @@
 import fetch, { Request } from 'node-fetch';
 import { Disposable } from 'vscode';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
+import { log } from '../common/logging';
 
 // The Clearcut endpoint.
 const LOGS_ENDPOINT = 'https://play.googleapis.com/log?format=json_proto';
@@ -140,12 +141,18 @@ export class ClearcutClient implements Disposable {
         `Failed to issue request ${request.method} ${request.url}: ${response.statusText}`,
       );
     }
-    const { next_request_wait_millis: waitMillis } =
-      (await response.json()) as LogResponse;
-    return Number.isInteger(waitMillis) &&
-      waitMillis > MIN_WAIT_BETWEEN_FLUSHES_MS
-      ? waitMillis
-      : MIN_WAIT_BETWEEN_FLUSHES_MS;
+
+    let next_flush_millis = MIN_WAIT_BETWEEN_FLUSHES_MS;
+    try {
+      const { next_request_wait_millis: wait } =
+        (await response.json()) as LogResponse;
+      if (Number.isInteger(wait) && wait > MIN_WAIT_BETWEEN_FLUSHES_MS) {
+        next_flush_millis = wait;
+      }
+    } catch (err: unknown) {
+      log.error('Failed to parse Clearcut response:', err);
+    }
+    return next_flush_millis;
   }
 }
 
@@ -153,4 +160,5 @@ export const TEST_ONLY = {
   LOGS_ENDPOINT,
   LOG_SOURCE,
   MAX_PENDING_EVENTS,
+  MIN_WAIT_BETWEEN_FLUSHES_MS,
 };
