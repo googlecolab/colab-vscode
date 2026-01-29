@@ -48,9 +48,7 @@ export function colabProxyWebSocket(
   };
 
   return class ColabWebSocket extends BaseWebSocket implements Disposable {
-    /** Unique session ID used in Colab `input_reply` messages. */
     private readonly sessionId = uuid();
-
     private driveMountingEnabled: boolean;
     private disposed = false;
     private disposables: Disposable[] = [];
@@ -69,48 +67,58 @@ export function colabProxyWebSocket(
       this.driveMountingEnabled = vs.workspace
         .getConfiguration('colab')
         .get<boolean>('driveMounting', false);
+
       const configListener = vs.workspace.onDidChangeConfiguration(
         (e: ConfigurationChangeEvent) => {
-          if (!e.affectsConfiguration('colab.driveMounting')) {
-            return;
+          if (e.affectsConfiguration('colab.driveMounting')) {
+            this.driveMountingEnabled = vs.workspace
+              .getConfiguration('colab')
+              .get<boolean>('driveMounting', false);
           }
-          this.driveMountingEnabled = vs.workspace
-            .getConfiguration('colab')
-            .get<boolean>('driveMounting', false);
         },
       );
       this.disposables.push(configListener);
+    }
 
-      this.addListener(
-        'message',
-        (data: WebSocket.RawData, isBinary: boolean) => {
-          if (
-            !isBinary &&
-            typeof data === 'string' &&
-            this.driveMountingEnabled
-          ) {
-            let message: unknown;
-            try {
-              message = JSON.parse(data) as unknown;
-            } catch (e: unknown) {
-              log.warn('Failed to parse received Jupyter message to JSON:', e);
-              return;
-            }
+    override emit(event: string | symbol, ...args: any[]): boolean {
+      if (event === 'message') {
+        const data = args[0] as WebSocket.RawData;
+        const isBinary = args[1] as boolean;
 
-            if (isColabAuthEphemeralRequest(message)) {
-              log.trace('Colab request message received:', message);
-              handleDriveFsAuthFn(vs, client, server)
-                .then(() => {
-                  this.sendInputReply(message.metadata.colab_msg_id);
-                })
-                .catch((err: unknown) => {
-                  log.error('Failed handling DriveFS auth propagation', err);
-                  this.sendInputReply(message.metadata.colab_msg_id, err);
-                });
+        if (!isBinary && typeof data === 'string') {
+          let message: unknown;
+          try {
+            message = JSON.parse(data);
+          } catch (e) {
+            // parsing failed, just emit
+            return super.emit(event, ...args);
+          }
+
+          if (this.driveMountingEnabled && isColabAuthEphemeralRequest(message)) {
+            handleDriveFsAuthFn(vs, client, server)
+              .then(() => this.sendInputReply(message.metadata.colab_msg_id))
+              .catch((err: unknown) => this.sendInputReply(message.metadata.colab_msg_id, err as Error));
+            return true; // Suppress message
+          }
+
+          if (isInputRequest(message)) {
+            const prompt = message.content.prompt;
+            if (prompt.includes('accounts.google.com/o/oauth2/auth')) {
+              const match = COLAB_AUTH_PATTERN.exec(prompt);
+              if (match) {
+                void this.promptForAuthCode(match[1], message);
+                return true; // Suppress message
+              } else {
+                log.warn(
+                  'Input request prompt contained auth URL but did not match full pattern:',
+                  prompt,
+                );
+              }
             }
           }
-        },
-      );
+        }
+      }
+      return super.emit(event, ...args);
     }
 
     dispose() {
@@ -183,42 +191,60 @@ export function colabProxyWebSocket(
         });
     }
 
-    private sendInputReply(requestMessageId: number, err?: unknown) {
-      const replyMsgId = uuid();
-      const replyMsgType = 'input_reply';
-      const replyMessage: ColabInputReplyMessage = {
-        msg_id: replyMsgId,
-        msg_type: replyMsgType,
+
+
+    private async promptForAuthCode(
+      url: string,
+      originalMessage: JupyterInputRequestMessage,
+    ): Promise<void> {
+      const action = await vs.window.showInformationMessage(
+        'Colab is requesting authentication. Open the link to authenticate, copy the verification code, and paste it here.',
+        'Open URL',
+      );
+
+      if (action === 'Open URL') await vs.env.openExternal(vs.Uri.parse(url));
+
+      const code = await vs.window.showInputBox({
+        title: 'Colab Authentication',
+        prompt: 'Enter verification code from the browser',
+        ignoreFocusOut: true,
+      });
+
+      if (code) this.sendInputReply(code, originalMessage);
+    }
+
+    private sendInputReply(value: string, originalMessage: JupyterInputRequestMessage): void;
+    private sendInputReply(requestMessageId: number, err?: Error | string): void;
+    private sendInputReply(
+      valueOrId: string | number,
+      messageOrErr?: JupyterInputRequestMessage | Error | string,
+    ): void {
+      const isManual = typeof valueOrId === 'string';
+
+      const reply: ColabInputReplyMessage = {
         header: {
-          msg_id: replyMsgId,
-          msg_type: replyMsgType,
-          session: this.sessionId,
-          version: '5.0',
+          msg_id: uuid(),
+          msg_type: 'input_reply',
+          session: this.sessionId, // JACK'S FEEDBACK: Use client sessionId
+          version: isManual ? '5.3' : '5.0',
+          date: new Date().toISOString(),
         },
-        content: {
+        content: isManual ? {
+          value: valueOrId,
+          status: 'ok',
+        } : {
           value: {
             type: 'colab_reply',
-            colab_msg_id: requestMessageId,
+            colab_msg_id: valueOrId as number,
+            error: messageOrErr instanceof Error ? messageOrErr.message : (typeof messageOrErr === 'string' ? messageOrErr : undefined),
           },
         },
-        channel: 'stdin',
-        // The following fields are required but can be empty.
+        channel: isManual ? (messageOrErr as JupyterInputRequestMessage).channel : 'stdin',
         metadata: {},
-        parent_header: {},
+        parent_header: isManual ? (messageOrErr as JupyterInputRequestMessage).header : {},
       };
 
-      if (err) {
-        if (err instanceof Error) {
-          replyMessage.content.value.error = err.message;
-        } else if (typeof err === 'string') {
-          replyMessage.content.value.error = err;
-        } else {
-          replyMessage.content.value.error = 'unknown error';
-        }
-      }
-
-      this.send(JSON.stringify(replyMessage));
-      log.trace('Input reply message sent:', replyMessage);
+      this.send(JSON.stringify(reply));
     }
 
     private guardDisposed(): void {
@@ -235,22 +261,22 @@ export function colabProxyWebSocket(
  * Colab's `input_reply` message format for replying to Drive auth requests.
  */
 export interface ColabInputReplyMessage {
-  msg_id: string;
-  msg_type: 'input_reply';
   header: {
     msg_id: string;
     msg_type: 'input_reply';
     session: string;
     version: string;
+    date?: string; // Needed for manual auth
   };
   content: {
-    value: {
+    value: string | {
       type: 'colab_reply';
       colab_msg_id: number;
       error?: string;
     };
+    status?: 'ok' | 'error'; // Needed for manual auth
   };
-  channel: 'stdin';
+  channel: string;
   metadata: object;
   parent_header: object;
 }
@@ -321,3 +347,36 @@ enum DriveMountUnsupportedAction {
   VIEW_ISSUE = 'GitHub Issue',
   VIEW_WORKAROUND = 'Workaround',
 }
+
+function isInputRequest(
+  message: unknown,
+): message is JupyterInputRequestMessage {
+  return InputRequestSchema.safeParse(message).success;
+}
+
+interface JupyterInputRequestMessage {
+  header: { msg_type: 'input_request'; session: string; msg_id: string };
+  content: { prompt: string; password: boolean };
+  parent_header: unknown;
+  metadata: unknown;
+  channel: string;
+}
+
+const InputRequestSchema = z.object({
+  header: z.object({
+    msg_type: z.literal('input_request'),
+    session: z.string(),
+    msg_id: z.string(),
+  }),
+  content: z.object({
+    prompt: z.string(),
+    password: z.boolean(),
+  }),
+  parent_header: z.unknown(),
+  metadata: z.unknown(),
+  channel: z.string(),
+});
+
+
+
+const COLAB_AUTH_PATTERN = /(https:\/\/accounts\.google\.com\/o\/oauth2\/auth[^\s]*)/;
