@@ -86,8 +86,22 @@ describe('colabProxyWebSocket', () => {
 
   describe('send', () => {
     const rawDriveMountMessage = JSON.stringify({
-      header: { msg_type: 'execute_request' },
+      header: {
+        msg_type: 'execute_request',
+        session: 'test-client-session-id',
+      },
       content: { code: 'drive.mount("/content/drive")' },
+    });
+    let testWebSocket: TestWebSocket;
+
+    beforeEach(() => {
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        TestWebSocket,
+      );
+      testWebSocket = new wsc('ws://example.com/socket');
     });
 
     it('shows warning notification when drive.mount() is executed', async () => {
@@ -100,13 +114,6 @@ describe('colabProxyWebSocket', () => {
           },
         );
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(rawDriveMountMessage);
 
@@ -122,13 +129,6 @@ describe('colabProxyWebSocket', () => {
           },
         );
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(rawDriveMountMessage);
 
@@ -153,13 +153,6 @@ describe('colabProxyWebSocket', () => {
           },
         );
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(rawDriveMountMessage);
 
@@ -179,13 +172,6 @@ describe('colabProxyWebSocket', () => {
       const rawJupyterMessage = JSON.stringify({
         header: { msg_type: 'kernel_info_request' },
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(rawJupyterMessage);
       await flush();
@@ -198,13 +184,6 @@ describe('colabProxyWebSocket', () => {
         header: { msg_type: 'execute_request' },
         content: { code: 'print("Hello World!")' },
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(rawJupyterMessage);
       await flush();
@@ -213,14 +192,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not show warning notification if message is empty', async () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
-
       testWebSocket.send('');
       await flush();
 
@@ -231,13 +202,6 @@ describe('colabProxyWebSocket', () => {
       const rawNonJupyterMessage = JSON.stringify({
         random_field: 'random_value',
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(rawNonJupyterMessage);
       await flush();
@@ -247,13 +211,6 @@ describe('colabProxyWebSocket', () => {
 
     it('does not show warning notification if message is malformed', async () => {
       const malformedMessage = 'non-json-format';
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.send(malformedMessage);
       await flush();
@@ -262,14 +219,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not show warning notification if data is ArrayBuffer', async () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
-
       testWebSocket.send(new ArrayBuffer(16));
       await flush();
 
@@ -277,13 +226,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not show warning notification if driveMounting is enabled', async () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
       vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
         get: sinon
           .stub<[string], boolean>()
@@ -314,6 +256,7 @@ describe('colabProxyWebSocket', () => {
         colab_msg_id: testRequestMessageId,
       },
     });
+    let testWebSocket: TestWebSocket;
 
     beforeEach(() => {
       vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
@@ -322,6 +265,24 @@ describe('colabProxyWebSocket', () => {
           .withArgs('driveMounting')
           .returns(true),
       } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
+
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        TestWebSocket,
+        handleDriveFsAuthStub,
+      );
+      testWebSocket = new wsc('ws://example.com/socket');
+      // Send a dummy message to set client session ID
+      testWebSocket.send(
+        JSON.stringify({
+          header: {
+            msg_type: 'dummy',
+            session: 'test-session-id',
+          },
+        }),
+      );
     });
 
     it('triggers handleDriveFsAuth and sends a reply if message is a dfs_ephemeral colab_request', async () => {
@@ -331,14 +292,6 @@ describe('colabProxyWebSocket', () => {
           return Promise.resolve();
         });
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
       const sendSpy = sinon.spy(testWebSocket, 'send');
 
       testWebSocket.emit(
@@ -369,14 +322,6 @@ describe('colabProxyWebSocket', () => {
           return Promise.reject(new Error(errMsg));
         });
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
       const sendSpy = sinon.spy(testWebSocket, 'send');
 
       testWebSocket.emit(
@@ -404,14 +349,6 @@ describe('colabProxyWebSocket', () => {
         content: { request: { authType: 'dfs_ephemeral' } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.emit('message', rawMessage, /* isBinary= */ false);
 
@@ -424,14 +361,6 @@ describe('colabProxyWebSocket', () => {
         content: { request: { authType: 'dfs_persistent' } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
       });
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
 
       testWebSocket.emit('message', rawMessage, /* isBinary= */ false);
 
@@ -439,45 +368,18 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleDriveFsAuth if message is empty', () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
-
       testWebSocket.emit('message', /* message= */ '', /* isBinary= */ false);
 
       sinon.assert.notCalled(handleDriveFsAuthStub);
     });
 
     it('does not trigger handleDriveFsAuth if message is malformed', () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
-
       testWebSocket.emit('message', 'malformed message', /* isBinary= */ false);
 
       sinon.assert.notCalled(handleDriveFsAuthStub);
     });
 
     it('does not trigger handleDriveFsAuth if message data is ArrayBuffer', () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
-
       testWebSocket.emit(
         'message',
         /* message= */ new ArrayBuffer(16),
@@ -488,15 +390,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleDriveFsAuth if message data is binary', () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
-
       testWebSocket.emit(
         'message',
         rawColabRequestMessage,
@@ -507,14 +400,6 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleDriveFsAuth if driveMounting is disabled', () => {
-      const wsc = colabProxyWebSocket(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        TestWebSocket,
-        handleDriveFsAuthStub,
-      );
-      const testWebSocket = new wsc('ws://example.com/socket');
       vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
         get: sinon
           .stub<[string], boolean>()

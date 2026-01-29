@@ -329,6 +329,7 @@
     "yaml": "^2.8.2"
   },
   "dependencies": {
+    "@jupyterlab/services": "^7.5.3",
     "glob": "^11.1.0",
     "google-auth-library": "^9.15.0",
     "node-fetch": "^2.6.7",
