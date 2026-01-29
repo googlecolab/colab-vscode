@@ -194,6 +194,8 @@ export function colabProxyWebSocket(
           msg_id: uuid(),
           msg_type: 'input_reply',
           session: this.clientSessionId,
+          username: 'username',
+          date: new Date().toISOString(),
           version: '5.0',
         },
         content: {
@@ -235,13 +237,8 @@ export function colabProxyWebSocket(
 /**
  * Colab's `input_reply` message format for replying to Drive auth requests.
  */
-export interface ColabInputReplyMessage {
-  header: {
-    msg_id: string;
-    msg_type: 'input_reply';
-    session: string;
-    version: string;
-  };
+export interface ColabInputReplyMessage
+  extends Omit<KernelMessage.IInputReplyMsg, 'content' | 'parent_header'> {
   content: {
     value: {
       type: 'colab_reply';
@@ -249,8 +246,6 @@ export interface ColabInputReplyMessage {
       error?: string;
     };
   };
-  channel: 'stdin';
-  metadata: object;
   parent_header: object;
 }
 
