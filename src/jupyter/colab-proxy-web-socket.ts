@@ -194,8 +194,9 @@ export function colabProxyWebSocket(
           msg_id: uuid(),
           msg_type: 'input_reply',
           session: this.clientSessionId,
-          username: 'username',
           date: new Date().toISOString(),
+          // Hardcoded `username` and `version` to align with Colab web
+          username: 'username',
           version: '5.0',
         },
         content: {
