@@ -50,33 +50,29 @@ describe('ClearcutClient', () => {
       sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
     });
 
-    describe('throws an error', () => {
-      it('when Clearcut responds with a non-200 status', async () => {
-        fetchStub.resolves(FETCH_RESPONSE_500);
-        // Since log is sync (fires and forgets), spy on internal error handling
-        const requestSpy = sinon.spy(
-          client as unknown as { issueRequest: () => Promise<void> },
-          'issueRequest',
-        );
+    it('throws an error when Clearcut responds with a non-200 status', async () => {
+      fetchStub.resolves(FETCH_RESPONSE_500);
+      // Since log is sync (fires and forgets), spy on internal error handling
+      const requestSpy = sinon.spy(
+        client as unknown as { issueRequest: () => Promise<void> },
+        'issueRequest',
+      );
 
+      client.log(DEFAULT_LOG);
+
+      let error: Error | undefined;
+      await requestSpy.firstCall.returnValue.catch((e: unknown) => {
+        error = e as Error;
+      });
+      expect(error?.message).to.include('Failed to issue request');
+    });
+
+    it('throws an error when the client is disposed', () => {
+      client.dispose();
+
+      expect(() => {
         client.log(DEFAULT_LOG);
-
-        let error: Error | undefined;
-        await requestSpy.firstCall.returnValue.catch((e: unknown) => {
-          error = e as Error;
-        });
-        expect(error?.message).to.include('Failed to issue request');
-      });
-
-      it('when the client is disposed', () => {
-        client.dispose();
-
-        expect(() => {
-          client.log(DEFAULT_LOG);
-        }).to.throw(
-          'ClearcutClient cannot be used after it has been disposed.',
-        );
-      });
+      }).to.throw('ClearcutClient cannot be used after it has been disposed.');
     });
 
     describe('while waiting between flushes', () => {
@@ -257,64 +253,56 @@ describe('ClearcutClient', () => {
       sinon.assert.notCalled(fetchStub);
     });
 
-    describe('forces a flush', () => {
-      it('when the flush interval has not passed', () => {
-        fetchStub.resolves(FETCH_RESPONSE_OK);
+    it('forces a flush when the flush interval has not passed', () => {
+      fetchStub.resolves(FETCH_RESPONSE_OK);
 
-        // Log an event to trigger the first flush.
-        client.log(DEFAULT_LOG);
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([DEFAULT_LOG]),
-        );
-        fetchStub.resetHistory();
+      // Log an event to trigger the first flush.
+      client.log(DEFAULT_LOG);
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      fetchStub.resetHistory();
 
-        // While the flush interval has not passed, log another event. This
-        // event should get queued.
-        const otherLog = {
-          ...DEFAULT_LOG,
-          timestamp: new Date(NOW + 1).toISOString(),
-        };
-        client.log(otherLog);
-        sinon.assert.notCalled(fetchStub);
+      // While the flush interval has not passed, log another event. This
+      // event should get queued.
+      const otherLog = {
+        ...DEFAULT_LOG,
+        timestamp: new Date(NOW + 1).toISOString(),
+      };
+      client.log(otherLog);
+      sinon.assert.notCalled(fetchStub);
 
-        client.dispose();
+      client.dispose();
 
-        // Even though the flush interval has not passed, a second flush should
-        // have been triggered by dispose.
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      // Even though the flush interval has not passed, a second flush should
+      // have been triggered by dispose.
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+    });
+
+    it('forces a flush when a flush is already pending', () => {
+      const flushPending = new Deferred<void>();
+      fetchStub.onFirstCall().callsFake(async () => {
+        await flushPending.promise; // Never resolved
+        return FETCH_RESPONSE_OK;
       });
 
-      it('when a flush is already pending', () => {
-        const flushPending = new Deferred<void>();
-        fetchStub.onFirstCall().callsFake(async () => {
-          await flushPending.promise; // Never resolved
-          return FETCH_RESPONSE_OK;
-        });
+      // Log an event to trigger the first flush.
+      client.log(DEFAULT_LOG);
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      fetchStub.resetHistory();
 
-        // Log an event to trigger the first flush.
-        client.log(DEFAULT_LOG);
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([DEFAULT_LOG]),
-        );
-        fetchStub.resetHistory();
+      // While the flush is still pending, log another event. This event
+      // should get queued.
+      const otherLog = {
+        ...DEFAULT_LOG,
+        timestamp: new Date(NOW + 1).toISOString(),
+      };
+      client.log(otherLog);
+      sinon.assert.notCalled(fetchStub);
 
-        // While the flush is still pending, log another event. This event
-        // should get queued.
-        const otherLog = {
-          ...DEFAULT_LOG,
-          timestamp: new Date(NOW + 1).toISOString(),
-        };
-        client.log(otherLog);
-        sinon.assert.notCalled(fetchStub);
+      client.dispose();
 
-        client.dispose();
-
-        // Even though the first flush has not resolved, a second flush should
-        // have been triggered by dispose.
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
-      });
+      // Even though the first flush has not resolved, a second flush should
+      // have been triggered by dispose.
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
     });
   });
 });
