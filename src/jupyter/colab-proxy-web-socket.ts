@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import assert from 'assert';
+import { KernelMessage } from '@jupyterlab/services';
 import { v4 as uuid } from 'uuid';
 import vscode, { Disposable, ConfigurationChangeEvent } from 'vscode';
 import WebSocket from 'ws';
@@ -48,12 +50,10 @@ export function colabProxyWebSocket(
   };
 
   return class ColabWebSocket extends BaseWebSocket implements Disposable {
-    /** Unique session ID used in Colab `input_reply` messages. */
-    private readonly sessionId = uuid();
-
     private driveMountingEnabled: boolean;
     private disposed = false;
     private disposables: Disposable[] = [];
+    private clientSessionId?: string;
 
     constructor(
       address: string | URL,
@@ -132,8 +132,23 @@ export function colabProxyWebSocket(
     ) {
       this.guardDisposed();
 
-      if (typeof data === 'string' && !this.driveMountingEnabled) {
-        this.warnOnDriveMount(data);
+      if (
+        typeof data === 'string' &&
+        (!this.clientSessionId || !this.driveMountingEnabled)
+      ) {
+        try {
+          const message = JSON.parse(data) as unknown;
+          if (isJupyterKernelMessage(message)) {
+            // Capture client session ID from Jupyter message for later use
+            this.clientSessionId ??= message.header.session;
+
+            if (!this.driveMountingEnabled) {
+              this.warnOnDriveMount(message);
+            }
+          }
+        } catch (e: unknown) {
+          log.warn('Failed to parse sent Jupyter message to JSON:', e);
+        }
       }
 
       if (options === undefined || typeof options === 'function') {
@@ -147,52 +162,41 @@ export function colabProxyWebSocket(
      * Displays a warning notification message in VS Code if `rawJupyterMessage`
      * is an execute request containing `drive.mount()`.
      */
-    private warnOnDriveMount(rawJupyterMessage: string): void {
-      let parsedJupyterMessage: unknown;
-      try {
-        parsedJupyterMessage = JSON.parse(rawJupyterMessage) as unknown;
-      } catch (e: unknown) {
-        log.warn('Failed to parse sent Jupyter message to JSON:', e);
-        return;
-      }
-
+    private warnOnDriveMount(message: KernelMessage.IMessage): void {
       if (
-        isExecuteRequest(parsedJupyterMessage) &&
-        DRIVE_MOUNT_PATTERN.exec(parsedJupyterMessage.content.code)
+        isExecuteRequest(message) &&
+        DRIVE_MOUNT_PATTERN.exec(message.content.code)
       ) {
-        this.notifyDriveMountUnsupported();
+        vs.window
+          .showWarningMessage(
+            `drive.mount is not currently supported in the extension. We're working on it! See the [wiki](${DRIVE_MOUNT_WIKI_LINK}) for workarounds and track this [issue](${DRIVE_MOUNT_ISSUE_LINK}) for progress.`,
+            DriveMountUnsupportedAction.VIEW_WORKAROUND,
+            DriveMountUnsupportedAction.VIEW_ISSUE,
+          )
+          .then((selectedAction) => {
+            switch (selectedAction) {
+              case DriveMountUnsupportedAction.VIEW_WORKAROUND:
+                vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_WIKI_LINK));
+                break;
+              case DriveMountUnsupportedAction.VIEW_ISSUE:
+                vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_ISSUE_LINK));
+                break;
+            }
+          });
       }
-    }
-
-    private notifyDriveMountUnsupported(): void {
-      vs.window
-        .showWarningMessage(
-          `drive.mount is not currently supported in the extension. We're working on it! See the [wiki](${DRIVE_MOUNT_WIKI_LINK}) for workarounds and track this [issue](${DRIVE_MOUNT_ISSUE_LINK}) for progress.`,
-          DriveMountUnsupportedAction.VIEW_WORKAROUND,
-          DriveMountUnsupportedAction.VIEW_ISSUE,
-        )
-        .then((selectedAction) => {
-          switch (selectedAction) {
-            case DriveMountUnsupportedAction.VIEW_WORKAROUND:
-              vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_WIKI_LINK));
-              break;
-            case DriveMountUnsupportedAction.VIEW_ISSUE:
-              vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_ISSUE_LINK));
-              break;
-          }
-        });
     }
 
     private sendInputReply(requestMessageId: number, err?: unknown) {
-      const replyMsgId = uuid();
-      const replyMsgType = 'input_reply';
+      // Client session ID should be set already at this point.
+      assert(this.clientSessionId);
       const replyMessage: ColabInputReplyMessage = {
-        msg_id: replyMsgId,
-        msg_type: replyMsgType,
         header: {
-          msg_id: replyMsgId,
-          msg_type: replyMsgType,
-          session: this.sessionId,
+          msg_id: uuid(),
+          msg_type: 'input_reply',
+          session: this.clientSessionId,
+          date: new Date().toISOString(),
+          // Hardcoded `username` and `version` to align with Colab web
+          username: 'username',
           version: '5.0',
         },
         content: {
@@ -232,17 +236,12 @@ export function colabProxyWebSocket(
 }
 
 /**
- * Colab's `input_reply` message format for replying to Drive auth requests.
+ * Colab's `input_reply` message format for replying to Drive auth requests,
+ * with a different `content` and `parent_header` structure from the standard
+ * Jupyter {@link KernelMessage.IInputReplyMsg}.
  */
-export interface ColabInputReplyMessage {
-  msg_id: string;
-  msg_type: 'input_reply';
-  header: {
-    msg_id: string;
-    msg_type: 'input_reply';
-    session: string;
-    version: string;
-  };
+export interface ColabInputReplyMessage
+  extends Omit<KernelMessage.IInputReplyMsg, 'content' | 'parent_header'> {
   content: {
     value: {
       type: 'colab_reply';
@@ -250,8 +249,6 @@ export interface ColabInputReplyMessage {
       error?: string;
     };
   };
-  channel: 'stdin';
-  metadata: object;
   parent_header: object;
 }
 
@@ -259,9 +256,15 @@ type SuperSend = WebSocket['send'];
 type BufferLike = Parameters<SuperSend>[0];
 type SendOptions = Parameters<SuperSend>[1];
 
+function isJupyterKernelMessage(
+  message: unknown,
+): message is KernelMessage.IMessage {
+  return JupyterKernelMessageSchema.safeParse(message).success;
+}
+
 function isExecuteRequest(
   message: unknown,
-): message is JupyterExecuteRequestMessage {
+): message is KernelMessage.IExecuteRequestMsg {
   return ExecuteRequestSchema.safeParse(message).success;
 }
 
@@ -269,11 +272,6 @@ function isColabAuthEphemeralRequest(
   message: unknown,
 ): message is ColabAuthEphemeralRequestMessage {
   return ColabAuthEphemeralRequestSchema.safeParse(message).success;
-}
-
-interface JupyterExecuteRequestMessage {
-  header: { msg_type: 'execute_request' };
-  content: { code: string };
 }
 
 interface ColabAuthEphemeralRequestMessage {
@@ -286,6 +284,13 @@ interface ColabAuthEphemeralRequestMessage {
     colab_msg_id: number;
   };
 }
+
+const JupyterKernelMessageSchema = z.object({
+  header: z.object({
+    msg_type: z.string(),
+    session: z.string(),
+  }),
+});
 
 const ExecuteRequestSchema = z.object({
   header: z.object({
