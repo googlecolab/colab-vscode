@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { Variant } from '../../colab/api';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
+import { buildQuickPickStub } from '../../test/helpers/quick-input';
 import { openTerminal } from './terminal';
 
 describe('openTerminal command', () => {
@@ -107,11 +108,24 @@ describe('openTerminal command', () => {
     it('shows QuickPick with multiple servers', async () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1, server2]);
 
-      const quickPickStub = sinon.stub(vscode.window, 'showQuickPick').resolves(undefined);
+      const quickPickStub = buildQuickPickStub();
+      const createQuickPickStub = sinon.stub(vscode.window, 'createQuickPick').returns(quickPickStub as never);
 
-      await openTerminal(vscode, assignmentManager);
+      // Start openTerminal in background
+      const openTerminalPromise = openTerminal(vscode, assignmentManager);
 
-      sinon.assert.called(quickPickStub);
+      // Wait for QuickPick to be shown
+      await quickPickStub.nextShow();
+
+      // Simulate user canceling (hiding the quick pick)
+      const onDidHideCallback = quickPickStub.onDidHide.firstCall.args[0];
+      onDidHideCallback();
+
+      // Wait for openTerminal to complete
+      await openTerminalPromise;
+
+      sinon.assert.calledOnce(createQuickPickStub);
+      sinon.assert.calledOnce(quickPickStub.show);
     });
   });
 
