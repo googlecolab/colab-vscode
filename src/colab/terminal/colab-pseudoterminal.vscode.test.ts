@@ -13,11 +13,13 @@ import { ColabTtyWebSocket } from './colab-tty-websocket';
 describe('ColabPseudoterminal', () => {
   let ttyWebSocket: SinonStubbedInstance<ColabTtyWebSocket>;
   let pty: ColabPseudoterminal;
+  let onOpenCallbacks: Array<() => void>;
   let onDataCallbacks: Array<(data: string) => void>;
   let onCloseCallbacks: Array<() => void>;
   let onErrorCallbacks: Array<(error: Error) => void>;
 
   beforeEach(() => {
+    onOpenCallbacks = [];
     onDataCallbacks = [];
     onCloseCallbacks = [];
     onErrorCallbacks = [];
@@ -25,6 +27,12 @@ describe('ColabPseudoterminal', () => {
     ttyWebSocket = sinon.createStubInstance(ColabTtyWebSocket);
 
     // Stub the event properties
+    Object.defineProperty(ttyWebSocket, 'onOpen', {
+      value: (callback: () => void) => {
+        onOpenCallbacks.push(callback);
+        return { dispose: () => {} };
+      },
+    });
     Object.defineProperty(ttyWebSocket, 'onData', {
       value: (callback: (data: string) => void) => {
         onDataCallbacks.push(callback);
@@ -57,8 +65,8 @@ describe('ColabPseudoterminal', () => {
     });
 
     it('handleInput calls ttyWebSocket.send', () => {
-      // Simulate connection by firing data
-      onDataCallbacks.forEach((cb) => cb('connected'));
+      // Simulate connection by firing onOpen
+      onOpenCallbacks.forEach((cb) => cb());
 
       const testInput = 'ls -la\n';
       pty.handleInput(testInput);
@@ -68,7 +76,7 @@ describe('ColabPseudoterminal', () => {
 
     it('setDimensions calls ttyWebSocket.sendResize', () => {
       // Simulate connection
-      onDataCallbacks.forEach((cb) => cb('connected'));
+      onOpenCallbacks.forEach((cb) => cb());
 
       const dimensions = { columns: 120, rows: 30 } as vscode.TerminalDimensions;
       pty.setDimensions(dimensions);
@@ -98,6 +106,9 @@ describe('ColabPseudoterminal', () => {
     it('open() sends initial dimensions if available', () => {
       const dimensions = { columns: 80, rows: 24 } as vscode.TerminalDimensions;
       pty.open(dimensions);
+
+      // Simulate successful connection
+      onOpenCallbacks.forEach((cb) => cb());
 
       sinon.assert.calledOnce(ttyWebSocket.connect);
       sinon.assert.calledWith(ttyWebSocket.sendResize, 80, 24);
