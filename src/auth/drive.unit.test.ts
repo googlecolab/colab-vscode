@@ -24,7 +24,7 @@ describe('handleDriveFsAuth', () => {
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
 
-    colabClientStub.propagateDriveCredentials
+    colabClientStub.propagateCredentials
       .withArgs(testServer.endpoint, {
         dryRun: false,
         authType: 'dfs_ephemeral',
@@ -41,10 +41,11 @@ describe('handleDriveFsAuth', () => {
 
   it('throws an error if credentials propagation dry run failed', async () => {
     const errMsg = 'Credentials propagation dry run failed';
-    colabClientStub.propagateDriveCredentials
+    const authType = 'dfs_ephemeral';
+    colabClientStub.propagateCredentials
       .withArgs(testServer.endpoint, {
         dryRun: true,
-        authType: 'dfs_ephemeral',
+        authType,
       })
       .rejects(new Error(errMsg));
 
@@ -52,16 +53,18 @@ describe('handleDriveFsAuth', () => {
       vsCodeStub.asVsCode(),
       colabClientStub,
       testServer,
+      authType,
     );
 
     await expect(promise).to.be.rejectedWith(errMsg);
   });
 
   it('throws an error if credentials propagation dry run returned unexpected results', async () => {
-    colabClientStub.propagateDriveCredentials
+    const authType = 'dfs_ephemeral';
+    colabClientStub.propagateCredentials
       .withArgs(testServer.endpoint, {
         dryRun: true,
-        authType: 'dfs_ephemeral',
+        authType,
       })
       .resolves({
         success: false,
@@ -72,6 +75,7 @@ describe('handleDriveFsAuth', () => {
       vsCodeStub.asVsCode(),
       colabClientStub,
       testServer,
+      authType,
     );
 
     await expect(promise).to.be.rejectedWith(
@@ -83,7 +87,7 @@ describe('handleDriveFsAuth', () => {
     const testUnauthorizedRedirectUri = 'http://test-oauth-uri';
 
     beforeEach(() => {
-      colabClientStub.propagateDriveCredentials
+      colabClientStub.propagateCredentials
         .withArgs(testServer.endpoint, {
           dryRun: true,
           authType: 'dfs_ephemeral',
@@ -95,10 +99,12 @@ describe('handleDriveFsAuth', () => {
     });
 
     it('shows consent prompt and throws an error if user not consented', async () => {
+      const authType = 'dfs_ephemeral';
       const promise = handleDriveFsAuth(
         vsCodeStub.asVsCode(),
         colabClientStub,
         testServer,
+        authType,
       );
 
       await expect(promise).to.be.rejectedWith(
@@ -112,11 +118,11 @@ describe('handleDriveFsAuth', () => {
       );
       sinon.assert.notCalled(vsCodeStub.env.openExternal);
       sinon.assert.neverCalledWith(
-        colabClientStub.propagateDriveCredentials,
+        colabClientStub.propagateCredentials,
         testServer.endpoint,
         {
           dryRun: false,
-          authType: 'dfs_ephemeral',
+          authType,
         },
       );
     });
@@ -133,6 +139,7 @@ describe('handleDriveFsAuth', () => {
       });
 
       it('opens unauthorized redirect URI, shows "continue" dialog, and propagates credentials if user continued', async () => {
+        const authType = 'dfs_ephemeral';
         (vsCodeStub.window.showInformationMessage as sinon.SinonStub)
           .withArgs(
             sinon.match('Please complete the authorization in your browser'),
@@ -143,6 +150,7 @@ describe('handleDriveFsAuth', () => {
           vsCodeStub.asVsCode(),
           colabClientStub,
           testServer,
+          authType,
         );
 
         sinon.assert.calledOnceWithMatch(
@@ -152,31 +160,34 @@ describe('handleDriveFsAuth', () => {
           }),
         );
         sinon.assert.calledWithExactly(
-          colabClientStub.propagateDriveCredentials,
+          colabClientStub.propagateCredentials,
           testServer.endpoint,
           {
             dryRun: false,
-            authType: 'dfs_ephemeral',
+            authType,
           },
         );
       });
 
       it('throws an error if user not continued', async () => {
+        const authType = 'dfs_ephemeral';
+
         const promise = handleDriveFsAuth(
           vsCodeStub.asVsCode(),
           colabClientStub,
           testServer,
+          authType,
         );
 
         await expect(promise).to.be.rejectedWith(
           'User cancelled Google Drive authorization',
         );
         sinon.assert.neverCalledWith(
-          colabClientStub.propagateDriveCredentials,
+          colabClientStub.propagateCredentials,
           testServer.endpoint,
           {
             dryRun: false,
-            authType: 'dfs_ephemeral',
+            authType,
           },
         );
       });
@@ -185,7 +196,7 @@ describe('handleDriveFsAuth', () => {
 
   describe('with existing authorization', () => {
     beforeEach(() => {
-      colabClientStub.propagateDriveCredentials
+      colabClientStub.propagateCredentials
         .withArgs(testServer.endpoint, {
           dryRun: true,
           authType: 'dfs_ephemeral',
@@ -197,30 +208,34 @@ describe('handleDriveFsAuth', () => {
     });
 
     it('skips prompt and propagates credentials', async () => {
+      const authType = 'dfs_ephemeral';
+
       await handleDriveFsAuth(
         vsCodeStub.asVsCode(),
         colabClientStub,
         testServer,
+        authType,
       );
 
       sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
       sinon.assert.notCalled(vsCodeStub.env.openExternal);
       sinon.assert.calledWithExactly(
-        colabClientStub.propagateDriveCredentials,
+        colabClientStub.propagateCredentials,
         testServer.endpoint,
         {
           dryRun: false,
-          authType: 'dfs_ephemeral',
+          authType,
         },
       );
     });
 
     it('throws an error if credentials propagation API failed', async () => {
       const errMsg = 'Credentials propagation failed';
-      colabClientStub.propagateDriveCredentials
+      const authType = 'dfs_ephemeral';
+      colabClientStub.propagateCredentials
         .withArgs(testServer.endpoint, {
           dryRun: false,
-          authType: 'dfs_ephemeral',
+          authType,
         })
         .rejects(new Error(errMsg));
 
@@ -228,16 +243,18 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         colabClientStub,
         testServer,
+        authType,
       );
 
       await expect(promise).to.be.rejectedWith(errMsg);
     });
 
     it('throws an error if credentials propagation returns unsuccessful', async () => {
-      colabClientStub.propagateDriveCredentials
+      const authType = 'dfs_ephemeral';
+      colabClientStub.propagateCredentials
         .withArgs(testServer.endpoint, {
           dryRun: false,
-          authType: 'dfs_ephemeral',
+          authType,
         })
         .resolves({
           success: false,
@@ -248,6 +265,7 @@ describe('handleDriveFsAuth', () => {
         vsCodeStub.asVsCode(),
         colabClientStub,
         testServer,
+        authType,
       );
 
       await expect(promise).to.be.rejectedWith(

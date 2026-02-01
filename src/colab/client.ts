@@ -278,7 +278,7 @@ export class ColabClient {
   }
 
   /**
-   * Propagates Drive credentials to the backend.
+   * Propagates credentials to the backend.
    *
    * @param endpoint - The assignment endpoint to propagate credentials to.
    * @param params - Parameters for credentials propagation API.
@@ -286,10 +286,10 @@ export class ColabClient {
    * @returns Whether propagation is successful. If not, an OAuth redirect URL
    *   is returned to obtain the credentials.
    */
-  async propagateDriveCredentials(
+  async propagateCredentials(
     endpoint: string,
     params: {
-      authType: 'dfs_ephemeral';
+      authType: 'dfs_ephemeral' | 'auth_user_ephemeral';
       // If true, check if credentials are already propagated to the backend
       // and/or obtain an OAuth redirect URL.
       dryRun: boolean;

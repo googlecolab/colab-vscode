@@ -78,7 +78,12 @@ export function colabProxyWebSocket(
 
             if (isColabAuthEphemeralRequest(message)) {
               log.trace('Colab request message received:', message);
-              handleDriveFsAuthFn(vs, client, server)
+              handleDriveFsAuthFn(
+                vs,
+                client,
+                server,
+                message.content.request.authType,
+              )
                 .then(() => {
                   this.sendInputReply(message.metadata.colab_msg_id);
                 })
@@ -211,7 +216,7 @@ function isColabAuthEphemeralRequest(
 interface ColabAuthEphemeralRequestMessage {
   header: { msg_type: 'colab_request' };
   content: {
-    request: { authType: 'dfs_ephemeral' };
+    request: { authType: 'dfs_ephemeral' | 'auth_user_ephemeral' };
   };
   metadata: {
     colab_request_type: 'request_auth';
@@ -231,7 +236,7 @@ const ColabAuthEphemeralRequestSchema = z.object({
   }),
   content: z.object({
     request: z.object({
-      authType: z.literal('dfs_ephemeral'),
+      authType: z.literal(['dfs_ephemeral', 'auth_user_ephemeral']),
     }),
   }),
   metadata: z.object({

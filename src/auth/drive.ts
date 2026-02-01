@@ -24,17 +24,18 @@ export async function handleDriveFsAuth(
   vs: typeof vscode,
   client: ColabClient,
   server: ColabAssignedServer,
+  authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
 ): Promise<void> {
   // Dry run to check if authorization is needed.
-  const dryRunResult = await client.propagateDriveCredentials(server.endpoint, {
-    authType: 'dfs_ephemeral',
+  const dryRunResult = await client.propagateCredentials(server.endpoint, {
+    authType,
     dryRun: true,
   });
   log.trace('Drive credentials propagation dry run:', dryRunResult);
 
   if (dryRunResult.success) {
     // Already authorized; propagate credentials directly.
-    await propagateCredentials(client, server.endpoint);
+    await propagateCredentials(client, server.endpoint, authType);
   } else if (dryRunResult.unauthorizedRedirectUri) {
     // Need to obtain user consent and then propagate credentials.
     const userConsentObtained = await obtainUserAuthConsent(
@@ -45,7 +46,7 @@ export async function handleDriveFsAuth(
     if (!userConsentObtained) {
       throw new Error('User cancelled Google Drive authorization');
     }
-    await propagateCredentials(client, server.endpoint);
+    await propagateCredentials(client, server.endpoint, authType);
   } else {
     // Not already authorized and no auth consent URL returned. This
     // technically shouldn't happen, but just in case.
@@ -89,9 +90,10 @@ async function obtainUserAuthConsent(
 async function propagateCredentials(
   client: ColabClient,
   endpoint: string,
+  authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
 ): Promise<void> {
-  const propagationResult = await client.propagateDriveCredentials(endpoint, {
-    authType: 'dfs_ephemeral',
+  const propagationResult = await client.propagateCredentials(endpoint, {
+    authType,
     dryRun: false,
   });
   log.trace('Drive credentials propagation:', propagationResult);
