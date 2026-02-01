@@ -166,6 +166,11 @@
       {
         "command": "colab.deleteFile",
         "title": "Delete"
+      },
+      {
+        "command": "colab.refreshServersView",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "icons": {
@@ -224,6 +229,13 @@
           "command": "colab.upload",
           "group": "5b_importexport@30",
           "when": "resourceScheme == file && config.colab.uploading"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "colab.refreshServersView",
+          "when": "view == colab-servers-view",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
