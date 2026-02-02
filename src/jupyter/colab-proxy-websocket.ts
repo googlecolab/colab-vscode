@@ -7,7 +7,7 @@
 import assert from 'assert';
 import { KernelMessage } from '@jupyterlab/services';
 import { v4 as uuid } from 'uuid';
-import vscode, { Disposable, ConfigurationChangeEvent } from 'vscode';
+import vscode, { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
 import { handleDriveFsAuth } from '../auth/drive';
@@ -50,9 +50,7 @@ export function colabProxyWebSocket(
   };
 
   return class ColabWebSocket extends BaseWebSocket implements Disposable {
-    private driveMountingEnabled: boolean;
     private disposed = false;
-    private disposables: Disposable[] = [];
     private clientSessionId?: string;
 
     constructor(
@@ -66,29 +64,10 @@ export function colabProxyWebSocket(
         super(address, protocols, addColabHeaders(options));
       }
 
-      this.driveMountingEnabled = vs.workspace
-        .getConfiguration('colab')
-        .get<boolean>('driveMounting', false);
-      const configListener = vs.workspace.onDidChangeConfiguration(
-        (e: ConfigurationChangeEvent) => {
-          if (!e.affectsConfiguration('colab.driveMounting')) {
-            return;
-          }
-          this.driveMountingEnabled = vs.workspace
-            .getConfiguration('colab')
-            .get<boolean>('driveMounting', false);
-        },
-      );
-      this.disposables.push(configListener);
-
       this.addListener(
         'message',
         (data: WebSocket.RawData, isBinary: boolean) => {
-          if (
-            !isBinary &&
-            typeof data === 'string' &&
-            this.driveMountingEnabled
-          ) {
+          if (!isBinary && typeof data === 'string') {
             let message: unknown;
             try {
               message = JSON.parse(data) as unknown;
@@ -118,10 +97,6 @@ export function colabProxyWebSocket(
         return;
       }
       this.disposed = true;
-      for (const d of this.disposables) {
-        d.dispose();
-      }
-      this.disposables = [];
       this.removeAllListeners('message');
     }
 
@@ -132,19 +107,12 @@ export function colabProxyWebSocket(
     ) {
       this.guardDisposed();
 
-      if (
-        typeof data === 'string' &&
-        (!this.clientSessionId || !this.driveMountingEnabled)
-      ) {
+      if (typeof data === 'string' && !this.clientSessionId) {
         try {
           const message = JSON.parse(data) as unknown;
           if (isJupyterKernelMessage(message)) {
             // Capture client session ID from Jupyter message for later use
             this.clientSessionId ??= message.header.session;
-
-            if (!this.driveMountingEnabled) {
-              this.warnOnDriveMount(message);
-            }
           }
         } catch (e: unknown) {
           log.warn('Failed to parse sent Jupyter message to JSON:', e);
@@ -156,34 +124,6 @@ export function colabProxyWebSocket(
         options = {};
       }
       super.send(data, options, cb);
-    }
-
-    /**
-     * Displays a warning notification message in VS Code if `rawJupyterMessage`
-     * is an execute request containing `drive.mount()`.
-     */
-    private warnOnDriveMount(message: KernelMessage.IMessage): void {
-      if (
-        isExecuteRequest(message) &&
-        DRIVE_MOUNT_PATTERN.exec(message.content.code)
-      ) {
-        vs.window
-          .showWarningMessage(
-            `drive.mount is not currently supported in the extension. We're working on it! See the [wiki](${DRIVE_MOUNT_WIKI_LINK}) for workarounds and track this [issue](${DRIVE_MOUNT_ISSUE_LINK}) for progress.`,
-            DriveMountUnsupportedAction.VIEW_WORKAROUND,
-            DriveMountUnsupportedAction.VIEW_ISSUE,
-          )
-          .then((selectedAction) => {
-            switch (selectedAction) {
-              case DriveMountUnsupportedAction.VIEW_WORKAROUND:
-                vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_WIKI_LINK));
-                break;
-              case DriveMountUnsupportedAction.VIEW_ISSUE:
-                vs.env.openExternal(vs.Uri.parse(DRIVE_MOUNT_ISSUE_LINK));
-                break;
-            }
-          });
-      }
     }
 
     private sendInputReply(requestMessageId: number, err?: unknown) {
@@ -262,12 +202,6 @@ function isJupyterKernelMessage(
   return JupyterKernelMessageSchema.safeParse(message).success;
 }
 
-function isExecuteRequest(
-  message: unknown,
-): message is KernelMessage.IExecuteRequestMsg {
-  return ExecuteRequestSchema.safeParse(message).success;
-}
-
 function isColabAuthEphemeralRequest(
   message: unknown,
 ): message is ColabAuthEphemeralRequestMessage {
@@ -287,17 +221,7 @@ interface ColabAuthEphemeralRequestMessage {
 
 const JupyterKernelMessageSchema = z.object({
   header: z.object({
-    msg_type: z.string(),
     session: z.string(),
-  }),
-});
-
-const ExecuteRequestSchema = z.object({
-  header: z.object({
-    msg_type: z.literal('execute_request'),
-  }),
-  content: z.object({
-    code: z.string(),
   }),
 });
 
@@ -315,14 +239,3 @@ const ColabAuthEphemeralRequestSchema = z.object({
     colab_msg_id: z.number(),
   }),
 });
-
-const DRIVE_MOUNT_PATTERN = /drive\.mount\(.+\)/;
-const DRIVE_MOUNT_ISSUE_LINK =
-  'https://github.com/googlecolab/colab-vscode/issues/256';
-const DRIVE_MOUNT_WIKI_LINK =
-  'https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount';
-
-enum DriveMountUnsupportedAction {
-  VIEW_ISSUE = 'GitHub Issue',
-  VIEW_WORKAROUND = 'Workaround',
-}

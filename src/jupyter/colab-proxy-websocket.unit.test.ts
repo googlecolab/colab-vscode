@@ -7,21 +7,15 @@
 import { ClientRequestArgs } from 'http';
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
-import {
-  Uri,
-  WorkspaceConfiguration,
-  ConfigurationChangeEvent,
-  Disposable,
-} from 'vscode';
+import { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { handleDriveFsAuth } from '../auth/drive';
 import { ColabClient } from '../colab/client';
-import { TestEventEmitter } from '../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
   colabProxyWebSocket,
   ColabInputReplyMessage,
-} from './colab-proxy-web-socket';
+} from './colab-proxy-websocket';
 import { ColabAssignedServer } from './servers';
 
 describe('colabProxyWebSocket', () => {
@@ -31,24 +25,13 @@ describe('colabProxyWebSocket', () => {
     },
   } as ColabAssignedServer;
   let vsCodeStub: VsCodeStub;
-  let configChangeEmitter: TestEventEmitter<ConfigurationChangeEvent>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let handleDriveFsAuthStub: sinon.SinonStubbedFunction<
     typeof handleDriveFsAuth
   >;
 
   beforeEach(() => {
-    configChangeEmitter = new TestEventEmitter<ConfigurationChangeEvent>();
     vsCodeStub = newVsCodeStub();
-    vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
-      get: sinon
-        .stub<[string], boolean>()
-        .withArgs('driveMounting')
-        .returns(false),
-    } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
-    vsCodeStub.workspace.onDidChangeConfiguration.callsFake(
-      configChangeEmitter.event,
-    );
     colabClientStub = sinon.createStubInstance(ColabClient);
     handleDriveFsAuthStub = sinon.stub();
   });
@@ -85,13 +68,6 @@ describe('colabProxyWebSocket', () => {
   });
 
   describe('send', () => {
-    const rawDriveMountMessage = JSON.stringify({
-      header: {
-        msg_type: 'execute_request',
-        session: 'test-client-session-id',
-      },
-      content: { code: 'drive.mount("/content/drive")' },
-    });
     let testWebSocket: TestWebSocket;
 
     beforeEach(() => {
@@ -104,143 +80,51 @@ describe('colabProxyWebSocket', () => {
       testWebSocket = new wsc('ws://example.com/socket');
     });
 
-    it('shows warning notification when drive.mount() is executed', async () => {
-      const warningShown = new Promise<void>((resolve) => {
-        (vsCodeStub.window.showWarningMessage as sinon.SinonStub).callsFake(
-          (message: string) => {
-            expect(message).to.match(/drive.mount is not currently supported/);
-            resolve();
-            return Promise.resolve(undefined);
+    it('sets client session ID on first call', () => {
+      // Disabling lint to assert private clientSessionId property
+      // eslint-disable-next-line
+      expect((testWebSocket as any).clientSessionId).to.be.undefined;
+      const sessionId = 'test-client-session-id';
+
+      testWebSocket.send(
+        JSON.stringify({
+          header: {
+            session: sessionId,
           },
-        );
-      });
-
-      testWebSocket.send(rawDriveMountMessage);
-
-      await expect(warningShown).to.eventually.be.fulfilled;
-    });
-
-    it('presents an action to view workaround when drive.mount() is executed', async () => {
-      const warningShown = new Promise<void>((resolve) => {
-        (vsCodeStub.window.showWarningMessage as sinon.SinonStub).callsFake(
-          () => {
-            resolve();
-            return Promise.resolve('Workaround');
-          },
-        );
-      });
-
-      testWebSocket.send(rawDriveMountMessage);
-
-      await expect(warningShown).to.eventually.be.fulfilled;
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.env.openExternal,
-        sinon.match(function (url: Uri) {
-          return (
-            url.toString() ===
-            'https://github.com/googlecolab/colab-vscode/wiki/Known-Issues-and-Workarounds#drivemount'
-          );
         }),
       );
+
+      // Disabling lint to assert private clientSessionId property
+      // eslint-disable-next-line
+      expect((testWebSocket as any).clientSessionId).to.equal(sessionId);
     });
 
-    it('presents an action to view issue when drive.mount() is executed', async () => {
-      const warningShown = new Promise<void>((resolve) => {
-        (vsCodeStub.window.showWarningMessage as sinon.SinonStub).callsFake(
-          () => {
-            resolve();
-            return Promise.resolve('GitHub Issue');
+    it('does not change client session ID on subsequent calls', () => {
+      const sessionId = 'test-client-session-id';
+      testWebSocket.send(
+        JSON.stringify({
+          header: {
+            session: sessionId,
           },
-        );
-      });
-
-      testWebSocket.send(rawDriveMountMessage);
-
-      await expect(warningShown).to.eventually.be.fulfilled;
-      sinon.assert.calledOnceWithMatch(
-        vsCodeStub.env.openExternal,
-        sinon.match(function (url: Uri) {
-          return (
-            url.toString() ===
-            'https://github.com/googlecolab/colab-vscode/issues/256'
-          );
         }),
       );
-    });
+      // Disabling lint to assert private clientSessionId property
+      // eslint-disable-next-line
+      expect((testWebSocket as any).clientSessionId).to.equal(sessionId);
 
-    it('does not show warning notification if not an execute_request', async () => {
-      const rawJupyterMessage = JSON.stringify({
-        header: { msg_type: 'kernel_info_request' },
-      });
+      // Makes a second send call
+      testWebSocket.send(
+        JSON.stringify({
+          header: {
+            session: 'a-different-session-id',
+          },
+        }),
+      );
 
-      testWebSocket.send(rawJupyterMessage);
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
-    });
-
-    it('does not show warning notification if not executing drive.mount()', async () => {
-      const rawJupyterMessage = JSON.stringify({
-        header: { msg_type: 'execute_request' },
-        content: { code: 'print("Hello World!")' },
-      });
-
-      testWebSocket.send(rawJupyterMessage);
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
-    });
-
-    it('does not show warning notification if message is empty', async () => {
-      testWebSocket.send('');
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
-    });
-
-    it('does not show warning notification if message is not Jupyter message format', async () => {
-      const rawNonJupyterMessage = JSON.stringify({
-        random_field: 'random_value',
-      });
-
-      testWebSocket.send(rawNonJupyterMessage);
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
-    });
-
-    it('does not show warning notification if message is malformed', async () => {
-      const malformedMessage = 'non-json-format';
-
-      testWebSocket.send(malformedMessage);
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
-    });
-
-    it('does not show warning notification if data is ArrayBuffer', async () => {
-      testWebSocket.send(new ArrayBuffer(16));
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
-    });
-
-    it('does not show warning notification if driveMounting is enabled', async () => {
-      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
-        get: sinon
-          .stub<[string], boolean>()
-          .withArgs('driveMounting')
-          .returns(true),
-      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
-      configChangeEmitter.fire({
-        affectsConfiguration: (section: string) =>
-          section === 'colab.driveMounting',
-      } as ConfigurationChangeEvent);
-
-      testWebSocket.send(rawDriveMountMessage);
-      await flush();
-
-      sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
+      // Client session ID remains the same.
+      // Disabling lint to assert private clientSessionId property
+      // eslint-disable-next-line
+      expect((testWebSocket as any).clientSessionId).to.equal(sessionId);
     });
   });
 
@@ -259,13 +143,6 @@ describe('colabProxyWebSocket', () => {
     let testWebSocket: TestWebSocket;
 
     beforeEach(() => {
-      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
-        get: sinon
-          .stub<[string], boolean>()
-          .withArgs('driveMounting')
-          .returns(true),
-      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
-
       const wsc = colabProxyWebSocket(
         vsCodeStub.asVsCode(),
         colabClientStub,
@@ -278,7 +155,6 @@ describe('colabProxyWebSocket', () => {
       testWebSocket.send(
         JSON.stringify({
           header: {
-            msg_type: 'dummy',
             session: 'test-session-id',
           },
         }),
@@ -398,27 +274,6 @@ describe('colabProxyWebSocket', () => {
 
       sinon.assert.notCalled(handleDriveFsAuthStub);
     });
-
-    it('does not trigger handleDriveFsAuth if driveMounting is disabled', () => {
-      vsCodeStub.workspace.getConfiguration.withArgs('colab').returns({
-        get: sinon
-          .stub<[string], boolean>()
-          .withArgs('driveMounting')
-          .returns(false),
-      } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
-      configChangeEmitter.fire({
-        affectsConfiguration: (section: string) =>
-          section === 'colab.driveMounting',
-      } as ConfigurationChangeEvent);
-
-      testWebSocket.emit(
-        'message',
-        rawColabRequestMessage,
-        /* isBinary= */ false,
-      );
-
-      sinon.assert.notCalled(handleDriveFsAuthStub);
-    });
   });
 
   describe('dispose', () => {
@@ -431,14 +286,6 @@ describe('colabProxyWebSocket', () => {
         TestWebSocket,
       );
       testWebSocket = new wsc('ws://example.com/socket');
-    });
-
-    it('disposes the config change listener', () => {
-      expect(configChangeEmitter.hasListeners()).to.be.true;
-
-      testWebSocket.dispose();
-
-      expect(configChangeEmitter.hasListeners()).to.be.false;
     });
 
     it('removes the message event listener', () => {
@@ -490,10 +337,6 @@ describe('colabProxyWebSocket', () => {
     });
   }
 });
-
-async function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 function isColabInputReplyMessage(
   message: unknown,
