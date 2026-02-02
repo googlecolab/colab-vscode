@@ -161,7 +161,7 @@ async function buildUploadPlan(
     }
   };
 
-  const serverRootUri = buildColabFileUri(vs, selectedServer);
+  const serverRootUri = buildColabFileUri(vs, selectedServer, 'content');
   for (const inputUri of inputs) {
     const itemName = inputUri.path.split('/').pop();
     if (!itemName) {
