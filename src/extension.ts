@@ -147,7 +147,7 @@ export async function activate(context: vscode.ExtensionContext) {
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
-    ...registerCommands(authProvider, assignmentManager, fs),
+    ...registerCommands(authProvider, assignmentManager, serverTreeView, fs),
   );
 }
 
@@ -185,6 +185,7 @@ function watchConsumption(colab: ColabClient): {
 function registerCommands(
   authProvider: GoogleAuthProvider,
   assignmentManager: AssignmentManager,
+  serverTreeProvider: ServerTreeProvider,
   fs: ContentsFileSystemProvider,
 ): Disposable[] {
   return [
@@ -221,6 +222,9 @@ drive.mount('/content/drive')`,
     ),
     vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
+    }),
+    vscode.commands.registerCommand('colab.refreshServersView', () => {
+      serverTreeProvider.refresh();
     }),
     vscode.commands.registerCommand(
       'colab.newFile',
