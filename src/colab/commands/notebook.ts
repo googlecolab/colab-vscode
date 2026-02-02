@@ -110,18 +110,6 @@ async function getAvailableCommands(
   const serverCommands: NotebookCommand[] = [];
   const colabConfigs = vs.workspace.getConfiguration('colab');
 
-  const includeMountDrive = colabConfigs.get<boolean>('driveMounting', false);
-  if (includeMountDrive) {
-    serverCommands.push({
-      label: MOUNT_DRIVE.label,
-      iconPath: commandThemeIcon(vs, MOUNT_DRIVE),
-      description: MOUNT_DRIVE.description,
-      invoke: () => {
-        return vs.commands.executeCommand(MOUNT_DRIVE.id);
-      },
-    });
-  }
-
   const includeMountServer = colabConfigs.get<boolean>('serverMounting', false);
   if (includeMountServer) {
     serverCommands.push({
@@ -150,6 +138,14 @@ async function getAvailableCommands(
       },
     },
   );
+  serverCommands.push({
+    label: MOUNT_DRIVE.label,
+    iconPath: commandThemeIcon(vs, MOUNT_DRIVE),
+    description: MOUNT_DRIVE.description,
+    invoke: () => {
+      return vs.commands.executeCommand(MOUNT_DRIVE.id);
+    },
+  });
 
   const separator: NotebookCommand = {
     label: '',

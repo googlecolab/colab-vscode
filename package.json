@@ -90,14 +90,6 @@
           "tags": [
             "experimental"
           ]
-        },
-        "colab.driveMounting": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enables the ability to mount Google Drive to Colab server filesystems.",
-          "tags": [
-            "experimental"
-          ]
         }
       }
     },
@@ -112,7 +104,6 @@
         "category": "Colab",
         "command": "colab.mountDrive",
         "enablement": "colab.hasAssignedServer",
-        "when": "config.colab.driveMounting",
         "title": "Mount Google Drive to Server..."
       },
       {

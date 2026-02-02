@@ -37,7 +37,7 @@ import {
 } from '../colab/headers';
 import { log } from '../common/logging';
 import { ProxiedJupyterClient } from './client';
-import { colabProxyWebSocket } from './colab-proxy-web-socket';
+import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
   AllServers,
   ColabAssignedServer,
