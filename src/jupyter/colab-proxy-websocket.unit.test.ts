@@ -80,10 +80,14 @@ describe('colabProxyWebSocket', () => {
       testWebSocket = new wsc('ws://example.com/socket');
     });
 
+    interface TestWebSocketWithClientSessionId extends TestWebSocket {
+      clientSessionId?: string;
+    }
+
     it('sets client session ID on first call', () => {
-      // Disabling lint to assert private clientSessionId property
-      // eslint-disable-next-line
-      expect((testWebSocket as any).clientSessionId).to.be.undefined;
+      const testWebSocketWithClientSessionId =
+        testWebSocket as TestWebSocketWithClientSessionId;
+      expect(testWebSocketWithClientSessionId.clientSessionId).to.be.undefined;
       const sessionId = 'test-client-session-id';
 
       testWebSocket.send(
@@ -94,12 +98,14 @@ describe('colabProxyWebSocket', () => {
         }),
       );
 
-      // Disabling lint to assert private clientSessionId property
-      // eslint-disable-next-line
-      expect((testWebSocket as any).clientSessionId).to.equal(sessionId);
+      expect(testWebSocketWithClientSessionId.clientSessionId).to.equal(
+        sessionId,
+      );
     });
 
     it('does not change client session ID on subsequent calls', () => {
+      const testWebSocketWithClientSessionId =
+        testWebSocket as TestWebSocketWithClientSessionId;
       const sessionId = 'test-client-session-id';
       testWebSocket.send(
         JSON.stringify({
@@ -108,9 +114,9 @@ describe('colabProxyWebSocket', () => {
           },
         }),
       );
-      // Disabling lint to assert private clientSessionId property
-      // eslint-disable-next-line
-      expect((testWebSocket as any).clientSessionId).to.equal(sessionId);
+      expect(testWebSocketWithClientSessionId.clientSessionId).to.equal(
+        sessionId,
+      );
 
       // Makes a second send call
       testWebSocket.send(
@@ -122,9 +128,9 @@ describe('colabProxyWebSocket', () => {
       );
 
       // Client session ID remains the same.
-      // Disabling lint to assert private clientSessionId property
-      // eslint-disable-next-line
-      expect((testWebSocket as any).clientSessionId).to.equal(sessionId);
+      expect(testWebSocketWithClientSessionId.clientSessionId).to.equal(
+        sessionId,
+      );
     });
   });
 

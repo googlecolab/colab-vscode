@@ -30,19 +30,15 @@ describe('Notebook', () => {
   describe('notebookToolbar', () => {
     let assignmentManager: SinonStubbedInstance<AssignmentManager>;
     let serverMountingEnabled: boolean;
-    let driveMountingEnabled: boolean;
 
     beforeEach(() => {
       serverMountingEnabled = false;
-      driveMountingEnabled = false;
       assignmentManager = sinon.createStubInstance(AssignmentManager);
       vs.workspace.getConfiguration.withArgs('colab').returns({
         get: sinon.stub<[string], boolean>().callsFake((name: string) => {
           switch (name) {
             case 'serverMounting':
               return serverMountingEnabled;
-            case 'driveMounting':
-              return driveMountingEnabled;
             default:
               return false;
           }
@@ -108,6 +104,7 @@ describe('Notebook', () => {
         vs.window.showQuickPick,
         commandsLabeled([
           REMOVE_SERVER.label,
+          MOUNT_DRIVE.label,
           /* separator */ '',
           OPEN_COLAB_WEB.label,
           UPGRADE_TO_PRO.label,
@@ -131,29 +128,7 @@ describe('Notebook', () => {
         commandsLabeled([
           MOUNT_SERVER.label,
           REMOVE_SERVER.label,
-          /* separator */ '',
-          OPEN_COLAB_WEB.label,
-          UPGRADE_TO_PRO.label,
-        ]),
-      );
-    });
-
-    it('includes drive mounting when there is a server assigned and the setting is enabled', async () => {
-      assignmentManager.hasAssignedServer.resolves(true);
-      driveMountingEnabled = true;
-      vs.window.showQuickPick
-        .onFirstCall()
-        // Arbitrarily select the first command.
-        .callsFake(findCommand(OPEN_COLAB_WEB.label));
-
-      await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
-        .eventually.be.fulfilled;
-
-      sinon.assert.calledOnceWithMatch(
-        vs.window.showQuickPick,
-        commandsLabeled([
           MOUNT_DRIVE.label,
-          REMOVE_SERVER.label,
           /* separator */ '',
           OPEN_COLAB_WEB.label,
           UPGRADE_TO_PRO.label,
@@ -193,7 +168,6 @@ describe('Notebook', () => {
 
     it('mounts Drive', async () => {
       assignmentManager.hasAssignedServer.resolves(true);
-      driveMountingEnabled = true;
       vs.window.showQuickPick.callsFake(findCommand(MOUNT_DRIVE.label));
 
       await expect(notebookToolbar(vs.asVsCode(), assignmentManager)).to
