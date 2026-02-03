@@ -16,18 +16,18 @@ import { ColabAssignedServer } from '../jupyter/servers';
  * If the Colab server is already authorized, this function will skip the
  * consent flow and directly propagate the existing credentials.
  *
- * @param client - Colab API client to invoke the credentials propagation
+ * @param apiClient - Colab API client to invoke the credentials propagation
  * @param server - Colab server information used for credentials propagation
  * @throws Error if authorization is cancelled or credentials propagation fails
  */
 export async function handleEphemeralAuth(
   vs: typeof vscode,
-  client: ColabClient,
+  apiClient: ColabClient,
   server: ColabAssignedServer,
   authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
 ): Promise<void> {
   // Dry run to check if authorization is needed.
-  const dryRunResult = await client.propagateCredentials(server.endpoint, {
+  const dryRunResult = await apiClient.propagateCredentials(server.endpoint, {
     authType,
     dryRun: true,
   });
@@ -35,7 +35,7 @@ export async function handleEphemeralAuth(
 
   if (dryRunResult.success) {
     // Already authorized; propagate credentials directly.
-    await propagateCredentials(client, server.endpoint, authType);
+    await propagateCredentials(apiClient, server.endpoint, authType);
   } else if (dryRunResult.unauthorizedRedirectUri) {
     // Need to obtain user consent and then propagate credentials.
     const userConsentObtained = await obtainUserAuthConsent(
@@ -47,7 +47,7 @@ export async function handleEphemeralAuth(
     if (!userConsentObtained) {
       throw new Error(`User cancelled ${authType} authorization`);
     }
-    await propagateCredentials(client, server.endpoint, authType);
+    await propagateCredentials(apiClient, server.endpoint, authType);
   } else {
     // Not already authorized and no auth consent URL returned. This
     // technically shouldn't happen, but just in case.
@@ -107,11 +107,11 @@ async function obtainUserAuthConsent(
 }
 
 async function propagateCredentials(
-  client: ColabClient,
+  apiClient: ColabClient,
   endpoint: string,
   authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
 ): Promise<void> {
-  const propagationResult = await client.propagateCredentials(endpoint, {
+  const propagationResult = await apiClient.propagateCredentials(endpoint, {
     authType,
     dryRun: false,
   });
