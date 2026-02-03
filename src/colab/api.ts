@@ -83,6 +83,9 @@ export enum Shape {
   // VERYHIGHMEM (2) is deprecated.
 }
 
+/** Colab supported auth types. */
+export type AuthType = 'dfs_ephemeral' | 'auth_user_ephemeral';
+
 /**
  * Normalize the similar but different representations of subscription tiers
  *

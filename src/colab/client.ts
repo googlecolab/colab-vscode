@@ -14,6 +14,7 @@ import { Session } from '../jupyter/client/generated';
 import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
   Assignment,
+  AuthType,
   CcuInfo,
   Variant,
   GetAssignmentResponse,
@@ -289,7 +290,7 @@ export class ColabClient {
   async propagateCredentials(
     endpoint: string,
     params: {
-      authType: 'dfs_ephemeral' | 'auth_user_ephemeral';
+      authType: AuthType;
       // If true, check if credentials are already propagated to the backend
       // and/or obtain an OAuth redirect URL.
       dryRun: boolean;

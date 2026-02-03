@@ -7,6 +7,7 @@
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { Uri } from 'vscode';
+import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
@@ -40,7 +41,7 @@ describe('handleEphemeralAuth', () => {
   });
 
   const tests: {
-    authType: 'dfs_ephemeral' | 'auth_user_ephemeral';
+    authType: AuthType;
     consentMessage: string;
     consentAllowText: string;
   }[] = [

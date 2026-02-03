@@ -11,6 +11,7 @@ import vscode, { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
 import { handleEphemeralAuth } from '../auth/ephemeral';
+import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import {
   COLAB_CLIENT_AGENT_HEADER,
@@ -216,9 +217,7 @@ function isColabAuthEphemeralRequest(
 interface ColabAuthEphemeralRequestMessage {
   header: { msg_type: 'colab_request' };
   content: {
-    request: {
-      authType: 'dfs_ephemeral' | 'auth_user_ephemeral';
-    };
+    request: { authType: AuthType };
   };
   metadata: {
     colab_request_type: 'request_auth';

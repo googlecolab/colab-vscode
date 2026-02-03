@@ -5,6 +5,7 @@
  */
 
 import vscode from 'vscode';
+import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import { log } from '../common/logging';
 import { ColabAssignedServer } from '../jupyter/servers';
@@ -24,7 +25,7 @@ export async function handleEphemeralAuth(
   vs: typeof vscode,
   apiClient: ColabClient,
   server: ColabAssignedServer,
-  authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
+  authType: AuthType,
 ): Promise<void> {
   // Dry run to check if authorization is needed.
   const dryRunResult = await apiClient.propagateCredentials(server.endpoint, {
@@ -59,7 +60,7 @@ export async function handleEphemeralAuth(
 
 async function obtainUserAuthConsent(
   vs: typeof vscode,
-  authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
+  authType: AuthType,
   unauthorizedRedirectUri: string,
   serverLabel: string,
 ): Promise<boolean> {
@@ -109,7 +110,7 @@ async function obtainUserAuthConsent(
 async function propagateCredentials(
   apiClient: ColabClient,
   endpoint: string,
-  authType: 'dfs_ephemeral' | 'auth_user_ephemeral',
+  authType: AuthType,
 ): Promise<void> {
   const propagationResult = await apiClient.propagateCredentials(endpoint, {
     authType,

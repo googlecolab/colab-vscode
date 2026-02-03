@@ -146,7 +146,6 @@ describe('colabProxyWebSocket', () => {
         colab_msg_id: testRequestMessageId,
       },
     };
-    const supportedAuthTypes = ['dfs_ephemeral', 'auth_user_ephemeral'];
     let testWebSocket: TestWebSocket;
 
     beforeEach(() => {
@@ -167,6 +166,8 @@ describe('colabProxyWebSocket', () => {
         }),
       );
     });
+
+    const supportedAuthTypes = ['dfs_ephemeral', 'auth_user_ephemeral'];
 
     supportedAuthTypes.forEach((authType) => {
       it(`triggers handleEphemeralAuth and sends a reply if message is a ${authType} colab_request`, async () => {
