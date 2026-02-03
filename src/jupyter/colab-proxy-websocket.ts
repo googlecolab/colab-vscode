@@ -26,7 +26,7 @@ import { ColabAssignedServer } from './servers';
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
-  client: ColabClient,
+  apiClient: ColabClient,
   server: ColabAssignedServer,
   BaseWebSocket: typeof WebSocket = WebSocket,
   handleEphemeralAuthFn: typeof handleEphemeralAuth = handleEphemeralAuth,
@@ -80,7 +80,7 @@ export function colabProxyWebSocket(
               log.trace('Colab request message received:', message);
               handleEphemeralAuthFn(
                 vs,
-                client,
+                apiClient,
                 server,
                 message.content.request.authType,
               )
