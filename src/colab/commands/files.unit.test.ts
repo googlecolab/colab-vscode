@@ -91,7 +91,7 @@ describe('File Commands', () => {
       sinon.assert.notCalled(vsCodeStub.window.showQuickPick);
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/my-file.txt'),
+        TestUri.parse('colab://m-s-foo/content/my-file.txt'),
         fileContent,
       );
       sinon.assert.calledWith(
@@ -121,7 +121,7 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-bar/my-file.txt'),
+        TestUri.parse('colab://m-s-bar/content/my-file.txt'),
         fileContent,
       );
       sinon.assert.calledWith(
@@ -178,12 +178,12 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/my-file.txt'),
+        TestUri.parse('colab://m-s-foo/content/my-file.txt'),
         content1,
       );
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/other.txt'),
+        TestUri.parse('colab://m-s-foo/content/other.txt'),
         content2,
       );
       sinon.assert.calledWith(progressSpy, {
@@ -234,11 +234,11 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.createDirectory,
-        TestUri.parse('colab://m-s-foo/dir'),
+        TestUri.parse('colab://m-s-foo/content/dir'),
       );
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/dir/sub.txt'),
+        TestUri.parse('colab://m-s-foo/content/dir/sub.txt'),
         subContent,
       );
       sinon.assert.calledWith(
