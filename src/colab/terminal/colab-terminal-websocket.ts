@@ -1,28 +1,40 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { EventEmitter, Disposable } from 'vscode';
+import vscode from 'vscode';
 import WebSocket from 'ws';
+import { log } from '../../common/logging';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../headers';
-import { log } from '../../common/logging';
+
+export interface ColabTerminalWebSocketLike extends vscode.Disposable {
+  readonly onData: vscode.Event<string>;
+  readonly onOpen: vscode.Event<void>;
+  readonly onClose: vscode.Event<void>;
+  readonly onError: vscode.Event<Error>;
+  connect: () => void;
+  send: (data: string) => void;
+  sendResize: (cols: number, rows: number) => void;
+}
 
 /**
- * Message formats for Colab TTY WebSocket protocol.
+ * Message formats for Colab terminal WebSocket protocol.
  */
-interface ColabTtyDataMessage {
+interface ColabTerminalDataMessage {
   data: string;
 }
 
-interface ColabTtyResizeMessage {
+interface ColabTerminalResizeMessage {
   cols: number;
   rows: number;
 }
 
-type ColabTtyMessage = ColabTtyDataMessage | ColabTtyResizeMessage;
+type ColabTerminalMessage =
+  | ColabTerminalDataMessage
+  | ColabTerminalResizeMessage;
 
 /**
  * WebSocket handler for connecting to Colab's TTY endpoint.
@@ -30,51 +42,71 @@ type ColabTtyMessage = ColabTtyDataMessage | ColabTtyResizeMessage;
  * This class manages the WebSocket connection to `/colab/tty` and handles
  * bidirectional communication with the remote terminal session.
  */
-export class ColabTtyWebSocket implements Disposable {
+export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
   private ws?: WebSocket;
   private disposed = false;
   private lastWsUrl?: string;
-  private pendingMessages: ColabTtyMessage[] = [];
+  private pendingMessages: ColabTerminalMessage[] = [];
 
-  private readonly _onData = new EventEmitter<string>();
-  private readonly _onOpen = new EventEmitter<void>();
-  private readonly _onClose = new EventEmitter<void>();
-  private readonly _onError = new EventEmitter<Error>();
+  private readonly onDataEmitter: vscode.EventEmitter<string>;
+  private readonly onOpenEmitter: vscode.EventEmitter<void>;
+  private readonly onCloseEmitter: vscode.EventEmitter<void>;
+  private readonly onErrorEmitter: vscode.EventEmitter<Error>;
 
   /**
    * Fired when data is received from the remote terminal.
    */
-  public readonly onData = this._onData.event;
+  readonly onData: vscode.Event<string>;
 
   /**
    * Fired when the WebSocket connection is established.
    */
-  public readonly onOpen = this._onOpen.event;
+  readonly onOpen: vscode.Event<void>;
 
   /**
    * Fired when the WebSocket connection is closed.
    */
-  public readonly onClose = this._onClose.event;
+  readonly onClose: vscode.Event<void>;
 
   /**
    * Fired when an error occurs.
    */
-  public readonly onError = this._onError.event;
+  readonly onError: vscode.Event<Error>;
 
   constructor(
+    private readonly vs: typeof vscode,
     private readonly server: ColabAssignedServer,
     private readonly WebSocketClass: typeof WebSocket = WebSocket,
-  ) {}
+  ) {
+    this.onDataEmitter = new this.vs.EventEmitter<string>();
+    this.onOpenEmitter = new this.vs.EventEmitter<void>();
+    this.onCloseEmitter = new this.vs.EventEmitter<void>();
+    this.onErrorEmitter = new this.vs.EventEmitter<Error>();
+
+    this.onData = this.onDataEmitter.event;
+    this.onOpen = this.onOpenEmitter.event;
+    this.onClose = this.onCloseEmitter.event;
+    this.onError = this.onErrorEmitter.event;
+  }
+
+  /**
+   * Throws an error if this instance has been disposed.
+   *
+   * @throws Error if disposed
+   */
+  private guardDisposed(): void {
+    if (this.disposed) {
+      throw new Error('ColabTerminalWebSocket is disposed');
+    }
+  }
 
   /**
    * Establishes the WebSocket connection to the Colab TTY endpoint.
    *
    * @throws Error if already connected or disposed
    */
-  public connect(): void {
-    if (this.disposed) {
-      throw new Error('ColabTtyWebSocket is disposed');
-    }
+  connect(): void {
+    this.guardDisposed();
 
     if (this.ws) {
       throw new Error('WebSocket is already connected');
@@ -84,12 +116,12 @@ export class ColabTtyWebSocket implements Disposable {
     const options = this.buildWebSocketOptions();
     this.lastWsUrl = wsUrl;
 
-    log.trace('Connecting to Colab TTY WebSocket:', wsUrl);
+    log.trace('Connecting to Colab terminal WebSocket:', wsUrl);
 
     try {
       this.ws = new this.WebSocketClass(wsUrl, options);
       this.setupWebSocketHandlers();
-    } catch (error) {
+    } catch (error: unknown) {
       log.error('Failed to create WebSocket connection:', error);
       throw error;
     }
@@ -98,33 +130,35 @@ export class ColabTtyWebSocket implements Disposable {
   /**
    * Sends data to the remote terminal.
    *
-   * @param data The string data to send (e.g., user input)
+   * @param data - The string data to send (e.g., user input)
    */
-  public send(data: string): void {
+  send(data: string): void {
     this.guardDisposed();
 
-    const message: ColabTtyDataMessage = { data };
+    const message: ColabTerminalDataMessage = { data };
     this.sendMessage(message);
   }
 
   /**
    * Sends a resize message to update the terminal dimensions.
    *
-   * @param cols Number of columns
-   * @param rows Number of rows
+   * @param cols - Number of columns
+   * @param rows - Number of rows
    */
-  public sendResize(cols: number, rows: number): void {
+  sendResize(cols: number, rows: number): void {
     this.guardDisposed();
 
-    const message: ColabTtyResizeMessage = { cols, rows };
+    const message: ColabTerminalResizeMessage = { cols, rows };
     this.sendMessage(message);
-    log.trace(`Sent terminal resize: ${cols}x${rows}`);
+    log.trace(
+      `Sent terminal resize: ${cols.toString()}x${rows.toString()}`,
+    );
   }
 
   /**
    * Closes the WebSocket connection and cleans up resources.
    */
-  public dispose(): void {
+  dispose(): void {
     if (this.disposed) {
       return;
     }
@@ -143,12 +177,12 @@ export class ColabTtyWebSocket implements Disposable {
       this.ws = undefined;
     }
 
-    this._onData.dispose();
-    this._onOpen.dispose();
-    this._onClose.dispose();
-    this._onError.dispose();
+    this.onDataEmitter.dispose();
+    this.onOpenEmitter.dispose();
+    this.onCloseEmitter.dispose();
+    this.onErrorEmitter.dispose();
 
-    log.trace('ColabTtyWebSocket disposed');
+    log.trace('ColabTerminalWebSocket disposed');
   }
 
   /**
@@ -190,12 +224,12 @@ export class ColabTtyWebSocket implements Disposable {
     }
 
     this.ws.on('open', () => {
-      log.trace('Colab TTY WebSocket connected');
+      log.trace('Colab terminal WebSocket connected');
       if (this.disposed) {
         return;
       }
       this.flushPendingMessages();
-      this._onOpen.fire();
+      this.onOpenEmitter.fire();
     });
 
     this.ws.on('message', (data: WebSocket.RawData) => {
@@ -207,30 +241,32 @@ export class ColabTtyWebSocket implements Disposable {
         const message =
           typeof data === 'string' ? data : (data as Buffer).toString();
         this.handleMessage(message);
-      } catch (error) {
+      } catch (error: unknown) {
         log.error('Error handling WebSocket message:', error);
-        this._onError.fire(
+        this.onErrorEmitter.fire(
           error instanceof Error ? error : new Error(String(error)),
         );
       }
     });
 
     this.ws.on('close', (code: number, reason: Buffer) => {
-      log.trace(`Colab TTY WebSocket closed: ${code} ${reason.toString()}`);
+      log.trace(
+        `Colab terminal WebSocket closed: ${code.toString()} ${reason.toString()}`,
+      );
       if (!this.disposed) {
         this.ws = undefined;
-        this._onClose.fire();
+        this.onCloseEmitter.fire();
       }
     });
 
     this.ws.on('error', (error: Error) => {
       log.error(
-        'Colab TTY WebSocket error:',
+        'Colab terminal WebSocket error:',
         error,
         this.lastWsUrl ? `url=${this.lastWsUrl}` : '',
       );
       if (!this.disposed) {
-        this._onError.fire(error);
+        this.onErrorEmitter.fire(error);
       }
     });
 
@@ -257,16 +293,23 @@ export class ColabTtyWebSocket implements Disposable {
         const body = Buffer.concat(chunks).toString('utf8').trim();
         if (body.length) {
           log.error(
-            `Colab TTY WebSocket unexpected response: ${statusCode.toString()} ${statusMessage} url=${url} body=${body}`,
+            'Colab terminal WebSocket unexpected response:',
+            statusCode.toString(),
+            statusMessage,
+            `url=${url}`,
+            `body=${body}`,
           );
         } else {
           log.error(
-            `Colab TTY WebSocket unexpected response: ${statusCode.toString()} ${statusMessage} url=${url}`,
+            'Colab terminal WebSocket unexpected response:',
+            statusCode.toString(),
+            statusMessage,
+            `url=${url}`,
           );
         }
       });
 
-      this._onError.fire(
+      this.onErrorEmitter.fire(
         new Error(
           `Unexpected server response: ${statusCode.toString()} (${statusMessage})`,
         ),
@@ -283,13 +326,13 @@ export class ColabTtyWebSocket implements Disposable {
     let message: unknown;
     try {
       message = JSON.parse(rawMessage);
-    } catch (error) {
-      log.warn('Received non-JSON message from Colab TTY:', rawMessage);
+    } catch {
+      log.warn('Received non-JSON message from Colab terminal:', rawMessage);
       return;
     }
 
     if (this.isDataMessage(message)) {
-      this._onData.fire(message.data);
+      this.onDataEmitter.fire(message.data);
     } else {
       log.trace('Received unhandled message format:', message);
     }
@@ -298,19 +341,21 @@ export class ColabTtyWebSocket implements Disposable {
   /**
    * Type guard for data messages.
    */
-  private isDataMessage(message: unknown): message is ColabTtyDataMessage {
+  private isDataMessage(
+    message: unknown,
+  ): message is ColabTerminalDataMessage {
     return (
       typeof message === 'object' &&
       message !== null &&
       'data' in message &&
-      typeof (message as ColabTtyDataMessage).data === 'string'
+      typeof (message as ColabTerminalDataMessage).data === 'string'
     );
   }
 
   /**
    * Sends a message through the WebSocket.
    */
-  private sendMessage(message: ColabTtyMessage): void {
+  private sendMessage(message: ColabTerminalMessage): void {
     try {
       const payload = JSON.stringify(message);
       if (!this.ws) {
@@ -326,9 +371,9 @@ export class ColabTtyWebSocket implements Disposable {
         return;
       }
       this.ws.send(payload);
-    } catch (error) {
+    } catch (error: unknown) {
       log.error('Failed to send WebSocket message:', error);
-      this._onError.fire(
+      this.onErrorEmitter.fire(
         error instanceof Error ? error : new Error(String(error)),
       );
     }
@@ -345,15 +390,6 @@ export class ColabTtyWebSocket implements Disposable {
     this.pendingMessages = [];
     for (const message of pending) {
       this.sendMessage(message);
-    }
-  }
-
-  /**
-   * Guards against using a disposed instance.
-   */
-  private guardDisposed(): void {
-    if (this.disposed) {
-      throw new Error('ColabTtyWebSocket is disposed');
     }
   }
 }

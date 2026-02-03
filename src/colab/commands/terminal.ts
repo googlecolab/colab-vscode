@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,8 +8,8 @@ import vscode, { QuickPickItem } from 'vscode';
 import { MultiStepInput } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
-import { ColabTtyWebSocket } from '../terminal/colab-tty-websocket';
 import { ColabPseudoterminal } from '../terminal/colab-pseudoterminal';
+import { ColabTerminalWebSocket } from '../terminal/colab-terminal-websocket';
 import { OPEN_TERMINAL } from './constants';
 
 /**
@@ -69,10 +69,10 @@ function createColabTerminal(
   server: ColabAssignedServer,
 ) {
   // Create the WebSocket connection
-  const ttyWebSocket = new ColabTtyWebSocket(server);
+  const terminalWebSocket = new ColabTerminalWebSocket(vs, server);
 
   // Create the Pseudoterminal bridge
-  const pty = new ColabPseudoterminal(ttyWebSocket);
+  const pty = new ColabPseudoterminal(vs, terminalWebSocket);
 
   // Create the VS Code terminal
   const terminal = vs.window.createTerminal({

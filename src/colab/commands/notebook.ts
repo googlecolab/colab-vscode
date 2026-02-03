@@ -10,6 +10,7 @@ import { AssignmentManager } from '../../jupyter/assignments';
 import {
   MOUNT_DRIVE,
   MOUNT_SERVER,
+  OPEN_TERMINAL,
   OPEN_COLAB_WEB,
   REMOVE_SERVER,
   UPGRADE_TO_PRO,
@@ -119,6 +120,22 @@ async function getAvailableCommands(
       invoke: () => {
         return vs.commands.executeCommand(
           MOUNT_SERVER.id,
+          /* withBackButton= */ true,
+        );
+      },
+    });
+  }
+  const includeTerminal = vs.workspace
+    .getConfiguration('colab')
+    .get<boolean>('terminal', false);
+  if (includeTerminal) {
+    serverCommands.push({
+      label: OPEN_TERMINAL.label,
+      iconPath: commandThemeIcon(vs, OPEN_TERMINAL),
+      description: OPEN_TERMINAL.description,
+      invoke: () => {
+        return vs.commands.executeCommand(
+          OPEN_TERMINAL.id,
           /* withBackButton= */ true,
         );
       },
