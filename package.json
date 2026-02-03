@@ -90,6 +90,14 @@
           "tags": [
             "experimental"
           ]
+        },
+        "colab.terminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables the ability to open a terminal connected to Colab runtimes.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },
@@ -167,6 +175,7 @@
         "category": "Colab",
         "command": "colab.openTerminal",
         "enablement": "colab.hasAssignedServer",
+        "when": "config.colab.terminal",
         "title": "Open Colab Terminal",
         "icon": "$(terminal)"
       }
