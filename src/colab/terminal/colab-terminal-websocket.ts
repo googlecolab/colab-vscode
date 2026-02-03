@@ -4,17 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from 'vscode';
+import vscode, { Event, EventEmitter } from 'vscode';
 import WebSocket from 'ws';
 import { log } from '../../common/logging';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../headers';
 
 export interface ColabTerminalWebSocketLike extends vscode.Disposable {
-  readonly onData: vscode.Event<string>;
-  readonly onOpen: vscode.Event<void>;
-  readonly onClose: vscode.Event<void>;
-  readonly onError: vscode.Event<Error>;
+  readonly onData: Event<string>;
+  readonly onOpen: Event<void>;
+  readonly onClose: Event<void>;
+  readonly onError: Event<Error>;
   connect: () => void;
   send: (data: string) => void;
   sendResize: (cols: number, rows: number) => void;
@@ -48,30 +48,30 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
   private lastWsUrl?: string;
   private pendingMessages: ColabTerminalMessage[] = [];
 
-  private readonly onDataEmitter: vscode.EventEmitter<string>;
-  private readonly onOpenEmitter: vscode.EventEmitter<void>;
-  private readonly onCloseEmitter: vscode.EventEmitter<void>;
-  private readonly onErrorEmitter: vscode.EventEmitter<Error>;
+  private readonly onDataEmitter: EventEmitter<string>;
+  private readonly onOpenEmitter: EventEmitter<void>;
+  private readonly onCloseEmitter: EventEmitter<void>;
+  private readonly onErrorEmitter: EventEmitter<Error>;
 
   /**
    * Fired when data is received from the remote terminal.
    */
-  readonly onData: vscode.Event<string>;
+  readonly onData: Event<string>;
 
   /**
    * Fired when the WebSocket connection is established.
    */
-  readonly onOpen: vscode.Event<void>;
+  readonly onOpen: Event<void>;
 
   /**
    * Fired when the WebSocket connection is closed.
    */
-  readonly onClose: vscode.Event<void>;
+  readonly onClose: Event<void>;
 
   /**
    * Fired when an error occurs.
    */
-  readonly onError: vscode.Event<Error>;
+  readonly onError: Event<Error>;
 
   constructor(
     private readonly vs: typeof vscode,

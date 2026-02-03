@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as vscode from 'vscode';
-import { ColabTtyWebSocket } from './colab-tty-websocket';
+import vscode from 'vscode';
 import { log } from '../../common/logging';
+import { ColabTerminalWebSocketLike } from './colab-terminal-websocket';
 
 /**
  * VS Code Pseudoterminal implementation that bridges the terminal UI
@@ -17,24 +17,33 @@ import { log } from '../../common/logging';
  * a local shell.
  */
 export class ColabPseudoterminal implements vscode.Pseudoterminal {
-  private readonly writeEmitter = new vscode.EventEmitter<string>();
-  public readonly onDidWrite = this.writeEmitter.event;
+  private readonly writeEmitter: vscode.EventEmitter<string>;
+  readonly onDidWrite: vscode.Event<string>;
 
-  private readonly closeEmitter = new vscode.EventEmitter<number | void>();
-  public readonly onDidClose = this.closeEmitter.event;
+  private readonly closeEmitter: vscode.EventEmitter<number>;
+  readonly onDidClose: vscode.Event<number>;
 
   private isOpen = false;
   private isConnected = false;
   private initialDimensions?: vscode.TerminalDimensions;
 
-  constructor(private readonly ttyWebSocket: ColabTtyWebSocket) {}
+  constructor(
+    private readonly vs: typeof vscode,
+    private readonly terminalWebSocket: ColabTerminalWebSocketLike,
+  ) {
+    this.writeEmitter = new this.vs.EventEmitter<string>();
+    this.onDidWrite = this.writeEmitter.event;
+
+    this.closeEmitter = new this.vs.EventEmitter<number>();
+    this.onDidClose = this.closeEmitter.event;
+  }
 
   /**
    * Called when the terminal is opened in VS Code.
    *
    * This establishes the WebSocket connection and sets up event handlers.
    *
-   * @param initialDimensions The initial terminal dimensions, if available
+   * @param initialDimensions - The initial terminal dimensions, if available
    */
   open(initialDimensions: vscode.TerminalDimensions | undefined): void {
     if (this.isOpen) {
@@ -53,15 +62,16 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
       this.setupWebSocketHandlers();
 
       // Establish WebSocket connection
-      this.ttyWebSocket.connect();
-    } catch (error) {
+      this.terminalWebSocket.connect();
+    } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       log.error('Failed to connect to Colab terminal:', error);
       this.writeEmitter.fire(
-        `\r\n\x1b[31mError: Failed to connect to Colab terminal: ${errorMessage}\x1b[0m\r\n`,
+        '\r\n\x1b[31mError: Failed to connect to Colab terminal: ' +
+          `${errorMessage}\x1b[0m\r\n`,
       );
-      this.ttyWebSocket.dispose();
+      this.terminalWebSocket.dispose();
       // Close the terminal on connection failure
       this.closeEmitter.fire(1);
     }
@@ -81,7 +91,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     log.trace('ColabPseudoterminal.close() called');
 
     // Clean up WebSocket connection
-    this.ttyWebSocket.dispose();
+    this.terminalWebSocket.dispose();
 
     // Clean up event emitters
     this.writeEmitter.dispose();
@@ -94,7 +104,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
    * This forwards the input data to the WebSocket to be sent to the
    * remote Colab terminal.
    *
-   * @param data The user input string
+   * @param data - The user input string
    */
   handleInput(data: string): void {
     if (!this.isConnected) {
@@ -103,8 +113,8 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     }
 
     try {
-      this.ttyWebSocket.send(data);
-    } catch (error) {
+      this.terminalWebSocket.send(data);
+    } catch (error: unknown) {
       log.error('Failed to send input to Colab terminal:', error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -120,7 +130,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
    * This sends a resize message to the WebSocket to update the remote
    * terminal's dimensions and prevent display issues.
    *
-   * @param dimensions The new terminal dimensions
+   * @param dimensions - The new terminal dimensions
    */
   setDimensions(dimensions: vscode.TerminalDimensions): void {
     if (!this.isConnected) {
@@ -128,8 +138,8 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     }
 
     try {
-      this.ttyWebSocket.sendResize(dimensions.columns, dimensions.rows);
-    } catch (error) {
+      this.terminalWebSocket.sendResize(dimensions.columns, dimensions.rows);
+    } catch (error: unknown) {
       log.error('Failed to send terminal resize:', error);
     }
   }
@@ -138,7 +148,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
    * Sets up event handlers for WebSocket events.
    */
   private setupWebSocketHandlers(): void {
-    this.ttyWebSocket.onOpen(() => {
+    this.terminalWebSocket.onOpen(() => {
       if (!this.isOpen) {
         return;
       }
@@ -146,7 +156,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
       this.writeEmitter.fire('\r\nConnected to Colab terminal.\r\n\r\n');
 
       if (this.initialDimensions) {
-        this.ttyWebSocket.sendResize(
+        this.terminalWebSocket.sendResize(
           this.initialDimensions.columns,
           this.initialDimensions.rows,
         );
@@ -154,18 +164,19 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     });
 
     // Handle data received from the remote terminal
-    this.ttyWebSocket.onData((data: string) => {
+    this.terminalWebSocket.onData((data: string) => {
       if (!this.isOpen) {
         return;
       }
 
       // Pass through ANSI escape sequences without modification.
-      // The VS Code terminal will interpret them for colors, cursor movement, etc.
+      // The VS Code terminal will interpret them for colors, cursor movement,
+      // etc.
       this.writeEmitter.fire(data);
     });
 
     // Handle WebSocket connection closed
-    this.ttyWebSocket.onClose(() => {
+    this.terminalWebSocket.onClose(() => {
       if (!this.isOpen) {
         return;
       }
@@ -183,7 +194,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     });
 
     // Handle WebSocket errors
-    this.ttyWebSocket.onError((error: Error) => {
+    this.terminalWebSocket.onError((error: Error) => {
       if (!this.isOpen) {
         return;
       }
