@@ -30,10 +30,11 @@ cell](./docs/assets/hello-world.gif)
 
 Activate the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P` on Mac.
 
-| Command                | Description                                |
-| ---------------------- | ------------------------------------------ |
-| `Colab: Remove Server` | Select an assigned Colab server to remove. |
-| `Colab: Sign Out`      | Sign out of Colab.                         |
+| Command                                  | Description                                           |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `Colab: Remove Server`                   | Select an assigned Colab server to remove.            |
+| `Colab: Sign Out`                        | Sign out of Colab.                                    |
+| `Colab: Mount Google Drive to Server...` | Add a code snippet in notebook to mount Google Drive. |
 
 ## Contributing
 
