@@ -10,7 +10,8 @@ import { v4 as uuid } from 'uuid';
 import vscode, { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
-import { handleDriveFsAuth } from '../auth/drive';
+import { handleEphemeralAuth } from '../auth/ephemeral';
+import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import {
   COLAB_CLIENT_AGENT_HEADER,
@@ -26,10 +27,10 @@ import { ColabAssignedServer } from './servers';
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
-  client: ColabClient,
+  apiClient: ColabClient,
   server: ColabAssignedServer,
   BaseWebSocket: typeof WebSocket = WebSocket,
-  handleDriveFsAuthFn: typeof handleDriveFsAuth = handleDriveFsAuth,
+  handleEphemeralAuthFn: typeof handleEphemeralAuth = handleEphemeralAuth,
 ) {
   // These custom headers are required for Colab's proxy WebSocket to work.
   const colabHeaders: Record<string, string> = {};
@@ -78,12 +79,17 @@ export function colabProxyWebSocket(
 
             if (isColabAuthEphemeralRequest(message)) {
               log.trace('Colab request message received:', message);
-              handleDriveFsAuthFn(vs, client, server)
+              handleEphemeralAuthFn(
+                vs,
+                apiClient,
+                server,
+                message.content.request.authType,
+              )
                 .then(() => {
                   this.sendInputReply(message.metadata.colab_msg_id);
                 })
                 .catch((err: unknown) => {
-                  log.error('Failed handling DriveFS auth propagation', err);
+                  log.error('Failed handling ephemeral auth propagation', err);
                   this.sendInputReply(message.metadata.colab_msg_id, err);
                 });
             }
@@ -211,7 +217,7 @@ function isColabAuthEphemeralRequest(
 interface ColabAuthEphemeralRequestMessage {
   header: { msg_type: 'colab_request' };
   content: {
-    request: { authType: 'dfs_ephemeral' };
+    request: { authType: AuthType };
   };
   metadata: {
     colab_request_type: 'request_auth';
@@ -231,7 +237,7 @@ const ColabAuthEphemeralRequestSchema = z.object({
   }),
   content: z.object({
     request: z.object({
-      authType: z.literal('dfs_ephemeral'),
+      authType: z.enum(AuthType),
     }),
   }),
   metadata: z.object({

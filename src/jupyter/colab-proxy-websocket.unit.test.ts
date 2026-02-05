@@ -9,7 +9,8 @@ import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { Disposable } from 'vscode';
 import WebSocket from 'ws';
-import { handleDriveFsAuth } from '../auth/drive';
+import { handleEphemeralAuth } from '../auth/ephemeral';
+import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
@@ -26,14 +27,14 @@ describe('colabProxyWebSocket', () => {
   } as ColabAssignedServer;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
-  let handleDriveFsAuthStub: sinon.SinonStubbedFunction<
-    typeof handleDriveFsAuth
+  let handleEphemeralAuthStub: sinon.SinonStubbedFunction<
+    typeof handleEphemeralAuth
   >;
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
-    handleDriveFsAuthStub = sinon.stub();
+    handleEphemeralAuthStub = sinon.stub();
   });
 
   afterEach(() => {
@@ -136,16 +137,16 @@ describe('colabProxyWebSocket', () => {
 
   describe('message event', () => {
     const testRequestMessageId = 123;
-    const rawColabRequestMessage = JSON.stringify({
+    const rawColabRequestMessage = {
       header: { msg_type: 'colab_request' },
       content: {
-        request: { authType: 'dfs_ephemeral' },
+        request: { authType: AuthType.DFS_EPHEMERAL },
       },
       metadata: {
         colab_request_type: 'request_auth',
         colab_msg_id: testRequestMessageId,
       },
-    });
+    };
     let testWebSocket: TestWebSocket;
 
     beforeEach(() => {
@@ -154,7 +155,7 @@ describe('colabProxyWebSocket', () => {
         colabClientStub,
         testServer,
         TestWebSocket,
-        handleDriveFsAuthStub,
+        handleEphemeralAuthStub,
       );
       testWebSocket = new wsc('ws://example.com/socket');
       // Send a dummy message to set client session ID
@@ -167,39 +168,44 @@ describe('colabProxyWebSocket', () => {
       );
     });
 
-    it('triggers handleDriveFsAuth and sends a reply if message is a dfs_ephemeral colab_request', async () => {
-      const driveFsAuthHandled = new Promise<void>((resolve) => {
-        handleDriveFsAuthStub.callsFake(() => {
-          resolve();
-          return Promise.resolve();
+    Object.values(AuthType).forEach((authType) => {
+      it(`triggers handleEphemeralAuth and sends a reply if message is a ${authType} colab_request`, async () => {
+        const ephemeralAuthHandled = new Promise<void>((resolve) => {
+          handleEphemeralAuthStub.callsFake(() => {
+            resolve();
+            return Promise.resolve();
+          });
         });
+        const sendSpy = sinon.spy(testWebSocket, 'send');
+
+        testWebSocket.emit(
+          'message',
+          JSON.stringify({
+            ...rawColabRequestMessage,
+            content: { request: { authType } },
+          }),
+          /* isBinary= */ false,
+        );
+
+        await expect(ephemeralAuthHandled).to.eventually.be.fulfilled;
+        sinon.assert.calledOnceWithMatch(
+          sendSpy,
+          sinon.match((data: string) => {
+            const message = JSON.parse(data) as unknown;
+            return (
+              isColabInputReplyMessage(message) &&
+              message.content.value.colab_msg_id === testRequestMessageId &&
+              !message.content.value.error
+            );
+          }),
+        );
       });
-      const sendSpy = sinon.spy(testWebSocket, 'send');
-
-      testWebSocket.emit(
-        'message',
-        rawColabRequestMessage,
-        /* isBinary= */ false,
-      );
-
-      await expect(driveFsAuthHandled).to.eventually.be.fulfilled;
-      sinon.assert.calledOnceWithMatch(
-        sendSpy,
-        sinon.match((data: string) => {
-          const message = JSON.parse(data) as unknown;
-          return (
-            isColabInputReplyMessage(message) &&
-            message.content.value.colab_msg_id === testRequestMessageId &&
-            !message.content.value.error
-          );
-        }),
-      );
     });
 
-    it('sends an error reply if handleDriveFsAuth throws an error', async () => {
+    it('sends an error reply if handleEphemeralAuth throws an error', async () => {
       const errMsg = 'test error message';
-      const handleDriveFsAuthFailed = new Promise<void>((resolve) => {
-        handleDriveFsAuthStub.callsFake(() => {
+      const handleEphemeralAuthFailed = new Promise<void>((resolve) => {
+        handleEphemeralAuthStub.callsFake(() => {
           resolve();
           return Promise.reject(new Error(errMsg));
         });
@@ -208,11 +214,11 @@ describe('colabProxyWebSocket', () => {
 
       testWebSocket.emit(
         'message',
-        rawColabRequestMessage,
+        JSON.stringify(rawColabRequestMessage),
         /* isBinary= */ false,
       );
 
-      await expect(handleDriveFsAuthFailed).to.eventually.be.fulfilled;
+      await expect(handleEphemeralAuthFailed).to.eventually.be.fulfilled;
       sinon.assert.calledOnceWithMatch(
         sendSpy,
         sinon.match((data: string) => {
@@ -225,19 +231,19 @@ describe('colabProxyWebSocket', () => {
       );
     });
 
-    it('does not trigger handleDriveFsAuth if message is not a colab_request', () => {
+    it('does not trigger handleEphemeralAuth if message is not a colab_request', () => {
       const rawMessage = JSON.stringify({
         header: { msg_type: 'execute_reply' },
-        content: { request: { authType: 'dfs_ephemeral' } },
+        content: { request: { authType: AuthType.DFS_EPHEMERAL } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
       });
 
       testWebSocket.emit('message', rawMessage, /* isBinary= */ false);
 
-      sinon.assert.notCalled(handleDriveFsAuthStub);
+      sinon.assert.notCalled(handleEphemeralAuthStub);
     });
 
-    it('does not trigger handleDriveFsAuth if message is not dfs_ephemeral', () => {
+    it('does not trigger handleEphemeralAuth if message is not dfs_ephemeral or auth_user_ephemeral', () => {
       const rawMessage = JSON.stringify({
         header: { msg_type: 'colab_request' },
         content: { request: { authType: 'dfs_persistent' } },
@@ -246,39 +252,35 @@ describe('colabProxyWebSocket', () => {
 
       testWebSocket.emit('message', rawMessage, /* isBinary= */ false);
 
-      sinon.assert.notCalled(handleDriveFsAuthStub);
+      sinon.assert.notCalled(handleEphemeralAuthStub);
     });
 
-    it('does not trigger handleDriveFsAuth if message is empty', () => {
+    it('does not trigger handleEphemeralAuth if message is empty', () => {
       testWebSocket.emit('message', /* message= */ '', /* isBinary= */ false);
 
-      sinon.assert.notCalled(handleDriveFsAuthStub);
+      sinon.assert.notCalled(handleEphemeralAuthStub);
     });
 
-    it('does not trigger handleDriveFsAuth if message is malformed', () => {
+    it('does not trigger handleEphemeralAuth if message is malformed', () => {
       testWebSocket.emit('message', 'malformed message', /* isBinary= */ false);
 
-      sinon.assert.notCalled(handleDriveFsAuthStub);
+      sinon.assert.notCalled(handleEphemeralAuthStub);
     });
 
-    it('does not trigger handleDriveFsAuth if message data is ArrayBuffer', () => {
+    it('does not trigger handleEphemeralAuth if message data is ArrayBuffer', () => {
       testWebSocket.emit(
         'message',
         /* message= */ new ArrayBuffer(16),
         /* isBinary= */ false,
       );
 
-      sinon.assert.notCalled(handleDriveFsAuthStub);
+      sinon.assert.notCalled(handleEphemeralAuthStub);
     });
 
-    it('does not trigger handleDriveFsAuth if message data is binary', () => {
-      testWebSocket.emit(
-        'message',
-        rawColabRequestMessage,
-        /* isBinary= */ true,
-      );
+    it('does not trigger handleEphemeralAuth if message data is binary', () => {
+      testWebSocket.emit('message', 'some binary data', /* isBinary= */ true);
 
-      sinon.assert.notCalled(handleDriveFsAuthStub);
+      sinon.assert.notCalled(handleEphemeralAuthStub);
     });
   });
 

@@ -23,6 +23,7 @@ import {
   Outcome,
   ListedAssignments,
   RuntimeProxyInfo,
+  AuthType,
 } from './api';
 import {
   ColabClient,
@@ -659,13 +660,18 @@ describe('ColabClient', () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  describe('propagateDriveCredentials', () => {
-    for (const dryRun of [true, false]) {
-      it(`successfully propagates credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
+  describe('propagateCredentials', () => {
+    const tests = [
+      { authType: AuthType.DFS_EPHEMERAL, dryRun: true },
+      { authType: AuthType.DFS_EPHEMERAL, dryRun: false },
+      { authType: AuthType.AUTH_USER_EPHEMERAL, dryRun: true },
+      { authType: AuthType.AUTH_USER_EPHEMERAL, dryRun: false },
+    ];
+    tests.forEach(({ authType, dryRun }) => {
+      it(`successfully propagates ${authType} credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
         const endpoint = 'mock-server';
         const path = `/tun/m/credentials-propagation/${endpoint}`;
         const token = 'mock-xsrf-token';
-        const authType = 'dfs_ephemeral';
         const queryParams = {
           authtype: authType,
           dryrun: String(dryRun),
@@ -703,7 +709,7 @@ describe('ColabClient', () => {
             }),
           );
 
-        const result = client.propagateDriveCredentials(endpoint, {
+        const result = client.propagateCredentials(endpoint, {
           authType,
           dryRun,
         });
@@ -711,7 +717,7 @@ describe('ColabClient', () => {
         await expect(result).to.eventually.be.fulfilled;
         sinon.assert.calledTwice(fetchStub);
       });
-    }
+    });
   });
 });
 
