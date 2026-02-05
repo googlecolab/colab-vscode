@@ -140,7 +140,7 @@ describe('colabProxyWebSocket', () => {
     const rawColabRequestMessage = {
       header: { msg_type: 'colab_request' },
       content: {
-        request: { authType: 'dfs_ephemeral' },
+        request: { authType: AuthType.DFS_EPHEMERAL },
       },
       metadata: {
         colab_request_type: 'request_auth',
@@ -234,7 +234,7 @@ describe('colabProxyWebSocket', () => {
     it('does not trigger handleEphemeralAuth if message is not a colab_request', () => {
       const rawMessage = JSON.stringify({
         header: { msg_type: 'execute_reply' },
-        content: { request: { authType: 'dfs_ephemeral' } },
+        content: { request: { authType: AuthType.DFS_EPHEMERAL } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
       });
 

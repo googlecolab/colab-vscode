@@ -23,6 +23,7 @@ import {
   Outcome,
   ListedAssignments,
   RuntimeProxyInfo,
+  AuthType,
 } from './api';
 import {
   ColabClient,
@@ -660,14 +661,11 @@ describe('ColabClient', () => {
   });
 
   describe('propagateCredentials', () => {
-    const tests: {
-      authType: 'dfs_ephemeral' | 'auth_user_ephemeral';
-      dryRun: boolean;
-    }[] = [
-      { authType: 'dfs_ephemeral', dryRun: true },
-      { authType: 'dfs_ephemeral', dryRun: false },
-      { authType: 'auth_user_ephemeral', dryRun: true },
-      { authType: 'auth_user_ephemeral', dryRun: false },
+    const tests = [
+      { authType: AuthType.DFS_EPHEMERAL, dryRun: true },
+      { authType: AuthType.DFS_EPHEMERAL, dryRun: false },
+      { authType: AuthType.AUTH_USER_EPHEMERAL, dryRun: true },
+      { authType: AuthType.AUTH_USER_EPHEMERAL, dryRun: false },
     ];
     tests.forEach(({ authType, dryRun }) => {
       it(`successfully propagates ${authType} credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
