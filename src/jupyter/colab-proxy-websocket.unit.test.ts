@@ -10,6 +10,7 @@ import sinon, { SinonStubbedInstance } from 'sinon';
 import { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { handleEphemeralAuth } from '../auth/ephemeral';
+import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
@@ -167,9 +168,7 @@ describe('colabProxyWebSocket', () => {
       );
     });
 
-    const supportedAuthTypes = ['dfs_ephemeral', 'auth_user_ephemeral'];
-
-    supportedAuthTypes.forEach((authType) => {
+    Object.values(AuthType).forEach((authType) => {
       it(`triggers handleEphemeralAuth and sends a reply if message is a ${authType} colab_request`, async () => {
         const ephemeralAuthHandled = new Promise<void>((resolve) => {
           handleEphemeralAuthStub.callsFake(() => {

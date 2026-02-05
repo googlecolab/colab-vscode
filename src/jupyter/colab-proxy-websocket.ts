@@ -237,7 +237,7 @@ const ColabAuthEphemeralRequestSchema = z.object({
   }),
   content: z.object({
     request: z.object({
-      authType: z.literal(['dfs_ephemeral', 'auth_user_ephemeral']),
+      authType: z.enum(AuthType),
     }),
   }),
   metadata: z.object({

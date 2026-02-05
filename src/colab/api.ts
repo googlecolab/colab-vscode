@@ -84,7 +84,10 @@ export enum Shape {
 }
 
 /** Colab supported auth types. */
-export type AuthType = 'dfs_ephemeral' | 'auth_user_ephemeral';
+export enum AuthType {
+  DFS_EPHEMERAL = 'dfs_ephemeral',
+  AUTH_USER_EPHEMERAL = 'auth_user_ephemeral',
+}
 
 /**
  * Normalize the similar but different representations of subscription tiers

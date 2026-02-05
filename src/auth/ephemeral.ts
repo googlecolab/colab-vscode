@@ -68,14 +68,14 @@ async function obtainUserAuthConsent(
   let detail: string;
   let yesText: string;
   switch (authType) {
-    case 'dfs_ephemeral':
+    case AuthType.DFS_EPHEMERAL:
       message = `Permit "${serverLabel}" to access your Google Drive files?`;
       detail =
         'This Colab server is requesting access to your Google Drive files. Granting access to Google Drive will permit code executed in the Colab server to modify files in your Google Drive. Make sure to review notebook code prior to allowing this access.';
       yesText = 'Connect to Google Drive';
       break;
 
-    case 'auth_user_ephemeral':
+    case AuthType.AUTH_USER_EPHEMERAL:
       message = `Allow "${serverLabel}" to access your Google credentials?`;
       detail =
         'This will allow code executed in the Colab server to access your Google Drive and Google Cloud data. Review the code in this notebook prior to allowing access.';

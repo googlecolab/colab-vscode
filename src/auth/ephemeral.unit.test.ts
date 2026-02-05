@@ -40,18 +40,14 @@ describe('handleEphemeralAuth', () => {
     sinon.restore();
   });
 
-  const tests: {
-    authType: AuthType;
-    consentMessage: string;
-    consentAllowText: string;
-  }[] = [
+  const tests = [
     {
-      authType: 'dfs_ephemeral',
+      authType: AuthType.DFS_EPHEMERAL,
       consentMessage: `Permit "${testServer.label}" to access your Google Drive files?`,
       consentAllowText: 'Connect to Google Drive',
     },
     {
-      authType: 'auth_user_ephemeral',
+      authType: AuthType.AUTH_USER_EPHEMERAL,
       consentMessage: `Allow "${testServer.label}" to access your Google credentials?`,
       consentAllowText: 'Allow',
     },
