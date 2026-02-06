@@ -40,7 +40,7 @@ describe('ColabTerminalWebSocket', () => {
     }
 
     override send(_data: unknown, _options?: unknown, _cb?: unknown): void {
-      return undefined;
+      // Avoid real send
     }
 
     override close(): void {
@@ -114,10 +114,13 @@ describe('ColabTerminalWebSocket', () => {
 
       terminalWebSocket.send(testData);
 
-      sinon.assert.calledOnce(sendSpy);
-      const sentMessage = sendSpy.firstCall.args[0] as string;
-      const parsed = JSON.parse(sentMessage) as unknown;
-      expect(parsed).to.deep.equal({ data: testData });
+      sinon.assert.calledOnceWithMatch(
+        sendSpy,
+        sinon.match((message: string) => {
+          const parsed = JSON.parse(message) as { data: string };
+          return parsed.data === testData;
+        }),
+      );
     });
 
     it('sendResize(cols, rows) creates {"cols": cols, "rows": rows} message', () => {
@@ -129,10 +132,16 @@ describe('ColabTerminalWebSocket', () => {
 
       terminalWebSocket.sendResize(80, 24);
 
-      sinon.assert.calledOnce(sendSpy);
-      const sentMessage = sendSpy.firstCall.args[0] as string;
-      const parsed = JSON.parse(sentMessage) as unknown;
-      expect(parsed).to.deep.equal({ cols: 80, rows: 24 });
+      sinon.assert.calledOnceWithMatch(
+        sendSpy,
+        sinon.match((message: string) => {
+          const parsed = JSON.parse(message) as {
+            cols: number;
+            rows: number;
+          };
+          return parsed.cols === 80 && parsed.rows === 24;
+        }),
+      );
     });
 
     it('incoming {"data": "..."} fires onData event', (done) => {
@@ -162,22 +171,27 @@ describe('ColabTerminalWebSocket', () => {
   });
 
   describe('Lifecycle', () => {
-    it('connect() throws if already connected', () => {
-      terminalWebSocket.connect();
-      expect(() => {
+    describe('connect()', () => {
+      it('throws if already connected', () => {
         terminalWebSocket.connect();
-      }).to.throw('WebSocket is already connected');
-    });
 
-    it('connect() throws if disposed', () => {
-      terminalWebSocket.dispose();
-      expect(() => {
-        terminalWebSocket.connect();
-      }).to.throw('ColabTerminalWebSocket is disposed');
+        expect(() => {
+          terminalWebSocket.connect();
+        }).to.throw('WebSocket is already connected');
+      });
+
+      it('throws if disposed', () => {
+        terminalWebSocket.dispose();
+
+        expect(() => {
+          terminalWebSocket.connect();
+        }).to.throw('ColabTerminalWebSocket is disposed');
+      });
     });
 
     it('send() throws if disposed', () => {
       terminalWebSocket.dispose();
+
       expect(() => {
         terminalWebSocket.send('test');
       }).to.throw('ColabTerminalWebSocket is disposed');

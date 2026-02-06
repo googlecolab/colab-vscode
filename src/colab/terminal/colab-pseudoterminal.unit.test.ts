@@ -109,43 +109,58 @@ describe('ColabPseudoterminal', () => {
   });
 
   describe('Lifecycle', () => {
-    it('open() connects WebSocket', () => {
-      pty.open(undefined);
-      sinon.assert.calledOnce(terminalWebSocket.connect);
-    });
-
-    it('open() sends initial dimensions if available', () => {
-      const dimensions: Exclude<
-        Parameters<ColabPseudoterminal['open']>[0],
-        undefined
-      > = {
-        columns: 80,
-        rows: 24,
-      };
-      pty.open(dimensions);
-
-      // Simulate successful connection
-      onOpenCallbacks.forEach((cb) => {
-        cb();
+    describe('open()', () => {
+      it('connects WebSocket', () => {
+        pty.open(undefined);
+        sinon.assert.calledOnce(terminalWebSocket.connect);
       });
 
-      sinon.assert.calledOnce(terminalWebSocket.connect);
-      sinon.assert.calledWith(terminalWebSocket.sendResize, 80, 24);
+      it('sends initial dimensions if available', () => {
+        const dimensions: Exclude<
+          Parameters<ColabPseudoterminal['open']>[0],
+          undefined
+        > = {
+          columns: 80,
+          rows: 24,
+        };
+        pty.open(dimensions);
+
+        // Simulate successful connection
+        onOpenCallbacks.forEach((cb) => {
+          cb();
+        });
+
+        sinon.assert.calledOnce(terminalWebSocket.connect);
+        sinon.assert.calledWith(terminalWebSocket.sendResize, 80, 24);
+      });
     });
 
-    it('close() disposes WebSocket', () => {
-      pty.open(undefined);
-      pty.close();
+    describe('close()', () => {
+      beforeEach(() => {
+        pty.open(undefined);
+      });
 
-      sinon.assert.calledOnce(terminalWebSocket.dispose);
-    });
+      it('fires a close event', () => {
+        const closeSpy = sinon.spy();
+        pty.onDidClose(closeSpy);
 
-    it('close() is idempotent', () => {
-      pty.open(undefined);
-      pty.close();
-      pty.close();
+        pty.close();
 
-      sinon.assert.calledOnce(terminalWebSocket.dispose);
+        sinon.assert.calledOnceWithExactly(closeSpy, 0);
+      });
+
+      it('disposes WebSocket', () => {
+        pty.close();
+
+        sinon.assert.calledOnce(terminalWebSocket.dispose);
+      });
+
+      it('is idempotent', () => {
+        pty.close();
+        pty.close();
+
+        sinon.assert.calledOnce(terminalWebSocket.dispose);
+      });
     });
   });
 

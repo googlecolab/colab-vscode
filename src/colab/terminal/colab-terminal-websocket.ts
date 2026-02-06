@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Event, EventEmitter } from 'vscode';
+import vscode, { Event, EventEmitter, Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { log } from '../../common/logging';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../headers';
 
-export interface ColabTerminalWebSocketLike extends vscode.Disposable {
+export interface ColabTerminalWebSocketLike extends Disposable {
   readonly onData: Event<string>;
   readonly onOpen: Event<void>;
   readonly onClose: Event<void>;

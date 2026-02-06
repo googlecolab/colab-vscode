@@ -4,28 +4,33 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from 'vscode';
+import vscode, {
+  Event,
+  EventEmitter,
+  Pseudoterminal,
+  TerminalDimensions,
+} from 'vscode';
 import { log } from '../../common/logging';
 import { ColabTerminalWebSocketLike } from './colab-terminal-websocket';
 
 /**
  * VS Code Pseudoterminal implementation that bridges the terminal UI
- * with the Colab TTY WebSocket.
+ * with the Colab terminal WebSocket.
  *
  * This class implements the Pseudoterminal interface to provide a terminal
  * experience that connects to a remote Colab terminal session instead of
  * a local shell.
  */
-export class ColabPseudoterminal implements vscode.Pseudoterminal {
-  readonly onDidWrite: vscode.Event<string>;
-  readonly onDidClose: vscode.Event<number>;
+export class ColabPseudoterminal implements Pseudoterminal {
+  readonly onDidWrite: Event<string>;
+  readonly onDidClose: Event<number>;
 
-  private readonly writeEmitter: vscode.EventEmitter<string>;
-  private readonly closeEmitter: vscode.EventEmitter<number>;
+  private readonly writeEmitter: EventEmitter<string>;
+  private readonly closeEmitter: EventEmitter<number>;
 
   private isOpen = false;
   private isConnected = false;
-  private initialDimensions?: vscode.TerminalDimensions;
+  private initialDimensions?: TerminalDimensions;
 
   constructor(
     private readonly vs: typeof vscode,
@@ -45,7 +50,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
    *
    * @param initialDimensions - The initial terminal dimensions, if available
    */
-  open(initialDimensions?: vscode.TerminalDimensions): void {
+  open(initialDimensions?: TerminalDimensions): void {
     if (this.isOpen) {
       log.warn('ColabPseudoterminal.open() called when already open');
       return;
@@ -55,7 +60,12 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     this.initialDimensions = initialDimensions;
 
     // Show connection status to user
-    this.writeEmitter.fire('Connecting to Colab terminal...\r\n');
+    this.writeEmitter.fire(
+      this.format('Connecting to Colab terminal...', {
+        color: 'info',
+        withLeadingNewline: false,
+      }),
+    );
 
     try {
       // Set up event handlers before connecting
@@ -68,8 +78,13 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
         error instanceof Error ? error.message : String(error);
       log.error('Failed to connect to Colab terminal:', error);
       this.writeEmitter.fire(
-        '\r\n\x1b[31mError: Failed to connect to Colab terminal: ' +
-          `${errorMessage}\x1b[0m\r\n`,
+        this.format(
+          `Error: Failed to connect to Colab terminal: ${errorMessage}`,
+          {
+            color: 'error',
+            withLeadingNewline: true,
+          },
+        ),
       );
       this.terminalWebSocket.dispose();
       // Close the terminal on connection failure
@@ -87,8 +102,9 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
 
     this.isOpen = false;
     this.isConnected = false;
+    this.closeEmitter.fire(0);
 
-    log.trace('ColabPseudoterminal.close() called');
+    log.trace('ColabPseudoterminal closed');
 
     // Clean up WebSocket connection
     this.terminalWebSocket.dispose();
@@ -119,7 +135,10 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.writeEmitter.fire(
-        `\r\n\x1b[31mError: Failed to send input: ${errorMessage}\x1b[0m\r\n`,
+        this.format(`Error: Failed to send input: ${errorMessage}`, {
+          color: 'error',
+          withLeadingNewline: true,
+        }),
       );
     }
   }
@@ -132,7 +151,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
    *
    * @param dimensions - The new terminal dimensions
    */
-  setDimensions(dimensions: vscode.TerminalDimensions): void {
+  setDimensions(dimensions: TerminalDimensions): void {
     if (!this.isConnected) {
       return;
     }
@@ -153,7 +172,12 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
         return;
       }
       this.isConnected = true;
-      this.writeEmitter.fire('\r\nConnected to Colab terminal.\r\n\r\n');
+      this.writeEmitter.fire(
+        this.format('Connected to Colab terminal.', {
+          color: 'info',
+          withLeadingNewline: true,
+        }),
+      );
 
       if (this.initialDimensions) {
         this.terminalWebSocket.sendResize(
@@ -186,7 +210,10 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
 
       // Notify user of disconnection
       this.writeEmitter.fire(
-        '\r\n\x1b[33mConnection to Colab terminal closed.\x1b[0m\r\n',
+        this.format('Connection to Colab terminal closed.', {
+          color: 'warning',
+          withLeadingNewline: true,
+        }),
       );
 
       // Close the VS Code terminal
@@ -202,10 +229,47 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
       log.error('WebSocket error:', error);
 
       const errorMessage = error.message || String(error);
-      this.writeEmitter.fire(`\r\n\x1b[31mError: ${errorMessage}\x1b[0m\r\n`);
+      this.writeEmitter.fire(
+        this.format(errorMessage, { color: 'error', withLeadingNewline: true }),
+      );
 
       // Don't automatically close on error - let the user see the error
       // and the WebSocket will fire onClose if the connection is lost
     });
   }
+
+  private format(
+    text: string,
+    opts: {
+      color: 'error' | 'warning' | 'info';
+      withLeadingNewline: boolean;
+    },
+  ): string {
+    const outputBuilder: string[] = [];
+    if (opts.withLeadingNewline) {
+      outputBuilder.push('\r\n');
+    }
+
+    switch (opts.color) {
+      case 'error':
+        outputBuilder.push(TerminalTextFormatCode.ERROR);
+        break;
+      case 'warning':
+        outputBuilder.push(TerminalTextFormatCode.WARNING);
+        break;
+      default:
+      // Do nothing
+    }
+
+    outputBuilder.push(text);
+    outputBuilder.push(TerminalTextFormatCode.RESET);
+    outputBuilder.push('\r\n');
+    return outputBuilder.join('');
+  }
+}
+
+enum TerminalTextFormatCode {
+  RESET = '\x1b[0m',
+  ERROR = '\x1b[31m',
+  WARNING = '\x1b[33m',
 }
