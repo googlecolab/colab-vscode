@@ -23,7 +23,7 @@ export async function openTerminal(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
   withBackButton?: boolean,
-) {
+): Promise<void> {
   const allServers = await assignmentManager.getServers('extension');
 
   if (allServers.length === 0) {
@@ -31,9 +31,7 @@ export async function openTerminal(
       'No Colab servers are currently assigned.',
     );
     return;
-  }
-
-  if (allServers.length === 1) {
+  } else if (allServers.length === 1) {
     createColabTerminal(vs, allServers[0]);
     return;
   }
@@ -52,11 +50,9 @@ export async function openTerminal(
       })
     ).value;
 
-    if (!selectedServer) {
-      return;
+    if (selectedServer) {
+      createColabTerminal(vs, selectedServer);
     }
-
-    createColabTerminal(vs, selectedServer);
     return undefined;
   });
 }

@@ -118,7 +118,6 @@
         "category": "Colab",
         "command": "colab.mountServer",
         "enablement": "colab.hasAssignedServer",
-        "when": "config.colab.serverMounting",
         "title": "Mount Server to Workspace..."
       },
       {
@@ -131,7 +130,6 @@
         "category": "Colab",
         "command": "colab.upload",
         "enablement": "colab.hasAssignedServer",
-        "when": "config.colab.uploading",
         "title": "Upload to Colab"
       },
       {
@@ -175,7 +173,6 @@
         "category": "Colab",
         "command": "colab.openTerminal",
         "enablement": "colab.hasAssignedServer",
-        "when": "config.colab.terminal",
         "title": "Open Colab Terminal",
         "icon": "$(terminal)"
       }
@@ -229,6 +226,14 @@
         {
           "command": "colab.upload",
           "when": "false"
+        },
+        {
+          "command": "colab.mountServer",
+          "when": "config.colab.serverMounting"
+        },
+        {
+          "command": "colab.openTerminal",
+          "when": "config.colab.terminal"
         }
       ],
       "explorer/context": [

@@ -125,9 +125,7 @@ async function getAvailableCommands(
       },
     });
   }
-  const includeTerminal = vs.workspace
-    .getConfiguration('colab')
-    .get<boolean>('terminal', false);
+  const includeTerminal = colabConfigs.get<boolean>('terminal', false);
   if (includeTerminal) {
     serverCommands.push({
       label: OPEN_TERMINAL.label,

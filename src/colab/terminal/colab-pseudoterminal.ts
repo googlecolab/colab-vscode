@@ -17,11 +17,11 @@ import { ColabTerminalWebSocketLike } from './colab-terminal-websocket';
  * a local shell.
  */
 export class ColabPseudoterminal implements vscode.Pseudoterminal {
-  private readonly writeEmitter: vscode.EventEmitter<string>;
   readonly onDidWrite: vscode.Event<string>;
-
-  private readonly closeEmitter: vscode.EventEmitter<number>;
   readonly onDidClose: vscode.Event<number>;
+
+  private readonly writeEmitter: vscode.EventEmitter<string>;
+  private readonly closeEmitter: vscode.EventEmitter<number>;
 
   private isOpen = false;
   private isConnected = false;
@@ -32,9 +32,9 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
     private readonly terminalWebSocket: ColabTerminalWebSocketLike,
   ) {
     this.writeEmitter = new this.vs.EventEmitter<string>();
-    this.onDidWrite = this.writeEmitter.event;
-
     this.closeEmitter = new this.vs.EventEmitter<number>();
+
+    this.onDidWrite = this.writeEmitter.event;
     this.onDidClose = this.closeEmitter.event;
   }
 
@@ -45,7 +45,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
    *
    * @param initialDimensions - The initial terminal dimensions, if available
    */
-  open(initialDimensions: vscode.TerminalDimensions | undefined): void {
+  open(initialDimensions?: vscode.TerminalDimensions): void {
     if (this.isOpen) {
       log.warn('ColabPseudoterminal.open() called when already open');
       return;
