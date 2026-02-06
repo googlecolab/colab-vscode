@@ -268,7 +268,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
       }
     });
 
-    this.ws.on('unexpected-response', (_request, response) => {
+    this.ws.on('unexpected-response', (_, response) => {
       if (this.disposed) {
         return;
       }
@@ -281,7 +281,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
       const chunks: Buffer[] = [];
       let totalBytes = 0;
       response.on('data', (chunk: Buffer) => {
-        if (totalBytes >= 2048) {
+        if (totalBytes >= UNEXPECTED_RESPONSE_MAX_OUTPUT_SIZE) {
           return;
         }
         chunks.push(chunk);
@@ -289,22 +289,11 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
       });
       response.on('end', () => {
         const body = Buffer.concat(chunks).toString('utf8').trim();
+        const logArgs = [statusCode.toString(), statusMessage, `url=${url}`];
         if (body.length) {
-          log.error(
-            'Colab terminal WebSocket unexpected response:',
-            statusCode.toString(),
-            statusMessage,
-            `url=${url}`,
-            `body=${body}`,
-          );
-        } else {
-          log.error(
-            'Colab terminal WebSocket unexpected response:',
-            statusCode.toString(),
-            statusMessage,
-            `url=${url}`,
-          );
+          logArgs.push(`body=${body}`);
         }
+        log.error('Colab terminal WebSocket unexpected response:', ...logArgs);
       });
 
       this.onErrorEmitter.fire(
@@ -389,3 +378,5 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
     }
   }
 }
+
+const UNEXPECTED_RESPONSE_MAX_OUTPUT_SIZE = 2048;
