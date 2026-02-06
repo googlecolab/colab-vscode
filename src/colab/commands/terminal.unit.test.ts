@@ -5,12 +5,13 @@
  */
 
 import { randomUUID } from 'crypto';
-import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
+import { ExtensionTerminalOptions } from 'vscode';
 import { Variant } from '../../colab/api';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { buildQuickPickStub } from '../../test/helpers/quick-input';
+import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { openTerminal } from './terminal';
 
@@ -62,61 +63,38 @@ describe('openTerminal command', () => {
     });
 
     it('auto-selects and creates terminal with one server', async () => {
-      const server1: ColabAssignedServer = {
-        id: randomUUID(),
+      const server1 = buildColabAssignedServer({
         label: 'Server 1',
-        variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-        connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-          token: 'token1',
-          tokenExpiry: new Date(Date.now() + 3600000),
-          headers: {},
-          fetch: (() => undefined) as never,
-          WebSocket: (() => undefined) as never,
-        },
-        dateAssigned: new Date(),
-      };
+        baseUrl: 'https://server1.example.com',
+        token: 'token1',
+      });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
       await openTerminal(vs, assignmentManager);
 
-      sinon.assert.calledOnce(vsCodeStub.window.createTerminal);
-      const options = vsCodeStub.window.createTerminal.firstCall.args[0];
-      expect(options).to.have.property('name', 'Colab Terminal: Server 1');
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.createTerminal,
+        sinon.match(
+          (options: ExtensionTerminalOptions) =>
+            options.name === 'Colab Terminal: Server 1',
+        ),
+      );
     });
 
     it('shows QuickPick with multiple servers', async () => {
-      const server1: ColabAssignedServer = {
-        id: randomUUID(),
+      const server1 = buildColabAssignedServer({
         label: 'Server 1',
-        variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-        connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-          token: 'token1',
-          tokenExpiry: new Date(Date.now() + 3600000),
-          headers: {},
-          fetch: (() => undefined) as never,
-          WebSocket: (() => undefined) as never,
-        },
-        dateAssigned: new Date(),
-      };
-      const server2: ColabAssignedServer = {
-        id: randomUUID(),
+        baseUrl: 'https://server1.example.com',
+        token: 'token1',
+      });
+      const server2 = buildColabAssignedServer({
         label: 'Server 2',
-        variant: Variant.GPU,
         endpoint: 'test-endpoint-2',
-        connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse('https://server2.example.com'),
-          token: 'token2',
-          tokenExpiry: new Date(Date.now() + 3600000),
-          headers: {},
-          fetch: (() => undefined) as never,
-          WebSocket: (() => undefined) as never,
-        },
-        dateAssigned: new Date(),
-      };
+        baseUrl: 'https://server2.example.com',
+        token: 'token2',
+      });
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         server1,
         server2,
@@ -145,47 +123,32 @@ describe('openTerminal command', () => {
 
   describe('Terminal Creation', () => {
     it('creates terminal with correct name format', async () => {
-      const server1: ColabAssignedServer = {
-        id: randomUUID(),
+      const server1 = buildColabAssignedServer({
         label: 'Server 1',
-        variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-        connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-          token: 'token1',
-          tokenExpiry: new Date(Date.now() + 3600000),
-          headers: {},
-          fetch: (() => undefined) as never,
-          WebSocket: (() => undefined) as never,
-        },
-        dateAssigned: new Date(),
-      };
+        baseUrl: 'https://server1.example.com',
+        token: 'token1',
+      });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
       await openTerminal(vs, assignmentManager);
 
-      sinon.assert.calledOnce(vsCodeStub.window.createTerminal);
-      const options = vsCodeStub.window.createTerminal.firstCall.args[0];
-      expect(options).to.have.property('name', 'Colab Terminal: Server 1');
-      expect(options).to.have.property('pty');
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.createTerminal,
+        sinon.match(
+          (options: ExtensionTerminalOptions) =>
+            options.name === 'Colab Terminal: Server 1' && !!options.pty,
+        ),
+      );
     });
 
     it('calls terminal.show() after creation', async () => {
-      const server1: ColabAssignedServer = {
-        id: randomUUID(),
+      const server1 = buildColabAssignedServer({
         label: 'Server 1',
-        variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-        connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-          token: 'token1',
-          tokenExpiry: new Date(Date.now() + 3600000),
-          headers: {},
-          fetch: (() => undefined) as never,
-          WebSocket: (() => undefined) as never,
-        },
-        dateAssigned: new Date(),
-      };
+        baseUrl: 'https://server1.example.com',
+        token: 'token1',
+      });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
       const mockTerminal = { show: sinon.stub() };
       vsCodeStub.window.createTerminal.returns(mockTerminal as never);
@@ -196,21 +159,12 @@ describe('openTerminal command', () => {
     });
 
     it('requests extension source for servers', async () => {
-      const server1: ColabAssignedServer = {
-        id: randomUUID(),
+      const server1 = buildColabAssignedServer({
         label: 'Server 1',
-        variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-        connectionInformation: {
-          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-          token: 'token1',
-          tokenExpiry: new Date(Date.now() + 3600000),
-          headers: {},
-          fetch: (() => undefined) as never,
-          WebSocket: (() => undefined) as never,
-        },
-        dateAssigned: new Date(),
-      };
+        baseUrl: 'https://server1.example.com',
+        token: 'token1',
+      });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
       await openTerminal(vs, assignmentManager);
@@ -222,3 +176,26 @@ describe('openTerminal command', () => {
     });
   });
 });
+
+function buildColabAssignedServer(opts: {
+  label: string;
+  endpoint: string;
+  baseUrl: string;
+  token: string;
+}): ColabAssignedServer {
+  return {
+    id: randomUUID(),
+    label: opts.label,
+    variant: Variant.DEFAULT,
+    endpoint: opts.endpoint,
+    connectionInformation: {
+      baseUrl: TestUri.parse(opts.baseUrl),
+      token: opts.token,
+      tokenExpiry: new Date(Date.now() + 3600000),
+      headers: {},
+      fetch: (() => undefined) as never,
+      WebSocket: (() => undefined) as never,
+    },
+    dateAssigned: new Date(),
+  };
+}
