@@ -17,12 +17,10 @@ import { openTerminal } from './terminal';
 
 describe('openTerminal command', () => {
   let vsCodeStub: VsCodeStub;
-  let vs: ReturnType<VsCodeStub['asVsCode']>;
   let assignmentManager: SinonStubbedInstance<AssignmentManager>;
 
   beforeEach(() => {
     vsCodeStub = newVsCodeStub();
-    vs = vsCodeStub.asVsCode();
     assignmentManager = sinon.createStubInstance(AssignmentManager);
     // Setup getServers to handle the 'extension' call properly
     (assignmentManager.getServers as sinon.SinonStub).callsFake(
@@ -45,7 +43,7 @@ describe('openTerminal command', () => {
     it('shows info message when no servers available', async () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([]);
 
-      await openTerminal(vs, assignmentManager);
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.calledOnce(vsCodeStub.window.showInformationMessage);
       sinon.assert.calledWithMatch(
@@ -57,7 +55,7 @@ describe('openTerminal command', () => {
     it('does not create terminal when no servers available', async () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([]);
 
-      await openTerminal(vs, assignmentManager);
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.notCalled(vsCodeStub.window.createTerminal);
     });
@@ -71,7 +69,7 @@ describe('openTerminal command', () => {
       });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
-      await openTerminal(vs, assignmentManager);
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.createTerminal,
@@ -104,7 +102,10 @@ describe('openTerminal command', () => {
       vsCodeStub.window.createQuickPick.returns(quickPickStub as never);
 
       // Start openTerminal in background
-      const openTerminalPromise = openTerminal(vs, assignmentManager);
+      const openTerminalPromise = openTerminal(
+        vsCodeStub.asVsCode(),
+        assignmentManager,
+      );
 
       // Wait for QuickPick to be shown
       await quickPickStub.nextShow();
@@ -131,7 +132,7 @@ describe('openTerminal command', () => {
       });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
-      await openTerminal(vs, assignmentManager);
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.createTerminal,
@@ -153,7 +154,7 @@ describe('openTerminal command', () => {
       const mockTerminal = { show: sinon.stub() };
       vsCodeStub.window.createTerminal.returns(mockTerminal as never);
 
-      await openTerminal(vs, assignmentManager);
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.calledOnce(mockTerminal.show);
     });
@@ -167,7 +168,7 @@ describe('openTerminal command', () => {
       });
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
-      await openTerminal(vs, assignmentManager);
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.calledWith(
         assignmentManager.getServers as sinon.SinonStub,
