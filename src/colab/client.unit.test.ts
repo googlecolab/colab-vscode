@@ -24,6 +24,7 @@ import {
   ListedAssignments,
   RuntimeProxyInfo,
   AuthType,
+  ExperimentFlag,
 } from './api';
 import {
   ColabClient,
@@ -719,6 +720,124 @@ describe('ColabClient', () => {
       });
     });
   });
+
+  describe('getExperimentState', () => {
+    for (const { name, requireAccessToken } of [
+      {
+        name: 'without auth',
+        requireAccessToken: false,
+      },
+      {
+        name: 'with auth',
+        requireAccessToken: true,
+      },
+    ]) {
+      it(`successfully gets experiment state ${name}`, async () => {
+        const mockResponse = {
+          experiments: {
+            [ExperimentFlag.RuntimeVersionNames]: true,
+          },
+        };
+
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'GET',
+              host: COLAB_HOST,
+              path: '/vscode/experiment-state',
+              withAuthUser: requireAccessToken,
+              withAuthorization: requireAccessToken,
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify(mockResponse)), {
+              status: 200,
+            }),
+          );
+
+        await expect(
+          client.getExperimentState(requireAccessToken),
+        ).to.eventually.deep.equal({
+          experiments: new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
+        });
+
+        sinon.assert.calledOnce(fetchStub);
+      });
+    }
+
+    for (const { name, mockResponse, expected } of [
+      {
+        name: 'filters out undeclared experiment flags',
+        mockResponse: {
+          experiments: {
+            [ExperimentFlag.RuntimeVersionNames]: true,
+            undeclared_flag: 'should_be_ignored',
+          },
+        },
+        expected: {
+          experiments: new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
+        },
+      },
+      {
+        name: 'handles empty experiment state',
+        mockResponse: {
+          experiments: {},
+        },
+        expected: {
+          experiments: new Map(),
+        },
+      },
+      {
+        name: 'handles missing experiment state',
+        mockResponse: {},
+        expected: {},
+      },
+    ]) {
+      it(name, async () => {
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'GET',
+              host: COLAB_HOST,
+              path: '/vscode/experiment-state',
+              withAuthUser: false,
+              withAuthorization: false,
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify(mockResponse)), {
+              status: 200,
+            }),
+          );
+
+        await expect(client.getExperimentState()).to.eventually.deep.equal(
+          expected,
+        );
+      });
+    }
+
+    it('rejects invalid experiment state schema', async () => {
+      const mockResponse = {
+        experiments: 'not-an-object',
+      };
+
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: 'GET',
+            host: COLAB_HOST,
+            path: '/vscode/experiment-state',
+            withAuthUser: false,
+            withAuthorization: false,
+          }),
+        )
+        .resolves(
+          new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+        );
+
+      await expect(client.getExperimentState()).to.eventually.be.rejected;
+    });
+  });
 });
 
 function withXSSI(response: string): string {
@@ -734,6 +853,8 @@ export interface URLMatchOptions {
   formBody?: Record<string, string | RegExp>;
   /** Whether the authuser query parameter should be included. Defaults to true. */
   withAuthUser?: boolean;
+  /** Whether the Authorization header should be included. Defaults to true. */
+  withAuthorization?: boolean;
 }
 
 /**
@@ -813,12 +934,14 @@ export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
 
     // Check headers
     const headers = request.headers;
-    const actualAuth = headers.get(AUTHORIZATION_HEADER.key);
-    const expectedAuth = `Bearer ${BEARER_TOKEN}`;
-    if (actualAuth !== expectedAuth) {
-      reasons.push(
-        `Authorization header is "${actualAuth ?? ''}", expected "${expectedAuth}"`,
-      );
+    if (expected.withAuthorization !== false) {
+      const actualAuth = headers.get(AUTHORIZATION_HEADER.key);
+      const expectedAuth = `Bearer ${BEARER_TOKEN}`;
+      if (actualAuth !== expectedAuth) {
+        reasons.push(
+          `Authorization header is "${actualAuth ?? ''}", expected "${expectedAuth}"`,
+        );
+      }
     }
     const actualAccept = headers.get(ACCEPT_JSON_HEADER.key);
     if (actualAccept !== ACCEPT_JSON_HEADER.value) {

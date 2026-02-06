@@ -34,6 +34,8 @@ import {
   SessionSchema,
   CredentialsPropagationResult,
   CredentialsPropagationResultSchema,
+  ExperimentStateSchema,
+  ExperimentState,
 } from './api';
 import {
   ACCEPT_JSON_HEADER,
@@ -54,6 +56,11 @@ interface AssignmentToken extends GetAssignmentResponse {
 // To discriminate the type of GET assignment responses.
 interface AssignedAssignment extends Assignment {
   kind: 'assigned';
+}
+
+// Options for issueRequest method.
+interface IssueRequestOptions {
+  requireAccessToken?: boolean;
 }
 
 /**
@@ -342,6 +349,28 @@ export class ColabClient {
     );
   }
 
+  /**
+   * Gets the current experiment state.
+   *
+   * @param requireAccessToken - Whether to require auth for the request.
+   * Defaults to false.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns The current experiment state.
+   */
+  async getExperimentState(
+    requireAccessToken = false,
+    signal?: AbortSignal,
+  ): Promise<ExperimentState> {
+    const url = new URL('vscode/experiment-state', this.colabDomain);
+    const expState = this.issueRequest(
+      url,
+      { method: 'GET', signal },
+      ExperimentStateSchema,
+      { requireAccessToken },
+    );
+    return expState;
+  }
+
   private async getAssignment(
     notebookHash: UUID,
     variant: Variant,
@@ -417,6 +446,7 @@ export class ColabClient {
     endpoint: URL,
     init: RequestInit,
     schema: T,
+    options?: IssueRequestOptions,
   ): Promise<z.infer<T>>;
 
   /**
@@ -433,15 +463,18 @@ export class ColabClient {
     endpoint: URL,
     init: RequestInit,
     schema?: z.ZodType,
+    { requireAccessToken = true }: IssueRequestOptions = {},
   ): Promise<unknown> {
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
       endpoint.searchParams.append('authuser', '0');
     }
-    const token = await this.getAccessToken();
     const requestHeaders = new Headers(init.headers);
     requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
-    requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
+    if (requireAccessToken) {
+      const token = await this.getAccessToken();
+      requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
+    }
     requestHeaders.set(
       COLAB_CLIENT_AGENT_HEADER.key,
       COLAB_CLIENT_AGENT_HEADER.value,
