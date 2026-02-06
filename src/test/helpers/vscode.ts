@@ -99,6 +99,7 @@ export interface VsCodeStub {
     uiKind: vscode.UIKind;
     openExternal: sinon.SinonStubbedMember<typeof vscode.env.openExternal>;
     asExternalUri: sinon.SinonStubbedMember<typeof vscode.env.asExternalUri>;
+    sessionId: string;
   };
   window: {
     withProgress: sinon.SinonStubbedMember<typeof vscode.window.withProgress>;
@@ -189,6 +190,7 @@ export interface VsCodeStub {
     registerAuthenticationProvider: typeof vscode.authentication.registerAuthenticationProvider;
     getSession: typeof vscode.authentication.getSession;
   };
+  version: string;
 }
 
 /**
@@ -252,6 +254,7 @@ export function newVsCodeStub(): VsCodeStub {
       uiKind: UIKind.Desktop,
       openExternal: sinon.stub(),
       asExternalUri: sinon.stub(),
+      sessionId: '',
     },
     window: {
       withProgress: sinon.stub(),
@@ -302,5 +305,6 @@ export function newVsCodeStub(): VsCodeStub {
         ),
       getSession: fakeAuthentication.getSession.bind(fakeAuthentication),
     },
+    version: '',
   };
 }

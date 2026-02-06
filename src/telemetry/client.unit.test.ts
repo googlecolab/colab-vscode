@@ -13,6 +13,7 @@ import { ClearcutClient, ColabLogEvent, TEST_ONLY } from './client';
 
 const NOW = Date.now();
 const DEFAULT_LOG: ColabLogEvent = {
+  activation_event: {},
   extension_version: '0.1.0',
   jupyter_extension_version: '2025.9.0',
   session_id: 'test-session-id',
