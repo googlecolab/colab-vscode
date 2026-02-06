@@ -31,6 +31,7 @@ import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
+import { ExperimentStateProvider } from './colab/experiment-state';
 import { ServerKeepAliveController } from './colab/keep-alive';
 import {
   deleteFile,
@@ -117,6 +118,7 @@ export async function activate(context: vscode.ExtensionContext) {
     assignmentManager,
   );
   const consumptionMonitor = watchConsumption(colabClient);
+  const experimentStateProvider = new ExperimentStateProvider(colabClient);
   await authProvider.initialize();
   // Sending server "keep-alive" pings and monitoring consumption requires
   // issuing authenticated requests to Colab. This can only be done after the
@@ -126,6 +128,7 @@ export async function activate(context: vscode.ExtensionContext) {
     connections,
     keepServersAlive,
     consumptionMonitor.toggle,
+    experimentStateProvider,
   );
   const disposeFs = vscode.workspace.registerFileSystemProvider('colab', fs, {
     isCaseSensitive: true,
