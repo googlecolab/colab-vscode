@@ -150,9 +150,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
 
     const message: ColabTerminalResizeMessage = { cols, rows };
     this.sendMessage(message);
-    log.trace(
-      `Sent terminal resize: ${cols.toString()}x${rows.toString()}`,
-    );
+    log.trace(`Sent terminal resize: ${cols.toString()}x${rows.toString()}`);
   }
 
   /**
@@ -341,9 +339,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
   /**
    * Type guard for data messages.
    */
-  private isDataMessage(
-    message: unknown,
-  ): message is ColabTerminalDataMessage {
+  private isDataMessage(message: unknown): message is ColabTerminalDataMessage {
     return (
       typeof message === 'object' &&
       message !== null &&

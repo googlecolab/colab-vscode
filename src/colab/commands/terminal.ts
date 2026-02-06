@@ -64,10 +64,7 @@ export async function openTerminal(
 /**
  * Creates and shows a Colab terminal for the specified server.
  */
-function createColabTerminal(
-  vs: typeof vscode,
-  server: ColabAssignedServer,
-) {
+function createColabTerminal(vs: typeof vscode, server: ColabAssignedServer) {
   // Create the WebSocket connection
   const terminalWebSocket = new ColabTerminalWebSocket(vs, server);
 

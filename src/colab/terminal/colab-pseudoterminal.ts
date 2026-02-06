@@ -202,9 +202,7 @@ export class ColabPseudoterminal implements vscode.Pseudoterminal {
       log.error('WebSocket error:', error);
 
       const errorMessage = error.message || String(error);
-      this.writeEmitter.fire(
-        `\r\n\x1b[31mError: ${errorMessage}\x1b[0m\r\n`,
-      );
+      this.writeEmitter.fire(`\r\n\x1b[31mError: ${errorMessage}\x1b[0m\r\n`);
 
       // Don't automatically close on error - let the user see the error
       // and the WebSocket will fire onClose if the connection is lost

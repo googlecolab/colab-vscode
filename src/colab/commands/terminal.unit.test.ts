@@ -30,7 +30,7 @@ describe('openTerminal command', () => {
           return Promise.resolve([]);
         }
         throw new Error('Unexpected call to getServers');
-      }
+      },
     );
     const mockTerminal = { show: sinon.stub() };
     vsCodeStub.window.createTerminal.returns(mockTerminal as never);
@@ -67,16 +67,16 @@ describe('openTerminal command', () => {
         label: 'Server 1',
         variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-	        connectionInformation: {
-	          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-	          token: 'token1',
-	          tokenExpiry: new Date(Date.now() + 3600000),
-	          headers: {},
-	          fetch: (() => undefined) as never,
-	          WebSocket: (() => undefined) as never,
-	        },
-	        dateAssigned: new Date(),
-	      };
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
+          token: 'token1',
+          tokenExpiry: new Date(Date.now() + 3600000),
+          headers: {},
+          fetch: (() => undefined) as never,
+          WebSocket: (() => undefined) as never,
+        },
+        dateAssigned: new Date(),
+      };
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
       await openTerminal(vs, assignmentManager);
@@ -92,35 +92,35 @@ describe('openTerminal command', () => {
         label: 'Server 1',
         variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-	        connectionInformation: {
-	          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-	          token: 'token1',
-	          tokenExpiry: new Date(Date.now() + 3600000),
-	          headers: {},
-	          fetch: (() => undefined) as never,
-	          WebSocket: (() => undefined) as never,
-	        },
-	        dateAssigned: new Date(),
-	      };
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
+          token: 'token1',
+          tokenExpiry: new Date(Date.now() + 3600000),
+          headers: {},
+          fetch: (() => undefined) as never,
+          WebSocket: (() => undefined) as never,
+        },
+        dateAssigned: new Date(),
+      };
       const server2: ColabAssignedServer = {
         id: randomUUID(),
         label: 'Server 2',
         variant: Variant.GPU,
         endpoint: 'test-endpoint-2',
-	        connectionInformation: {
-	          baseUrl: vsCodeStub.Uri.parse('https://server2.example.com'),
-	          token: 'token2',
-	          tokenExpiry: new Date(Date.now() + 3600000),
-	          headers: {},
-	          fetch: (() => undefined) as never,
-	          WebSocket: (() => undefined) as never,
-	        },
-	        dateAssigned: new Date(),
-	      };
-	      (assignmentManager.getServers as sinon.SinonStub).resolves([
-	        server1,
-	        server2,
-	      ]);
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse('https://server2.example.com'),
+          token: 'token2',
+          tokenExpiry: new Date(Date.now() + 3600000),
+          headers: {},
+          fetch: (() => undefined) as never,
+          WebSocket: (() => undefined) as never,
+        },
+        dateAssigned: new Date(),
+      };
+      (assignmentManager.getServers as sinon.SinonStub).resolves([
+        server1,
+        server2,
+      ]);
 
       const quickPickStub = buildQuickPickStub();
       vsCodeStub.window.createQuickPick.returns(quickPickStub as never);
@@ -150,16 +150,16 @@ describe('openTerminal command', () => {
         label: 'Server 1',
         variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-	        connectionInformation: {
-	          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-	          token: 'token1',
-	          tokenExpiry: new Date(Date.now() + 3600000),
-	          headers: {},
-	          fetch: (() => undefined) as never,
-	          WebSocket: (() => undefined) as never,
-	        },
-	        dateAssigned: new Date(),
-	      };
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
+          token: 'token1',
+          tokenExpiry: new Date(Date.now() + 3600000),
+          headers: {},
+          fetch: (() => undefined) as never,
+          WebSocket: (() => undefined) as never,
+        },
+        dateAssigned: new Date(),
+      };
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
       await openTerminal(vs, assignmentManager);
@@ -176,16 +176,16 @@ describe('openTerminal command', () => {
         label: 'Server 1',
         variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-	        connectionInformation: {
-	          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-	          token: 'token1',
-	          tokenExpiry: new Date(Date.now() + 3600000),
-	          headers: {},
-	          fetch: (() => undefined) as never,
-	          WebSocket: (() => undefined) as never,
-	        },
-	        dateAssigned: new Date(),
-	      };
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
+          token: 'token1',
+          tokenExpiry: new Date(Date.now() + 3600000),
+          headers: {},
+          fetch: (() => undefined) as never,
+          WebSocket: (() => undefined) as never,
+        },
+        dateAssigned: new Date(),
+      };
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
       const mockTerminal = { show: sinon.stub() };
       vsCodeStub.window.createTerminal.returns(mockTerminal as never);
@@ -201,21 +201,24 @@ describe('openTerminal command', () => {
         label: 'Server 1',
         variant: Variant.DEFAULT,
         endpoint: 'test-endpoint-1',
-	        connectionInformation: {
-	          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
-	          token: 'token1',
-	          tokenExpiry: new Date(Date.now() + 3600000),
-	          headers: {},
-	          fetch: (() => undefined) as never,
-	          WebSocket: (() => undefined) as never,
-	        },
-	        dateAssigned: new Date(),
-	      };
+        connectionInformation: {
+          baseUrl: vsCodeStub.Uri.parse('https://server1.example.com'),
+          token: 'token1',
+          tokenExpiry: new Date(Date.now() + 3600000),
+          headers: {},
+          fetch: (() => undefined) as never,
+          WebSocket: (() => undefined) as never,
+        },
+        dateAssigned: new Date(),
+      };
       (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
 
       await openTerminal(vs, assignmentManager);
 
-      sinon.assert.calledWith(assignmentManager.getServers as sinon.SinonStub, 'extension');
+      sinon.assert.calledWith(
+        assignmentManager.getServers as sinon.SinonStub,
+        'extension',
+      );
     });
   });
 });

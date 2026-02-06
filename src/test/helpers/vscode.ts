@@ -119,7 +119,9 @@ export interface VsCodeStub {
     createOutputChannel: sinon.SinonStubbedMember<
       typeof vscode.window.createOutputChannel
     >;
-    createTerminal: sinon.SinonStubbedMember<typeof vscode.window.createTerminal>;
+    createTerminal: sinon.SinonStubbedMember<
+      typeof vscode.window.createTerminal
+    >;
     createInputBox: sinon.SinonStubbedMember<
       typeof vscode.window.createInputBox
     >;

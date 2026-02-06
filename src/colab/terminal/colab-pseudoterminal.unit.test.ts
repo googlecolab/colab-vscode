@@ -62,9 +62,9 @@ describe('ColabPseudoterminal', () => {
   });
 
   describe('Event Wiring', () => {
-      beforeEach(() => {
-        pty.open(undefined);
-      });
+    beforeEach(() => {
+      pty.open(undefined);
+    });
 
     it('handleInput calls ttyWebSocket.send', () => {
       // Simulate connection by firing onOpen
