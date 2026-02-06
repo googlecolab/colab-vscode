@@ -102,3 +102,11 @@ export const UPLOAD: RegisteredCommand = {
   label: 'Upload to Colab',
   icon: 'cloud-upload',
 };
+
+/** Command to open a Colab terminal. */
+export const OPEN_TERMINAL: RegisteredCommand = {
+  id: 'colab.openTerminal',
+  label: 'Open Colab Terminal',
+  icon: 'terminal',
+  description: 'Open a terminal connected to a Colab runtime',
+};
