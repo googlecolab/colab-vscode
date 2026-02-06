@@ -110,7 +110,6 @@
         "category": "Colab",
         "command": "colab.mountServer",
         "enablement": "colab.hasAssignedServer",
-        "when": "config.colab.serverMounting",
         "title": "Mount Server to Workspace..."
       },
       {
@@ -123,7 +122,6 @@
         "category": "Colab",
         "command": "colab.upload",
         "enablement": "colab.hasAssignedServer",
-        "when": "config.colab.uploading",
         "title": "Upload to Colab"
       },
       {
@@ -213,6 +211,10 @@
         {
           "command": "colab.upload",
           "when": "false"
+        },
+        {
+          "command": "colab.mountServer",
+          "when": "config.colab.serverMounting"
         }
       ],
       "explorer/context": [
