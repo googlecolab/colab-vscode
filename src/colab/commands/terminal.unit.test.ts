@@ -45,8 +45,7 @@ describe('openTerminal command', () => {
 
       await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
-      sinon.assert.calledOnce(vsCodeStub.window.showInformationMessage);
-      sinon.assert.calledWithMatch(
+      sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.showInformationMessage,
         sinon.match(/No Colab servers are currently assigned/),
       );
