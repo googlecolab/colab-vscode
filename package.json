@@ -173,7 +173,7 @@
         "category": "Colab",
         "command": "colab.openTerminal",
         "enablement": "colab.hasAssignedServer",
-        "title": "Open Colab Terminal",
+        "title": "Open Terminal",
         "icon": "$(terminal)"
       }
     ],
