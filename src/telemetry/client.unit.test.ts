@@ -26,7 +26,7 @@ const LOG_RESPONSE = {
 const FETCH_RESPONSE_OK = new Response(JSON.stringify(LOG_RESPONSE), {
   status: 200,
 });
-const FETCH_RESPONSE_500 = new Response('', { status: 500 });
+const FETCH_RESPONSE_400 = new Response('', { status: 400 });
 
 describe('ClearcutClient', () => {
   let client: ClearcutClient;
@@ -51,7 +51,7 @@ describe('ClearcutClient', () => {
     });
 
     it('throws an error when Clearcut responds with a non-200 status', async () => {
-      fetchStub.resolves(FETCH_RESPONSE_500);
+      fetchStub.resolves(FETCH_RESPONSE_400);
       // Since log is sync (fires and forgets), spy on internal error handling
       const requestSpy = sinon.spy(
         client as unknown as { issueRequest: () => Promise<void> },
@@ -73,6 +73,155 @@ describe('ClearcutClient', () => {
       expect(() => {
         client.log(DEFAULT_LOG);
       }).to.throw('ClearcutClient cannot be used after it has been disposed.');
+    });
+
+    it('drops events when Clearcut responds with a non-500 status', async () => {
+      fetchStub
+        .onCall(0)
+        .resolves(FETCH_RESPONSE_400)
+        .onCall(1)
+        .resolves(FETCH_RESPONSE_OK);
+
+      client.log(DEFAULT_LOG);
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      fetchStub.reset();
+
+      await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+      const OTHER_LOG = {
+        ...DEFAULT_LOG,
+        timestamp: new Date(fakeClock.now).toISOString(),
+      };
+      client.log(OTHER_LOG);
+
+      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([OTHER_LOG]));
+    });
+
+    const requeueStatusTest = [{ status: 500 }, { status: 501 }];
+    for (const { status } of requeueStatusTest) {
+      it(`requeues events when Clearcut responds with a 500+ status: ${status.toString()}`, async () => {
+        fetchStub
+          .onCall(0)
+          .resolves(new Response('', { status }))
+          .onCall(1)
+          .resolves(FETCH_RESPONSE_OK);
+
+        client.log(DEFAULT_LOG);
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
+          logRequest([DEFAULT_LOG]),
+        );
+        fetchStub.reset();
+
+        await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+        const OTHER_LOG = {
+          ...DEFAULT_LOG,
+          timestamp: new Date(fakeClock.now).toISOString(),
+        };
+        client.log(OTHER_LOG);
+
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
+          logRequest([DEFAULT_LOG, OTHER_LOG]),
+        );
+      });
+    }
+
+    describe('on requeue', () => {
+      let pendingFlush: Deferred<void>;
+
+      beforeEach(() => {
+        client.log(DEFAULT_LOG); // Ensure next events are queued.
+        fetchStub.resetHistory();
+        pendingFlush = new Deferred<void>();
+        fetchStub.onFirstCall().callsFake(async () => {
+          await pendingFlush.promise;
+          return new Response('', { status: 500 });
+        });
+      });
+
+      it('requeues all events when there is sufficient capacity', async () => {
+        // Trigger flush
+        const failedLogs = createLogEvents(3);
+        for (const [i, log] of failedLogs.entries()) {
+          if (i === failedLogs.length - 1) {
+            await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+          }
+          client.log(log);
+        }
+
+        // Place more logs on queue while flush pending
+        const newLogs = createLogEvents(3);
+        newLogs.forEach((log) => {
+          client.log(log);
+        });
+
+        // Resolve the pending flush, requeuing failed logs
+        pendingFlush.resolve();
+        await fakeClock.tickAsync(1);
+        fetchStub.resetHistory();
+
+        client.dispose(); // Trigger immediate flush
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
+          logRequest([...failedLogs, ...newLogs]),
+        );
+      });
+
+      it('requeues some events when there is limited capacity', async () => {
+        // Place the max amount of logs on the queue
+        const failedLogs = createLogEvents(TEST_ONLY.MAX_PENDING_EVENTS);
+        for (const [i, log] of failedLogs.entries()) {
+          if (i === failedLogs.length - 1) {
+            await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+          }
+          client.log(log);
+        }
+
+        // Place half the max amount on queue while flush pending
+        const newLogs = createLogEvents(TEST_ONLY.MAX_PENDING_EVENTS / 2);
+        newLogs.forEach((log) => {
+          client.log(log);
+        });
+
+        // Resolve the pending flush, requeuing failed logs
+        pendingFlush.resolve();
+        await fakeClock.tickAsync(1);
+        fetchStub.resetHistory();
+
+        client.dispose(); // Trigger immediate flush
+        sinon.assert.calledOnceWithExactly(
+          fetchStub,
+          logRequest([
+            ...failedLogs.slice(TEST_ONLY.MAX_PENDING_EVENTS / 2),
+            ...newLogs,
+          ]),
+        );
+      });
+
+      it('requeues no events when there is no capacity', async () => {
+        // Trigger flush
+        const failedLogs = createLogEvents(3);
+        for (const [i, log] of failedLogs.entries()) {
+          if (i === failedLogs.length - 1) {
+            await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
+          }
+          client.log(log);
+        }
+
+        // Place the max amount of logs on the queue while flush pending
+        const newLogs = createLogEvents(TEST_ONLY.MAX_PENDING_EVENTS);
+        newLogs.forEach((log) => {
+          client.log(log);
+        });
+
+        // Resolve the pending flush, requeuing failed logs
+        pendingFlush.resolve();
+        await fakeClock.tickAsync(1);
+        fetchStub.resetHistory();
+
+        client.dispose(); // Trigger immediate flush
+        sinon.assert.calledOnceWithExactly(fetchStub, logRequest(newLogs));
+      });
     });
 
     describe('while waiting between flushes', () => {
@@ -160,29 +309,24 @@ describe('ClearcutClient', () => {
         sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
         fetchStub.resetHistory();
 
-        const oldestEvent = {
+        const oldestLog = {
           ...DEFAULT_LOG,
           timestamp: new Date(NOW).toISOString(),
         };
-        client.log(oldestEvent);
+        client.log(oldestLog);
 
         // Log MAX_PENDING_EVENTS more events to exceed the limit.
-        const newEvents: ColabLogEvent[] = [];
-        for (let i = 0; i < TEST_ONLY.MAX_PENDING_EVENTS; i++) {
-          const logEvent = {
-            ...DEFAULT_LOG,
-            timestamp: new Date(NOW + i).toISOString(),
-          };
-          newEvents.push(logEvent);
+        const newLogs = createLogEvents(TEST_ONLY.MAX_PENDING_EVENTS);
+        for (const [i, log] of newLogs.entries()) {
           // Advance time to allow flush of last event
-          if (i === TEST_ONLY.MAX_PENDING_EVENTS - 1) {
+          if (i === newLogs.length - 1) {
             await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
           }
-          client.log(logEvent);
+          client.log(log);
         }
 
         // Verify that the oldest event was dropped.
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest(newEvents));
+        sinon.assert.calledOnceWithExactly(fetchStub, logRequest(newLogs));
       });
     });
   });
@@ -307,7 +451,20 @@ describe('ClearcutClient', () => {
   });
 });
 
-// Helper to match the expected Clearcut log request structure
+/**
+ * Helper to batch create a number of unique log events
+ */
+function createLogEvents(numEvents: number): ColabLogEvent[] {
+  const events = [];
+  for (let i = 0; i < numEvents; i++) {
+    events[i] = { ...DEFAULT_LOG, timestamp: new Date(NOW + i).toISOString() };
+  }
+  return events;
+}
+
+/**
+ * Helper to match the expected Clearcut log request structure
+ */
 function logRequest(events: ColabLogEvent[]): Request {
   const logEvents = events.map((event) => ({
     source_extension_json: JSON.stringify(event),

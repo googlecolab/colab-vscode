@@ -135,8 +135,12 @@ export class ClearcutClient implements Disposable {
       },
     });
     const response = await fetch(request);
-    // TODO: Retry on 401 and 5xx.
+    // TODO: handle 401 once token is included in request
     if (!response.ok) {
+      if (response.status >= 500) {
+        this.requeue(events); // Retry on next flush
+        return MIN_WAIT_BETWEEN_FLUSHES_MS;
+      }
       throw new Error(
         `Failed to issue request ${request.method} ${request.url}: ${response.statusText}`,
       );
@@ -153,6 +157,22 @@ export class ClearcutClient implements Disposable {
       log.error('Failed to parse Clearcut response:', err);
     }
     return next_flush_millis;
+  }
+
+  /** Requeues events by placing them at the front of the queue. */
+  private requeue(events: LogEvent[]) {
+    const capacity = MAX_PENDING_EVENTS - this.pendingEvents.length;
+
+    // Queue is full, which means the oldest events should be dropped.
+    if (capacity === 0) {
+      return;
+    }
+    if (capacity >= events.length) {
+      this.pendingEvents.unshift(...events);
+      return;
+    }
+    // Only keep the most recent events within the queue's capacity.
+    this.pendingEvents.unshift(...events.slice(-capacity));
   }
 }
 
