@@ -8,10 +8,11 @@ import { expect } from 'chai';
 import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import type vscode from 'vscode';
 import { Disposable } from 'vscode';
+import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ClearcutClient, ColabLogEventBase } from './client';
-import { initializeTelemetry, telemetry, TEST_ONLY } from '.';
+import { initializeTelemetry, telemetry } from '.';
 
 const NOW = Date.now();
 const SESSION_ID = 'sessionId';
@@ -29,7 +30,7 @@ describe('Telemetry Module', () => {
     vs = newVsCodeStub();
     const packageJSON = { name: '', publisher: '' };
     vs.extensions.getExtension
-      .withArgs(TEST_ONLY.COLAB_EXT_IDENTIFIER)
+      .withArgs(COLAB_EXT_IDENTIFIER)
       .returns({
         packageJSON: { ...packageJSON, version: VERSION_COLAB },
       } as vscode.Extension<unknown>)

@@ -6,12 +6,10 @@
 import assert from 'assert';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
+import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { ClearcutClient, ColabLogEventBase, ColabEvent } from './client';
-
-// The identifier for the Colab extension.
-const COLAB_EXT_IDENTIFIER = 'google.colab';
 
 let client: ClearcutClient | undefined;
 // Fields that aren't expected to change for the duration of the session.
@@ -78,5 +76,3 @@ function log(event: ColabEvent) {
     timestamp: new Date().toISOString(),
   });
 }
-
-export const TEST_ONLY = { COLAB_EXT_IDENTIFIER };
