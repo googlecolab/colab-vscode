@@ -19,20 +19,10 @@ const MAX_PENDING_EVENTS = 1000;
 // Minimum wait time between flushes in milliseconds.
 const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
 
-type ColabActivationEvent = Record<string, never>;
-
-interface ColabErrorEvent {
-  // The name of the error.
-  name: string;
-  // The error message.
-  msg: string;
-  // The stack trace of the error.
-  stack: string;
-}
-
-export type ColabEvent =
-  | { activation_event: ColabActivationEvent }
-  | { error_event: ColabErrorEvent };
+// The Colab log event structure.
+// TODO: Convert to proto definition.
+// TODO: Record events for MVP CUJs.
+export type ColabLogEvent = ColabLogEventBase & ColabEvent;
 
 export interface ColabLogEventBase {
   extension_version: string;
@@ -46,10 +36,20 @@ export interface ColabLogEventBase {
   vscode_version: string;
 }
 
-// The Colab log event structure.
-// TODO: Convert to proto definition.
-// TODO: Record events for MVP CUJs.
-export type ColabLogEvent = ColabLogEventBase & ColabEvent;
+export type ColabEvent =
+  | { activation_event: ColabActivationEvent }
+  | { error_event: ColabErrorEvent };
+
+type ColabActivationEvent = Record<string, never>;
+
+interface ColabErrorEvent {
+  // The name of the error.
+  name: string;
+  // The error message.
+  msg: string;
+  // The stack trace of the error.
+  stack: string;
+}
 
 // The Clearcut log event structure.
 interface LogEvent {
