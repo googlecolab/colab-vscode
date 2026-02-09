@@ -10,6 +10,9 @@ import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { ClearcutClient, ColabLogEventBase, ColabEvent } from './client';
 
+// The identifier for the Colab extension.
+const COLAB_EXT_IDENTIFIER = 'google.colab';
+
 let client: ClearcutClient | undefined;
 // Fields that aren't expected to change for the duration of the session.
 let baseLog: Omit<ColabLogEventBase, 'timestamp'>;
@@ -20,19 +23,18 @@ let baseLog: Omit<ColabLogEventBase, 'timestamp'>;
  * @param vs - The vscode module.
  * @returns A {@link Disposable} that can be used to clean up the client.
  */
-export function initializeTelemetry(
-  context: vscode.ExtensionContext,
-  vs: typeof vscode,
-): Disposable {
+export function initializeTelemetry(vs: typeof vscode): Disposable {
   if (client) {
     throw new Error('Telemetry has already been initialized.');
   }
 
+  const colabExtension = vs.extensions.getExtension(COLAB_EXT_IDENTIFIER);
+  assert(colabExtension);
   const jupyterExtension = vs.extensions.getExtension(JUPYTER_EXT_IDENTIFIER);
   assert(jupyterExtension);
 
   baseLog = {
-    extension_version: getPackageInfo(context.extension).version,
+    extension_version: getPackageInfo(colabExtension).version,
     jupyter_extension_version: getPackageInfo(jupyterExtension).version,
     session_id: vs.env.sessionId,
     ui_kind:
@@ -76,3 +78,5 @@ function log(event: ColabEvent) {
     timestamp: new Date().toISOString(),
   });
 }
+
+export const TEST_ONLY = { COLAB_EXT_IDENTIFIER };

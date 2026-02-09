@@ -11,7 +11,7 @@ import { Disposable } from 'vscode';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ClearcutClient, ColabLogEventBase } from './client';
-import { initializeTelemetry, telemetry } from '.';
+import { initializeTelemetry, telemetry, TEST_ONLY } from '.';
 
 const NOW = Date.now();
 const SESSION_ID = 'sessionId';
@@ -21,29 +21,24 @@ const VERSION_VSCODE = '1.109.0';
 
 describe('Telemetry Module', () => {
   let disposeTelemetry: Disposable | undefined;
-  let extensionContext: vscode.ExtensionContext;
   let fakeClock: SinonFakeTimers;
   let vs: VsCodeStub;
 
   beforeEach(() => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vs = newVsCodeStub();
-    vs.extensions.getExtension.withArgs(JUPYTER_EXT_IDENTIFIER).returns({
-      isActive: true,
-      packageJSON: {
-        name: '',
-        publisher: '',
-        version: VERSION_JUPYTER,
-      },
-    } as vscode.Extension<unknown>);
+    const packageJSON = { name: '', publisher: '' };
+    vs.extensions.getExtension
+      .withArgs(TEST_ONLY.COLAB_EXT_IDENTIFIER)
+      .returns({
+        packageJSON: { ...packageJSON, version: VERSION_COLAB },
+      } as vscode.Extension<unknown>)
+      .withArgs(JUPYTER_EXT_IDENTIFIER)
+      .returns({
+        packageJSON: { ...packageJSON, version: VERSION_JUPYTER },
+      } as vscode.Extension<unknown>);
     vs.env.sessionId = SESSION_ID;
     vs.version = VERSION_VSCODE;
-
-    extensionContext = {
-      extension: {
-        packageJSON: { name: '', publisher: '', version: VERSION_COLAB },
-      },
-    } as vscode.ExtensionContext;
   });
 
   afterEach(() => {
@@ -53,10 +48,10 @@ describe('Telemetry Module', () => {
 
   describe('lifecycle', () => {
     it('throws if doubly initialized', () => {
-      disposeTelemetry = initializeTelemetry(extensionContext, vs.asVsCode());
+      disposeTelemetry = initializeTelemetry(vs.asVsCode());
 
       expect(() => {
-        initializeTelemetry(extensionContext, vs.asVsCode());
+        initializeTelemetry(vs.asVsCode());
       }).to.throw(/already been initialized/);
     });
 
@@ -68,7 +63,7 @@ describe('Telemetry Module', () => {
 
     it('disposes the client when disposed', () => {
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-      disposeTelemetry = initializeTelemetry(extensionContext, vs.asVsCode());
+      disposeTelemetry = initializeTelemetry(vs.asVsCode());
 
       disposeTelemetry.dispose();
 
@@ -90,7 +85,7 @@ describe('Telemetry Module', () => {
         vscode_version: VERSION_VSCODE,
         timestamp: new Date(NOW).toISOString(),
       };
-      disposeTelemetry = initializeTelemetry(extensionContext, vs.asVsCode());
+      disposeTelemetry = initializeTelemetry(vs.asVsCode());
     });
 
     it('on activation', () => {
