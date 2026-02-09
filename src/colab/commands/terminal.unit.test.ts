@@ -6,11 +6,14 @@
 
 import { randomUUID } from 'crypto';
 import sinon, { SinonStubbedInstance } from 'sinon';
-import { ExtensionTerminalOptions } from 'vscode';
+import { ExtensionTerminalOptions, QuickPick, QuickPickItem } from 'vscode';
 import { Variant } from '../../colab/api';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
-import { buildQuickPickStub } from '../../test/helpers/quick-input';
+import {
+  buildQuickPickStub,
+  QuickPickStub,
+} from '../../test/helpers/quick-input';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { openTerminal } from './terminal';
@@ -40,6 +43,23 @@ describe('openTerminal command', () => {
   });
 
   describe('Server Selection', () => {
+    it('requests extension source for servers', async () => {
+      const server1 = buildColabAssignedServer({
+        label: 'Server 1',
+        endpoint: 'test-endpoint-1',
+        baseUrl: 'https://server1.example.com',
+        token: 'token1',
+      });
+      (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
+
+      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
+
+      sinon.assert.calledWith(
+        assignmentManager.getServers as sinon.SinonStub,
+        'extension',
+      );
+    });
+
     it('shows info message when no servers available', async () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([]);
 
@@ -79,7 +99,7 @@ describe('openTerminal command', () => {
       );
     });
 
-    it('shows QuickPick with multiple servers', async () => {
+    describe('with multiple servers', () => {
       const server1 = buildColabAssignedServer({
         label: 'Server 1',
         endpoint: 'test-endpoint-1',
@@ -92,32 +112,66 @@ describe('openTerminal command', () => {
         baseUrl: 'https://server2.example.com',
         token: 'token2',
       });
-      (assignmentManager.getServers as sinon.SinonStub).resolves([
-        server1,
-        server2,
-      ]);
+      let quickPickStub: QuickPickStub & { nextShow: () => Promise<void> };
 
-      const quickPickStub = buildQuickPickStub();
-      vsCodeStub.window.createQuickPick.returns(quickPickStub as never);
+      beforeEach(() => {
+        (assignmentManager.getServers as sinon.SinonStub).resolves([
+          server1,
+          server2,
+        ]);
 
-      // Start openTerminal in background
-      const openTerminalPromise = openTerminal(
-        vsCodeStub.asVsCode(),
-        assignmentManager,
-      );
+        quickPickStub = buildQuickPickStub();
+        vsCodeStub.window.createQuickPick.returns(
+          quickPickStub as Partial<
+            QuickPick<QuickPickItem>
+          > as QuickPick<QuickPickItem>,
+        );
+      });
 
-      // Wait for QuickPick to be shown
-      await quickPickStub.nextShow();
+      it('shows QuickPick', async () => {
+        // Start openTerminal in background
+        const openTerminalPromise = openTerminal(
+          vsCodeStub.asVsCode(),
+          assignmentManager,
+        );
 
-      // Simulate user canceling (hiding the quick pick)
-      const onDidHideCallback = quickPickStub.onDidHide.firstCall.args[0];
-      onDidHideCallback();
+        // Wait for QuickPick to be shown
+        await quickPickStub.nextShow();
 
-      // Wait for openTerminal to complete
-      await openTerminalPromise;
+        // Simulate user cancelling (hiding the quick pick)
+        quickPickStub.onDidHide.yield(undefined);
 
-      sinon.assert.calledOnce(vsCodeStub.window.createQuickPick);
-      sinon.assert.calledOnce(quickPickStub.show);
+        // Wait for openTerminal to complete
+        await openTerminalPromise;
+
+        sinon.assert.calledOnce(vsCodeStub.window.createQuickPick);
+        sinon.assert.calledOnce(quickPickStub.show);
+      });
+
+      it('creates terminal with selected server', async () => {
+        // Start openTerminal in background
+        const openTerminalPromise = openTerminal(
+          vsCodeStub.asVsCode(),
+          assignmentManager,
+        );
+        // Wait for QuickPick to be shown
+        await quickPickStub.nextShow();
+        // Simulate user selecting Server 2
+        quickPickStub.onDidChangeSelection.yield([
+          { label: server2.label, value: server2 },
+        ]);
+
+        // Wait for openTerminal to complete
+        await openTerminalPromise;
+
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.createTerminal,
+          sinon.match(
+            (options: ExtensionTerminalOptions) =>
+              options.name === 'Colab Terminal: Server 2',
+          ),
+        );
+      });
     });
   });
 
@@ -156,23 +210,6 @@ describe('openTerminal command', () => {
       await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
 
       sinon.assert.calledOnce(mockTerminal.show);
-    });
-
-    it('requests extension source for servers', async () => {
-      const server1 = buildColabAssignedServer({
-        label: 'Server 1',
-        endpoint: 'test-endpoint-1',
-        baseUrl: 'https://server1.example.com',
-        token: 'token1',
-      });
-      (assignmentManager.getServers as sinon.SinonStub).resolves([server1]);
-
-      await openTerminal(vsCodeStub.asVsCode(), assignmentManager);
-
-      sinon.assert.calledWith(
-        assignmentManager.getServers as sinon.SinonStub,
-        'extension',
-      );
     });
   });
 });
