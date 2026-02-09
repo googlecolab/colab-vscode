@@ -90,6 +90,14 @@
           "tags": [
             "experimental"
           ]
+        },
+        "colab.terminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables the ability to open a terminal connected to Colab runtimes.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },
@@ -160,6 +168,13 @@
         "command": "colab.refreshServersView",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "category": "Colab",
+        "command": "colab.openTerminal",
+        "enablement": "colab.hasAssignedServer",
+        "title": "Open Terminal",
+        "icon": "$(terminal)"
       }
     ],
     "icons": {
@@ -215,6 +230,10 @@
         {
           "command": "colab.mountServer",
           "when": "config.colab.serverMounting"
+        },
+        {
+          "command": "colab.openTerminal",
+          "when": "config.colab.terminal"
         }
       ],
       "explorer/context": [
