@@ -6,7 +6,7 @@
 
 import { expect } from 'chai';
 import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
-import type vscode from 'vscode';
+import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -23,7 +23,11 @@ const VERSION_VSCODE = '1.109.0';
 
 describe('Telemetry Module', () => {
   let disposeTelemetry: Disposable | undefined;
+  let disposeTelemetryEnabledListener: Disposable;
   let fakeClock: SinonFakeTimers;
+  // Any value required for consistency with VS Code api.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onDidChangeTelemetryEnabled: (e: boolean) => any;
   let vs: VsCodeStub;
 
   beforeEach(() => {
@@ -41,11 +45,18 @@ describe('Telemetry Module', () => {
       } as vscode.Extension<unknown>);
     vs.env.sessionId = SESSION_ID;
     vs.version = VERSION_VSCODE;
+
+    disposeTelemetryEnabledListener = { dispose: () => undefined };
+    vs.env.onDidChangeTelemetryEnabled.callsFake((listener) => {
+      onDidChangeTelemetryEnabled = listener;
+      return disposeTelemetryEnabledListener;
+    });
   });
 
   afterEach(() => {
     sinon.restore();
     disposeTelemetry?.dispose();
+    disposeTelemetryEnabledListener.dispose();
   });
 
   describe('lifecycle', () => {
@@ -71,6 +82,52 @@ describe('Telemetry Module', () => {
 
       sinon.assert.calledOnce(disposeSpy);
     });
+
+    it('disposes the onDidChangeTelemetryEnabled listener when disposed', () => {
+      const disposeSpy = sinon.spy(disposeTelemetryEnabledListener, 'dispose');
+      disposeTelemetry = initializeTelemetry(vs.asVsCode());
+
+      disposeTelemetry.dispose();
+
+      sinon.assert.calledOnce(disposeSpy);
+    });
+  });
+
+  it('does not log to Clearcut when telemetry is disabled', () => {
+    const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+    vs.env.isTelemetryEnabled = false;
+    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+
+    telemetry.logActivation();
+
+    sinon.assert.notCalled(logSpy);
+  });
+
+  it('enables telemetry when onDidChangeTelemetry fires with true', () => {
+    const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+    vs.env.isTelemetryEnabled = false;
+    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+
+    telemetry.logActivation();
+    sinon.assert.notCalled(logSpy);
+    logSpy.resetHistory();
+
+    onDidChangeTelemetryEnabled(true);
+    telemetry.logActivation();
+    sinon.assert.calledOnce(logSpy);
+  });
+
+  it('disables telemetry when onDidChangeTelemetry fires with false', () => {
+    const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+
+    telemetry.logActivation();
+    sinon.assert.calledOnce(logSpy);
+    logSpy.resetHistory();
+
+    onDidChangeTelemetryEnabled(false);
+    telemetry.logActivation();
+    sinon.assert.notCalled(logSpy);
   });
 
   describe('logs to Clearcut', () => {
