@@ -62,14 +62,12 @@ export const telemetry = {
       log({
         error_event: { name: e.name, msg: e.message, stack: e.stack ?? '' },
       });
-      return;
-    }
-    if (typeof e === 'string') {
+    } else if (typeof e === 'string') {
       log({ error_event: { name: 'Error', msg: e, stack: '' } });
-      return;
+    } else {
+      const msg = e ? JSON.stringify(e) : String(e);
+      log({ error_event: { name: 'Error', msg, stack: '' } });
     }
-    const msg = e ? JSON.stringify(e) : String(e);
-    log({ error_event: { name: 'Error', msg, stack: '' } });
   },
 };
 
