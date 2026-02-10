@@ -9,7 +9,8 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ClearcutClient, ColabLogEventBase, ColabEvent } from './client';
+import { ColabLogEventBase, ColabEvent } from './api';
+import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
 // Fields that aren't expected to change for the duration of the session.

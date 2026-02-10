@@ -11,7 +11,8 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { ClearcutClient, ColabLogEventBase } from './client';
+import { ColabLogEventBase } from './api';
+import { ClearcutClient } from './client';
 import { initializeTelemetry, telemetry } from '.';
 
 const NOW = Date.now();
