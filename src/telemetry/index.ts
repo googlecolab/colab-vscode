@@ -13,7 +13,7 @@ import { ClearcutClient, ColabLogEventBase, ColabEvent } from './client';
 
 let client: ClearcutClient | undefined;
 // Fields that aren't expected to change for the duration of the session.
-let baseLog: Omit<ColabLogEventBase, 'timestamp'>;
+let baseLog: ColabLogEventBase;
 
 /**
  * Initializes the telemetry module

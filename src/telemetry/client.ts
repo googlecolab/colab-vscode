@@ -22,15 +22,17 @@ const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
 // The Colab log event structure.
 // TODO: Convert to proto definition.
 // TODO: Record events for MVP CUJs.
-export type ColabLogEvent = ColabLogEventBase & ColabEvent;
+export type ColabLogEvent = ColabLogEventBase &
+  ColabEvent & {
+    // The timestamp of the event as an ISO string.
+    timestamp: string;
+  };
 
 export interface ColabLogEventBase {
   extension_version: string;
   jupyter_extension_version: string;
   // A unique identifier for the current VS Code session.
   session_id: string;
-  // The timestamp of the event as an ISO string.
-  timestamp: string;
   // The kinds of UIs that VS Code can run on.
   ui_kind: 'UI_KIND_DESKTOP' | 'UI_KIND_WEB';
   vscode_version: string;
