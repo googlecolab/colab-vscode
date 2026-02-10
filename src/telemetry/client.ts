@@ -8,68 +8,21 @@ import fetch, { Request } from 'node-fetch';
 import { Disposable } from 'vscode';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 import { log } from '../common/logging';
+import {
+  ColabLogEvent,
+  LogEvent,
+  LogRequest,
+  LogResponse,
+  LOG_SOURCE,
+} from './api';
 
 // The Clearcut endpoint.
 const LOGS_ENDPOINT = 'https://play.googleapis.com/log?format=json_proto';
-// The source identifier for Colab VS Code logs.
-const LOG_SOURCE = 'COLAB_VSCODE';
 // Maximum number of pending events before flushing. When exceeded, events will
 // be dropped from the front of the queue.
 const MAX_PENDING_EVENTS = 1000;
 // Minimum wait time between flushes in milliseconds.
 const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
-
-// The Colab log event structure.
-// TODO: Convert to proto definition.
-// TODO: Record events for MVP CUJs.
-export type ColabLogEvent = ColabLogEventBase &
-  ColabEvent & {
-    // The timestamp of the event as an ISO string.
-    timestamp: string;
-  };
-
-export interface ColabLogEventBase {
-  extension_version: string;
-  jupyter_extension_version: string;
-  // A unique identifier for the current VS Code session.
-  session_id: string;
-  // The kinds of UIs that VS Code can run on.
-  ui_kind: 'UI_KIND_DESKTOP' | 'UI_KIND_WEB';
-  vscode_version: string;
-}
-
-export type ColabEvent =
-  | { activation_event: ColabActivationEvent }
-  | { error_event: ColabErrorEvent };
-
-type ColabActivationEvent = Record<string, never>;
-
-interface ColabErrorEvent {
-  // The name of the error.
-  name: string;
-  // The error message.
-  msg: string;
-  // The stack trace of the error.
-  stack: string;
-}
-
-// The Clearcut log event structure.
-interface LogEvent {
-  // ColabLogEvent serialized as a JSON string.
-  source_extension_json: string;
-}
-
-// The Clearcut log request structure.
-interface LogRequest {
-  log_source: typeof LOG_SOURCE;
-  log_event: LogEvent[];
-}
-
-// The Clearcut log response structure.
-interface LogResponse {
-  // Minimum wait time before the next request in milliseconds.
-  next_request_wait_millis: number;
-}
 
 /**
  * A client for sending logs to Clearcut.
@@ -197,7 +150,6 @@ export class ClearcutClient implements Disposable {
 
 export const TEST_ONLY = {
   LOGS_ENDPOINT,
-  LOG_SOURCE,
   MAX_PENDING_EVENTS,
   MIN_WAIT_BETWEEN_FLUSHES_MS,
 };

@@ -9,7 +9,8 @@ import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
 import { Deferred } from '../test/helpers/async';
-import { ClearcutClient, ColabLogEvent, TEST_ONLY } from './client';
+import { ColabLogEvent, LOG_SOURCE } from './api';
+import { ClearcutClient, TEST_ONLY } from './client';
 
 const NOW = Date.now();
 const DEFAULT_LOG: ColabLogEvent = {
@@ -473,7 +474,7 @@ function logRequest(events: ColabLogEvent[]): Request {
   return new Request(TEST_ONLY.LOGS_ENDPOINT, {
     method: 'POST',
     body: JSON.stringify({
-      log_source: TEST_ONLY.LOG_SOURCE,
+      log_source: LOG_SOURCE,
       log_event: logEvents,
     }),
     headers: {
