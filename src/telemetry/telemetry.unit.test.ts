@@ -74,48 +74,48 @@ describe('Telemetry Module', () => {
   });
 
   it('does not log to Clearcut when telemetry is disabled', () => {
-    const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+    const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     vs.env.isTelemetryEnabled = false;
     disposeTelemetry = initializeTelemetry(vs.asVsCode());
 
     telemetry.logActivation();
 
-    sinon.assert.notCalled(logSpy);
+    sinon.assert.notCalled(logStub);
   });
 
   it('enables telemetry when onDidChangeTelemetry fires with true', () => {
-    const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+    const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     vs.env.isTelemetryEnabled = false;
     // Maintain a reference to this stub as that's the reference telemetry has.
     const vscodeStub = vs.asVsCode();
     disposeTelemetry = initializeTelemetry(vscodeStub);
 
     telemetry.logActivation();
-    sinon.assert.notCalled(logSpy);
-    logSpy.resetHistory();
+    sinon.assert.notCalled(logStub);
+    logStub.resetHistory();
 
     // Required to change read-only property
     (vscodeStub.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled =
       true;
     telemetry.logActivation();
-    sinon.assert.calledOnce(logSpy);
+    sinon.assert.calledOnce(logStub);
   });
 
   it('disables telemetry when onDidChangeTelemetry fires with false', () => {
-    const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+    const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     // Maintain a reference to this stub as that's the reference telemetry has.
     const vscodeStub = vs.asVsCode();
     disposeTelemetry = initializeTelemetry(vscodeStub);
 
     telemetry.logActivation();
-    sinon.assert.calledOnce(logSpy);
-    logSpy.resetHistory();
+    sinon.assert.calledOnce(logStub);
+    logStub.resetHistory();
 
     // Required to change read-only property
     (vscodeStub.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled =
       false;
     telemetry.logActivation();
-    sinon.assert.notCalled(logSpy);
+    sinon.assert.notCalled(logStub);
   });
 
   describe('logs to Clearcut', () => {
