@@ -73,7 +73,7 @@ describe('Telemetry Module', () => {
   });
 
   describe('logs to Clearcut', () => {
-    let baseLog: ColabLogEventBase;
+    let baseLog: ColabLogEventBase & { timestamp: string };
     let logSpy: SinonSpy;
 
     beforeEach(() => {
