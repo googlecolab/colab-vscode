@@ -10,7 +10,7 @@ import { SinonStub } from 'sinon';
 import sinon from 'sinon';
 import vscode from 'vscode';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { getJupyterApi } from './jupyter-extension';
+import { getJupyterApi, JUPYTER_EXT_IDENTIFIER } from './jupyter-extension';
 
 enum ExtensionStatus {
   Active,
@@ -35,7 +35,7 @@ describe('Jupyter Extension', () => {
       status: ExtensionStatus = ExtensionStatus.Active,
     ): Partial<vscode.Extension<Jupyter>> {
       return {
-        id: 'ms-toolsai.jupyter',
+        id: JUPYTER_EXT_IDENTIFIER,
         packageJSON: {
           publisher: 'ms-toolsai',
           name: 'jupyter',

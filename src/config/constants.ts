@@ -5,3 +5,6 @@
  */
 
 export const PROVIDER_ID = 'google';
+
+// The identifier for the Colab extension.
+export const COLAB_EXT_IDENTIFIER = 'google.colab';

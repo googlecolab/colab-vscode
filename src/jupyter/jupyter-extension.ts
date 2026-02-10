@@ -11,13 +11,16 @@ import { getPackageInfo } from '../config/package-info';
 
 const JUPYTER_SEMVER_RANGE = '>=2025.0.0';
 
+/** The identifier of the Jupyter extension. */
+export const JUPYTER_EXT_IDENTIFIER = 'ms-toolsai.jupyter';
+
 /**
  * Get the exported API from the Jupyter extension.
  */
 export async function getJupyterApi(
   vs: typeof vscode,
 ): Promise<vscode.Extension<Jupyter>> {
-  const ext = vs.extensions.getExtension<Jupyter>('ms-toolsai.jupyter');
+  const ext = vs.extensions.getExtension<Jupyter>(JUPYTER_EXT_IDENTIFIER);
   if (!ext) {
     throw new Error('Jupyter Extension not installed');
   }
