@@ -78,7 +78,7 @@ describe('Telemetry Module', () => {
     let logSpy: SinonSpy;
 
     beforeEach(() => {
-      logSpy = sinon.spy(ClearcutClient.prototype, 'log');
+      logSpy = sinon.stub(ClearcutClient.prototype, 'log');
       baseLog = {
         extension_version: VERSION_COLAB,
         jupyter_extension_version: VERSION_JUPYTER,
