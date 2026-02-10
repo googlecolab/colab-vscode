@@ -98,18 +98,45 @@ describe('Telemetry Module', () => {
       });
     });
 
-    it('on error', () => {
-      const e = new Error('message');
-      e.name = 'ErrorName';
-      e.stack = 'stack';
-
-      telemetry.logError(e);
-
-      sinon.assert.calledOnceWithExactly(logSpy, {
-        ...baseLog,
+    const errors = [
+      {
+        type: 'error',
+        getError: () => {
+          const e = new Error('message');
+          e.name = 'ErrorName';
+          e.stack = 'stack';
+          return e;
+        },
         error_event: { name: 'ErrorName', msg: 'message', stack: 'stack' },
+      },
+      {
+        type: 'string',
+        getError: () => 'Foo error',
+        error_event: { name: 'Error', msg: 'Foo error', stack: '' },
+      },
+      {
+        type: 'object',
+        getError: () => {
+          return { e: 'Foo error' };
+        },
+        error_event: { name: 'Error', msg: '{"e":"Foo error"}', stack: '' },
+      },
+      {
+        type: 'undefined',
+        getError: () => undefined,
+        error_event: { name: 'Error', msg: 'undefined', stack: '' },
+      },
+    ];
+    for (const { type, getError, error_event } of errors) {
+      it(`on error with type ${type}`, () => {
+        telemetry.logError(getError());
+
+        sinon.assert.calledOnceWithExactly(logSpy, {
+          ...baseLog,
+          error_event,
+        });
       });
-    });
+    }
 
     it('with the correct time', () => {
       const curTime = fakeClock.tick(100);

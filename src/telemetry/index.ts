@@ -57,10 +57,19 @@ export const telemetry = {
   logActivation: () => {
     log({ activation_event: {} });
   },
-  logError: (e: Error) => {
-    log({
-      error_event: { name: e.name, msg: e.message, stack: e.stack ?? '' },
-    });
+  logError: (e: unknown) => {
+    if (e instanceof Error) {
+      log({
+        error_event: { name: e.name, msg: e.message, stack: e.stack ?? '' },
+      });
+      return;
+    }
+    if (typeof e === 'string') {
+      log({ error_event: { name: 'Error', msg: e, stack: '' } });
+      return;
+    }
+    const msg = e ? JSON.stringify(e) : String(e);
+    log({ error_event: { name: 'Error', msg, stack: '' } });
   },
 };
 
