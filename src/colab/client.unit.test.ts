@@ -639,7 +639,7 @@ describe('ColabClient', () => {
 
   it('throws on 401 if onAuthError is not provided', async () => {
     client = new ColabClient(
-       new URL(`https://${COLAB_HOST}`),
+      new URL(`https://${COLAB_HOST}`),
       new URL(`https://${GOOGLE_APIS_HOST}`),
       sessionStub,
     );

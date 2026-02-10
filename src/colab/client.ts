@@ -474,7 +474,7 @@ export class ColabClient {
     let response: Response | undefined;
     let request: Request | undefined;
 
-    // Make up to 2 attempts to issue the request in case of an 
+    // Make up to 2 attempts to issue the request in case of an
     // authentication error i.e. if the first attempt fails with a 401,
     for (let attempt = 0; attempt < 2; attempt++) {
       const requestHeaders = new Headers(init.headers);
@@ -564,7 +564,7 @@ class ColabRequestError extends Error {
   }) {
     super(
       `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ` : ''),
+        (responseBody ? `\nResponse body: ${responseBody}` : ''),
     );
     this.request = request;
     this.response = response;
