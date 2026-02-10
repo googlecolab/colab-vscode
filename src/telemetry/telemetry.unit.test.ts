@@ -75,10 +75,10 @@ describe('Telemetry Module', () => {
 
   describe('logs to Clearcut', () => {
     let baseLog: ColabLogEventBase & { timestamp: string };
-    let logSpy: SinonSpy;
+    let logStub: SinonSpy;
 
     beforeEach(() => {
-      logSpy = sinon.stub(ClearcutClient.prototype, 'log');
+      logStub = sinon.stub(ClearcutClient.prototype, 'log');
       baseLog = {
         extension_version: VERSION_COLAB,
         jupyter_extension_version: VERSION_JUPYTER,
@@ -93,7 +93,7 @@ describe('Telemetry Module', () => {
     it('on activation', () => {
       telemetry.logActivation();
 
-      sinon.assert.calledOnceWithExactly(logSpy, {
+      sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         activation_event: {},
       });
@@ -132,7 +132,7 @@ describe('Telemetry Module', () => {
       it(`on error with type ${type}`, () => {
         telemetry.logError(getError());
 
-        sinon.assert.calledOnceWithExactly(logSpy, {
+        sinon.assert.calledOnceWithExactly(logStub, {
           ...baseLog,
           error_event,
         });
@@ -144,7 +144,7 @@ describe('Telemetry Module', () => {
 
       telemetry.logActivation();
 
-      sinon.assert.calledOnceWithExactly(logSpy, {
+      sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         activation_event: {},
         timestamp: new Date(curTime).toISOString(),
