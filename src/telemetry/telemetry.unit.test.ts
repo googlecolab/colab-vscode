@@ -6,7 +6,7 @@
 
 import { expect } from 'chai';
 import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
-import type vscode from 'vscode';
+import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -71,6 +71,51 @@ describe('Telemetry Module', () => {
 
       sinon.assert.calledOnce(disposeSpy);
     });
+  });
+
+  it('does not log to Clearcut when telemetry is disabled', () => {
+    const logStub = sinon.stub(ClearcutClient.prototype, 'log');
+    vs.env.isTelemetryEnabled = false;
+    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+
+    telemetry.logActivation();
+
+    sinon.assert.notCalled(logStub);
+  });
+
+  it('enables telemetry when isTelemetryEnabled is true', () => {
+    const logStub = sinon.stub(ClearcutClient.prototype, 'log');
+    vs.env.isTelemetryEnabled = false;
+    // Maintain a reference to this stub as that's the reference telemetry has.
+    const vscodeStub = vs.asVsCode();
+    disposeTelemetry = initializeTelemetry(vscodeStub);
+
+    telemetry.logActivation();
+    sinon.assert.notCalled(logStub);
+    logStub.resetHistory();
+
+    // Required to change read-only property
+    (vscodeStub.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled =
+      true;
+    telemetry.logActivation();
+    sinon.assert.calledOnce(logStub);
+  });
+
+  it('disables telemetry when isTelemetryEnabled is false', () => {
+    const logStub = sinon.stub(ClearcutClient.prototype, 'log');
+    // Maintain a reference to this stub as that's the reference telemetry has.
+    const vscodeStub = vs.asVsCode();
+    disposeTelemetry = initializeTelemetry(vscodeStub);
+
+    telemetry.logActivation();
+    sinon.assert.calledOnce(logStub);
+    logStub.resetHistory();
+
+    // Required to change read-only property
+    (vscodeStub.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled =
+      false;
+    telemetry.logActivation();
+    sinon.assert.notCalled(logStub);
   });
 
   describe('logs to Clearcut', () => {
