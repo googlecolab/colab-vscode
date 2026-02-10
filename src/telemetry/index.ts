@@ -16,7 +16,7 @@ let client: ClearcutClient | undefined;
 // Fields that aren't expected to change for the duration of the session.
 let baseLog: ColabLogEventBase;
 // Indicates whether the user has telemetry enabled.
-let isTelemetryEnabled = false;
+let isTelemetryEnabled: () => boolean;
 
 /**
  * Initializes the telemetry module
@@ -43,20 +43,13 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
     vscode_version: vs.version,
   };
 
-  isTelemetryEnabled = vs.env.isTelemetryEnabled;
-  const telemetrySettingListener = vs.env.onDidChangeTelemetryEnabled(
-    (isEnabled) => {
-      isTelemetryEnabled = isEnabled;
-    },
-  );
-
+  isTelemetryEnabled = () => vs.env.isTelemetryEnabled;
   client = new ClearcutClient();
 
   return {
     dispose: () => {
       client?.dispose();
       client = undefined;
-      telemetrySettingListener.dispose();
     },
   };
 }
@@ -85,7 +78,7 @@ export const telemetry = {
 function log(event: ColabEvent) {
   // TODO: Add flag to use as kill switch (requirement from Clearcut)
   // TODO: Skip logging in integration tests
-  if (!client || !isTelemetryEnabled) {
+  if (!client || !isTelemetryEnabled()) {
     return;
   }
   client.log({

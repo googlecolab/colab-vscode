@@ -101,9 +101,6 @@ export interface VsCodeStub {
     asExternalUri: sinon.SinonStubbedMember<typeof vscode.env.asExternalUri>;
     sessionId: string;
     isTelemetryEnabled: boolean;
-    onDidChangeTelemetryEnabled: sinon.SinonStubbedMember<
-      typeof vscode.env.onDidChangeTelemetryEnabled
-    >;
   };
   window: {
     withProgress: sinon.SinonStubbedMember<typeof vscode.window.withProgress>;
@@ -260,7 +257,6 @@ export function newVsCodeStub(): VsCodeStub {
       asExternalUri: sinon.stub(),
       sessionId: '',
       isTelemetryEnabled: true,
-      onDidChangeTelemetryEnabled: sinon.stub(),
     },
     window: {
       withProgress: sinon.stub(),

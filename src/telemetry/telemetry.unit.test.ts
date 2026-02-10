@@ -23,11 +23,7 @@ const VERSION_VSCODE = '1.109.0';
 
 describe('Telemetry Module', () => {
   let disposeTelemetry: Disposable | undefined;
-  let disposeTelemetryEnabledListener: Disposable;
   let fakeClock: SinonFakeTimers;
-  // Any value required for consistency with VS Code api.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let onDidChangeTelemetryEnabled: (e: boolean) => any;
   let vs: VsCodeStub;
 
   beforeEach(() => {
@@ -45,18 +41,11 @@ describe('Telemetry Module', () => {
       } as vscode.Extension<unknown>);
     vs.env.sessionId = SESSION_ID;
     vs.version = VERSION_VSCODE;
-
-    disposeTelemetryEnabledListener = { dispose: () => undefined };
-    vs.env.onDidChangeTelemetryEnabled.callsFake((listener) => {
-      onDidChangeTelemetryEnabled = listener;
-      return disposeTelemetryEnabledListener;
-    });
   });
 
   afterEach(() => {
     sinon.restore();
     disposeTelemetry?.dispose();
-    disposeTelemetryEnabledListener.dispose();
   });
 
   describe('lifecycle', () => {
@@ -82,15 +71,6 @@ describe('Telemetry Module', () => {
 
       sinon.assert.calledOnce(disposeSpy);
     });
-
-    it('disposes the onDidChangeTelemetryEnabled listener when disposed', () => {
-      const disposeSpy = sinon.spy(disposeTelemetryEnabledListener, 'dispose');
-      disposeTelemetry = initializeTelemetry(vs.asVsCode());
-
-      disposeTelemetry.dispose();
-
-      sinon.assert.calledOnce(disposeSpy);
-    });
   });
 
   it('does not log to Clearcut when telemetry is disabled', () => {
@@ -106,26 +86,34 @@ describe('Telemetry Module', () => {
   it('enables telemetry when onDidChangeTelemetry fires with true', () => {
     const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
     vs.env.isTelemetryEnabled = false;
-    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+    // Maintain a reference to this stub as that's the reference telemetry has.
+    const vscodeStub = vs.asVsCode();
+    disposeTelemetry = initializeTelemetry(vscodeStub);
 
     telemetry.logActivation();
     sinon.assert.notCalled(logSpy);
     logSpy.resetHistory();
 
-    onDidChangeTelemetryEnabled(true);
+    // Required to change read-only property
+    (vscodeStub.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled =
+      true;
     telemetry.logActivation();
     sinon.assert.calledOnce(logSpy);
   });
 
   it('disables telemetry when onDidChangeTelemetry fires with false', () => {
     const logSpy = sinon.spy(ClearcutClient.prototype, 'log');
-    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+    // Maintain a reference to this stub as that's the reference telemetry has.
+    const vscodeStub = vs.asVsCode();
+    disposeTelemetry = initializeTelemetry(vscodeStub);
 
     telemetry.logActivation();
     sinon.assert.calledOnce(logSpy);
     logSpy.resetHistory();
 
-    onDidChangeTelemetryEnabled(false);
+    // Required to change read-only property
+    (vscodeStub.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled =
+      false;
     telemetry.logActivation();
     sinon.assert.notCalled(logSpy);
   });
