@@ -83,7 +83,7 @@ describe('Telemetry Module', () => {
     sinon.assert.notCalled(logStub);
   });
 
-  it('enables telemetry when onDidChangeTelemetry fires with true', () => {
+  it('enables telemetry when isTelemetryEnabled is true', () => {
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     vs.env.isTelemetryEnabled = false;
     // Maintain a reference to this stub as that's the reference telemetry has.
@@ -101,7 +101,7 @@ describe('Telemetry Module', () => {
     sinon.assert.calledOnce(logStub);
   });
 
-  it('disables telemetry when onDidChangeTelemetry fires with false', () => {
+  it('disables telemetry when isTelemetryEnabled is false', () => {
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     // Maintain a reference to this stub as that's the reference telemetry has.
     const vscodeStub = vs.asVsCode();
