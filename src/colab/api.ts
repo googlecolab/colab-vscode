@@ -458,6 +458,14 @@ export enum ExperimentFlag {
   RuntimeVersionNames = 'runtime_version_names',
 }
 
+/** The default values for each experiment flag. */
+export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
+  ExperimentFlag,
+  ExperimentFlagValue
+> = {
+  [ExperimentFlag.RuntimeVersionNames]: [],
+};
+
 // Define the basic types allowed
 const PrimitiveExperimentFlagValueSchema = z.union([
   z.string(),

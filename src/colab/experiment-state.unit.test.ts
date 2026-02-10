@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,14 +30,18 @@ describe('ExperimentStateProvider', () => {
   beforeEach(() => {
     colabClientStub = sinon.createStubInstance(ColabClient);
     provider = new TestExperimentStateProvider(colabClientStub);
-
-    // Default value of the flag
-    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.deep.equal([]);
   });
 
   afterEach(() => {
     sinon.restore();
   });
+
+  it('initializes with default flag values', () => {
+    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal(
+      [],
+    );
+  }
+);
 
   it('fetches experiment state with auth when turned on', async () => {
     const experiments = new Map([[ExperimentFlag.RuntimeVersionNames, true]]);

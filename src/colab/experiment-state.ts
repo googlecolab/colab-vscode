@@ -1,18 +1,22 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { log } from '../common/logging';
 import { AsyncToggle } from '../common/toggleable';
-import { ExperimentFlag, ExperimentFlagValue } from './api';
+import { ExperimentFlag, ExperimentFlagValue, EXPERIMENT_FLAG_DEFAULT_VALUES } from './api';
 import { ColabClient } from './client';
 
-let flags: Map<ExperimentFlag, ExperimentFlagValue> = new Map<
-  ExperimentFlag,
-  ExperimentFlagValue
->();
+/** Gets the value of an experiment flag.
+ *
+ * @param flag - The experiment flag to get.
+ * @returns The value of the experiment flag.
+ */
+export function getFlag(flag: ExperimentFlag): ExperimentFlagValue {
+  return flags.get(flag) ?? EXPERIMENT_FLAG_DEFAULT_VALUES[flag];
+}
 
 /**
  * Provides experiment state information from the Colab backend.
@@ -46,28 +50,16 @@ export class ExperimentStateProvider extends AsyncToggle {
       );
       if (result.experiments) {
         flags = result.experiments;
+        log.trace('Experiment state updated:', Object.fromEntries(flags));
       }
-    } catch (e) {
+    } catch (e: unknown) {
       log.error('Failed to update experiment state:', e);
     }
   }
 }
 
-function getDefaultValueForExperimentFlag(
-  flag: ExperimentFlag,
-): ExperimentFlagValue {
-  switch (flag) {
-    // Add default values for experiment flags here.
-    default:
-      return [];
-  }
-}
+let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
+  ExperimentFlag,
+  ExperimentFlagValue
+>();
 
-/** Gets the value of an experiment flag.
- *
- * @param flag - The experiment flag to get.
- * @returns The value of the experiment flag.
- */
-export function getFlag(flag: ExperimentFlag): ExperimentFlagValue {
-  return flags.get(flag) ?? getDefaultValueForExperimentFlag(flag);
-}
