@@ -6,7 +6,7 @@
 
 import { UUID } from 'crypto';
 import * as https from 'https';
-import fetch, { Request, RequestInit, Headers } from 'node-fetch';
+import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 import { traceMethod } from '../common/logging/decorators';
 import { JupyterClient } from '../jupyter/client';
@@ -73,6 +73,7 @@ export class ColabClient {
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
+    private readonly onAuthError?: () => Promise<void>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
@@ -469,36 +470,50 @@ export class ColabClient {
     if (endpoint.hostname === this.colabDomain.hostname) {
       endpoint.searchParams.append('authuser', '0');
     }
-    const requestHeaders = new Headers(init.headers);
-    requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
-    if (requireAccessToken) {
-      const token = await this.getAccessToken();
-      requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
-    }
-    requestHeaders.set(
-      COLAB_CLIENT_AGENT_HEADER.key,
-      COLAB_CLIENT_AGENT_HEADER.value,
-    );
-    const request = new Request(endpoint, {
-      ...init,
-      headers: requestHeaders,
-      agent: this.httpsAgent,
-    });
-    const response = await fetch(request);
-    if (!response.ok) {
-      let errorBody;
-      try {
-        errorBody = await response.text();
-      } catch {
-        // Ignore errors reading the body
+
+    let response: Response | undefined;
+    let request: Request | undefined;
+
+    // Make up to 2 attempts to issue the request
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const requestHeaders = new Headers(init.headers);
+      requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
+      if (requireAccessToken) {
+        const token = await this.getAccessToken();
+        requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
       }
-      throw new ColabRequestError({
-        request,
-        response,
-        responseBody: errorBody,
+      requestHeaders.set(
+        COLAB_CLIENT_AGENT_HEADER.key,
+        COLAB_CLIENT_AGENT_HEADER.value,
+      );
+      request = new Request(endpoint, {
+        ...init,
+        headers: requestHeaders,
+        agent: this.httpsAgent,
       });
+      response = await fetch(request);
+      if (response.ok) {
+        break;
+      }
+
+      if (response.status === 401 && this.onAuthError) {
+        await this.onAuthError();
+      } else {
+        let errorBody;
+        try {
+          errorBody = await response.text();
+        } catch {
+          // Ignore errors reading the body
+        }
+        throw new ColabRequestError({
+          request,
+          response,
+          responseBody: errorBody,
+        });
+      }
     }
-    if (!schema) {
+
+    if (!schema || !response) {
       return;
     }
 
@@ -548,7 +563,7 @@ class ColabRequestError extends Error {
   }) {
     super(
       `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ${responseBody}` : ''),
+        (responseBody ? `\nResponse body: ` : ''),
     );
     this.request = request;
     this.response = response;

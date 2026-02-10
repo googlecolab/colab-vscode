@@ -84,6 +84,7 @@ export async function activate(context: vscode.ExtensionContext) {
       GoogleAuthProvider.getOrCreateSession(vscode).then(
         (session) => session.accessToken,
       ),
+    () => authProvider.signOut(),
   );
   const serverStorage = new ServerStorage(vscode, context.secrets);
   const assignmentManager = new AssignmentManager(
