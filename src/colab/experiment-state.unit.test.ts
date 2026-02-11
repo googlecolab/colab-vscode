@@ -37,11 +37,8 @@ describe('ExperimentStateProvider', () => {
   });
 
   it('initializes with default flag values', () => {
-    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal(
-      [],
-    );
-  }
-);
+    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
+  });
 
   it('fetches experiment state with auth when turned on', async () => {
     const experiments = new Map([[ExperimentFlag.RuntimeVersionNames, true]]);

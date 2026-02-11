@@ -6,7 +6,11 @@
 
 import { log } from '../common/logging';
 import { AsyncToggle } from '../common/toggleable';
-import { ExperimentFlag, ExperimentFlagValue, EXPERIMENT_FLAG_DEFAULT_VALUES } from './api';
+import {
+  ExperimentFlag,
+  ExperimentFlagValue,
+  EXPERIMENT_FLAG_DEFAULT_VALUES,
+} from './api';
 import { ColabClient } from './client';
 
 /** Gets the value of an experiment flag.
@@ -62,4 +66,3 @@ let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
   ExperimentFlag,
   ExperimentFlagValue
 >();
-
