@@ -233,7 +233,7 @@ describe('ColabClient', () => {
         [Variant.TPU, 'V28', Shape.STANDARD],
         [Variant.DEFAULT, undefined, Shape.HIGHMEM],
         [Variant.GPU, 'A100', Shape.HIGHMEM],
-        [Variant.TPU, 'V6E1', Shape.HIGHMEM],
+        [Variant.TPU, 'V6E1', Shape.STANDARD],
       ];
       for (const [variant, accelerator, shape] of assignmentTests) {
         const assignment = `${variant}${accelerator ? ` (${accelerator})` : ''} with shape ${String(shape ?? Shape.STANDARD)}`;
@@ -291,6 +291,54 @@ describe('ColabClient', () => {
           sinon.assert.calledTwice(fetchStub);
         });
       }
+
+      it('creates a new assignment with default shape if accelerator is high mem only', async () => {
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'POST',
+              host: COLAB_HOST,
+              path: ASSIGN_PATH,
+              queryParams: {
+                ...queryParams,
+                variant: Variant.GPU,
+                accelerator: 'L4',
+              },
+              otherHeaders: {
+                [COLAB_XSRF_TOKEN_HEADER.key]: 'mock-xsrf-token',
+              },
+            }),
+          )
+          .resolves(
+            new Response(
+              withXSSI(
+                JSON.stringify({
+                  ...DEFAULT_ASSIGNMENT_RESPONSE,
+                  variant: Variant.GPU,
+                  accelerator: 'L4',
+                }),
+              ),
+              {
+                status: 200,
+              },
+            ),
+          );
+
+        const expectedAssignment: Assignment = {
+          ...DEFAULT_ASSIGNMENT,
+          variant: Variant.GPU,
+          accelerator: 'L4',
+          machineShape: Shape.STANDARD,
+        };
+        await expect(
+          client.assign(NOTEBOOK_HASH, Variant.GPU, 'L4', Shape.HIGHMEM),
+        ).to.eventually.deep.equal({
+          assignment: expectedAssignment,
+          isNew: true,
+        });
+
+        sinon.assert.calledTwice(fetchStub);
+      });
 
       it('rejects when assignments exceed limit', async () => {
         fetchStub

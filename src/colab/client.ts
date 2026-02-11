@@ -36,6 +36,7 @@ import {
   CredentialsPropagationResultSchema,
   ExperimentStateSchema,
   ExperimentState,
+  isHighMemOnlyAccelerator,
 } from './api';
 import {
   ACCEPT_JSON_HEADER,
@@ -426,7 +427,12 @@ export class ColabClient {
     if (accelerator) {
       url.searchParams.append('accelerator', accelerator);
     }
-    const shapeURLParam = mapShapeToURLParam(shape ?? Shape.STANDARD);
+    const shapeURLParam = mapShapeToURLParam(
+      // High mem only accelerators only have one shape option
+      isHighMemOnlyAccelerator(accelerator)
+        ? Shape.STANDARD
+        : (shape ?? Shape.STANDARD),
+    );
     if (shapeURLParam) {
       url.searchParams.append('shape', shapeURLParam);
     }
