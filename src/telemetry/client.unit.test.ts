@@ -15,8 +15,10 @@ import { ClearcutClient, TEST_ONLY } from './client';
 const NOW = Date.now();
 const DEFAULT_LOG: ColabLogEvent = {
   activation_event: {},
+  app_name: 'VS Code',
   extension_version: '0.1.0',
   jupyter_extension_version: '2025.9.0',
+  platform: 'darwin',
   session_id: 'test-session-id',
   timestamp: new Date(NOW).toISOString(),
   ui_kind: 'UI_KIND_DESKTOP',

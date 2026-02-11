@@ -22,8 +22,12 @@ export type ColabLogEvent = ColabLogEventBase &
  * to change for the duration of the session.
  */
 export interface ColabLogEventBase {
+  // The application name of the editor.
+  app_name: string;
   extension_version: string;
   jupyter_extension_version: string;
+  // The OS platform.
+  platform: string;
   // A unique identifier for the current VS Code session.
   session_id: string;
   // The kinds of UIs that VS Code can run on.

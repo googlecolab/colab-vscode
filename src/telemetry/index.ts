@@ -35,8 +35,10 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
   assert(jupyterExtension);
 
   baseLog = {
+    app_name: vs.env.appName,
     extension_version: getPackageInfo(colabExtension).version,
     jupyter_extension_version: getPackageInfo(jupyterExtension).version,
+    platform: process.platform,
     session_id: vs.env.sessionId,
     ui_kind:
       vs.env.uiKind === vs.UIKind.Desktop ? 'UI_KIND_DESKTOP' : 'UI_KIND_WEB',
