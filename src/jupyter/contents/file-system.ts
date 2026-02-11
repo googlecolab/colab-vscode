@@ -341,7 +341,7 @@ export class ContentsFileSystemProvider
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
     try {
-      await this.deleteRecursive(uri, options);
+      await this.deleteInternal(uri, options);
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Deleted, uri }]);
     } catch (error: unknown) {
       this.handleError(error);
@@ -428,7 +428,7 @@ export class ContentsFileSystemProvider
     }
   }
 
-  private async deleteRecursive(
+  private async deleteInternal(
     uri: Uri,
     options: {
       readonly recursive: boolean;
@@ -449,7 +449,7 @@ export class ContentsFileSystemProvider
         for (const child of children) {
           const childName = child[0];
           const childUri = this.vs.Uri.joinPath(uri, childName);
-          await this.deleteRecursive(childUri, options);
+          await this.deleteInternal(childUri, options);
         }
       }
     }
