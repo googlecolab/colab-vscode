@@ -125,7 +125,7 @@ describe('Telemetry Module', () => {
 
     beforeEach(() => {
       logStub = sinon.stub(ClearcutClient.prototype, 'log');
-      sinon.stub(process, 'platform').returns(PLATFORM);
+      sinon.stub(process, 'platform').get(() => PLATFORM);
       baseLog = {
         app_name: 'VS Code',
         extension_version: VERSION_COLAB,
