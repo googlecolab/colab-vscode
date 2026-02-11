@@ -302,6 +302,7 @@ export class AssignmentManager implements vscode.Disposable {
         descriptor.variant,
         descriptor.accelerator,
         descriptor.shape,
+        descriptor.version,
         signal,
       ));
     } catch (error) {

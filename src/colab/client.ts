@@ -120,6 +120,8 @@ export class ColabClient {
    * This value should always be a string of length 44.
    * @param variant - The machine variant to assign.
    * @param accelerator - The accelerator to assign.
+   * @param shape - The machine shape to assign.
+   * @param version - The runtime version to assign.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The assignment which is assigned to the user.
    * @throws TooManyAssignmentsError if the user has too many assignments.
@@ -131,6 +133,7 @@ export class ColabClient {
     variant: Variant,
     accelerator?: string,
     shape?: Shape,
+    version?: string,
     signal?: AbortSignal,
   ): Promise<{ assignment: Assignment; isNew: boolean }> {
     const assignment = await this.getAssignment(
@@ -138,6 +141,7 @@ export class ColabClient {
       variant,
       accelerator,
       shape,
+      version,
       signal,
     );
     switch (assignment.kind) {
@@ -156,6 +160,7 @@ export class ColabClient {
             variant,
             accelerator,
             shape,
+            version,
             signal,
           );
         } catch (error) {
@@ -378,9 +383,16 @@ export class ColabClient {
     variant: Variant,
     accelerator?: string,
     shape?: Shape,
+    version?: string,
     signal?: AbortSignal,
   ): Promise<AssignmentToken | AssignedAssignment> {
-    const url = this.buildAssignUrl(notebookHash, variant, accelerator, shape);
+    const url = this.buildAssignUrl(
+      notebookHash,
+      variant,
+      accelerator,
+      shape,
+      version,
+    );
     const response = await this.issueRequest(
       url,
       { method: 'GET', signal },
@@ -399,9 +411,16 @@ export class ColabClient {
     variant: Variant,
     accelerator?: string,
     shape?: Shape,
+    version?: string,
     signal?: AbortSignal,
   ): Promise<PostAssignmentResponse> {
-    const url = this.buildAssignUrl(notebookHash, variant, accelerator, shape);
+    const url = this.buildAssignUrl(
+      notebookHash,
+      variant,
+      accelerator,
+      shape,
+      version,
+    );
     return await this.issueRequest(
       url,
       {
@@ -418,6 +437,7 @@ export class ColabClient {
     variant: Variant,
     accelerator?: string,
     shape?: Shape,
+    version?: string,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append('nbh', uuidToWebSafeBase64(notebookHash));
@@ -435,6 +455,9 @@ export class ColabClient {
     );
     if (shapeURLParam) {
       url.searchParams.append('shape', shapeURLParam);
+    }
+    if (version) {
+      url.searchParams.append('runtime_version_label', version);
     }
     return url;
   }
