@@ -624,7 +624,9 @@ describe('ContentsFileSystemProvider', () => {
 
     it('throws file system file is a directory when the contents are for a directory', async () => {
       const contentsStub = stubClient('m-s-foo');
-      contentsStub.get.resolves(CONTENT_DIR.withoutContents);
+      contentsStub.get
+        .withArgs({ path: '/', content: 0 })
+        .resolves(FOO_CONTENT_DIR);
 
       await expect(
         fs.readFile(TestUri.parse('colab://m-s-foo/')),
@@ -633,7 +635,12 @@ describe('ContentsFileSystemProvider', () => {
 
     it('throws file system file is a directory when the contents not base64 encoded', async () => {
       const contentsStub = stubClient('m-s-foo');
-      contentsStub.get.resolves({ ...FOO_CONTENT_FILE, format: 'text' });
+      contentsStub.get
+        .withArgs({ path: '/foo.txt', content: 0 })
+        .resolves(FOO_CONTENT_FILE);
+      contentsStub.get
+        .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
+        .resolves({ ...FOO_CONTENT_FILE, format: 'text' });
 
       await expect(
         fs.readFile(TestUri.parse('colab://m-s-foo/foo.txt')),
@@ -642,7 +649,12 @@ describe('ContentsFileSystemProvider', () => {
 
     it('throws file system file is a directory when the contents not a string', async () => {
       const contentsStub = stubClient('m-s-foo');
-      contentsStub.get.resolves(FOO_CONTENT_DIR);
+      contentsStub.get
+        .withArgs({ path: '/foo.txt', content: 0 })
+        .resolves(FOO_CONTENT_FILE);
+      contentsStub.get
+        .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
+        .resolves({ ...FOO_CONTENT_FILE, content: [] });
 
       await expect(
         fs.readFile(TestUri.parse('colab://m-s-foo/foo.txt')),
@@ -653,11 +665,16 @@ describe('ContentsFileSystemProvider', () => {
       const contentsStub = stubClient('m-s-foo');
       const content = 'hello world';
       const encoded = Buffer.from(content).toString('base64');
-      contentsStub.get.resolves({
-        ...FOO_CONTENT_FILE,
-        format: 'base64',
-        content: encoded,
-      });
+      contentsStub.get
+        .withArgs({ path: '/foo.txt', content: 0 })
+        .resolves(FOO_CONTENT_FILE);
+      contentsStub.get
+        .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
+        .resolves({
+          ...FOO_CONTENT_FILE,
+          format: 'base64',
+          content: encoded,
+        });
 
       const result = await fs.readFile(
         TestUri.parse('colab://m-s-foo/foo.txt'),
