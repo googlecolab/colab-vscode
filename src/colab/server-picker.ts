@@ -111,8 +111,8 @@ export class ServerPicker {
       step: 1,
       totalSteps:
         versions.length > 0
-          ? 3 // (1) variant, (2) version and (3) alias.
-          : 2, // (1) variant and (2) alias.,
+          ? 3 // (1) variant, (2) version and (3) alias
+          : 2, // (1) variant and (2) alias
       items,
       activeItem: items.find((item) => item.value === state.variant),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -136,15 +136,15 @@ export class ServerPicker {
             this.promptForAlias(input, state, /** totalSteps= */ 2);
         }
         return (input: MultiStepInput) =>
-          this.promptForVersion(input, state, /** step= */ 2, versions);
+          this.promptForVersion(input, state, versions, /** step= */ 2);
       }
       return (input: MultiStepInput) =>
         this.promptForMachineShape(
           input,
           state,
-          /** step= */ 2,
           shapePicks,
           versions,
+          /** step= */ 2,
         );
     }
     return (input: MultiStepInput) =>
@@ -175,7 +175,10 @@ export class ServerPicker {
     const pick = await input.showQuickPick({
       title: 'Select an accelerator',
       step: 2,
-      totalSteps: versions.length > 0 ? 4 : 3, // (1) variant, (2) accelerator, (3) version and (4) alias.
+      totalSteps:
+        versions.length > 0
+          ? 4 // (1) variant, (2) accelerator, (3) version and (4) alias
+          : 3, // (1) variant, (2) accelerator, and (3) alias
       items,
       activeItem: items.find((item) => item.value === state.accelerator),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -196,24 +199,24 @@ export class ServerPicker {
           this.promptForAlias(input, state, /** totalSteps= */ 3);
       }
       return (input: MultiStepInput) =>
-        this.promptForVersion(input, state, /** step= */ 3, versions);
+        this.promptForVersion(input, state, versions, /** step= */ 3);
     }
     return (input: MultiStepInput) =>
       this.promptForMachineShape(
         input,
         state,
-        /** step= */ 3,
         shapePicks,
         versions,
+        /** step= */ 3,
       );
   }
 
   private async promptForMachineShape(
     input: MultiStepInput,
     state: PartialServerWith<'variant'>,
-    step: number,
     items: ShapePick[],
     versions: string[],
+    step: number,
   ) {
     const totalSteps =
       versions.length === 0
@@ -237,14 +240,14 @@ export class ServerPicker {
         this.promptForAlias(input, state, totalSteps);
     }
     return (input: MultiStepInput) =>
-      this.promptForVersion(input, state, /** step= */ step + 1, versions);
+      this.promptForVersion(input, state, versions, /** step= */ step + 1);
   }
 
   private async promptForVersion(
     input: MultiStepInput,
     state: PartialServerWith<'variant'>,
-    step: number,
     versions: string[],
+    step: number,
   ) {
     const items: RuntimeVersionPick[] = [
       {
