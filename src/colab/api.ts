@@ -452,3 +452,48 @@ export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
     accelerator !== undefined && HIGHMEM_ONLY_ACCELERATORS.has(accelerator)
   );
 }
+
+/** The experiment flags supported by the Colab extension. */
+export enum ExperimentFlag {
+  RuntimeVersionNames = 'runtime_version_names',
+}
+
+/** The default values for each experiment flag. */
+export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
+  ExperimentFlag,
+  ExperimentFlagValue
+> = {
+  [ExperimentFlag.RuntimeVersionNames]: [],
+};
+
+// Define the basic types allowed
+const PrimitiveExperimentFlagValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+]);
+const ExperimentFlagValueSchema = z.union([
+  PrimitiveExperimentFlagValueSchema,
+  z.array(PrimitiveExperimentFlagValueSchema),
+]);
+/** The type for the value of an experiment flag. */
+export type ExperimentFlagValue = z.infer<typeof ExperimentFlagValueSchema>;
+
+/** The schema for the experiment state response. */
+export const ExperimentStateSchema = z.object({
+  /** The map of experiment flags. */
+  experiments: z
+    .record(z.string(), ExperimentFlagValueSchema.optional())
+    .transform((val) => {
+      /** Filter out entries where the value is undefined */
+      const validKeys = new Set(Object.values(ExperimentFlag) as string[]);
+      const entries = Object.entries(val).filter(([k, v]) => {
+        return v !== undefined && validKeys.has(k);
+      });
+
+      return new Map(entries) as Map<ExperimentFlag, ExperimentFlagValue>;
+    })
+    .optional(),
+});
+/** The experiment state response. */
+export type ExperimentState = z.infer<typeof ExperimentStateSchema>;
