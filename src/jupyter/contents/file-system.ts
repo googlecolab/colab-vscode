@@ -340,28 +340,8 @@ export class ContentsFileSystemProvider
   ): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = uri.path;
     try {
-      const stat = await this.stat(uri);
-      if (stat.type === this.vs.FileType.Directory) {
-        const children = await this.readDirectory(uri);
-        if (children.length > 0) {
-          if (!options.recursive) {
-            throw this.vs.FileSystemError.NoPermissions(
-              'Cannot delete non-empty directory without recursive flag',
-            );
-          }
-
-          // If children exist, recursively delete all children first.
-          for (const child of children) {
-            const childName = child[0];
-            const childUri = this.vs.Uri.joinPath(uri, childName);
-            await this.delete(childUri, options);
-          }
-        }
-      }
-      const client = await this.getOrCreateClient(uri);
-      await client.delete({ path });
+      await this.deleteRecursive(uri, options);
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Deleted, uri }]);
     } catch (error: unknown) {
       this.handleError(error);
@@ -446,6 +426,35 @@ export class ContentsFileSystemProvider
       // which hasn't been mounted.
       throw this.vs.FileSystemError.Unavailable(endpoint);
     }
+  }
+
+  private async deleteRecursive(
+    uri: Uri,
+    options: {
+      readonly recursive: boolean;
+    },
+  ): Promise<void> {
+    const path = uri.path;
+    const stat = await this.stat(uri);
+    if (stat.type === this.vs.FileType.Directory) {
+      const children = await this.readDirectory(uri);
+      if (children.length > 0) {
+        if (!options.recursive) {
+          throw this.vs.FileSystemError.NoPermissions(
+            'Cannot delete non-empty directory without recursive flag',
+          );
+        }
+
+        // If children exist, recursively delete all children first.
+        for (const child of children) {
+          const childName = child[0];
+          const childUri = this.vs.Uri.joinPath(uri, childName);
+          await this.deleteRecursive(childUri, options);
+        }
+      }
+    }
+    const client = await this.getOrCreateClient(uri);
+    await client.delete({ path });
   }
 
   private async fileExists(
