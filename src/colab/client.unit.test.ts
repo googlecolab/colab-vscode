@@ -80,14 +80,17 @@ describe('ColabClient', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
   let sessionStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
+  let onAuthErrorStub: SinonStub<[], Promise<void>>;
 
   beforeEach(() => {
     fetchStub = sinon.stub(fetch, 'default');
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
+    onAuthErrorStub = sinon.stub<[], Promise<void>>().resolves();
     client = new ColabClient(
       new URL(`https://${COLAB_HOST}`),
       new URL(`https://${GOOGLE_APIS_HOST}`),
       sessionStub,
+      onAuthErrorStub,
     );
   });
 
@@ -587,6 +590,68 @@ describe('ColabClient', () => {
     await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
 
     sinon.assert.calledOnce(fetchStub);
+  });
+
+  it('retries request on 401 if onAuthError is provided', async () => {
+    const mockResponse = {
+      currentBalance: 1,
+      consumptionRateHourly: 2,
+      assignmentsCount: 3,
+      eligibleGpus: ['T4'],
+      ineligibleGpus: ['A100', 'L4'],
+      eligibleTpus: ['V6E1', 'V28'],
+      ineligibleTpus: ['V5E1'],
+    };
+
+    fetchStub
+      .withArgs(
+        urlMatcher({
+          method: 'GET',
+          host: COLAB_HOST,
+          path: '/tun/m/ccu-info',
+        }),
+      )
+      .onFirstCall()
+      .resolves(new Response('Unauthorized', { status: 401 }))
+      .onSecondCall()
+      .resolves(
+        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+      );
+
+    await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
+
+    sinon.assert.calledTwice(fetchStub);
+    sinon.assert.calledOnce(onAuthErrorStub);
+  });
+
+  it('does not retry more than two times on persistent 401', async () => {
+    fetchStub
+      .withArgs(sinon.match.any)
+      .resolves(new Response('Unauthorized', { status: 401 }));
+
+    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+      /Unauthorized/,
+    );
+
+    sinon.assert.calledTwice(fetchStub);
+    sinon.assert.calledTwice(onAuthErrorStub);
+  });
+
+  it('throws on 401 if onAuthError is not provided', async () => {
+    client = new ColabClient(
+      new URL(`https://${COLAB_HOST}`),
+      new URL(`https://${GOOGLE_APIS_HOST}`),
+      sessionStub,
+    );
+
+    fetchStub
+      .withArgs(sinon.match.any)
+      .resolves(new Response('Unauthorized', { status: 401 }));
+
+    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+      /Unauthorized/,
+    );
+    sinon.assert.notCalled(onAuthErrorStub);
   });
 
   it('rejects when error responses are returned', async () => {
