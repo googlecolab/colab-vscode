@@ -166,7 +166,7 @@ export class ContentsFileSystemProvider
       const client = await this.getOrCreateClient(uri);
       const content = await client.get({ path, content: 0 });
       return toFileStat(this.vs, content);
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -198,7 +198,7 @@ export class ContentsFileSystemProvider
         child.name,
         toFileType(this.vs, child.type),
       ]);
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -228,7 +228,7 @@ export class ContentsFileSystemProvider
         },
       });
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Created, uri }]);
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -262,7 +262,7 @@ export class ContentsFileSystemProvider
       }
 
       return Buffer.from(content.content, 'base64');
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -316,7 +316,7 @@ export class ContentsFileSystemProvider
         ? this.vs.FileChangeType.Changed
         : this.vs.FileChangeType.Created;
       this.changeEmitter.fire([{ type: eventType, uri }]);
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -340,24 +340,10 @@ export class ContentsFileSystemProvider
   ): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    const path = uri.path;
     try {
-      if (!options.recursive) {
-        const stat = await this.stat(uri);
-        if (stat.type === this.vs.FileType.Directory) {
-          const children = await this.readDirectory(uri);
-          if (children.length > 0) {
-            throw this.vs.FileSystemError.NoPermissions(
-              'Cannot delete non-empty directory without recursive flag',
-            );
-          }
-        }
-      }
-
-      const client = await this.getOrCreateClient(uri);
-      await client.delete({ path });
+      await this.deleteInternal(uri, options);
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Deleted, uri }]);
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -414,7 +400,7 @@ export class ContentsFileSystemProvider
           uri: newUri,
         },
       ]);
-    } catch (error) {
+    } catch (error: unknown) {
       this.handleError(error);
     }
   }
@@ -434,12 +420,41 @@ export class ContentsFileSystemProvider
     try {
       const client = await this.jupyterConnections.getOrCreate(endpoint);
       return client;
-    } catch (e) {
+    } catch (e: unknown) {
       log.error(`Unable to get or create Jupyter client for ${endpoint}`, e);
       // This should only happen if a file-system call was made to and endpoint
       // which hasn't been mounted.
       throw this.vs.FileSystemError.Unavailable(endpoint);
     }
+  }
+
+  private async deleteInternal(
+    uri: Uri,
+    options: {
+      readonly recursive: boolean;
+    },
+  ): Promise<void> {
+    const path = uri.path;
+    const stat = await this.stat(uri);
+    if (stat.type === this.vs.FileType.Directory) {
+      const children = await this.readDirectory(uri);
+      if (children.length > 0) {
+        if (!options.recursive) {
+          throw this.vs.FileSystemError.NoPermissions(
+            'Cannot delete non-empty directory without recursive flag',
+          );
+        }
+
+        // If children exist, recursively delete all children first.
+        for (const child of children) {
+          const childName = child[0];
+          const childUri = this.vs.Uri.joinPath(uri, childName);
+          await this.deleteInternal(childUri, options);
+        }
+      }
+    }
+    const client = await this.getOrCreateClient(uri);
+    await client.delete({ path });
   }
 
   private async fileExists(
@@ -449,7 +464,7 @@ export class ContentsFileSystemProvider
     try {
       await client.get({ path, content: 0 });
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof ResponseError && error.response.status === 404) {
         return false;
       }
