@@ -43,48 +43,6 @@ const DEFAULT_SERVER: ColabAssignedServer = {
   dateAssigned: new Date(),
 };
 
-const CONTENT_DIR_WITHOUT_CONTENT: Contents = {
-  name: 'content',
-  path: 'content',
-  type: 'directory',
-  writable: true,
-  created: '2025-12-11T14:34:40Z',
-  lastModified: '2025-12-16T14:30:53.932129Z',
-  size: undefined,
-  mimetype: '',
-  content: '',
-  format: '',
-  hash: undefined,
-  hashAlgorithm: undefined,
-};
-
-const CONTENT_DIR: {
-  withoutContents: Contents;
-  withContents: DirectoryContents;
-} = {
-  withoutContents: CONTENT_DIR_WITHOUT_CONTENT,
-  withContents: {
-    ...CONTENT_DIR_WITHOUT_CONTENT,
-    type: 'directory',
-    content: [
-      {
-        name: 'sample_data',
-        path: '/sample_data',
-        created: '2025-12-11T14:34:40Z',
-        lastModified: '2025-12-16T14:30:53.932129Z',
-        content: '',
-        format: '',
-        mimetype: '',
-        size: 0,
-        writable: true,
-        hash: undefined,
-        hashAlgorithm: undefined,
-        type: 'directory',
-      },
-    ],
-  },
-};
-
 const FOO_CONTENT_DIR: Contents = {
   name: 'foo',
   path: '/foo',
@@ -109,6 +67,18 @@ const FOO_CONTENT_FILE: Contents = {
   mimetype: 'text/plain',
   content: '',
   format: '',
+};
+
+const CONTENT_DIR: {
+  withoutContents: Contents;
+  withContents: DirectoryContents;
+} = {
+  withoutContents: FOO_CONTENT_DIR,
+  withContents: {
+    ...FOO_CONTENT_DIR,
+    type: 'directory',
+    content: [FOO_CONTENT_FILE],
+  },
 };
 
 const FORBIDDEN = new ResponseError(new Response(undefined, { status: 403 }));
@@ -495,20 +465,11 @@ describe('ContentsFileSystemProvider', () => {
       const contents = CONTENT_DIR.withContents;
       contentsStub.get
         .withArgs({ path: '/', type: 'directory' })
-        // TODO: Migrate to Open API 3.
-        //
-        // Unfortunately, the cast is currently needed since Swagger 2 (which
-        // this client is generated from) does not support `oneOf` and
-        // `contents` is currently incorrectly annotated as `string` when in
-        // fact it is "The content, if requested (otherwise null).  Will be an
-        // array if type is 'directory'".
-        .resolves(contents as unknown as Contents);
+        .resolves(contents);
 
       await expect(
         fs.readDirectory(TestUri.parse('colab://m-s-foo/')),
-      ).to.eventually.deep.equal([
-        [contents.content[0].name, FileType.Directory],
-      ]);
+      ).to.eventually.deep.equal([[contents.content[0].name, FileType.File]]);
     });
 
     it('throws file system no permissions error on content forbidden responses', async () => {
@@ -933,106 +894,109 @@ describe('ContentsFileSystemProvider', () => {
       ).to.eventually.rejectedWith(/disposed/);
     });
 
-    it('throws file system no permissions for non-recursive deletes when directory has files', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      // stat call
-      contentsStub.get
-        .withArgs({ path: '/foo', content: 0 })
-        .resolves(CONTENT_DIR.withoutContents);
-      // readDirectory call
-      contentsStub.get
-        .withArgs({ path: '/foo', type: 'directory' })
-        // TODO: Migrate to Open API 3.
-        //
-        // Unfortunately, the cast is currently needed since Swagger 2 (which
-        // this client is generated from) does not support `oneOf` and
-        // `contents` is currently incorrectly annotated as `string` when in
-        // fact it is "The content, if requested (otherwise null).  Will be an
-        // array if type is 'directory'".
-        .resolves(CONTENT_DIR.withContents as unknown as Contents);
+    describe('directory with files', () => {
+      let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
 
-      await expect(
-        fs.delete(TestUri.parse('colab://m-s-foo/foo'), { recursive: false }),
-      ).to.eventually.rejectedWith(/NoPermissions/);
-    });
-
-    it('recursively deletes directories', async () => {
-      const contentsStub = stubClient('m-s-foo');
-
-      await fs.delete(TestUri.parse('colab://m-s-foo/foo'), {
-        recursive: true,
+      beforeEach(() => {
+        contentsStub = stubClient('m-s-foo');
+        // stat calls
+        contentsStub.get
+          .withArgs({ path: '/foo', content: 0 })
+          .resolves(CONTENT_DIR.withoutContents);
+        contentsStub.get
+          .withArgs({ path: '/foo/foo.txt', content: 0 })
+          .resolves(FOO_CONTENT_FILE);
+        // readDirectory call
+        contentsStub.get
+          .withArgs({ path: '/foo', type: 'directory' })
+          .resolves(CONTENT_DIR.withContents);
       });
 
-      sinon.assert.calledWith(contentsStub.delete, { path: '/foo' });
-    });
-
-    it('deletes a file', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      // When non-recursive, we check stat.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-
-      await fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-        recursive: false,
+      it('throws file system no permissions for non-recursive deletes', async () => {
+        await expect(
+          fs.delete(TestUri.parse('colab://m-s-foo/foo'), { recursive: false }),
+        ).to.eventually.rejectedWith(/NoPermissions/);
       });
 
-      sinon.assert.calledWith(contentsStub.delete, { path: '/foo.txt' });
+      it('recursively deletes directory', async () => {
+        await fs.delete(TestUri.parse('colab://m-s-foo/foo'), {
+          recursive: true,
+        });
+
+        sinon.assert.calledWith(contentsStub.delete, { path: '/foo/foo.txt' });
+        sinon.assert.calledWith(contentsStub.delete, { path: '/foo' });
+      });
     });
 
-    it('throws file system no permissions error on content forbidden responses', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      contentsStub.delete.rejects(FORBIDDEN);
+    describe('file', () => {
+      let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
 
-      await expect(
-        fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-          recursive: true,
-        }),
-      ).to.eventually.rejectedWith(/NoPermissions/);
-    });
+      beforeEach(() => {
+        contentsStub = stubClient('m-s-foo');
+        contentsStub.get
+          .withArgs({ path: '/foo.txt', content: 0 })
+          .resolves(FOO_CONTENT_FILE);
+      });
 
-    it('throws file system file not found error on content not found responses', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      contentsStub.delete.rejects(NOT_FOUND);
+      for (const recursive of [true, false]) {
+        it(`deletes the file (recursive: ${String(recursive)})`, async () => {
+          await fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+            recursive,
+          });
 
-      await expect(
-        fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-          recursive: true,
-        }),
-      ).to.eventually.rejectedWith(/FileNotFound/);
-    });
+          sinon.assert.calledWith(contentsStub.delete, { path: '/foo.txt' });
+        });
 
-    it('throws file system file exists error on content conflict responses', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      contentsStub.delete.rejects(CONFLICT);
+        it(`throws file system no permissions error on content forbidden responses (recursive: ${String(recursive)})`, async () => {
+          contentsStub.delete.rejects(FORBIDDEN);
 
-      await expect(
-        fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-          recursive: true,
-        }),
-      ).to.eventually.rejectedWith(/FileExists/);
-    });
+          await expect(
+            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+              recursive,
+            }),
+          ).to.eventually.rejectedWith(/NoPermissions/);
+        });
 
-    it('throws unhandled content response errors', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      contentsStub.delete.rejects(TEAPOT);
+        it(`throws file system file not found error on content not found responses (recursive: ${String(recursive)})`, async () => {
+          contentsStub.delete.rejects(NOT_FOUND);
 
-      await expect(
-        fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-          recursive: true,
-        }),
-      ).to.eventually.rejectedWith(TEAPOT.message);
-    });
+          await expect(
+            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+              recursive,
+            }),
+          ).to.eventually.rejectedWith(/FileNotFound/);
+        });
 
-    it('throws unhandled errors', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      contentsStub.delete.rejects(new Error('🤮'));
+        it(`throws file system file exists error on content conflict responses (recursive: ${String(recursive)})`, async () => {
+          contentsStub.delete.rejects(CONFLICT);
 
-      await expect(
-        fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-          recursive: true,
-        }),
-      ).to.eventually.rejectedWith('🤮');
+          await expect(
+            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+              recursive,
+            }),
+          ).to.eventually.rejectedWith(/FileExists/);
+        });
+
+        it(`throws unhandled content response errors (recursive: ${String(recursive)})`, async () => {
+          contentsStub.delete.rejects(TEAPOT);
+
+          await expect(
+            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+              recursive,
+            }),
+          ).to.eventually.rejectedWith(TEAPOT.message);
+        });
+
+        it(`throws unhandled errors (recursive: ${String(recursive)})`, async () => {
+          contentsStub.delete.rejects(new Error('🤮'));
+
+          await expect(
+            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+              recursive,
+            }),
+          ).to.eventually.rejectedWith('🤮');
+        });
+      }
     });
   });
 
