@@ -119,14 +119,18 @@ describe('Telemetry Module', () => {
   });
 
   describe('logs to Clearcut', () => {
+    const PLATFORM = 'darwin';
     let baseLog: ColabLogEventBase & { timestamp: string };
     let logStub: SinonSpy;
 
     beforeEach(() => {
       logStub = sinon.stub(ClearcutClient.prototype, 'log');
+      sinon.stub(process, 'platform').get(() => PLATFORM);
       baseLog = {
+        app_name: 'VS Code',
         extension_version: VERSION_COLAB,
         jupyter_extension_version: VERSION_JUPYTER,
+        platform: PLATFORM,
         session_id: SESSION_ID,
         ui_kind: 'UI_KIND_DESKTOP',
         vscode_version: VERSION_VSCODE,

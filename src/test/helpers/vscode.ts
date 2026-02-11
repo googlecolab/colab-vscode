@@ -95,6 +95,7 @@ export interface VsCodeStub {
   };
   UIKind: typeof UIKind;
   env: {
+    appName: string;
     uriScheme: string;
     uiKind: vscode.UIKind;
     openExternal: sinon.SinonStubbedMember<typeof vscode.env.openExternal>;
@@ -251,6 +252,7 @@ export function newVsCodeStub(): VsCodeStub {
     },
     UIKind: UIKind,
     env: {
+      appName: 'VS Code',
       uriScheme: 'vscode',
       uiKind: UIKind.Desktop,
       openExternal: sinon.stub(),
