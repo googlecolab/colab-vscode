@@ -473,20 +473,21 @@ export class ColabClient {
 
     let response: Response | undefined;
     let request: Request | undefined;
+    const requestHeaders = new Headers(init.headers);
+    requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
+    requestHeaders.set(
+      COLAB_CLIENT_AGENT_HEADER.key,
+      COLAB_CLIENT_AGENT_HEADER.value,
+    );
 
     // Make up to 2 attempts to issue the request in case of an
     // authentication error i.e. if the first attempt fails with a 401,
     for (let attempt = 0; attempt < 2; attempt++) {
-      const requestHeaders = new Headers(init.headers);
-      requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
       if (requireAccessToken) {
         const token = await this.getAccessToken();
         requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
       }
-      requestHeaders.set(
-        COLAB_CLIENT_AGENT_HEADER.key,
-        COLAB_CLIENT_AGENT_HEADER.value,
-      );
+
       request = new Request(endpoint, {
         ...init,
         headers: requestHeaders,
