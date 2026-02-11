@@ -939,62 +939,64 @@ describe('ContentsFileSystemProvider', () => {
       });
 
       for (const recursive of [true, false]) {
-        it(`deletes the file (recursive: ${String(recursive)})`, async () => {
-          await fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-            recursive,
+        describe(`with recursive ${String(recursive)}`, () => {
+          it('deletes the file', async () => {
+            await fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+              recursive,
+            });
+
+            sinon.assert.calledWith(contentsStub.delete, { path: '/foo.txt' });
           });
 
-          sinon.assert.calledWith(contentsStub.delete, { path: '/foo.txt' });
-        });
+          it('throws file system no permissions error on content forbidden responses', async () => {
+            contentsStub.delete.rejects(FORBIDDEN);
 
-        it(`throws file system no permissions error on content forbidden responses (recursive: ${String(recursive)})`, async () => {
-          contentsStub.delete.rejects(FORBIDDEN);
+            await expect(
+              fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+                recursive,
+              }),
+            ).to.eventually.rejectedWith(/NoPermissions/);
+          });
 
-          await expect(
-            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-              recursive,
-            }),
-          ).to.eventually.rejectedWith(/NoPermissions/);
-        });
+          it('throws file system file not found error on content not found responses', async () => {
+            contentsStub.delete.rejects(NOT_FOUND);
 
-        it(`throws file system file not found error on content not found responses (recursive: ${String(recursive)})`, async () => {
-          contentsStub.delete.rejects(NOT_FOUND);
+            await expect(
+              fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+                recursive,
+              }),
+            ).to.eventually.rejectedWith(/FileNotFound/);
+          });
 
-          await expect(
-            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-              recursive,
-            }),
-          ).to.eventually.rejectedWith(/FileNotFound/);
-        });
+          it('throws file system file exists error on content conflict responses', async () => {
+            contentsStub.delete.rejects(CONFLICT);
 
-        it(`throws file system file exists error on content conflict responses (recursive: ${String(recursive)})`, async () => {
-          contentsStub.delete.rejects(CONFLICT);
+            await expect(
+              fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+                recursive,
+              }),
+            ).to.eventually.rejectedWith(/FileExists/);
+          });
 
-          await expect(
-            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-              recursive,
-            }),
-          ).to.eventually.rejectedWith(/FileExists/);
-        });
+          it('throws unhandled content response errors', async () => {
+            contentsStub.delete.rejects(TEAPOT);
 
-        it(`throws unhandled content response errors (recursive: ${String(recursive)})`, async () => {
-          contentsStub.delete.rejects(TEAPOT);
+            await expect(
+              fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+                recursive,
+              }),
+            ).to.eventually.rejectedWith(TEAPOT.message);
+          });
 
-          await expect(
-            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-              recursive,
-            }),
-          ).to.eventually.rejectedWith(TEAPOT.message);
-        });
+          it('throws unhandled errors', async () => {
+            contentsStub.delete.rejects(new Error('🤮'));
 
-        it(`throws unhandled errors (recursive: ${String(recursive)})`, async () => {
-          contentsStub.delete.rejects(new Error('🤮'));
-
-          await expect(
-            fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
-              recursive,
-            }),
-          ).to.eventually.rejectedWith('🤮');
+            await expect(
+              fs.delete(TestUri.parse('colab://m-s-foo/foo.txt'), {
+                recursive,
+              }),
+            ).to.eventually.rejectedWith('🤮');
+          });
         });
       }
     });
