@@ -455,6 +455,7 @@ export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
 
 /** The experiment flags supported by the Colab extension. */
 export enum ExperimentFlag {
+  EnableTelemetry = 'enable_vscode_telemetry',
   RuntimeVersionNames = 'runtime_version_names',
 }
 
@@ -463,6 +464,7 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
+  [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.RuntimeVersionNames]: [],
 };
 
