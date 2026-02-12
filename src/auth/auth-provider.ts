@@ -90,7 +90,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   }
 
   /**
-   * Retrieves the Google OAuth2 authentication session.
+   * Retrieves the Google OAuth2 authentication session. Prompts the user to
+   * sign in if no matching sessions are found.
    *
    * @param vs - The VS Code API.
    * @returns The authentication session.
@@ -106,6 +107,19 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       },
     );
     return session;
+  }
+
+  /**
+   * Retrieves the Google OAuth2 authentication session.
+   *
+   * @param vs - The VS Code API.
+   * @returns A promise that resolves with the authentication session if it
+   *  exists and undefined otherwise.
+   */
+  static async getSession(
+    vs: typeof vscode,
+  ): Promise<AuthenticationSession | undefined> {
+    return vs.authentication.getSession(PROVIDER_ID, REQUIRED_SCOPES);
   }
 
   /**

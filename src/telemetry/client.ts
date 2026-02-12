@@ -4,9 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fetch, { Request } from 'node-fetch';
+import fetch, { Headers, Request } from 'node-fetch';
 import { Disposable } from 'vscode';
-import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
+import {
+  AUTHORIZATION_HEADER,
+  CONTENT_TYPE_JSON_HEADER,
+} from '../colab/headers';
 import { log } from '../common/logging';
 import {
   ColabLogEvent,
@@ -35,6 +38,8 @@ export class ClearcutClient implements Disposable {
   private nextFlush = new Date();
   // Queue of events to be flushed to Clearcut.
   private pendingEvents: LogEvent[] = [];
+
+  constructor(private getAccessToken: () => Promise<string | undefined>) {}
 
   dispose() {
     if (this.isDisposed) {
@@ -99,12 +104,18 @@ export class ClearcutClient implements Disposable {
       log_source: LOG_SOURCE,
       log_event: events,
     };
+
+    const headers = new Headers();
+    headers.set(CONTENT_TYPE_JSON_HEADER.key, CONTENT_TYPE_JSON_HEADER.value);
+    const token = await this.getAccessToken();
+    if (token) {
+      headers.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
+    }
+
     const request = new Request(LOGS_ENDPOINT, {
       method: 'POST',
       body: JSON.stringify(logRequest),
-      headers: {
-        [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
-      },
+      headers,
     });
     const response = await fetch(request);
     // TODO: handle 401 once token is included in request
