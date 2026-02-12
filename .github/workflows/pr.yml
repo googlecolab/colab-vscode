@@ -31,4 +31,7 @@ jobs:
   call_build_and_test:
     name: Build and Test
     uses: ./.github/workflows/build-test.yml
+    with:
+      run_e2e: false # <--- the new "Secure" workflow should pick up the heavy lifting for E2E.
+      environment_name: "" # Explicitly "No Environment" (Runs immediately)
     secrets: inherit
