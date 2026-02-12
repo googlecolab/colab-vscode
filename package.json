@@ -228,6 +228,30 @@
           "when": "false"
         },
         {
+          "command": "colab.download",
+          "when": "false"
+        },
+        {
+          "command": "colab.newFolder",
+          "when": "false"
+        },
+        {
+          "command": "colab.newFile",
+          "when": "false"
+        },
+        {
+          "command": "colab.renameFile",
+          "when": "false"
+        },
+        {
+          "command": "colab.deleteFile",
+          "when": "false"
+        },
+        {
+          "command": "colab.refreshServersView",
+          "when": "false"
+        },
+        {
           "command": "colab.mountServer",
           "when": "config.colab.serverMounting"
         },
