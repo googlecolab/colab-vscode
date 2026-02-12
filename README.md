@@ -26,6 +26,9 @@ this extension exposes Colab servers directly in VS Code!
 ![Connecting to a new Colab server and executing a code
 cell](./docs/assets/hello-world.gif)
 
+See our [user guide](https://github.com/googlecolab/colab-vscode/wiki/User-Guide)
+for more things you can do!
+
 ## Commands
 
 Activate the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P` on Mac.
