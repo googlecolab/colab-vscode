@@ -24,6 +24,8 @@ const DEFAULT_LOG: ColabLogEvent = {
   ui_kind: 'UI_KIND_DESKTOP',
   vscode_version: '1.108.1',
 };
+
+const TOKEN = 'token';
 const LOG_RESPONSE = {
   next_request_wait_millis: 15 * 60 * 1000,
 };
@@ -36,10 +38,19 @@ describe('ClearcutClient', () => {
   let client: ClearcutClient;
   let fakeClock: SinonFakeTimers;
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
+  let getAccessToken: Deferred<void>;
+  let getAccessTokenStub: sinon.SinonStub<[], Promise<string | undefined>>;
 
   beforeEach(() => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
-    client = new ClearcutClient();
+    getAccessToken = new Deferred();
+    getAccessTokenStub = sinon
+      .stub<[], Promise<string | undefined>>()
+      .callsFake(() => {
+        getAccessToken.resolve();
+        return Promise.resolve(TOKEN);
+      });
+    client = new ClearcutClient(getAccessTokenStub);
     fetchStub = sinon.stub(fetch, 'default');
   });
 
@@ -48,10 +59,10 @@ describe('ClearcutClient', () => {
   });
 
   describe('log', () => {
-    it('flushes an event to Clearcut', () => {
+    it('flushes an event to Clearcut', async () => {
       client.log(DEFAULT_LOG);
 
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
     });
 
     it('throws an error when Clearcut responds with a non-200 status', async () => {
@@ -87,7 +98,7 @@ describe('ClearcutClient', () => {
         .resolves(FETCH_RESPONSE_OK);
 
       client.log(DEFAULT_LOG);
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
       fetchStub.reset();
 
       await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
@@ -97,7 +108,7 @@ describe('ClearcutClient', () => {
       };
       client.log(OTHER_LOG);
 
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([OTHER_LOG]));
+      await assertFetchStubCalledOnceWithEvents([OTHER_LOG]);
     });
 
     const requeueStatusTest = [{ status: 500 }, { status: 501 }];
@@ -110,10 +121,7 @@ describe('ClearcutClient', () => {
           .resolves(FETCH_RESPONSE_OK);
 
         client.log(DEFAULT_LOG);
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([DEFAULT_LOG]),
-        );
+        await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
         fetchStub.reset();
 
         await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
@@ -123,18 +131,16 @@ describe('ClearcutClient', () => {
         };
         client.log(OTHER_LOG);
 
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([DEFAULT_LOG, OTHER_LOG]),
-        );
+        await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG, OTHER_LOG]);
       });
     }
 
     describe('on requeue', () => {
       let pendingFlush: Deferred<void>;
 
-      beforeEach(() => {
+      beforeEach(async () => {
         client.log(DEFAULT_LOG); // Ensure next events are queued.
+        await getAccessToken.promise;
         fetchStub.resetHistory();
         pendingFlush = new Deferred<void>();
         fetchStub.onFirstCall().callsFake(async () => {
@@ -165,10 +171,7 @@ describe('ClearcutClient', () => {
         fetchStub.resetHistory();
 
         client.dispose(); // Trigger immediate flush
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([...failedLogs, ...newLogs]),
-        );
+        await assertFetchStubCalledOnceWithEvents([...failedLogs, ...newLogs]);
       });
 
       it('requeues some events when there is limited capacity', async () => {
@@ -193,13 +196,10 @@ describe('ClearcutClient', () => {
         fetchStub.resetHistory();
 
         client.dispose(); // Trigger immediate flush
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([
-            ...failedLogs.slice(TEST_ONLY.MAX_PENDING_EVENTS / 2),
-            ...newLogs,
-          ]),
-        );
+        await assertFetchStubCalledOnceWithEvents([
+          ...failedLogs.slice(TEST_ONLY.MAX_PENDING_EVENTS / 2),
+          ...newLogs,
+        ]);
       });
 
       it('requeues no events when there is no capacity', async () => {
@@ -224,7 +224,7 @@ describe('ClearcutClient', () => {
         fetchStub.resetHistory();
 
         client.dispose(); // Trigger immediate flush
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest(newLogs));
+        await assertFetchStubCalledOnceWithEvents(newLogs);
       });
     });
 
@@ -236,7 +236,7 @@ describe('ClearcutClient', () => {
 
         // Log an event to trigger the first flush.
         client.log(firstLog);
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+        await assertFetchStubCalledOnceWithEvents([firstLog]);
         fetchStub.resetHistory();
 
         // While waiting for the flush interval to pass, log an event.
@@ -259,10 +259,7 @@ describe('ClearcutClient', () => {
         client.log(thirdLog);
 
         // Verify that the two queued events were sent in a batch.
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([secondLog, thirdLog]),
-        );
+        await assertFetchStubCalledOnceWithEvents([secondLog, thirdLog]);
       });
 
       it('queues events to send in batch when a flush is already pending', async () => {
@@ -274,7 +271,7 @@ describe('ClearcutClient', () => {
 
         // Log an event to trigger the first flush.
         client.log(firstLog);
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+        await assertFetchStubCalledOnceWithEvents([firstLog]);
         fetchStub.resetHistory();
 
         // While waiting for the previous flush to resolve, log an event.
@@ -299,10 +296,7 @@ describe('ClearcutClient', () => {
         client.log(thirdLog);
 
         // Verify that the two queued events were sent in a batch.
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([secondLog, thirdLog]),
-        );
+        await assertFetchStubCalledOnceWithEvents([secondLog, thirdLog]);
       });
 
       it('drops oldest events when max pending events is exceeded', async () => {
@@ -310,7 +304,7 @@ describe('ClearcutClient', () => {
 
         // Log an event to trigger the first flush.
         client.log(firstLog);
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest([firstLog]));
+        await assertFetchStubCalledOnceWithEvents([firstLog]);
         fetchStub.resetHistory();
 
         const oldestLog = {
@@ -330,7 +324,7 @@ describe('ClearcutClient', () => {
         }
 
         // Verify that the oldest event was dropped.
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest(newLogs));
+        await assertFetchStubCalledOnceWithEvents(newLogs);
       });
     });
   });
@@ -340,7 +334,7 @@ describe('ClearcutClient', () => {
 
     // Log an event to trigger the first flush.
     client.log(DEFAULT_LOG);
-    sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+    await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
     fetchStub.resetHistory();
 
     // Advance time to reach the flush interval.
@@ -350,6 +344,7 @@ describe('ClearcutClient', () => {
 
     // Trigger flush
     client.log(DEFAULT_LOG);
+    await getAccessToken.promise;
     sinon.assert.calledOnce(fetchStub);
   });
 
@@ -380,7 +375,7 @@ describe('ClearcutClient', () => {
 
       // Log an event to trigger the first flush.
       client.log(DEFAULT_LOG);
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
       fetchStub.resetHistory();
 
       // Advance time to reach the flush interval.
@@ -390,9 +385,25 @@ describe('ClearcutClient', () => {
 
       // Trigger flush
       client.log(DEFAULT_LOG);
+      await getAccessToken.promise;
       sinon.assert.calledOnce(fetchStub);
     });
   }
+
+  it('does not include the access token in the Clearcut request when it is undefined', async () => {
+    getAccessTokenStub.callsFake(() => {
+      getAccessToken.resolve();
+      return Promise.resolve(undefined);
+    });
+
+    client.log(DEFAULT_LOG);
+
+    await getAccessToken.promise;
+    sinon.assert.calledOnceWithExactly(
+      fetchStub,
+      logRequest([DEFAULT_LOG], { 'Content-Type': 'application/json' }),
+    );
+  });
 
   describe('dispose', () => {
     it('does nothing when there are no pending events', () => {
@@ -401,12 +412,12 @@ describe('ClearcutClient', () => {
       sinon.assert.notCalled(fetchStub);
     });
 
-    it('forces a flush when the flush interval has not passed', () => {
+    it('forces a flush when the flush interval has not passed', async () => {
       fetchStub.resolves(FETCH_RESPONSE_OK);
 
       // Log an event to trigger the first flush.
       client.log(DEFAULT_LOG);
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
       fetchStub.resetHistory();
 
       // While the flush interval has not passed, log another event. This
@@ -422,10 +433,10 @@ describe('ClearcutClient', () => {
 
       // Even though the flush interval has not passed, a second flush should
       // have been triggered by dispose.
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      await assertFetchStubCalledOnceWithEvents([otherLog]);
     });
 
-    it('forces a flush when a flush is already pending', () => {
+    it('forces a flush when a flush is already pending', async () => {
       const flushPending = new Deferred<void>();
       fetchStub.onFirstCall().callsFake(async () => {
         await flushPending.promise; // Never resolved
@@ -434,7 +445,7 @@ describe('ClearcutClient', () => {
 
       // Log an event to trigger the first flush.
       client.log(DEFAULT_LOG);
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      await assertFetchStubCalledOnceWithEvents([DEFAULT_LOG]);
       fetchStub.resetHistory();
 
       // While the flush is still pending, log another event. This event
@@ -450,9 +461,15 @@ describe('ClearcutClient', () => {
 
       // Even though the first flush has not resolved, a second flush should
       // have been triggered by dispose.
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      await assertFetchStubCalledOnceWithEvents([otherLog]);
     });
   });
+
+  /** Helper to consolidate fetch stub assertion behavior.  */
+  async function assertFetchStubCalledOnceWithEvents(events: ColabLogEvent[]) {
+    await getAccessToken.promise;
+    sinon.assert.calledOnceWithExactly(fetchStub, logRequest(events));
+  }
 });
 
 /**
@@ -469,7 +486,13 @@ function createLogEvents(numEvents: number): ColabLogEvent[] {
 /**
  * Helper to match the expected Clearcut log request structure
  */
-function logRequest(events: ColabLogEvent[]): Request {
+function logRequest(
+  events: ColabLogEvent[],
+  headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${TOKEN}`,
+  },
+): Request {
   const logEvents = events.map((event) => ({
     source_extension_json: JSON.stringify(event),
   }));
@@ -479,8 +502,6 @@ function logRequest(events: ColabLogEvent[]): Request {
       log_source: LOG_SOURCE,
       log_event: logEvents,
     }),
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
   });
 }

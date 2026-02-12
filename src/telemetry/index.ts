@@ -22,9 +22,14 @@ let isTelemetryEnabled: () => boolean;
  * Initializes the telemetry module
  * @param context - The VS Code extension context
  * @param vs - The vscode module.
+ * @param getAccessToken - A function that resolves with the access token, or
+ *   undefined if the user is unauthenticated.
  * @returns A {@link Disposable} that can be used to clean up the client.
  */
-export function initializeTelemetry(vs: typeof vscode): Disposable {
+export function initializeTelemetry(
+  vs: typeof vscode,
+  getAccessToken: () => Promise<string | undefined>,
+): Disposable {
   if (client) {
     throw new Error('Telemetry has already been initialized.');
   }
@@ -46,7 +51,7 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
   };
 
   isTelemetryEnabled = () => vs.env.isTelemetryEnabled;
-  client = new ClearcutClient();
+  client = new ClearcutClient(getAccessToken);
 
   return {
     dispose: () => {

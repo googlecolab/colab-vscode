@@ -23,6 +23,7 @@ const VERSION_VSCODE = '1.109.0';
 
 describe('Telemetry Module', () => {
   let disposeTelemetry: Disposable | undefined;
+  const getAccessToken = () => Promise.resolve(undefined);
   let fakeClock: SinonFakeTimers;
   let vs: VsCodeStub;
 
@@ -50,10 +51,10 @@ describe('Telemetry Module', () => {
 
   describe('lifecycle', () => {
     it('throws if doubly initialized', () => {
-      disposeTelemetry = initializeTelemetry(vs.asVsCode());
+      disposeTelemetry = initializeTelemetry(vs.asVsCode(), getAccessToken);
 
       expect(() => {
-        initializeTelemetry(vs.asVsCode());
+        initializeTelemetry(vs.asVsCode(), getAccessToken);
       }).to.throw(/already been initialized/);
     });
 
@@ -65,7 +66,7 @@ describe('Telemetry Module', () => {
 
     it('disposes the client when disposed', () => {
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-      disposeTelemetry = initializeTelemetry(vs.asVsCode());
+      disposeTelemetry = initializeTelemetry(vs.asVsCode(), getAccessToken);
 
       disposeTelemetry.dispose();
 
@@ -76,7 +77,7 @@ describe('Telemetry Module', () => {
   it('does not log to Clearcut when telemetry is disabled', () => {
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     vs.env.isTelemetryEnabled = false;
-    disposeTelemetry = initializeTelemetry(vs.asVsCode());
+    disposeTelemetry = initializeTelemetry(vs.asVsCode(), getAccessToken);
 
     telemetry.logActivation();
 
@@ -88,7 +89,7 @@ describe('Telemetry Module', () => {
     vs.env.isTelemetryEnabled = false;
     // Maintain a reference to this stub as that's the reference telemetry has.
     const vscodeStub = vs.asVsCode();
-    disposeTelemetry = initializeTelemetry(vscodeStub);
+    disposeTelemetry = initializeTelemetry(vscodeStub, getAccessToken);
 
     telemetry.logActivation();
     sinon.assert.notCalled(logStub);
@@ -105,7 +106,7 @@ describe('Telemetry Module', () => {
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
     // Maintain a reference to this stub as that's the reference telemetry has.
     const vscodeStub = vs.asVsCode();
-    disposeTelemetry = initializeTelemetry(vscodeStub);
+    disposeTelemetry = initializeTelemetry(vscodeStub, getAccessToken);
 
     telemetry.logActivation();
     sinon.assert.calledOnce(logStub);
@@ -136,7 +137,7 @@ describe('Telemetry Module', () => {
         vscode_version: VERSION_VSCODE,
         timestamp: new Date(NOW).toISOString(),
       };
-      disposeTelemetry = initializeTelemetry(vs.asVsCode());
+      disposeTelemetry = initializeTelemetry(vs.asVsCode(), getAccessToken);
     });
 
     it('on activation', () => {
