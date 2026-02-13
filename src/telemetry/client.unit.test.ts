@@ -49,6 +49,7 @@ describe('ClearcutClient', () => {
     fetchStub = sinon.stub(fetch, 'default');
 
     // Since we cannot stub the export for getFlag, mock the default
+    // TODO: Replace with flag test helper once available
     enableTelemetryDefault =
       EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry];
     EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry] = true;
