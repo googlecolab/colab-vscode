@@ -227,16 +227,17 @@ describe('ColabClient', () => {
           );
       });
 
-      const assignmentTests: [Variant, string?, Shape?][] = [
+      const assignmentTests: [Variant, string?, Shape?, string?][] = [
         [Variant.DEFAULT, undefined],
         [Variant.GPU, 'T4'],
         [Variant.TPU, 'V28', Shape.STANDARD],
         [Variant.DEFAULT, undefined, Shape.HIGHMEM],
         [Variant.GPU, 'A100', Shape.HIGHMEM],
-        [Variant.TPU, 'V6E1', Shape.STANDARD],
+        [Variant.TPU, 'V6E1', Shape.STANDARD, ''],
+        [Variant.GPU, 'T4', Shape.STANDARD, 'v2'],
       ];
-      for (const [variant, accelerator, shape] of assignmentTests) {
-        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ''} with shape ${String(shape ?? Shape.STANDARD)}`;
+      for (const [variant, accelerator, shape, version] of assignmentTests) {
+        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ''} with shape ${String(shape ?? Shape.STANDARD)}${version ? ` and version ${version}` : ''}`;
 
         it(`creates a new ${assignment}`, async () => {
           const postQueryParams: Record<string, string | RegExp> = {
@@ -250,6 +251,9 @@ describe('ColabClient', () => {
           }
           if (shape === Shape.HIGHMEM) {
             postQueryParams.shape = 'hm';
+          }
+          if (version) {
+            postQueryParams.runtime_version_label = version;
           }
           const assignmentResponse = {
             ...DEFAULT_ASSIGNMENT_RESPONSE,
@@ -282,7 +286,7 @@ describe('ColabClient', () => {
             ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           await expect(
-            client.assign(NOTEBOOK_HASH, variant, accelerator, shape),
+            client.assign(NOTEBOOK_HASH, variant, accelerator, shape, version),
           ).to.eventually.deep.equal({
             assignment: expectedAssignment,
             isNew: true,
