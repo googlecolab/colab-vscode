@@ -144,7 +144,7 @@ export class ServerPicker {
           state,
           shapePicks,
           versions,
-          /** step= */ 2,
+          /* step= */ 2,
         );
     }
     return (input: MultiStepInput) =>
