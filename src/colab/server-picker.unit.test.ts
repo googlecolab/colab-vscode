@@ -14,7 +14,8 @@ import {
   buildQuickPickStub,
 } from '../test/helpers/quick-input';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { Variant, Shape } from './api';
+import { Variant, Shape, ExperimentFlag } from './api';
+import { resetFlagsForTest, setFlagForTest } from './experiment-state';
 import { ServerPicker } from './server-picker';
 
 const STANDARD_T4_SERVER = {
@@ -59,6 +60,7 @@ describe('ServerPicker', () => {
     vsCodeStub = newVsCodeStub();
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     serverPicker = new ServerPicker(vsCodeStub.asVsCode(), assignmentStub);
+    setFlagForTest(ExperimentFlag.RuntimeVersionNames, []);
 
     // Type assertion needed due to overloading on getServers
     (assignmentStub.getServers as sinon.SinonStub)
@@ -68,6 +70,7 @@ describe('ServerPicker', () => {
 
   afterEach(() => {
     sinon.restore();
+    resetFlagsForTest();
   });
 
   describe('prompt', () => {
@@ -144,6 +147,36 @@ describe('ServerPicker', () => {
       await expect(prompt).to.eventually.be.undefined;
     });
 
+    it('returns undefined when selecting a version is cancelled', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const acceleratorQuickPickStub = stubQuickPickForCall(1);
+      const shapeQuickPickStub = stubQuickPickForCall(2);
+      const versionQuickPickStub = stubQuickPickForCall(3);
+
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const prompt = serverPicker.prompt(AVAILABLE_SERVERS_FOR_PRO_USERS);
+      await variantPickerShown;
+      const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.GPU, label: 'GPU' },
+      ]);
+      await acceleratorPickerShown;
+      const shapePickerShown = shapeQuickPickStub.nextShow();
+      acceleratorQuickPickStub.onDidChangeSelection.yield([
+        { value: 'T4', label: 'T4' },
+      ]);
+      await shapePickerShown;
+      const versionPickerShown = versionQuickPickStub.nextShow();
+      shapeQuickPickStub.onDidChangeSelection.yield([
+        { value: Shape.STANDARD, label: 'Standard' },
+      ]);
+      await versionPickerShown;
+      versionQuickPickStub.onDidHide.yield();
+
+      await expect(prompt).to.eventually.be.undefined;
+    });
+
     it('returns undefined when selecting an alias is cancelled', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
@@ -207,9 +240,11 @@ describe('ServerPicker', () => {
     });
 
     it('returns the server type when all prompts are answered', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const shapeQuickPickStub = stubQuickPickForCall(2);
+      const versionQuickPickStub = stubQuickPickForCall(3);
       const aliasInputBoxStub = stubInputBoxForCall(0);
 
       const variantPickerShown = variantQuickPickStub.nextShow();
@@ -225,9 +260,14 @@ describe('ServerPicker', () => {
         { value: 'T4', label: 'T4' },
       ]);
       await shapePickerShown;
-      const aliasInputShown = aliasInputBoxStub.nextShow();
+      const versionPickerShown = versionQuickPickStub.nextShow();
       shapeQuickPickStub.onDidChangeSelection.yield([
         { value: Shape.HIGHMEM, label: 'High-RAM' },
+      ]);
+      await versionPickerShown;
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+      versionQuickPickStub.onDidChangeSelection.yield([
+        { value: 'v1', label: 'v1' },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.value = 'foo';
@@ -239,6 +279,7 @@ describe('ServerPicker', () => {
         variant: Variant.GPU,
         accelerator: 'T4',
         shape: Shape.HIGHMEM,
+        version: 'v1',
       });
     });
 
@@ -288,6 +329,7 @@ describe('ServerPicker', () => {
         variant: Variant.GPU,
         accelerator: 'T4',
         shape: Shape.STANDARD,
+        version: '',
       });
     });
 
@@ -313,9 +355,12 @@ describe('ServerPicker', () => {
     });
 
     it('sets the previously specified value when navigating back', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const shapeQuickPickStub = stubQuickPickForCall(2);
+      const versionQuickPickStub = stubQuickPickForCall(3);
       const aliasInputBoxStub = stubInputBoxForCall(0);
       const variantPickerShown = variantQuickPickStub.nextShow();
 
@@ -332,24 +377,39 @@ describe('ServerPicker', () => {
         { value: 'T4', label: 'T4' },
       ]);
       await shapePickerShown;
-      const aliasInputShown = aliasInputBoxStub.nextShow();
+      const versionPickerShown = versionQuickPickStub.nextShow();
       shapeQuickPickStub.onDidChangeSelection.yield([
-        { value: Shape.STANDARD, label: 'Standard' },
+        { value: Shape.HIGHMEM, label: 'High-RAM' },
+      ]);
+      await versionPickerShown;
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+      versionQuickPickStub.onDidChangeSelection.yield([
+        { value: 'v1', label: 'v1' },
       ]);
       await aliasInputShown;
       aliasInputBoxStub.value = 'foo';
       aliasInputBoxStub.onDidChangeValue.yield('foo');
       // Navigate back.
-      const secondShapeQuickPickStub = stubQuickPickForCall(3);
-      const secondAcceleratorQuickPickStub = stubQuickPickForCall(4);
-      const secondVariantQuickPickStub = stubQuickPickForCall(5);
-      const secondShapePickerShown = secondShapeQuickPickStub.nextShow();
+      const secondVersionQuickPickStub = stubQuickPickForCall(4);
+      const secondShapeQuickPickStub = stubQuickPickForCall(5);
+      const secondAcceleratorQuickPickStub = stubQuickPickForCall(6);
+      const secondVariantQuickPickStub = stubQuickPickForCall(7);
+
+      const secondVersionPickerShown = secondVersionQuickPickStub.nextShow();
       aliasInputBoxStub.onDidTriggerButton.yield(
+        vsCodeStub.QuickInputButtons.Back,
+      );
+      await secondVersionPickerShown;
+      expect(secondVersionQuickPickStub.activeItems).to.be.deep.equal([
+        { value: 'v1', label: 'v1' },
+      ]);
+      const secondShapePickerShown = secondShapeQuickPickStub.nextShow();
+      secondVersionQuickPickStub.onDidTriggerButton.yield(
         vsCodeStub.QuickInputButtons.Back,
       );
       await secondShapePickerShown;
       expect(secondShapeQuickPickStub.activeItems).to.be.deep.equal([
-        { value: Shape.STANDARD, label: 'Standard' },
+        { value: Shape.HIGHMEM, label: 'High-RAM' },
       ]);
       const secondAcceleratorPickerShown =
         secondAcceleratorQuickPickStub.nextShow();
@@ -451,6 +511,37 @@ describe('ServerPicker', () => {
       expect(aliasInputBoxStub.totalSteps).to.equal(3);
     });
 
+    it('sets the right step when versions are available', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const versionQuickPickStub = stubQuickPickForCall(1);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const versionPickerShown = versionQuickPickStub.nextShow();
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+
+      void serverPicker.prompt(AVAILABLE_SERVERS);
+
+      await variantPickerShown;
+      expect(variantQuickPickStub.step).to.equal(1);
+      expect(variantQuickPickStub.totalSteps).to.equal(3);
+
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.DEFAULT, label: 'CPU' },
+      ]);
+
+      await versionPickerShown;
+      expect(versionQuickPickStub.step).to.equal(2);
+      expect(versionQuickPickStub.totalSteps).to.equal(3);
+
+      versionQuickPickStub.onDidChangeSelection.yield([
+        { value: 'v1', label: 'v1' },
+      ]);
+      await aliasInputShown;
+      expect(aliasInputBoxStub.step).to.equal(3);
+      expect(aliasInputBoxStub.totalSteps).to.equal(3);
+    });
+
     it('sets the right step when machine shapes and accelerators are available', async () => {
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
@@ -489,6 +580,139 @@ describe('ServerPicker', () => {
       await aliasInputShown;
       expect(aliasInputBoxStub.step).to.equal(4);
       expect(aliasInputBoxStub.totalSteps).to.equal(4);
+    });
+
+    it('sets the right step when machine shapes and versions are available', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const shapeQuickPickStub = stubQuickPickForCall(1);
+      const versionQuickPickStub = stubQuickPickForCall(2);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const shapePickerShown = shapeQuickPickStub.nextShow();
+      const versionPickerShown = versionQuickPickStub.nextShow();
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+
+      void serverPicker.prompt(AVAILABLE_SERVERS_FOR_PRO_USERS);
+
+      await variantPickerShown;
+      expect(variantQuickPickStub.step).to.equal(1);
+      expect(variantQuickPickStub.totalSteps).to.equal(3);
+
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.DEFAULT, label: 'CPU' },
+      ]);
+
+      await shapePickerShown;
+      expect(shapeQuickPickStub.step).to.equal(2);
+      expect(shapeQuickPickStub.totalSteps).to.equal(4);
+
+      shapeQuickPickStub.onDidChangeSelection.yield([
+        { value: Shape.STANDARD, label: 'Standard' },
+      ]);
+
+      await versionPickerShown;
+      expect(versionQuickPickStub.step).to.equal(3);
+      expect(versionQuickPickStub.totalSteps).to.equal(4);
+
+      versionQuickPickStub.onDidChangeSelection.yield([
+        { value: 'v1', label: 'v1' },
+      ]);
+
+      await aliasInputShown;
+      expect(aliasInputBoxStub.step).to.equal(4);
+      expect(aliasInputBoxStub.totalSteps).to.equal(4);
+    });
+
+    it('sets the right step when versions and accelerators are available', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const acceleratorQuickPickStub = stubQuickPickForCall(1);
+      const versionQuickPickStub = stubQuickPickForCall(2);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
+      const versionPickerShown = versionQuickPickStub.nextShow();
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+
+      void serverPicker.prompt(AVAILABLE_SERVERS);
+
+      await variantPickerShown;
+      expect(variantQuickPickStub.step).to.equal(1);
+      expect(variantQuickPickStub.totalSteps).to.equal(3);
+
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.GPU, label: 'GPU' },
+      ]);
+      await acceleratorPickerShown;
+      expect(acceleratorQuickPickStub.step).to.equal(2);
+      expect(acceleratorQuickPickStub.totalSteps).to.equal(4);
+
+      acceleratorQuickPickStub.onDidChangeSelection.yield([
+        { value: 'T4', label: 'T4' },
+      ]);
+
+      await versionPickerShown;
+      expect(versionQuickPickStub.step).to.equal(3);
+      expect(versionQuickPickStub.totalSteps).to.equal(4);
+
+      versionQuickPickStub.onDidChangeSelection.yield([
+        { value: 'v1', label: 'v1' },
+      ]);
+
+      await aliasInputShown;
+      expect(aliasInputBoxStub.step).to.equal(4);
+      expect(aliasInputBoxStub.totalSteps).to.equal(4);
+    });
+
+    it('sets the right step when versions, machine shapes and accelerators are available', async () => {
+      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      const variantQuickPickStub = stubQuickPickForCall(0);
+      const acceleratorQuickPickStub = stubQuickPickForCall(1);
+      const shapeQuickPickStub = stubQuickPickForCall(2);
+      const versionQuickPickStub = stubQuickPickForCall(3);
+      const aliasInputBoxStub = stubInputBoxForCall(0);
+      const variantPickerShown = variantQuickPickStub.nextShow();
+      const acceleratorPickerShown = acceleratorQuickPickStub.nextShow();
+      const shapePickerShown = shapeQuickPickStub.nextShow();
+      const aliasInputShown = aliasInputBoxStub.nextShow();
+      const versionPickerShown = versionQuickPickStub.nextShow();
+
+      void serverPicker.prompt(AVAILABLE_SERVERS_FOR_PRO_USERS);
+
+      await variantPickerShown;
+      expect(variantQuickPickStub.step).to.equal(1);
+      expect(variantQuickPickStub.totalSteps).to.equal(3);
+
+      variantQuickPickStub.onDidChangeSelection.yield([
+        { value: Variant.GPU, label: 'GPU' },
+      ]);
+      await acceleratorPickerShown;
+      expect(acceleratorQuickPickStub.step).to.equal(2);
+      expect(acceleratorQuickPickStub.totalSteps).to.equal(4);
+
+      acceleratorQuickPickStub.onDidChangeSelection.yield([
+        { value: 'T4', label: 'T4' },
+      ]);
+
+      await shapePickerShown;
+      expect(shapeQuickPickStub.step).to.equal(3);
+      expect(shapeQuickPickStub.totalSteps).to.equal(5);
+
+      shapeQuickPickStub.onDidChangeSelection.yield([
+        { value: Shape.STANDARD, label: 'Standard' },
+      ]);
+      await versionPickerShown;
+      expect(versionQuickPickStub.step).to.equal(4);
+      expect(versionQuickPickStub.totalSteps).to.equal(5);
+
+      versionQuickPickStub.onDidChangeSelection.yield([
+        { value: 'v1', label: 'v1' },
+      ]);
+
+      await aliasInputShown;
+      expect(aliasInputBoxStub.step).to.equal(5);
+      expect(aliasInputBoxStub.totalSteps).to.equal(5);
     });
   });
 });
