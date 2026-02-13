@@ -777,11 +777,10 @@ describe('AssignmentManager', () => {
   describe('assignServer', () => {
     it('throws an error when the assignment does not include a URL to connect to', () => {
       colabClientStub.assign
-        .withArgs(
-          sinon.match(isUUID),
-          defaultAssignment.variant,
-          defaultAssignment.accelerator,
-        )
+        .withArgs(sinon.match(isUUID), {
+          variant: defaultAssignment.variant,
+          accelerator: defaultAssignment.accelerator,
+        })
         .resolves({
           assignment: {
             ...defaultAssignment,
@@ -800,11 +799,10 @@ describe('AssignmentManager', () => {
 
     it('throws an error when the assignment does not include a token to connect with', () => {
       colabClientStub.assign
-        .withArgs(
-          sinon.match(isUUID),
-          defaultAssignment.variant,
-          defaultAssignment.accelerator,
-        )
+        .withArgs(sinon.match(isUUID), {
+          variant: defaultAssignment.variant,
+          accelerator: defaultAssignment.accelerator,
+        })
         .resolves({
           assignment: {
             ...defaultAssignment,
@@ -826,11 +824,12 @@ describe('AssignmentManager', () => {
 
       beforeEach(async () => {
         colabClientStub.assign
-          .withArgs(
-            sinon.match(isUUID),
-            defaultServer.variant,
-            defaultServer.accelerator,
-          )
+          .withArgs(sinon.match(isUUID), {
+            variant: defaultServer.variant,
+            accelerator: defaultServer.accelerator,
+            shape: undefined,
+            version: undefined,
+          })
           .resolves({ assignment: defaultAssignment, isNew: false });
         colabClientStub.listAssignments.resolves([defaultAssignment]);
         await serverStorage.store([defaultServer]);
@@ -1080,7 +1079,12 @@ describe('AssignmentManager', () => {
         label: 'Colab CPU',
       };
       colabClientStub.assign
-        .withArgs(sinon.match(isUUID), Variant.DEFAULT)
+        .withArgs(sinon.match(isUUID), {
+          variant: Variant.DEFAULT,
+          accelerator: undefined,
+          shape: undefined,
+          version: undefined,
+        })
         .resolves({ assignment: defaultCpuAssignment, isNew: true });
 
       const server = await assignmentManager.latestOrAutoAssignServer();

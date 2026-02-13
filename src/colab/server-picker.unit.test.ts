@@ -15,7 +15,7 @@ import {
 } from '../test/helpers/quick-input';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { Variant, Shape, ExperimentFlag } from './api';
-import { resetFlagsForTest, setFlagForTest } from './experiment-state';
+import { TEST_ONLY } from './experiment-state';
 import { ServerPicker } from './server-picker';
 
 const STANDARD_T4_SERVER = {
@@ -60,7 +60,7 @@ describe('ServerPicker', () => {
     vsCodeStub = newVsCodeStub();
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     serverPicker = new ServerPicker(vsCodeStub.asVsCode(), assignmentStub);
-    setFlagForTest(ExperimentFlag.RuntimeVersionNames, []);
+    TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, []);
 
     // Type assertion needed due to overloading on getServers
     (assignmentStub.getServers as sinon.SinonStub)
@@ -70,7 +70,7 @@ describe('ServerPicker', () => {
 
   afterEach(() => {
     sinon.restore();
-    resetFlagsForTest();
+    TEST_ONLY.resetFlagsForTest();
   });
 
   describe('prompt', () => {
@@ -148,7 +148,10 @@ describe('ServerPicker', () => {
     });
 
     it('returns undefined when selecting a version is cancelled', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const shapeQuickPickStub = stubQuickPickForCall(2);
@@ -240,7 +243,10 @@ describe('ServerPicker', () => {
     });
 
     it('returns the server type when all prompts are answered', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const shapeQuickPickStub = stubQuickPickForCall(2);
@@ -355,7 +361,10 @@ describe('ServerPicker', () => {
     });
 
     it('sets the previously specified value when navigating back', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
 
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
@@ -512,7 +521,10 @@ describe('ServerPicker', () => {
     });
 
     it('sets the right step when versions are available', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const versionQuickPickStub = stubQuickPickForCall(1);
       const aliasInputBoxStub = stubInputBoxForCall(0);
@@ -583,7 +595,10 @@ describe('ServerPicker', () => {
     });
 
     it('sets the right step when machine shapes and versions are available', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const shapeQuickPickStub = stubQuickPickForCall(1);
       const versionQuickPickStub = stubQuickPickForCall(2);
@@ -625,7 +640,10 @@ describe('ServerPicker', () => {
     });
 
     it('sets the right step when versions and accelerators are available', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const versionQuickPickStub = stubQuickPickForCall(2);
@@ -666,7 +684,10 @@ describe('ServerPicker', () => {
     });
 
     it('sets the right step when versions, machine shapes and accelerators are available', async () => {
-      setFlagForTest(ExperimentFlag.RuntimeVersionNames, ['v1', 'v2']);
+      TEST_ONLY.setFlagForTest(ExperimentFlag.RuntimeVersionNames, [
+        'v1',
+        'v2',
+      ]);
       const variantQuickPickStub = stubQuickPickForCall(0);
       const acceleratorQuickPickStub = stubQuickPickForCall(1);
       const shapeQuickPickStub = stubQuickPickForCall(2);

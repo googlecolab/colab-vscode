@@ -193,7 +193,10 @@ describe('ColabClient', () => {
         );
 
       await expect(
-        client.assign(NOTEBOOK_HASH, Variant.GPU, 'A100'),
+        client.assign(NOTEBOOK_HASH, {
+          variant: Variant.GPU,
+          accelerator: 'A100',
+        }),
       ).to.eventually.deep.equal({
         assignment: DEFAULT_ASSIGNMENT,
         isNew: false,
@@ -286,7 +289,12 @@ describe('ColabClient', () => {
             ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
           };
           await expect(
-            client.assign(NOTEBOOK_HASH, variant, accelerator, shape, version),
+            client.assign(NOTEBOOK_HASH, {
+              variant,
+              accelerator,
+              shape,
+              version,
+            }),
           ).to.eventually.deep.equal({
             assignment: expectedAssignment,
             isNew: true,
@@ -335,7 +343,11 @@ describe('ColabClient', () => {
           machineShape: Shape.STANDARD,
         };
         await expect(
-          client.assign(NOTEBOOK_HASH, Variant.GPU, 'L4', Shape.HIGHMEM),
+          client.assign(NOTEBOOK_HASH, {
+            variant: Variant.GPU,
+            accelerator: 'L4',
+            shape: Shape.HIGHMEM,
+          }),
         ).to.eventually.deep.equal({
           assignment: expectedAssignment,
           isNew: true,
@@ -360,7 +372,7 @@ describe('ColabClient', () => {
           .resolves(new Response(undefined, { status: 412 }));
 
         await expect(
-          client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+          client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
       });
 
@@ -401,7 +413,7 @@ describe('ColabClient', () => {
             );
 
           await expect(
-            client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+            client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
           ).to.eventually.be.rejectedWith(
             InsufficientQuotaError,
             /insufficient quota/,
@@ -436,7 +448,7 @@ describe('ColabClient', () => {
           );
 
         await expect(
-          client.assign(NOTEBOOK_HASH, Variant.DEFAULT),
+          client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
         ).to.eventually.be.rejectedWith(DenylistedError, /blocked/);
       });
     });

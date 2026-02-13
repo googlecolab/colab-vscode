@@ -59,6 +59,14 @@ interface AssignedAssignment extends Assignment {
   kind: 'assigned';
 }
 
+// Options for assign method.
+interface AssignParams {
+  variant: Variant;
+  accelerator?: string;
+  shape?: Shape;
+  version?: string;
+}
+
 // Options for issueRequest method.
 interface IssueRequestOptions {
   requireAccessToken?: boolean;
@@ -130,20 +138,10 @@ export class ColabClient {
    */
   async assign(
     notebookHash: UUID,
-    variant: Variant,
-    accelerator?: string,
-    shape?: Shape,
-    version?: string,
+    params: AssignParams,
     signal?: AbortSignal,
   ): Promise<{ assignment: Assignment; isNew: boolean }> {
-    const assignment = await this.getAssignment(
-      notebookHash,
-      variant,
-      accelerator,
-      shape,
-      version,
-      signal,
-    );
+    const assignment = await this.getAssignment(notebookHash, params, signal);
     switch (assignment.kind) {
       case 'assigned': {
         // Not required, but we want to remove the type field we use internally
@@ -157,10 +155,7 @@ export class ColabClient {
           res = await this.postAssignment(
             notebookHash,
             assignment.xsrfToken,
-            variant,
-            accelerator,
-            shape,
-            version,
+            params,
             signal,
           );
         } catch (error) {
@@ -380,19 +375,10 @@ export class ColabClient {
 
   private async getAssignment(
     notebookHash: UUID,
-    variant: Variant,
-    accelerator?: string,
-    shape?: Shape,
-    version?: string,
+    params: AssignParams,
     signal?: AbortSignal,
   ): Promise<AssignmentToken | AssignedAssignment> {
-    const url = this.buildAssignUrl(
-      notebookHash,
-      variant,
-      accelerator,
-      shape,
-      version,
-    );
+    const url = this.buildAssignUrl(notebookHash, params);
     const response = await this.issueRequest(
       url,
       { method: 'GET', signal },
@@ -408,19 +394,10 @@ export class ColabClient {
   private async postAssignment(
     notebookHash: UUID,
     xsrfToken: string,
-    variant: Variant,
-    accelerator?: string,
-    shape?: Shape,
-    version?: string,
+    params: AssignParams,
     signal?: AbortSignal,
   ): Promise<PostAssignmentResponse> {
-    const url = this.buildAssignUrl(
-      notebookHash,
-      variant,
-      accelerator,
-      shape,
-      version,
-    );
+    const url = this.buildAssignUrl(notebookHash, params);
     return await this.issueRequest(
       url,
       {
@@ -434,10 +411,7 @@ export class ColabClient {
 
   private buildAssignUrl(
     notebookHash: UUID,
-    variant: Variant,
-    accelerator?: string,
-    shape?: Shape,
-    version?: string,
+    { variant, accelerator, shape, version }: AssignParams,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
     url.searchParams.append('nbh', uuidToWebSafeBase64(notebookHash));

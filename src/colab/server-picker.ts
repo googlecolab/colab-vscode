@@ -133,10 +133,10 @@ export class ServerPicker {
         if (versions.length === 0) {
           state.version = ''; // Latest version
           return (input: MultiStepInput) =>
-            this.promptForAlias(input, state, /** totalSteps= */ 2);
+            this.promptForAlias(input, state, /* totalSteps= */ 2);
         }
         return (input: MultiStepInput) =>
-          this.promptForVersion(input, state, versions, /** step= */ 2);
+          this.promptForVersion(input, state, versions, /* step= */ 2);
       }
       return (input: MultiStepInput) =>
         this.promptForMachineShape(
@@ -196,10 +196,10 @@ export class ServerPicker {
       if (versions.length === 0) {
         state.version = ''; // Latest version
         return (input: MultiStepInput) =>
-          this.promptForAlias(input, state, /** totalSteps= */ 3);
+          this.promptForAlias(input, state, /* totalSteps= */ 3);
       }
       return (input: MultiStepInput) =>
-        this.promptForVersion(input, state, versions, /** step= */ 3);
+        this.promptForVersion(input, state, versions, /* step= */ 3);
     }
     return (input: MultiStepInput) =>
       this.promptForMachineShape(
@@ -240,7 +240,7 @@ export class ServerPicker {
         this.promptForAlias(input, state, totalSteps);
     }
     return (input: MultiStepInput) =>
-      this.promptForVersion(input, state, versions, /** step= */ step + 1);
+      this.promptForVersion(input, state, versions, step + 1);
   }
 
   private async promptForVersion(
