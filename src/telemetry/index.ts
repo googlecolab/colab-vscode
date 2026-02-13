@@ -78,7 +78,6 @@ export const telemetry = {
 };
 
 function log(event: ColabEvent) {
-  // TODO: Add flag to use as kill switch (requirement from Clearcut)
   // TODO: Skip logging in integration tests
   if (!client || !isTelemetryEnabled()) {
     return;

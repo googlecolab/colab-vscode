@@ -6,6 +6,8 @@
 
 import fetch, { Request } from 'node-fetch';
 import { Disposable } from 'vscode';
+import { ExperimentFlag } from '../colab/api';
+import { getFlag } from '../colab/experiment-state';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 import { log } from '../common/logging';
 import {
@@ -65,10 +67,18 @@ export class ClearcutClient implements Disposable {
     void this.flush();
   }
 
-  /** Flushes queued events to Clearcut. */
+  /**
+   * Flushes queued events to Clearcut.
+   *
+   * @param force - Flushes to Clearcut regardless of whether a flush is in
+   *   progress or if the flush interval's been met.
+   */
   private async flush(force = false) {
+    const canLogToClearcut = getFlag(ExperimentFlag.EnableTelemetry);
     const canFlush =
-      force || (!this.isDoingFlush && new Date() >= this.nextFlush);
+      canLogToClearcut &&
+      (force || (!this.isDoingFlush && new Date() >= this.nextFlush));
+
     if (this.pendingEvents.length === 0 || !canFlush) {
       return;
     }

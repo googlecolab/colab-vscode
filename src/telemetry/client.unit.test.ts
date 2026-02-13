@@ -8,6 +8,11 @@ import { expect } from 'chai';
 import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
+import {
+  ExperimentFlag,
+  EXPERIMENT_FLAG_DEFAULT_VALUES,
+  ExperimentFlagValue,
+} from '../colab/api';
 import { Deferred } from '../test/helpers/async';
 import { ColabLogEvent, LOG_SOURCE } from './api';
 import { ClearcutClient, TEST_ONLY } from './client';
@@ -34,6 +39,7 @@ const FETCH_RESPONSE_400 = new Response('', { status: 400 });
 
 describe('ClearcutClient', () => {
   let client: ClearcutClient;
+  let enableTelemetryDefault: ExperimentFlagValue;
   let fakeClock: SinonFakeTimers;
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
 
@@ -41,10 +47,18 @@ describe('ClearcutClient', () => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     client = new ClearcutClient();
     fetchStub = sinon.stub(fetch, 'default');
+
+    // Since we cannot stub the export for getFlag, mock the default
+    // TODO: Replace with flag test helper once available
+    enableTelemetryDefault =
+      EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry];
+    EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry] = true;
   });
 
   afterEach(() => {
     sinon.restore();
+    EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry] =
+      enableTelemetryDefault;
   });
 
   describe('log', () => {
@@ -52,6 +66,32 @@ describe('ClearcutClient', () => {
       client.log(DEFAULT_LOG);
 
       sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+    });
+
+    it('does not flush an event to Clearcut when telemetry is disabled', () => {
+      EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry] = false;
+
+      client.log(DEFAULT_LOG);
+
+      sinon.assert.notCalled(fetchStub);
+    });
+
+    it('queues events when telemetry is disabled', () => {
+      EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry] = false;
+      client.log(DEFAULT_LOG);
+      sinon.assert.notCalled(fetchStub);
+
+      EXPERIMENT_FLAG_DEFAULT_VALUES[ExperimentFlag.EnableTelemetry] = true;
+      const otherLog = {
+        ...DEFAULT_LOG,
+        timestamp: new Date(NOW + 1).toISOString(),
+      };
+      client.log(otherLog);
+
+      sinon.assert.calledOnceWithExactly(
+        fetchStub,
+        logRequest([DEFAULT_LOG, otherLog]),
+      );
     });
 
     it('throws an error when Clearcut responds with a non-200 status', async () => {
