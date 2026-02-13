@@ -62,7 +62,27 @@ export class ExperimentStateProvider extends AsyncToggle {
   }
 }
 
+/** Sets the value of an experiment flag for testing. */
+function setFlagForTest(
+  flag: ExperimentFlag,
+  value: ExperimentFlagValue,
+): void {
+  const newFlags = new Map(flags);
+  newFlags.set(flag, value);
+  flags = newFlags;
+}
+
+/** Resets the experiment flags for testing. */
+function resetFlagsForTest(): void {
+  flags = new Map();
+}
+
 let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
   ExperimentFlag,
   ExperimentFlagValue
 >();
+
+export const TEST_ONLY = {
+  setFlagForTest,
+  resetFlagsForTest,
+};

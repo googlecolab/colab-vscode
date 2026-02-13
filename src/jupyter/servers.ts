@@ -20,6 +20,7 @@ export interface ColabServerDescriptor {
   readonly variant: Variant;
   readonly accelerator?: string;
   readonly shape?: Shape;
+  readonly version?: string;
 }
 
 /**

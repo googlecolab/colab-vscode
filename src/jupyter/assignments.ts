@@ -291,7 +291,7 @@ export class AssignmentManager implements vscode.Disposable {
    * @returns The assigned server.
    */
   async assignServer(
-    descriptor: ColabServerDescriptor,
+    { label, variant, accelerator, shape, version }: ColabServerDescriptor,
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     const id = randomUUID();
@@ -299,9 +299,12 @@ export class AssignmentManager implements vscode.Disposable {
     try {
       ({ assignment } = await this.client.assign(
         id,
-        descriptor.variant,
-        descriptor.accelerator,
-        descriptor.shape,
+        {
+          variant,
+          accelerator,
+          shape,
+          version,
+        },
         signal,
       ));
     } catch (error) {
@@ -324,7 +327,7 @@ export class AssignmentManager implements vscode.Disposable {
     const server = this.toAssignedServer(
       {
         id,
-        label: descriptor.label,
+        label,
         variant: assignment.variant,
         accelerator: assignment.accelerator,
       },

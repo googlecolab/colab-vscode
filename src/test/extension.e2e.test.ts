@@ -115,7 +115,11 @@ df`);
       // the open kernel selector.
       await selectQuickPickItem({
         item: 'CPU',
-        quickPick: 'Select a variant (1/2)',
+        quickPick: 'Select a variant (1/3)',
+      });
+      await selectQuickPickItem({
+        item: 'Latest',
+        quickPick: 'Select a runtime version (2/3)',
       });
       // Alias the server with the default name.
       const inputBox = await InputBox.create();
