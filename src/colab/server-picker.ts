@@ -207,7 +207,7 @@ export class ServerPicker {
         state,
         shapePicks,
         versions,
-        /** step= */ 3,
+        /* step= */ 3,
       );
   }
 
