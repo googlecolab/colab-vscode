@@ -16,7 +16,7 @@ import vscode from 'vscode';
 import {
   Assignment,
   ListedAssignment,
-  RuntimeProxyInfo,
+  RuntimeProxyToken,
   Variant,
   variantToMachineType,
   SubscriptionTier,
@@ -525,7 +525,7 @@ export class AssignmentManager implements vscode.Disposable {
   private toAssignedServer(
     server: ColabJupyterServer,
     endpoint: string,
-    connectionInfo: RuntimeProxyInfo,
+    connectionInfo: RuntimeProxyToken,
     dateAssigned: Date,
   ): ColabAssignedServer {
     const { url, token } = connectionInfo;

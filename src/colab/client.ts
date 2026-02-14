@@ -28,8 +28,8 @@ import {
   PostAssignmentResponseSchema,
   ListedAssignmentsSchema,
   ListedAssignment,
-  RuntimeProxyInfo,
-  RuntimeProxyInfoSchema,
+  RuntimeProxyToken,
+  RuntimeProxyTokenSchema,
   Shape,
   SessionSchema,
   CredentialsPropagationResult,
@@ -224,21 +224,14 @@ export class ColabClient {
   async refreshConnection(
     endpoint: string,
     signal?: AbortSignal,
-  ): Promise<RuntimeProxyInfo> {
-    const url = new URL(
-      `${TUN_ENDPOINT}/runtime-proxy-token`,
-      this.colabDomain,
-    );
+  ): Promise<RuntimeProxyToken> {
+    const url = new URL('v1/runtime-proxy-token', this.colabGapiDomain);
     url.searchParams.append('endpoint', endpoint);
     url.searchParams.append('port', '8080');
     return await this.issueRequest(
       url,
-      {
-        method: 'GET',
-        headers: { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value },
-        signal,
-      },
-      RuntimeProxyInfoSchema,
+      { method: 'GET', signal },
+      RuntimeProxyTokenSchema,
     );
   }
 

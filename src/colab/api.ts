@@ -253,6 +253,23 @@ export const RuntimeProxyInfoSchema = z.object({
 });
 export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 
+export const RuntimeProxyTokenSchema = z
+  .object({
+    /** Token for the runtime proxy. */
+    token: z.string(),
+    /** Token TTL, serialized from `google.protobuf.Duration` as string. */
+    tokenTtl: z.string(),
+    /** URL of the runtime proxy. */
+    url: z.string(),
+  })
+  .transform(({ tokenTtl, ...rest }) => ({
+    ...rest,
+    // Convert from string with 's' suffix to number of seconds and rename to
+    // match `RuntimeProxyInfo`.
+    tokenExpiresInSeconds: Number(tokenTtl.slice(0, -1)),
+  }));
+export type RuntimeProxyToken = z.infer<typeof RuntimeProxyTokenSchema>;
+
 /** The response when creating an assignment. */
 export const PostAssignmentResponseSchema = z.object({
   /** The assigned accelerator. */
