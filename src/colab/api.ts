@@ -251,7 +251,6 @@ export const RuntimeProxyInfoSchema = z.object({
   /** URL of the runtime proxy. */
   url: z.string(),
 });
-export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
 
 export const RuntimeProxyTokenSchema = z
   .object({
@@ -265,7 +264,7 @@ export const RuntimeProxyTokenSchema = z
   .transform(({ tokenTtl, ...rest }) => ({
     ...rest,
     // Convert from string with 's' suffix to number of seconds and rename to
-    // match `RuntimeProxyInfo`.
+    // match `RuntimeProxyInfoSchema`.
     tokenExpiresInSeconds: Number(tokenTtl.slice(0, -1)),
   }));
 export type RuntimeProxyToken = z.infer<typeof RuntimeProxyTokenSchema>;
