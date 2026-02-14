@@ -11,7 +11,7 @@ import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
 import {
   Assignment,
-  RuntimeProxyInfo,
+  RuntimeProxyToken,
   Shape,
   SubscriptionState,
   SubscriptionTier,
@@ -56,20 +56,21 @@ const defaultAssignmentDescriptor: ColabServerDescriptor = {
   accelerator: 'A100',
 };
 
-const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyInfo } = {
-  accelerator: 'A100',
-  endpoint: 'm-s-foo',
-  idleTimeoutSec: 30,
-  subscriptionState: SubscriptionState.UNSUBSCRIBED,
-  subscriptionTier: SubscriptionTier.NONE,
-  variant: Variant.GPU,
-  machineShape: Shape.STANDARD,
-  runtimeProxyInfo: {
-    token: 'mock-token',
-    tokenExpiresInSeconds: TOKEN_EXPIRY_MS / 1000,
-    url: 'https://example.com',
-  },
-};
+const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyToken } =
+  {
+    accelerator: 'A100',
+    endpoint: 'm-s-foo',
+    idleTimeoutSec: 30,
+    subscriptionState: SubscriptionState.UNSUBSCRIBED,
+    subscriptionTier: SubscriptionTier.NONE,
+    variant: Variant.GPU,
+    machineShape: Shape.STANDARD,
+    runtimeProxyInfo: {
+      token: 'mock-token',
+      tokenExpiresInSeconds: TOKEN_EXPIRY_MS / 1000,
+      url: 'https://example.com',
+    },
+  };
 
 const defaultServer: ColabAssignedServer = {
   ...defaultAssignmentDescriptor,
