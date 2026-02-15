@@ -126,10 +126,8 @@ export class ColabClient {
    *
    * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest.
    * This value should always be a string of length 44.
-   * @param variant - The machine variant to assign.
-   * @param accelerator - The accelerator to assign.
-   * @param shape - The machine shape to assign.
-   * @param version - The runtime version to assign.
+   * @param params - The assignment parameters {@link AssignParams} 
+   * like variant, accelerator, shape and version.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The assignment which is assigned to the user.
    * @throws TooManyAssignmentsError if the user has too many assignments.
