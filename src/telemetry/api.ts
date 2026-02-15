@@ -69,5 +69,5 @@ export interface LogRequest {
 /** The Clearcut log response structure. */
 export interface LogResponse {
   // Minimum wait time before the next request in milliseconds.
-  next_request_wait_millis: number;
+  next_request_wait_millis: string;
 }
