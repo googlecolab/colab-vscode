@@ -13,7 +13,9 @@ import {
   variantToMachineType,
   Shape,
   shapeToMachineShape,
+  ExperimentFlag,
 } from './api';
+import { getFlag } from './experiment-state';
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =
@@ -61,18 +63,21 @@ export class ServerPicker {
     }
 
     const state: Partial<Server> = {};
+    const versions = getRuntimeVersions();
     await MultiStepInput.run(this.vs, (input) =>
       this.promptForVariant(
         input,
         state,
         variantToAccelerators,
         acceleratorsToShapes,
+        versions,
       ),
     );
     if (
       state.variant === undefined ||
       state.accelerator === undefined ||
       state.shape === undefined ||
+      state.version === undefined ||
       !state.alias
     ) {
       return undefined;
@@ -82,6 +87,7 @@ export class ServerPicker {
       variant: state.variant,
       accelerator: state.accelerator,
       shape: state.shape,
+      version: state.version,
     };
   }
 
@@ -90,6 +96,7 @@ export class ServerPicker {
     state: Partial<Server>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
     shapesByAccelerators: Map<string, Set<Shape>>,
+    versions: string[],
   ): Promise<InputStep | undefined> {
     const items: VariantPick[] = [];
     for (const variant of acceleratorsByVariant.keys()) {
@@ -102,7 +109,10 @@ export class ServerPicker {
     const pick = await input.showQuickPick({
       title: 'Select a variant',
       step: 1,
-      totalSteps: 2,
+      totalSteps:
+        versions.length > 0
+          ? 3 // (1) variant, (2) version and (3) alias
+          : 2, // (1) variant and (2) alias
       items,
       activeItem: items.find((item) => item.value === state.variant),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -120,11 +130,22 @@ export class ServerPicker {
       );
       if (shapePicks.length <= 1) {
         state.shape = defaultShape;
+        if (versions.length === 0) {
+          state.version = ''; // Latest version
+          return (input: MultiStepInput) =>
+            this.promptForAlias(input, state, /* totalSteps= */ 2);
+        }
         return (input: MultiStepInput) =>
-          this.promptForAlias(input, state, /** totalSteps= */ 2);
+          this.promptForVersion(input, state, versions, /* step= */ 2);
       }
       return (input: MultiStepInput) =>
-        this.promptForMachineShape(input, state, shapePicks);
+        this.promptForMachineShape(
+          input,
+          state,
+          shapePicks,
+          versions,
+          /* step= */ 2,
+        );
     }
     return (input: MultiStepInput) =>
       this.promptForAccelerator(
@@ -132,6 +153,7 @@ export class ServerPicker {
         state,
         acceleratorsByVariant,
         shapesByAccelerators,
+        versions,
       );
   }
 
@@ -140,6 +162,7 @@ export class ServerPicker {
     state: PartialServerWith<'variant'>,
     acceleratorsByVariant: Map<Variant, Set<string>>,
     shapesByAccelerators: Map<string, Set<Shape>>,
+    versions: string[],
   ): Promise<InputStep | undefined> {
     const accelerators = acceleratorsByVariant.get(state.variant) ?? new Set();
     const items: AcceleratorPick[] = [];
@@ -152,8 +175,10 @@ export class ServerPicker {
     const pick = await input.showQuickPick({
       title: 'Select an accelerator',
       step: 2,
-      // Since we have to pick an accelerator, we've added a step.
-      totalSteps: 3,
+      totalSteps:
+        versions.length > 0
+          ? 4 // (1) variant, (2) accelerator, (3) version and (4) alias
+          : 3, // (1) variant, (2) accelerator, and (3) alias
       items,
       activeItem: items.find((item) => item.value === state.accelerator),
       buttons: [input.vs.QuickInputButtons.Back],
@@ -168,20 +193,35 @@ export class ServerPicker {
     );
     if (shapePicks.length <= 1) {
       state.shape = defaultShape;
+      if (versions.length === 0) {
+        state.version = ''; // Latest version
+        return (input: MultiStepInput) =>
+          this.promptForAlias(input, state, /* totalSteps= */ 3);
+      }
       return (input: MultiStepInput) =>
-        this.promptForAlias(input, state, /** totalSteps= */ 3);
+        this.promptForVersion(input, state, versions, /* step= */ 3);
     }
     return (input: MultiStepInput) =>
-      this.promptForMachineShape(input, state, shapePicks);
+      this.promptForMachineShape(
+        input,
+        state,
+        shapePicks,
+        versions,
+        /* step= */ 3,
+      );
   }
 
   private async promptForMachineShape(
     input: MultiStepInput,
     state: PartialServerWith<'variant'>,
     items: ShapePick[],
+    versions: string[],
+    step: number,
   ) {
-    const step = state.accelerator && state.accelerator !== 'NONE' ? 3 : 2;
-    const totalSteps = step + 1;
+    const totalSteps =
+      versions.length === 0
+        ? step + 1 // Add 1 step for alias.
+        : step + 2; // Add 2 steps for version and alias.
     const pick = await input.showQuickPick({
       title: 'Select a machine shape',
       step,
@@ -192,6 +232,46 @@ export class ServerPicker {
     });
     state.shape = pick.value;
     if (!isShapeDefined(state)) {
+      return;
+    }
+    if (versions.length === 0) {
+      state.version = ''; // Latest version
+      return (input: MultiStepInput) =>
+        this.promptForAlias(input, state, totalSteps);
+    }
+    return (input: MultiStepInput) =>
+      this.promptForVersion(input, state, versions, step + 1);
+  }
+
+  private async promptForVersion(
+    input: MultiStepInput,
+    state: PartialServerWith<'variant'>,
+    versions: string[],
+    step: number,
+  ) {
+    const items: RuntimeVersionPick[] = [
+      {
+        value: '',
+        label: 'Latest',
+      },
+    ];
+    for (const version of versions) {
+      items.push({
+        value: version,
+        label: version,
+      });
+    }
+    const totalSteps = step + 1; // Add 1 step for alias.
+    const pick = await input.showQuickPick({
+      title: 'Select a runtime version',
+      step,
+      totalSteps,
+      items,
+      activeItem: items.find((item) => item.value === state.version),
+      buttons: [input.vs.QuickInputButtons.Back],
+    });
+    state.version = pick.value;
+    if (!isVersionDefined(state)) {
       return;
     }
 
@@ -227,6 +307,7 @@ interface Server {
   variant: Variant;
   accelerator: string;
   shape: Shape;
+  version: string;
   alias: string;
 }
 
@@ -254,6 +335,12 @@ function isShapeDefined(
   return state.shape !== undefined;
 }
 
+function isVersionDefined(
+  state: Partial<Server>,
+): state is PartialServerWith<'version'> {
+  return state.version !== undefined;
+}
+
 interface VariantPick extends QuickPickItem {
   value: Variant;
 }
@@ -264,6 +351,10 @@ interface AcceleratorPick extends QuickPickItem {
 
 interface ShapePick extends QuickPickItem {
   value: Shape;
+}
+
+interface RuntimeVersionPick extends QuickPickItem {
+  value: string;
 }
 
 function getShapeInfoForAccelerator(
@@ -288,4 +379,12 @@ function getShapeInfoForAccelerator(
     defaultShape: shapePicks.length >= 1 ? shapePicks[0].value : Shape.STANDARD,
     shapePicks,
   };
+}
+
+function getRuntimeVersions(): string[] {
+  const versions = getFlag(ExperimentFlag.RuntimeVersionNames);
+  if (Array.isArray(versions) && versions.every((v) => typeof v === 'string')) {
+    return versions;
+  }
+  return [];
 }
