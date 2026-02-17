@@ -68,6 +68,8 @@ export interface LogRequest {
 
 /** The Clearcut log response structure. */
 export interface LogResponse {
-  // Minimum wait time before the next request in milliseconds.
+  // Minimum wait time before the next request in milliseconds. Note that the
+  // Clearcut LogResponse proto specifies the type int64 but its JSPB type is
+  // string.
   next_request_wait_millis: string;
 }
