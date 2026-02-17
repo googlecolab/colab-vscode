@@ -116,5 +116,5 @@ let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
 export const TEST_ONLY = {
   setFlagForTest,
   resetFlagsForTest,
-  REFRESH_INTERVAL_MS
+  REFRESH_INTERVAL_MS,
 };

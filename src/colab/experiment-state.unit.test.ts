@@ -8,7 +8,11 @@ import { expect } from 'chai';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { ExperimentFlag } from './api';
 import { ColabClient } from './client';
-import { ExperimentStateProvider, getFlag, TEST_ONLY } from './experiment-state';
+import {
+  ExperimentStateProvider,
+  getFlag,
+  TEST_ONLY,
+} from './experiment-state';
 
 /**
  * Test subclass to expose protected methods for testing.
