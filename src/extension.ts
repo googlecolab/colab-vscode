@@ -145,6 +145,7 @@ export async function activate(context: vscode.ExtensionContext) {
     disposeAll(authFlows),
     authProvider,
     assignmentManager,
+    experimentStateProvider,
     serverProvider,
     jupyterConnections,
     disposeFs,
