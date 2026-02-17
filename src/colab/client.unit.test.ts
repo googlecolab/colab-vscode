@@ -528,40 +528,48 @@ describe('ColabClient', () => {
       };
     });
 
-    it('successfully refreshes the connection', async () => {
-      const path = '/v1/runtime-proxy-token';
-      const rawRuntimeProxyToken = {
-        token: 'new',
-        tokenTtl: '3.1415926s',
-        url: assignedServerUrl.toString(),
-      };
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: GOOGLE_APIS_HOST,
-            path,
-            queryParams: {
-              endpoint: assignedServer.endpoint,
-              port: '8080',
-            },
-            withAuthUser: false,
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(rawRuntimeProxyToken)), {
-            status: 200,
-          }),
-        );
+    const tests = [
+      { tokenTtl: '3.1415926s', expectedExpiry: 3.1415926 },
+      { tokenTtl: '-100s', expectedExpiry: 3600 },
+      { tokenTtl: 'bad_data', expectedExpiry: 3600 },
+      { tokenTtl: '', expectedExpiry: 3600 },
+    ];
+    tests.forEach(({ tokenTtl, expectedExpiry }) => {
+      it(`successfully refreshes the connection (token_ttl: '${tokenTtl}')`, async () => {
+        const path = '/v1/runtime-proxy-token';
+        const rawRuntimeProxyToken = {
+          token: 'new',
+          tokenTtl,
+          url: assignedServerUrl.toString(),
+        };
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'GET',
+              host: GOOGLE_APIS_HOST,
+              path,
+              queryParams: {
+                endpoint: assignedServer.endpoint,
+                port: '8080',
+              },
+              withAuthUser: false,
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify(rawRuntimeProxyToken)), {
+              status: 200,
+            }),
+          );
 
-      const response = client.refreshConnection(assignedServer.endpoint);
+        const response = client.refreshConnection(assignedServer.endpoint);
 
-      const newConnectionInfo: RuntimeProxyToken = {
-        url: rawRuntimeProxyToken.url,
-        token: rawRuntimeProxyToken.token,
-        tokenExpiresInSeconds: 3.1415926,
-      };
-      await expect(response).to.eventually.deep.equal(newConnectionInfo);
+        const newConnectionInfo: RuntimeProxyToken = {
+          url: rawRuntimeProxyToken.url,
+          token: rawRuntimeProxyToken.token,
+          tokenExpiresInSeconds: expectedExpiry,
+        };
+        await expect(response).to.eventually.deep.equal(newConnectionInfo);
+      });
     });
 
     it('successfully lists sessions by assignment endpoint', async () => {

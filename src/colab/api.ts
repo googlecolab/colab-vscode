@@ -261,12 +261,18 @@ export const RuntimeProxyTokenSchema = z
     /** URL of the runtime proxy. */
     url: z.string(),
   })
-  .transform(({ tokenTtl, ...rest }) => ({
-    ...rest,
+  .transform(({ tokenTtl, ...rest }) => {
     // Convert from string with 's' suffix to number of seconds and rename to
     // match `RuntimeProxyInfoSchema`.
-    tokenExpiresInSeconds: Number(tokenTtl.slice(0, -1)),
-  }));
+    const tokenExpiresInSeconds = Number(tokenTtl.slice(0, -1));
+    return {
+      ...rest,
+      tokenExpiresInSeconds:
+        Number.isNaN(tokenExpiresInSeconds) || tokenExpiresInSeconds <= 0
+          ? DEFAULT_TOKEN_TTL_SECONDS
+          : tokenExpiresInSeconds,
+    };
+  });
 export type RuntimeProxyToken = z.infer<typeof RuntimeProxyTokenSchema>;
 
 /** The response when creating an assignment. */
@@ -515,3 +521,5 @@ export const ExperimentStateSchema = z.object({
 });
 /** The experiment state response. */
 export type ExperimentState = z.infer<typeof ExperimentStateSchema>;
+
+const DEFAULT_TOKEN_TTL_SECONDS = 3600;
