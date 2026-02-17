@@ -5,10 +5,14 @@
  */
 
 import { expect } from 'chai';
-import sinon, { SinonStubbedInstance } from 'sinon';
+import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { ExperimentFlag } from './api';
 import { ColabClient } from './client';
-import { ExperimentStateProvider, getFlag } from './experiment-state';
+import {
+  ExperimentStateProvider,
+  getFlag,
+  TEST_ONLY,
+} from './experiment-state';
 
 /**
  * Test subclass to expose protected methods for testing.
@@ -26,13 +30,17 @@ class TestExperimentStateProvider extends ExperimentStateProvider {
 describe('ExperimentStateProvider', () => {
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let provider: TestExperimentStateProvider;
+  let clock: SinonFakeTimers;
 
   beforeEach(() => {
+    clock = sinon.useFakeTimers();
     colabClientStub = sinon.createStubInstance(ColabClient);
     provider = new TestExperimentStateProvider(colabClientStub);
   });
 
   afterEach(() => {
+    provider.dispose();
+    clock.restore();
     sinon.restore();
   });
 
@@ -115,5 +123,45 @@ describe('ExperimentStateProvider', () => {
 
     // Should still be true (previous state preserved)
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.true;
+  });
+
+  it('polls for experiment state updates', async () => {
+    colabClientStub.getExperimentState.resolves({});
+    await provider.turnOn(new AbortController().signal);
+    sinon.assert.calledOnce(colabClientStub.getExperimentState);
+
+    await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
+
+    sinon.assert.calledTwice(colabClientStub.getExperimentState);
+    sinon.assert.calledWith(
+      colabClientStub.getExperimentState.secondCall,
+      true,
+    );
+  });
+
+  it('stops polling when disposed', async () => {
+    colabClientStub.getExperimentState.resolves({});
+    await provider.turnOn(new AbortController().signal);
+    provider.dispose();
+
+    await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
+
+    sinon.assert.calledOnce(colabClientStub.getExperimentState);
+  });
+
+  it('updates polling authorization state when turned off', async () => {
+    colabClientStub.getExperimentState.resolves({});
+    await provider.turnOn(new AbortController().signal);
+    await provider.turnOff(new AbortController().signal);
+
+    // Advance time to trigger refresh
+    await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
+
+    // Called once for turnOn, once for turnOff, and once for the interval.
+    sinon.assert.calledThrice(colabClientStub.getExperimentState);
+    sinon.assert.calledWith(
+      colabClientStub.getExperimentState.thirdCall,
+      false,
+    );
   });
 });

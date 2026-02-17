@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Disposable } from 'vscode';
 import { log } from '../common/logging';
 import { AsyncToggle } from '../common/toggleable';
 import {
@@ -22,10 +23,16 @@ export function getFlag(flag: ExperimentFlag): ExperimentFlagValue {
   return flags.get(flag) ?? EXPERIMENT_FLAG_DEFAULT_VALUES[flag];
 }
 
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes.
+
 /**
  * Provides experiment state information from the Colab backend.
  */
-export class ExperimentStateProvider extends AsyncToggle {
+export class ExperimentStateProvider extends AsyncToggle implements Disposable {
+  private isAuthorized = false;
+  private refreshInterval?: NodeJS.Timeout;
+  private isDisposed = false;
+
   constructor(private readonly client: ColabClient) {
     super();
     // Reset experiment flags.
@@ -33,20 +40,51 @@ export class ExperimentStateProvider extends AsyncToggle {
     this.getExperimentState = this.getExperimentState.bind(this);
   }
 
+  dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+
+    this.isDisposed = true;
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = undefined;
+    }
+  }
+
   /** Called when user is authorized */
   protected override async turnOn(signal: AbortSignal): Promise<void> {
-    await this.getExperimentState(/** requireAccessToken= */ true, signal);
+    this.isAuthorized = true;
+    await this.getExperimentState(this.isAuthorized, signal);
+    this.ensurePolling();
   }
 
   /** Called when user is un-authorized */
   protected override async turnOff(signal: AbortSignal): Promise<void> {
-    await this.getExperimentState(/** requireAccessToken= */ false, signal);
+    this.isAuthorized = false;
+    await this.getExperimentState(this.isAuthorized, signal);
+    this.ensurePolling();
+  }
+
+  private ensurePolling() {
+    if (this.isDisposed || this.refreshInterval) {
+      return;
+    }
+    this.refreshInterval = setInterval(() => {
+      void this.getExperimentState(this.isAuthorized);
+    }, REFRESH_INTERVAL_MS);
   }
 
   private async getExperimentState(
     requireAccessToken: boolean,
-    signal: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<void> {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ExperimentStateProvider after it has been disposed',
+      );
+    }
+
     try {
       const result = await this.client.getExperimentState(
         requireAccessToken,
@@ -85,4 +123,5 @@ let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
 export const TEST_ONLY = {
   setFlagForTest,
   resetFlagsForTest,
+  REFRESH_INTERVAL_MS,
 };
