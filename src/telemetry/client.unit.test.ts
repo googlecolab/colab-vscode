@@ -26,8 +26,9 @@ const DEFAULT_LOG: ColabLogEvent = {
   ui_kind: 'UI_KIND_DESKTOP',
   vscode_version: '1.108.1',
 };
+const LOG_RESPONSE_FLUSH_INTERVAL = 15 * 60 * 1000;
 const LOG_RESPONSE = {
-  next_request_wait_millis: 15 * 60 * 1000,
+  next_request_wait_millis: LOG_RESPONSE_FLUSH_INTERVAL.toString(),
 };
 const FETCH_RESPONSE_OK = new Response(JSON.stringify(LOG_RESPONSE), {
   status: 200,
@@ -277,7 +278,7 @@ describe('ClearcutClient', () => {
         client.log(secondLog);
 
         // Advance time to reach the flush interval.
-        await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
+        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL);
         sinon.assert.notCalled(fetchStub);
 
         // Now that the interval's reached, the next log should trigger a
@@ -317,7 +318,7 @@ describe('ClearcutClient', () => {
         // Resolve the pending flush and advance time to reach the flush
         // interval.
         flushPending.resolve();
-        await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
+        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL);
         sinon.assert.notCalled(fetchStub);
 
         // Now that the interval's reached and the previous flush has
@@ -354,7 +355,7 @@ describe('ClearcutClient', () => {
         for (const [i, log] of newLogs.entries()) {
           // Advance time to allow flush of last event
           if (i === newLogs.length - 1) {
-            await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
+            await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL);
           }
           client.log(log);
         }
@@ -366,17 +367,23 @@ describe('ClearcutClient', () => {
   });
 
   it('uses the flush interval in the log response', async () => {
-    fetchStub.resolves(FETCH_RESPONSE_OK);
+    fetchStub.callsFake(() => Promise.resolve(FETCH_RESPONSE_OK));
 
     // Log an event to trigger the first flush.
     client.log(DEFAULT_LOG);
     sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
     fetchStub.resetHistory();
 
-    // Advance time to reach the flush interval.
+    // Advance time to reach the minimum flush interval to assert we didn't
+    // fallback to the minimum due to a parsing error.
+    await fakeClock.tickAsync(TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS);
     client.log(DEFAULT_LOG);
-    await fakeClock.tickAsync(LOG_RESPONSE.next_request_wait_millis);
     sinon.assert.notCalled(fetchStub);
+
+    // Advance time to reach the flush interval from the response.
+    const remainingInterval =
+      LOG_RESPONSE_FLUSH_INTERVAL - TEST_ONLY.MIN_WAIT_BETWEEN_FLUSHES_MS;
+    await fakeClock.tickAsync(remainingInterval);
 
     // Trigger flush
     client.log(DEFAULT_LOG);
@@ -406,7 +413,9 @@ describe('ClearcutClient', () => {
   ];
   for (const { condition, responseBody } of conditions) {
     it(`defaults to the minimum flush interval when ${condition}`, async () => {
-      fetchStub.resolves(new Response(responseBody, { status: 200 }));
+      fetchStub.callsFake(() =>
+        Promise.resolve(new Response(responseBody, { status: 200 })),
+      );
 
       // Log an event to trigger the first flush.
       client.log(DEFAULT_LOG);

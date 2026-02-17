@@ -68,6 +68,8 @@ export interface LogRequest {
 
 /** The Clearcut log response structure. */
 export interface LogResponse {
-  // Minimum wait time before the next request in milliseconds.
-  next_request_wait_millis: number;
+  // Minimum wait time before the next request in milliseconds. Note that the
+  // Clearcut LogResponse proto specifies the type int64, but in JSON, it gets
+  // represented as a string.
+  next_request_wait_millis: string;
 }
