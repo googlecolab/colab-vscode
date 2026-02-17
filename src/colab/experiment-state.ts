@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from 'vscode';
+import { Disposable } from 'vscode';
 import { log } from '../common/logging';
 import { AsyncToggle } from '../common/toggleable';
 import {
@@ -23,15 +23,12 @@ export function getFlag(flag: ExperimentFlag): ExperimentFlagValue {
   return flags.get(flag) ?? EXPERIMENT_FLAG_DEFAULT_VALUES[flag];
 }
 
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 10 minutes.
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes.
 
 /**
  * Provides experiment state information from the Colab backend.
  */
-export class ExperimentStateProvider
-  extends AsyncToggle
-  implements vscode.Disposable
-{
+export class ExperimentStateProvider extends AsyncToggle implements Disposable {
   private isAuthorized = false;
   private refreshInterval?: NodeJS.Timeout;
   private isDisposed = false;
@@ -44,6 +41,10 @@ export class ExperimentStateProvider
   }
 
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+
     this.isDisposed = true;
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
@@ -78,6 +79,12 @@ export class ExperimentStateProvider
     requireAccessToken: boolean,
     signal?: AbortSignal,
   ): Promise<void> {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ExperimentStateProvider after it has been disposed',
+      );
+    }
+
     try {
       const result = await this.client.getExperimentState(
         requireAccessToken,
