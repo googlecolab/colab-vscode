@@ -132,7 +132,7 @@ export class ClearcutClient implements Disposable {
     try {
       const { next_request_wait_millis } =
         (await response.json()) as LogResponse;
-      const wait = parseInt(next_request_wait_millis, 10);
+      const wait = Number(next_request_wait_millis);
       if (Number.isInteger(wait) && wait > MIN_WAIT_BETWEEN_FLUSHES_MS) {
         next_flush_millis = wait;
       }
