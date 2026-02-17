@@ -22,7 +22,7 @@ import {
   Variant,
   Outcome,
   ListedAssignments,
-  RuntimeProxyInfo,
+  RuntimeProxyToken,
   AuthType,
   ExperimentFlag,
 } from './api';
@@ -528,34 +528,48 @@ describe('ColabClient', () => {
       };
     });
 
-    it('successfully refreshes the connection', async () => {
-      const newConnectionInfo: RuntimeProxyInfo = {
-        token: 'new',
-        tokenExpiresInSeconds: 3600,
-        url: assignedServerUrl.toString(),
-      };
-      const path = '/tun/m/runtime-proxy-token';
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: COLAB_HOST,
-            path,
-            queryParams: {
-              endpoint: assignedServer.endpoint,
-              port: '8080',
-            },
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(newConnectionInfo)), {
-            status: 200,
-          }),
-        );
+    const tests = [
+      { tokenTtl: '3.1415926s', expectedExpiry: 3.1415926 },
+      { tokenTtl: '-100s', expectedExpiry: 3600 },
+      { tokenTtl: 'bad_data', expectedExpiry: 3600 },
+      { tokenTtl: '', expectedExpiry: 3600 },
+    ];
+    tests.forEach(({ tokenTtl, expectedExpiry }) => {
+      it(`successfully refreshes the connection (token_ttl: '${tokenTtl}')`, async () => {
+        const path = '/v1/runtime-proxy-token';
+        const rawRuntimeProxyToken = {
+          token: 'new',
+          tokenTtl,
+          url: assignedServerUrl.toString(),
+        };
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'GET',
+              host: GOOGLE_APIS_HOST,
+              path,
+              queryParams: {
+                endpoint: assignedServer.endpoint,
+                port: '8080',
+              },
+              withAuthUser: false,
+            }),
+          )
+          .resolves(
+            new Response(withXSSI(JSON.stringify(rawRuntimeProxyToken)), {
+              status: 200,
+            }),
+          );
 
-      await expect(
-        client.refreshConnection(assignedServer.endpoint),
-      ).to.eventually.deep.equal(newConnectionInfo);
+        const response = client.refreshConnection(assignedServer.endpoint);
+
+        const newConnectionInfo: RuntimeProxyToken = {
+          url: rawRuntimeProxyToken.url,
+          token: rawRuntimeProxyToken.token,
+          tokenExpiresInSeconds: expectedExpiry,
+        };
+        await expect(response).to.eventually.deep.equal(newConnectionInfo);
+      });
     });
 
     it('successfully lists sessions by assignment endpoint', async () => {

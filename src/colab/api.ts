@@ -251,7 +251,29 @@ export const RuntimeProxyInfoSchema = z.object({
   /** URL of the runtime proxy. */
   url: z.string(),
 });
-export type RuntimeProxyInfo = z.infer<typeof RuntimeProxyInfoSchema>;
+
+export const RuntimeProxyTokenSchema = z
+  .object({
+    /** Token for the runtime proxy. */
+    token: z.string(),
+    /** Token TTL, serialized from `google.protobuf.Duration` as string. */
+    tokenTtl: z.string(),
+    /** URL of the runtime proxy. */
+    url: z.string(),
+  })
+  .transform(({ tokenTtl, ...rest }) => {
+    // Convert from string with 's' suffix to number of seconds and rename to
+    // match `RuntimeProxyInfoSchema`.
+    const tokenExpiresInSeconds = Number(tokenTtl.slice(0, -1));
+    return {
+      ...rest,
+      tokenExpiresInSeconds:
+        Number.isNaN(tokenExpiresInSeconds) || tokenExpiresInSeconds <= 0
+          ? DEFAULT_TOKEN_TTL_SECONDS
+          : tokenExpiresInSeconds,
+    };
+  });
+export type RuntimeProxyToken = z.infer<typeof RuntimeProxyTokenSchema>;
 
 /** The response when creating an assignment. */
 export const PostAssignmentResponseSchema = z.object({
@@ -499,3 +521,5 @@ export const ExperimentStateSchema = z.object({
 });
 /** The experiment state response. */
 export type ExperimentState = z.infer<typeof ExperimentStateSchema>;
+
+const DEFAULT_TOKEN_TTL_SECONDS = 3600;
