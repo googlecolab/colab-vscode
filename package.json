@@ -69,19 +69,13 @@
         },
         "colab.uploading": {
           "type": "boolean",
-          "default": false,
-          "markdownDescription": "Enables the ability to upload files and folders to Colab servers from the explorer context menu (e.g. right-click a local file > _Upload to Colab_).",
-          "tags": [
-            "experimental"
-          ]
+          "default": true,
+          "markdownDescription": "Enables the ability to upload files and folders to Colab servers from the explorer context menu (e.g. right-click a local file > _Upload to Colab_)."
         },
         "colab.activityBar": {
           "type": "boolean",
-          "default": false,
-          "markdownDescription": "Enables the Colab activity bar where you can view servers and interact with their `/content` directories.",
-          "tags": [
-            "experimental"
-          ]
+          "default": true,
+          "markdownDescription": "Enables the Colab activity bar where you can view servers and interact with their `/content` directories."
         },
         "colab.serverMounting": {
           "type": "boolean",
