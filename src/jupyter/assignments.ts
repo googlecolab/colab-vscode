@@ -118,10 +118,10 @@ export class AssignmentManager implements vscode.Disposable {
 
     const eligibleDescriptors: ColabServerDescriptor[] =
       consumptionUserInfo.eligibleAccelerators.flatMap((acc) =>
-        acc.models.map((m) => ({
-          label: `Colab ${acc.variant} ${m}`,
+        acc.models.map((model) => ({
+          label: `Colab ${acc.variant} ${model}`,
           variant: acc.variant,
-          accelerator: m,
+          accelerator: model,
         })),
       );
 

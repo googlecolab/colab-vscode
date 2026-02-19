@@ -26,7 +26,7 @@ const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
 export class ConsumptionPoller implements Toggleable, Disposable {
   readonly onDidChangeCcuInfo: Event<ConsumptionUserInfo>;
   private readonly emitter: EventEmitter<ConsumptionUserInfo>;
-  private ccuInfo?: ConsumptionUserInfo;
+  private consumptionUserInfo?: ConsumptionUserInfo;
   private runner: SequentialTaskRunner;
   private isDisposed = false;
 
@@ -76,13 +76,17 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    * Checks the latests CCU info and emits an event when there is a change.
    */
   private async poll(signal?: AbortSignal): Promise<void> {
-    const ccuInfo = await this.client.getConsumptionUserInfo(signal);
-    if (JSON.stringify(ccuInfo) === JSON.stringify(this.ccuInfo)) {
+    const consumptionUserInfo =
+      await this.client.getConsumptionUserInfo(signal);
+    if (
+      JSON.stringify(consumptionUserInfo) ===
+      JSON.stringify(this.consumptionUserInfo)
+    ) {
       return;
     }
 
-    this.ccuInfo = ccuInfo;
-    this.emitter.fire(this.ccuInfo);
+    this.consumptionUserInfo = consumptionUserInfo;
+    this.emitter.fire(this.consumptionUserInfo);
   }
 
   private assertNotDisposed(): void {
