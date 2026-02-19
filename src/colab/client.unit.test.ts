@@ -98,117 +98,115 @@ describe('ColabClient', () => {
     sinon.restore();
   });
 
-    it('successfully gets user info', async () => {
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: GOOGLE_APIS_HOST,
-            path: '/v1/user-info',
-            withAuthUser: false,
-          }),
-        )
-        .resolves(
-          new Response(
-            withXSSI(
-              JSON.stringify({
-                subscriptionTier: 'SUBSCRIPTION_TIER_PRO',
-              }),
-            ),
-            { status: 200 },
+  it('successfully gets user info', async () => {
+    fetchStub
+      .withArgs(
+        urlMatcher({
+          method: 'GET',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          withAuthUser: false,
+        }),
+      )
+      .resolves(
+        new Response(
+          withXSSI(
+            JSON.stringify({
+              subscriptionTier: 'SUBSCRIPTION_TIER_PRO',
+            }),
           ),
-        );
+          { status: 200 },
+        ),
+      );
 
-      const response = client.getUserInfo();
+    const response = client.getUserInfo();
 
-      await expect(response).to.eventually.deep.equal({
-        subscriptionTier: SubscriptionTier.PRO,
-      });
-      sinon.assert.calledOnce(fetchStub);
+    await expect(response).to.eventually.deep.equal({
+      subscriptionTier: SubscriptionTier.PRO,
     });
+    sinon.assert.calledOnce(fetchStub);
+  });
 
-    it('successfully gets consumption user info', async () => {
-      const mockResponse = {
-        subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
-        paidComputeUnitsBalance: 1,
-        consumptionRateHourly: 2,
-        assignmentsCount: 3,
-        eligibleAccelerators: [
-          {
-            variant: 'VARIANT_GPU',
-            models: ['T4'],
-          },
-          {
-            variant: 'VARIANT_TPU',
-            models: ['V6E1', 'V28'],
-          },
-        ],
-        ineligibleAccelerators: [
-          {
-            variant: 'VARIANT_GPU',
-            models: ['A100', 'L4'],
-          },
-          {
-            variant: 'VARIANT_TPU',
-            models: ['V5E1'],
-          },
-        ],
-        freeCcuQuotaInfo: {
-          remainingTokens: '4',
-          nextRefillTimestampSec: 5,
+  it('successfully gets consumption user info', async () => {
+    const mockResponse = {
+      subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+      paidComputeUnitsBalance: 1,
+      consumptionRateHourly: 2,
+      assignmentsCount: 3,
+      eligibleAccelerators: [
+        {
+          variant: 'VARIANT_GPU',
+          models: ['T4'],
         },
-      };
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: GOOGLE_APIS_HOST,
-            path: '/v1/user-info',
-            queryParams: { get_ccu_consumption_info: 'true' },
-            withAuthUser: false,
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
-        );
-
-      const response = client.getConsumptionUserInfo();
-
-      const expectedResponse: ConsumptionUserInfo = {
-        subscriptionTier: SubscriptionTier.NONE,
-        paidComputeUnitsBalance: mockResponse.paidComputeUnitsBalance,
-        consumptionRateHourly: mockResponse.consumptionRateHourly,
-        assignmentsCount: mockResponse.assignmentsCount,
-        eligibleAccelerators: [
-          {
-            variant: Variant.GPU,
-            models: ['T4'],
-          },
-          {
-            variant: Variant.TPU,
-            models: ['V6E1', 'V28'],
-          },
-        ],
-        ineligibleAccelerators: [
-          {
-            variant: Variant.GPU,
-            models: ['A100', 'L4'],
-          },
-          {
-            variant: Variant.TPU,
-            models: ['V5E1'],
-          },
-        ],
-        freeCcuQuotaInfo: {
-          ...mockResponse.freeCcuQuotaInfo,
-          remainingTokens: Number(
-            mockResponse.freeCcuQuotaInfo.remainingTokens,
-          ),
+        {
+          variant: 'VARIANT_TPU',
+          models: ['V6E1', 'V28'],
         },
-      };
-      await expect(response).to.eventually.deep.equal(expectedResponse);
-      sinon.assert.calledOnce(fetchStub);
-    });
+      ],
+      ineligibleAccelerators: [
+        {
+          variant: 'VARIANT_GPU',
+          models: ['A100', 'L4'],
+        },
+        {
+          variant: 'VARIANT_TPU',
+          models: ['V5E1'],
+        },
+      ],
+      freeCcuQuotaInfo: {
+        remainingTokens: '4',
+        nextRefillTimestampSec: 5,
+      },
+    };
+    fetchStub
+      .withArgs(
+        urlMatcher({
+          method: 'GET',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          queryParams: { get_ccu_consumption_info: 'true' },
+          withAuthUser: false,
+        }),
+      )
+      .resolves(
+        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+      );
+
+    const response = client.getConsumptionUserInfo();
+
+    const expectedResponse: ConsumptionUserInfo = {
+      subscriptionTier: SubscriptionTier.NONE,
+      paidComputeUnitsBalance: mockResponse.paidComputeUnitsBalance,
+      consumptionRateHourly: mockResponse.consumptionRateHourly,
+      assignmentsCount: mockResponse.assignmentsCount,
+      eligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['T4'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['A100', 'L4'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V5E1'],
+        },
+      ],
+      freeCcuQuotaInfo: {
+        ...mockResponse.freeCcuQuotaInfo,
+        remainingTokens: Number(mockResponse.freeCcuQuotaInfo.remainingTokens),
+      },
+    };
+    await expect(response).to.eventually.deep.equal(expectedResponse);
+    sinon.assert.calledOnce(fetchStub);
+  });
 
   describe('assignment', () => {
     const ASSIGN_PATH = '/tun/m/assign';
