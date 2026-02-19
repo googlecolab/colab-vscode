@@ -286,7 +286,7 @@ describe('ColabJupyterServerProvider', () => {
         });
 
         it('excludes upgrade to pro command when getting the subscription tier fails', async () => {
-          colabClientStub.getSubscriptionTier.rejects(new Error('foo'));
+          colabClientStub.getUserInfo.rejects(new Error('foo'));
           const commands = await serverProvider.provideCommands(
             undefined,
             cancellationToken,
@@ -301,7 +301,9 @@ describe('ColabJupyterServerProvider', () => {
         });
 
         it('excludes upgrade to pro command for users with pro', async () => {
-          colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
+          colabClientStub.getUserInfo.resolves({
+            subscriptionTier: SubscriptionTier.PRO,
+          });
 
           const commands = await serverProvider.provideCommands(
             undefined,
@@ -317,9 +319,9 @@ describe('ColabJupyterServerProvider', () => {
         });
 
         it('excludes upgrade to pro command for users with pro-plus', async () => {
-          colabClientStub.getSubscriptionTier.resolves(
-            SubscriptionTier.PRO_PLUS,
-          );
+          colabClientStub.getUserInfo.resolves({
+            subscriptionTier: SubscriptionTier.PRO_PLUS,
+          });
 
           const commands = await serverProvider.provideCommands(
             undefined,
@@ -335,7 +337,9 @@ describe('ColabJupyterServerProvider', () => {
         });
 
         it('returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users', async () => {
-          colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.NONE);
+          colabClientStub.getUserInfo.resolves({
+            subscriptionTier: SubscriptionTier.NONE,
+          });
 
           const commands = await serverProvider.provideCommands(
             undefined,
@@ -486,8 +490,6 @@ describe('ColabJupyterServerProvider', () => {
         });
 
         it('completes assigning a server', async () => {
-          colabClientStub.getSubscriptionTier.resolves(SubscriptionTier.PRO);
-
           const availableServers = [DEFAULT_SERVER];
           assignmentStub.getAvailableServerDescriptors.resolves(
             availableServers,
@@ -512,10 +514,7 @@ describe('ColabJupyterServerProvider', () => {
           ).to.eventually.deep.equal(DEFAULT_SERVER);
 
           sinon.assert.calledOnce(serverPickerStub.prompt);
-          sinon.assert.calledOnceWithExactly(
-            assignmentStub.getAvailableServerDescriptors,
-            SubscriptionTier.PRO,
-          );
+          sinon.assert.calledOnce(assignmentStub.getAvailableServerDescriptors);
           sinon.assert.calledOnce(assignmentStub.assignServer);
         });
       });

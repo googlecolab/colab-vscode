@@ -105,34 +105,28 @@ export class AssignmentManager implements vscode.Disposable {
   /**
    * Retrieves a list of available server descriptors that can be assigned.
    *
-   * @param subscriptionTier - The user's subscription tier.
    * @param signal - An optional {@link AbortSignal} to cancel the operation.
    * @returns A list of available server descriptors.
    */
   // TODO: Consider communicating which machines are available, but not to the
   // user at their tier (in the "ineligible" list).
   async getAvailableServerDescriptors(
-    subscriptionTier: SubscriptionTier,
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
-    const ccuInfo = await this.client.getCcuInfo(signal);
+    const consumptionUserInfo =
+      await this.client.getConsumptionUserInfo(signal);
 
-    const eligibleGpus = new Set(ccuInfo.eligibleGpus);
-    const gpus: ColabServerDescriptor[] = Array.from(eligibleGpus).map((e) => ({
-      label: `Colab GPU ${e}`,
-      variant: Variant.GPU,
-      accelerator: e,
-    }));
+    const eligibleDescriptors: ColabServerDescriptor[] =
+      consumptionUserInfo.eligibleAccelerators.flatMap((acc) =>
+        acc.models.map((m) => ({
+          label: `Colab ${acc.variant} ${m}`,
+          variant: acc.variant,
+          accelerator: m,
+        })),
+      );
 
-    const eligibleTpus = new Set(ccuInfo.eligibleTpus);
-    const tpus: ColabServerDescriptor[] = Array.from(eligibleTpus).map((e) => ({
-      label: `Colab TPU ${e}`,
-      variant: Variant.TPU,
-      accelerator: e,
-    }));
-
-    const defaultDescriptors = [DEFAULT_CPU_SERVER, ...gpus, ...tpus];
-    if (subscriptionTier === SubscriptionTier.NONE) {
+    const defaultDescriptors = [DEFAULT_CPU_SERVER, ...eligibleDescriptors];
+    if (consumptionUserInfo.subscriptionTier === SubscriptionTier.NONE) {
       return defaultDescriptors;
     }
 

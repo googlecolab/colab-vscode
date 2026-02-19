@@ -12,20 +12,37 @@ import {
   createStubInstance,
 } from 'sinon';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { CcuInfo } from '../api';
+import { ConsumptionUserInfo, SubscriptionTier, Variant } from '../api';
 import { ColabClient } from '../client';
 import { ConsumptionPoller } from './poller';
 
 const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
-const DEFAULT_CCU_INFO: CcuInfo = {
-  currentBalance: 1,
+const DEFAULT_CCU_INFO: ConsumptionUserInfo = {
+  subscriptionTier: SubscriptionTier.NONE,
+  paidComputeUnitsBalance: 1,
   consumptionRateHourly: 2,
   assignmentsCount: 3,
-  eligibleGpus: ['T4'],
-  ineligibleGpus: ['A100', 'L4'],
-  eligibleTpus: ['V6E1', 'V28'],
-  ineligibleTpus: ['V5E1'],
+  eligibleAccelerators: [
+    {
+      variant: Variant.GPU,
+      models: ['T4'],
+    },
+    {
+      variant: Variant.TPU,
+      models: ['V6E1', 'V28'],
+    },
+  ],
+  ineligibleAccelerators: [
+    {
+      variant: Variant.GPU,
+      models: ['A100', 'L4'],
+    },
+    {
+      variant: Variant.TPU,
+      models: ['V5E1'],
+    },
+  ],
   freeCcuQuotaInfo: {
     remainingTokens: 4,
     nextRefillTimestampSec: 5,
@@ -54,7 +71,7 @@ describe('ConsumptionPoller', () => {
 
   describe('lifecycle', () => {
     beforeEach(() => {
-      clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
+      clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
     });
 
     afterEach(() => {
@@ -62,12 +79,12 @@ describe('ConsumptionPoller', () => {
     });
 
     it('disposes the runner', async () => {
-      clientStub.getCcuInfo.resetHistory();
+      clientStub.getConsumptionUserInfo.resetHistory();
 
       poller.dispose();
 
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
-      sinon.assert.notCalled(clientStub.getCcuInfo);
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
     });
 
     it('throws when used after being disposed', () => {
@@ -82,8 +99,8 @@ describe('ConsumptionPoller', () => {
     });
 
     it('aborts slow calls to get CCU info', async () => {
-      clientStub.getCcuInfo.resetHistory();
-      clientStub.getCcuInfo.onFirstCall().callsFake(
+      clientStub.getConsumptionUserInfo.resetHistory();
+      clientStub.getConsumptionUserInfo.onFirstCall().callsFake(
         // eslint-disable-next-line @typescript-eslint/no-empty-function
         async () => new Promise(() => {}),
       );
@@ -91,23 +108,24 @@ describe('ConsumptionPoller', () => {
 
       await fakeClock.tickAsync(TASK_TIMEOUT_MS + 1);
 
-      sinon.assert.calledOnce(clientStub.getCcuInfo);
-      expect(clientStub.getCcuInfo.firstCall.args[0]?.aborted).to.be.true;
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+      expect(clientStub.getConsumptionUserInfo.firstCall.args[0]?.aborted).to.be
+        .true;
     });
   });
 
   describe('toggled on', () => {
     beforeEach(async () => {
-      clientStub.getCcuInfo.resolves(DEFAULT_CCU_INFO);
+      clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
       poller.on();
       // Turning the poller on runs the task immediately. Wait past the task
       // timeout to ensure the immediate invocation runs to completion.
       await fakeClock.tickAsync(TASK_TIMEOUT_MS);
-      clientStub.getCcuInfo.resetHistory();
+      clientStub.getConsumptionUserInfo.resetHistory();
     });
 
     describe('when the CCU info does not change', () => {
-      let onDidChangeCcuInfo: sinon.SinonStub<[CcuInfo]>;
+      let onDidChangeCcuInfo: sinon.SinonStub<[ConsumptionUserInfo]>;
 
       beforeEach(() => {
         onDidChangeCcuInfo = sinon.stub();
@@ -117,50 +135,60 @@ describe('ConsumptionPoller', () => {
       it('does not emit an event', async () => {
         await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
-        sinon.assert.calledOnce(clientStub.getCcuInfo);
+        sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
         sinon.assert.notCalled(onDidChangeCcuInfo);
       });
     });
 
     describe('when the CCU info changes', () => {
-      const newCcuInfo: CcuInfo = {
+      const newCcuInfo: ConsumptionUserInfo = {
         ...DEFAULT_CCU_INFO,
-        eligibleGpus: [],
+        eligibleAccelerators: [],
       };
 
-      let onDidChangeCcuInfo: sinon.SinonStub<[CcuInfo]>;
+      let onDidChangeCcuInfo: sinon.SinonStub<[ConsumptionUserInfo]>;
 
       beforeEach(() => {
         onDidChangeCcuInfo = sinon.stub();
         poller.onDidChangeCcuInfo(onDidChangeCcuInfo);
-        clientStub.getCcuInfo.resolves(newCcuInfo);
+        clientStub.getConsumptionUserInfo.resolves(newCcuInfo);
       });
 
       it('emits an event', async () => {
         await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
-        sinon.assert.calledOnce(clientStub.getCcuInfo);
+        sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
         sinon.assert.calledOnce(onDidChangeCcuInfo);
       });
     });
   });
 
   it('can be toggled on and off', async () => {
-    const onDidChangeCcuInfo: sinon.SinonStub<[CcuInfo]> = sinon.stub();
+    const onDidChangeCcuInfo: sinon.SinonStub<[ConsumptionUserInfo]> =
+      sinon.stub();
     poller.onDidChangeCcuInfo(onDidChangeCcuInfo);
 
     // On for 3.
-    clientStub.getCcuInfo.resolves({ ...DEFAULT_CCU_INFO, currentBalance: 3 });
+    clientStub.getConsumptionUserInfo.resolves({
+      ...DEFAULT_CCU_INFO,
+      paidComputeUnitsBalance: 3,
+    });
     poller.on();
     await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
     // Off for 2.
-    clientStub.getCcuInfo.resolves({ ...DEFAULT_CCU_INFO, currentBalance: 2 });
+    clientStub.getConsumptionUserInfo.resolves({
+      ...DEFAULT_CCU_INFO,
+      paidComputeUnitsBalance: 2,
+    });
     poller.off();
     await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
     // On for 1.
-    clientStub.getCcuInfo.resolves({ ...DEFAULT_CCU_INFO, currentBalance: 1 });
+    clientStub.getConsumptionUserInfo.resolves({
+      ...DEFAULT_CCU_INFO,
+      paidComputeUnitsBalance: 1,
+    });
     poller.on();
     await fakeClock.tickAsync(POLL_INTERVAL_MS);
 
@@ -168,11 +196,11 @@ describe('ConsumptionPoller', () => {
 
     sinon.assert.calledWith(
       onDidChangeCcuInfo.firstCall,
-      sinon.match({ currentBalance: 3 }),
+      sinon.match({ paidComputeUnitsBalance: 3 }),
     );
     sinon.assert.calledWith(
       onDidChangeCcuInfo.secondCall,
-      sinon.match({ currentBalance: 1 }),
+      sinon.match({ paidComputeUnitsBalance: 1 }),
     );
   });
 });

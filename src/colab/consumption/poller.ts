@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Disposable } from 'vscode';
+import vscode, { Disposable, Event, EventEmitter } from 'vscode';
 import {
   OverrunPolicy,
   SequentialTaskRunner,
   StartMode,
 } from '../../common/task-runner';
 import { Toggleable } from '../../common/toggleable';
-import { CcuInfo } from '../api';
+import { ConsumptionUserInfo } from '../api';
 import { ColabClient } from '../client';
 
 const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
@@ -24,9 +24,9 @@ const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
  * (single-threaded, no worker threads).
  */
 export class ConsumptionPoller implements Toggleable, Disposable {
-  readonly onDidChangeCcuInfo: vscode.Event<CcuInfo>;
-  private readonly emitter: vscode.EventEmitter<CcuInfo>;
-  private ccuInfo?: CcuInfo;
+  readonly onDidChangeCcuInfo: Event<ConsumptionUserInfo>;
+  private readonly emitter: EventEmitter<ConsumptionUserInfo>;
+  private ccuInfo?: ConsumptionUserInfo;
   private runner: SequentialTaskRunner;
   private isDisposed = false;
 
@@ -34,7 +34,7 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
   ) {
-    this.emitter = new this.vs.EventEmitter<CcuInfo>();
+    this.emitter = new this.vs.EventEmitter<ConsumptionUserInfo>();
     this.onDidChangeCcuInfo = this.emitter.event;
     this.runner = new SequentialTaskRunner(
       {
@@ -76,7 +76,7 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    * Checks the latests CCU info and emits an event when there is a change.
    */
   private async poll(signal?: AbortSignal): Promise<void> {
-    const ccuInfo = await this.client.getCcuInfo(signal);
+    const ccuInfo = await this.client.getConsumptionUserInfo(signal);
     if (JSON.stringify(ccuInfo) === JSON.stringify(this.ccuInfo)) {
       return;
     }
