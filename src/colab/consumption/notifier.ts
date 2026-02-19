@@ -145,14 +145,16 @@ export class ConsumptionNotifier implements Disposable {
   }
 }
 
-function calculateRoughMinutesLeft(userInfo: ConsumptionUserInfo): number {
-  const freeQuota = userInfo.freeCcuQuotaInfo;
+function calculateRoughMinutesLeft(
+  consumptionUserInfo: ConsumptionUserInfo,
+): number {
+  const freeQuota = consumptionUserInfo.freeCcuQuotaInfo;
   if (!freeQuota) {
     return 0;
   }
   // Free quota is in milli-CCUs.
   const freeCcu = freeQuota.remainingTokens / 1000;
-  return Math.floor((freeCcu / userInfo.consumptionRateHourly) * 60);
+  return Math.floor((freeCcu / consumptionUserInfo.consumptionRateHourly) * 60);
 }
 
 enum SignupAction {
