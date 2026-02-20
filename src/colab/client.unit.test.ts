@@ -25,6 +25,7 @@ import {
   AuthType,
   ExperimentFlag,
   ConsumptionUserInfo,
+  UserInfo,
 } from './api';
 import {
   ColabClient,
@@ -99,6 +100,20 @@ describe('ColabClient', () => {
   });
 
   it('successfully gets user info', async () => {
+    const mockResponse = {
+      subscriptionTier: 'SUBSCRIPTION_TIER_PRO',
+      eligibleAccelerators: [
+        {
+          variant: 'VARIANT_GPU',
+          models: ['T4', 'A100', 'L4'],
+        },
+        {
+          variant: 'VARIANT_TPU',
+          models: ['V5E1', 'V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [],
+    };
     fetchStub
       .withArgs(
         urlMatcher({
@@ -109,21 +124,26 @@ describe('ColabClient', () => {
         }),
       )
       .resolves(
-        new Response(
-          withXSSI(
-            JSON.stringify({
-              subscriptionTier: 'SUBSCRIPTION_TIER_PRO',
-            }),
-          ),
-          { status: 200 },
-        ),
+        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
     const response = client.getUserInfo();
 
-    await expect(response).to.eventually.deep.equal({
+    const expectedResponse: UserInfo = {
       subscriptionTier: SubscriptionTier.PRO,
-    });
+      eligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['T4', 'A100', 'L4'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V5E1', 'V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [],
+    };
+    await expect(response).to.eventually.deep.equal(expectedResponse);
     sinon.assert.calledOnce(fetchStub);
   });
 
@@ -703,6 +723,8 @@ describe('ColabClient', () => {
         new Response(
           JSON.stringify({
             subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+            eligibleAccelerators: [],
+            ineligibleAccelerators: [],
           }),
           { status: 200 },
         ),
@@ -710,6 +732,8 @@ describe('ColabClient', () => {
 
     await expect(client.getUserInfo()).to.eventually.deep.equal({
       subscriptionTier: SubscriptionTier.NONE,
+      eligibleAccelerators: [],
+      ineligibleAccelerators: [],
     });
 
     sinon.assert.calledOnce(fetchStub);
@@ -733,6 +757,8 @@ describe('ColabClient', () => {
           withXSSI(
             JSON.stringify({
               subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+              eligibleAccelerators: [],
+              ineligibleAccelerators: [],
             }),
           ),
           { status: 200 },
@@ -741,6 +767,8 @@ describe('ColabClient', () => {
 
     await expect(client.getUserInfo()).to.eventually.deep.equal({
       subscriptionTier: SubscriptionTier.NONE,
+      eligibleAccelerators: [],
+      ineligibleAccelerators: [],
     });
 
     sinon.assert.calledTwice(fetchStub);

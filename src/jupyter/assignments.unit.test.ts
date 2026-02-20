@@ -15,7 +15,7 @@ import {
   Shape,
   SubscriptionState,
   SubscriptionTier,
-  ConsumptionUserInfo,
+  UserInfo,
   Variant,
 } from '../colab/api';
 import {
@@ -151,11 +151,9 @@ describe('AssignmentManager', () => {
   });
 
   describe('getAvailableServerDescriptors', () => {
-    const mockConsumptionUserInfo: ConsumptionUserInfo = {
+    const mockUserInfo: UserInfo = {
       subscriptionTier: SubscriptionTier.NONE,
       paidComputeUnitsBalance: 1,
-      consumptionRateHourly: 2,
-      assignmentsCount: 0,
       eligibleAccelerators: [
         {
           variant: Variant.GPU,
@@ -167,10 +165,6 @@ describe('AssignmentManager', () => {
         },
       ],
       ineligibleAccelerators: [],
-      freeCcuQuotaInfo: {
-        remainingTokens: 4,
-        nextRefillTimestampSec: 5,
-      },
     };
 
     const defaultGpuT4Descriptor = {
@@ -198,7 +192,7 @@ describe('AssignmentManager', () => {
     };
 
     it('returns the default CPU and the eligible servers', async () => {
-      colabClientStub.getConsumptionUserInfo.resolves(mockConsumptionUserInfo);
+      colabClientStub.getUserInfo.resolves(mockUserInfo);
 
       const servers = await assignmentManager.getAvailableServerDescriptors();
 
@@ -212,8 +206,8 @@ describe('AssignmentManager', () => {
     });
 
     it('returns the default CPU and the eligible servers for pro users', async () => {
-      colabClientStub.getConsumptionUserInfo.resolves({
-        ...mockConsumptionUserInfo,
+      colabClientStub.getUserInfo.resolves({
+        ...mockUserInfo,
         subscriptionTier: SubscriptionTier.PRO,
       });
 

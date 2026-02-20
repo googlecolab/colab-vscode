@@ -146,9 +146,9 @@ export const UserInfoSchema = z.object({
   /** The paid Colab Compute Units balance. */
   paidComputeUnitsBalance: z.number().optional(),
   /** The eligible machine accelerators. */
-  eligibleAccelerators: z.array(Accelerator).optional(),
+  eligibleAccelerators: z.array(Accelerator),
   /** The ineligible machine accelerators. */
-  ineligibleAccelerators: z.array(Accelerator).optional(),
+  ineligibleAccelerators: z.array(Accelerator),
   /**
    * The current rate of consumption of the user's CCUs (paid or free) based on
    * all assigned VMs.
@@ -199,7 +199,6 @@ export type UserInfo = z.infer<typeof UserInfoSchema>;
  */
 export const ConsumptionUserInfoSchema = UserInfoSchema.required({
   paidComputeUnitsBalance: true,
-  eligibleAccelerators: true,
   consumptionRateHourly: true,
 });
 /** Colab consumption user information. */

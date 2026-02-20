@@ -113,11 +113,10 @@ export class AssignmentManager implements vscode.Disposable {
   async getAvailableServerDescriptors(
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
-    const consumptionUserInfo =
-      await this.client.getConsumptionUserInfo(signal);
+    const userInfo = await this.client.getUserInfo(signal);
 
     const eligibleDescriptors: ColabServerDescriptor[] =
-      consumptionUserInfo.eligibleAccelerators.flatMap((acc) =>
+      userInfo.eligibleAccelerators.flatMap((acc) =>
         acc.models.map((model) => ({
           label: `Colab ${acc.variant} ${model}`,
           variant: acc.variant,
@@ -126,7 +125,7 @@ export class AssignmentManager implements vscode.Disposable {
       );
 
     const defaultDescriptors = [DEFAULT_CPU_SERVER, ...eligibleDescriptors];
-    if (consumptionUserInfo.subscriptionTier === SubscriptionTier.NONE) {
+    if (userInfo.subscriptionTier === SubscriptionTier.NONE) {
       return defaultDescriptors;
     }
 

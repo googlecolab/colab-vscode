@@ -303,6 +303,8 @@ describe('ColabJupyterServerProvider', () => {
         it('excludes upgrade to pro command for users with pro', async () => {
           colabClientStub.getUserInfo.resolves({
             subscriptionTier: SubscriptionTier.PRO,
+            eligibleAccelerators: [],
+            ineligibleAccelerators: [],
           });
 
           const commands = await serverProvider.provideCommands(
@@ -321,6 +323,8 @@ describe('ColabJupyterServerProvider', () => {
         it('excludes upgrade to pro command for users with pro-plus', async () => {
           colabClientStub.getUserInfo.resolves({
             subscriptionTier: SubscriptionTier.PRO_PLUS,
+            eligibleAccelerators: [],
+            ineligibleAccelerators: [],
           });
 
           const commands = await serverProvider.provideCommands(
@@ -339,6 +343,8 @@ describe('ColabJupyterServerProvider', () => {
         it('returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users', async () => {
           colabClientStub.getUserInfo.resolves({
             subscriptionTier: SubscriptionTier.NONE,
+            eligibleAccelerators: [],
+            ineligibleAccelerators: [],
           });
 
           const commands = await serverProvider.provideCommands(
