@@ -149,16 +149,28 @@ export const UserInfoSchema = z.object({
   eligibleAccelerators: z.array(Accelerator),
   /** The ineligible machine accelerators. */
   ineligibleAccelerators: z.array(Accelerator),
+});
+/** Colab user information. */
+export type UserInfo = z.infer<typeof UserInfoSchema>;
+
+/**
+ * The schema for top level information about a user's tier, usage and
+ * availability in Colab when CCU consumption info is requested (consumption
+ * fields are required).
+ */
+export const ConsumptionUserInfoSchema = UserInfoSchema.required({
+  paidComputeUnitsBalance: true,
+}).extend({
   /**
    * The current rate of consumption of the user's CCUs (paid or free) based on
    * all assigned VMs.
    */
-  consumptionRateHourly: z.number().optional(),
+  consumptionRateHourly: z.number(),
   /**
    * The number of runtimes currently assigned when the user's paid CCU balance
    * is positive.
    */
-  assignmentsCount: z.number().optional(),
+  assignmentsCount: z.number(),
   /** Free CCU quota information if applicable. */
   freeCcuQuotaInfo: z
     .object({
@@ -188,18 +200,6 @@ export const UserInfoSchema = z.object({
       nextRefillTimestampSec: z.number(),
     })
     .optional(),
-});
-/** Colab user information. */
-export type UserInfo = z.infer<typeof UserInfoSchema>;
-
-/**
- * The schema for top level information about a user's tier, usage and
- * availability in Colab when CCU consumption info is requested (consumption
- * fields are required).
- */
-export const ConsumptionUserInfoSchema = UserInfoSchema.required({
-  paidComputeUnitsBalance: true,
-  consumptionRateHourly: true,
 });
 /** Colab consumption user information. */
 export type ConsumptionUserInfo = z.infer<typeof ConsumptionUserInfoSchema>;
