@@ -5,11 +5,10 @@
  */
 
 import { assert, expect } from 'chai';
-import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
+import sinon, { SinonFakeTimers } from 'sinon';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { CcuInfo, SubscriptionTier } from '../api';
-import { ColabClient } from '../client';
+import { SubscriptionTier, ConsumptionUserInfo } from '../api';
 import { ConsumptionNotifier } from './notifier';
 
 const NOTIFICATION_SEVERITIES = ['warn', 'error'] as const;
@@ -23,7 +22,7 @@ type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 // events each time it calculated the remaining minutes (e.g. for logging
 // purposes).
 class TestConsumptionNotifier extends ConsumptionNotifier {
-  override notifyCcuConsumption(e: CcuInfo): Promise<void> {
+  override notifyCcuConsumption(e: ConsumptionUserInfo): Promise<void> {
     return super.notifyCcuConsumption(e);
   }
 
@@ -55,20 +54,16 @@ class TestConsumptionNotifier extends ConsumptionNotifier {
 
 describe('ConsumptionNotifier', () => {
   let vs: VsCodeStub;
-  let colabClient: SinonStubbedInstance<ColabClient>;
-  let ccuEmitter: TestEventEmitter<CcuInfo>;
+  let ccuEmitter: TestEventEmitter<ConsumptionUserInfo>;
   let consumptionNotifier: TestConsumptionNotifier;
 
   beforeEach(() => {
     vs = newVsCodeStub();
-    colabClient = sinon.createStubInstance(ColabClient);
-    colabClient.getSubscriptionTier.resolves(SubscriptionTier.NONE);
 
-    ccuEmitter = new TestEventEmitter<CcuInfo>();
+    ccuEmitter = new TestEventEmitter<ConsumptionUserInfo>();
 
     consumptionNotifier = new TestConsumptionNotifier(
       vs.asVsCode(),
-      colabClient,
       ccuEmitter.event,
     );
   });
@@ -136,7 +131,10 @@ describe('ConsumptionNotifier', () => {
 
   type Consumption = ConsumptionByMinutes | ConsumptionByRate;
 
-  function createCcuInfo(c: Consumption): CcuInfo {
+  function createCcuInfo(
+    c: Consumption,
+    tier?: SubscriptionTier,
+  ): ConsumptionUserInfo {
     let hourlyConsumptionRate: number;
     let paidBalance: number;
     let freeTokens: number;
@@ -150,7 +148,8 @@ describe('ConsumptionNotifier', () => {
       freeTokens = (c.freeMinutes / 60) * hourlyConsumptionRate * 1000;
     }
     return {
-      currentBalance: paidBalance,
+      subscriptionTier: tier ?? SubscriptionTier.NONE,
+      paidComputeUnitsBalance: paidBalance,
       consumptionRateHourly: hourlyConsumptionRate,
       freeCcuQuotaInfo: {
         remainingTokens: freeTokens,
@@ -158,8 +157,8 @@ describe('ConsumptionNotifier', () => {
       },
       // Irrelevant fields for SUT.
       assignmentsCount: 1,
-      eligibleGpus: [],
-      eligibleTpus: [],
+      eligibleAccelerators: [],
+      ineligibleAccelerators: [],
     };
   }
 
@@ -217,8 +216,7 @@ describe('ConsumptionNotifier', () => {
   ];
   for (const t of nonNotifyingTests) {
     it(`should not notify when ${t.label}`, async () => {
-      colabClient.getSubscriptionTier.resolves(t.tier ?? SubscriptionTier.NONE);
-      const ccuInfo = createCcuInfo(t.consumption);
+      const ccuInfo = createCcuInfo(t.consumption, t.tier);
 
       const noOp = consumptionNotifier.nextConsumptionCalculation();
       ccuEmitter.fire(ccuInfo);
@@ -354,8 +352,7 @@ describe('ConsumptionNotifier', () => {
   for (const t of notifyingTests) {
     const action = t.should.action.toLowerCase();
     it(`should ${t.should.severity} with a prompt to ${action} when ${t.label}`, async () => {
-      colabClient.getSubscriptionTier.resolves(t.tier);
-      const ccuInfo = createCcuInfo(t.consumption);
+      const ccuInfo = createCcuInfo(t.consumption, t.tier);
 
       const waitForNotification = nextNotification(t.should.severity);
       ccuEmitter.fire(ccuInfo);

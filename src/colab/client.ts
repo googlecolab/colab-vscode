@@ -15,14 +15,14 @@ import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
   Assignment,
   AuthType,
-  CcuInfo,
   Variant,
   GetAssignmentResponse,
-  CcuInfoSchema,
   AssignmentSchema,
   GetAssignmentResponseSchema,
+  UserInfo,
   UserInfoSchema,
-  SubscriptionTier,
+  ConsumptionUserInfo,
+  ConsumptionUserInfoSchema,
   PostAssignmentResponse,
   Outcome,
   PostAssignmentResponseSchema,
@@ -92,31 +92,32 @@ export class ColabClient {
   }
 
   /**
-   * Gets the user's subscription tier.
+   * Gets the current user information.
    *
    * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The user's subscription tier.
    */
-  async getSubscriptionTier(signal?: AbortSignal): Promise<SubscriptionTier> {
-    const userInfo = await this.issueRequest(
+  async getUserInfo(signal?: AbortSignal): Promise<UserInfo> {
+    return await this.issueRequest(
       new URL('v1/user-info', this.colabGapiDomain),
       { method: 'GET', signal },
       UserInfoSchema,
     );
-    return userInfo.subscriptionTier;
   }
 
   /**
-   * Gets the current Colab Compute Units (CCU) information.
+   * Gets the current user with Colab Compute Units (CCU) information.
    *
    * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The current CCU information.
    */
-  async getCcuInfo(signal?: AbortSignal): Promise<CcuInfo> {
-    return this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/ccu-info`, this.colabDomain),
+  async getConsumptionUserInfo(
+    signal?: AbortSignal,
+  ): Promise<ConsumptionUserInfo> {
+    const url = new URL('v1/user-info', this.colabGapiDomain);
+    url.searchParams.append('get_ccu_consumption_info', 'true');
+    return await this.issueRequest(
+      url,
       { method: 'GET', signal },
-      CcuInfoSchema,
+      ConsumptionUserInfoSchema,
     );
   }
 

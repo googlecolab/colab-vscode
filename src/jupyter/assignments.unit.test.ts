@@ -15,6 +15,7 @@ import {
   Shape,
   SubscriptionState,
   SubscriptionTier,
+  UserInfo,
   Variant,
 } from '../colab/api';
 import {
@@ -150,18 +151,20 @@ describe('AssignmentManager', () => {
   });
 
   describe('getAvailableServerDescriptors', () => {
-    const mockCcuInfo = {
-      currentBalance: 1,
-      consumptionRateHourly: 2,
-      assignmentsCount: 0,
-      eligibleGpus: ['T4', 'A100'],
-      ineligibleGpus: [],
-      eligibleTpus: ['V5E1', 'V6E1'],
-      ineligibleTpus: [],
-      freeCcuQuotaInfo: {
-        remainingTokens: 4,
-        nextRefillTimestampSec: 5,
-      },
+    const mockUserInfo: UserInfo = {
+      subscriptionTier: SubscriptionTier.NONE,
+      paidComputeUnitsBalance: 1,
+      eligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['T4', 'A100'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V5E1', 'V6E1'],
+        },
+      ],
+      ineligibleAccelerators: [],
     };
 
     const defaultGpuT4Descriptor = {
@@ -189,11 +192,9 @@ describe('AssignmentManager', () => {
     };
 
     it('returns the default CPU and the eligible servers', async () => {
-      colabClientStub.getCcuInfo.resolves(mockCcuInfo);
+      colabClientStub.getUserInfo.resolves(mockUserInfo);
 
-      const servers = await assignmentManager.getAvailableServerDescriptors(
-        SubscriptionTier.NONE,
-      );
+      const servers = await assignmentManager.getAvailableServerDescriptors();
 
       expect(servers).to.deep.equal([
         DEFAULT_CPU_SERVER,
@@ -205,11 +206,12 @@ describe('AssignmentManager', () => {
     });
 
     it('returns the default CPU and the eligible servers for pro users', async () => {
-      colabClientStub.getCcuInfo.resolves(mockCcuInfo);
+      colabClientStub.getUserInfo.resolves({
+        ...mockUserInfo,
+        subscriptionTier: SubscriptionTier.PRO,
+      });
 
-      const tier = SubscriptionTier.PRO;
-      const servers =
-        await assignmentManager.getAvailableServerDescriptors(tier);
+      const servers = await assignmentManager.getAvailableServerDescriptors();
 
       expect(servers).to.deep.equal([
         { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD },

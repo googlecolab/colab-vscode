@@ -4,9 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode from 'vscode';
-import { CcuInfo, SubscriptionTier } from '../api';
-import { ColabClient } from '../client';
+import vscode, { Disposable, Event } from 'vscode';
+import { ConsumptionUserInfo, SubscriptionTier } from '../api';
 import { openColabSignup } from '../commands/external';
 
 const WARN_WHEN_LESS_THAN_MINUTES = 30;
@@ -23,8 +22,8 @@ type Notify =
  * Monitors Colab Compute Units (CCU) balance and consumption rate, notifying
  * the user when their CCU-s are depleted or running low.
  */
-export class ConsumptionNotifier implements vscode.Disposable {
-  private ccuListener: vscode.Disposable;
+export class ConsumptionNotifier implements Disposable {
+  private ccuListener: Disposable;
   private snoozeError = false;
   private snoozeWarn = false;
   private errorTimeout?: NodeJS.Timeout;
@@ -32,8 +31,7 @@ export class ConsumptionNotifier implements vscode.Disposable {
 
   constructor(
     private readonly vs: typeof vscode,
-    private readonly colab: ColabClient,
-    onDidChangeCcuInfo: vscode.Event<CcuInfo>,
+    onDidChangeCcuInfo: Event<ConsumptionUserInfo>,
     private readonly snoozeMinutes: number = DEFAULT_SNOOZE_MINUTES,
   ) {
     this.ccuListener = onDidChangeCcuInfo((e) => this.notifyCcuConsumption(e));
@@ -51,12 +49,13 @@ export class ConsumptionNotifier implements vscode.Disposable {
    * Gives the user an action to sign up, upgrade or purchase more CCU-s (link
    * to the signup page).
    */
-  protected async notifyCcuConsumption(e: CcuInfo): Promise<void> {
+  protected async notifyCcuConsumption(e: ConsumptionUserInfo): Promise<void> {
     // When the user is not consuming any CCU-s, no need to notify.
     if (e.consumptionRateHourly <= 0) {
       return;
     }
-    const paidMinutesLeft = (e.currentBalance / e.consumptionRateHourly) * 60;
+    const paidMinutesLeft =
+      (e.paidComputeUnitsBalance / e.consumptionRateHourly) * 60;
     const freeMinutesLeft = calculateRoughMinutesLeft(e);
     // Quantize to 10 minutes.
     const totalMinutesLeft = ((paidMinutesLeft + freeMinutesLeft) / 10) * 10;
@@ -71,7 +70,7 @@ export class ConsumptionNotifier implements vscode.Disposable {
 
     const action = notification.notify(
       notification.message,
-      await this.getTierRelevantAction(paidMinutesLeft > 0),
+      this.getTierRelevantAction(e.subscriptionTier, paidMinutesLeft > 0),
     );
     this.setSnoozeTimeout(notification.notify);
     if (await action) {
@@ -107,10 +106,10 @@ export class ConsumptionNotifier implements vscode.Disposable {
     return { message, notify };
   }
 
-  private async getTierRelevantAction(
+  private getTierRelevantAction(
+    tier: SubscriptionTier,
     hasPaidBalance: boolean,
-  ): Promise<SignupAction> {
-    const tier = await this.colab.getSubscriptionTier();
+  ): SignupAction {
     switch (tier) {
       case SubscriptionTier.NONE:
         return hasPaidBalance
@@ -146,14 +145,16 @@ export class ConsumptionNotifier implements vscode.Disposable {
   }
 }
 
-function calculateRoughMinutesLeft(ccuInfo: CcuInfo): number {
-  const freeQuota = ccuInfo.freeCcuQuotaInfo;
+function calculateRoughMinutesLeft(
+  consumptionUserInfo: ConsumptionUserInfo,
+): number {
+  const freeQuota = consumptionUserInfo.freeCcuQuotaInfo;
   if (!freeQuota) {
     return 0;
   }
   // Free quota is in milli-CCUs.
   const freeCcu = freeQuota.remainingTokens / 1000;
-  return Math.floor((freeCcu / ccuInfo.consumptionRateHourly) * 60);
+  return Math.floor((freeCcu / consumptionUserInfo.consumptionRateHourly) * 60);
 }
 
 enum SignupAction {

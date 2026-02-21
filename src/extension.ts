@@ -179,11 +179,7 @@ function watchConsumption(colab: ColabClient): {
   const disposables: Disposable[] = [];
   const poller = new ConsumptionPoller(vscode, colab);
   disposables.push(poller);
-  const notifier = new ConsumptionNotifier(
-    vscode,
-    colab,
-    poller.onDidChangeCcuInfo,
-  );
+  const notifier = new ConsumptionNotifier(vscode, poller.onDidChangeCcuInfo);
   disposables.push(notifier);
 
   return { toggle: poller, disposables };

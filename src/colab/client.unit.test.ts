@@ -14,7 +14,6 @@ import { ColabAssignedServer } from '../jupyter/servers';
 import { TestUri } from '../test/helpers/uri';
 import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
-  CcuInfo,
   Assignment,
   Shape,
   SubscriptionState,
@@ -25,6 +24,8 @@ import {
   RuntimeProxyToken,
   AuthType,
   ExperimentFlag,
+  ConsumptionUserInfo,
+  UserInfo,
 } from './api';
 import {
   ColabClient,
@@ -98,11 +99,20 @@ describe('ColabClient', () => {
     sinon.restore();
   });
 
-  it('successfully gets the subscription tier', async () => {
+  it('successfully gets user info', async () => {
     const mockResponse = {
-      subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
-      paidComputeUnitsBalance: 0,
-      eligibleAccelerators: [{ variant: 'VARIANT_GPU', models: ['T4'] }],
+      subscriptionTier: 'SUBSCRIPTION_TIER_PRO',
+      eligibleAccelerators: [
+        {
+          variant: 'VARIANT_GPU',
+          models: ['T4', 'A100', 'L4'],
+        },
+        {
+          variant: 'VARIANT_TPU',
+          models: ['V5E1', 'V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [],
     };
     fetchStub
       .withArgs(
@@ -117,22 +127,52 @@ describe('ColabClient', () => {
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
-    await expect(client.getSubscriptionTier()).to.eventually.deep.equal(
-      SubscriptionTier.NONE,
-    );
+    const response = client.getUserInfo();
 
+    const expectedResponse: UserInfo = {
+      subscriptionTier: SubscriptionTier.PRO,
+      eligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['T4', 'A100', 'L4'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V5E1', 'V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [],
+    };
+    await expect(response).to.eventually.deep.equal(expectedResponse);
     sinon.assert.calledOnce(fetchStub);
   });
 
-  it('successfully gets CCU info', async () => {
+  it('successfully gets consumption user info', async () => {
     const mockResponse = {
-      currentBalance: 1,
+      subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+      paidComputeUnitsBalance: 1,
       consumptionRateHourly: 2,
       assignmentsCount: 3,
-      eligibleGpus: ['T4'],
-      ineligibleGpus: ['A100', 'L4'],
-      eligibleTpus: ['V6E1', 'V28'],
-      ineligibleTpus: ['V5E1'],
+      eligibleAccelerators: [
+        {
+          variant: 'VARIANT_GPU',
+          models: ['T4'],
+        },
+        {
+          variant: 'VARIANT_TPU',
+          models: ['V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [
+        {
+          variant: 'VARIANT_GPU',
+          models: ['A100', 'L4'],
+        },
+        {
+          variant: 'VARIANT_TPU',
+          models: ['V5E1'],
+        },
+      ],
       freeCcuQuotaInfo: {
         remainingTokens: '4',
         nextRefillTimestampSec: 5,
@@ -142,25 +182,49 @@ describe('ColabClient', () => {
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/ccu-info',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          queryParams: { get_ccu_consumption_info: 'true' },
+          withAuthUser: false,
         }),
       )
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
-    const expectedResponse: CcuInfo = {
-      ...mockResponse,
+    const response = client.getConsumptionUserInfo();
+
+    const expectedResponse: ConsumptionUserInfo = {
+      subscriptionTier: SubscriptionTier.NONE,
+      paidComputeUnitsBalance: mockResponse.paidComputeUnitsBalance,
+      consumptionRateHourly: mockResponse.consumptionRateHourly,
+      assignmentsCount: mockResponse.assignmentsCount,
+      eligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['T4'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V6E1', 'V28'],
+        },
+      ],
+      ineligibleAccelerators: [
+        {
+          variant: Variant.GPU,
+          models: ['A100', 'L4'],
+        },
+        {
+          variant: Variant.TPU,
+          models: ['V5E1'],
+        },
+      ],
       freeCcuQuotaInfo: {
         ...mockResponse.freeCcuQuotaInfo,
         remainingTokens: Number(mockResponse.freeCcuQuotaInfo.remainingTokens),
       },
     };
-    await expect(client.getCcuInfo()).to.eventually.deep.equal(
-      expectedResponse,
-    );
-
+    await expect(response).to.eventually.deep.equal(expectedResponse);
     sinon.assert.calledOnce(fetchStub);
   });
 
@@ -646,57 +710,66 @@ describe('ColabClient', () => {
   });
 
   it('supports non-XSSI responses', async () => {
-    const mockResponse = {
-      currentBalance: 1,
-      consumptionRateHourly: 2,
-      assignmentsCount: 3,
-      eligibleGpus: ['T4'],
-      ineligibleGpus: ['A100', 'L4'],
-      eligibleTpus: ['V6E1', 'V28'],
-      ineligibleTpus: ['V5E1'],
-    };
     fetchStub
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/ccu-info',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          withAuthUser: false,
         }),
       )
-      .resolves(new Response(JSON.stringify(mockResponse), { status: 200 }));
+      .resolves(
+        new Response(
+          JSON.stringify({
+            subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+            eligibleAccelerators: [],
+            ineligibleAccelerators: [],
+          }),
+          { status: 200 },
+        ),
+      );
 
-    await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
+    await expect(client.getUserInfo()).to.eventually.deep.equal({
+      subscriptionTier: SubscriptionTier.NONE,
+      eligibleAccelerators: [],
+      ineligibleAccelerators: [],
+    });
 
     sinon.assert.calledOnce(fetchStub);
   });
 
   it('retries request on 401 if onAuthError is provided', async () => {
-    const mockResponse = {
-      currentBalance: 1,
-      consumptionRateHourly: 2,
-      assignmentsCount: 3,
-      eligibleGpus: ['T4'],
-      ineligibleGpus: ['A100', 'L4'],
-      eligibleTpus: ['V6E1', 'V28'],
-      ineligibleTpus: ['V5E1'],
-    };
-
     fetchStub
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/ccu-info',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          withAuthUser: false,
         }),
       )
       .onFirstCall()
       .resolves(new Response('Unauthorized', { status: 401 }))
       .onSecondCall()
       .resolves(
-        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
+        new Response(
+          withXSSI(
+            JSON.stringify({
+              subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+              eligibleAccelerators: [],
+              ineligibleAccelerators: [],
+            }),
+          ),
+          { status: 200 },
+        ),
       );
 
-    await expect(client.getCcuInfo()).to.eventually.deep.equal(mockResponse);
+    await expect(client.getUserInfo()).to.eventually.deep.equal({
+      subscriptionTier: SubscriptionTier.NONE,
+      eligibleAccelerators: [],
+      ineligibleAccelerators: [],
+    });
 
     sinon.assert.calledTwice(fetchStub);
     sinon.assert.calledOnce(onAuthErrorStub);
@@ -707,7 +780,7 @@ describe('ColabClient', () => {
       .withArgs(sinon.match.any)
       .resolves(new Response('Unauthorized', { status: 401 }));
 
-    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+    await expect(client.getUserInfo()).to.eventually.be.rejectedWith(
       /Unauthorized/,
     );
 
@@ -726,7 +799,7 @@ describe('ColabClient', () => {
       .withArgs(sinon.match.any)
       .resolves(new Response('Unauthorized', { status: 401 }));
 
-    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+    await expect(client.getUserInfo()).to.eventually.be.rejectedWith(
       /Unauthorized/,
     );
     sinon.assert.notCalled(onAuthErrorStub);
@@ -737,8 +810,9 @@ describe('ColabClient', () => {
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/ccu-info',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          withAuthUser: false,
         }),
       )
       .resolves(
@@ -748,7 +822,7 @@ describe('ColabClient', () => {
         }),
       );
 
-    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+    await expect(client.getUserInfo()).to.eventually.be.rejectedWith(
       /Foo error/,
     );
   });
@@ -758,37 +832,40 @@ describe('ColabClient', () => {
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/ccu-info',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          withAuthUser: false,
         }),
       )
       .resolves(new Response(withXSSI('not JSON eh?'), { status: 200 }));
 
-    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
+    await expect(client.getUserInfo()).to.eventually.be.rejectedWith(
       /not JSON.+eh\?/,
     );
   });
 
   it('rejects response schema mismatches', async () => {
-    const mockResponse: Partial<CcuInfo> = {
-      currentBalance: 1,
+    const mockResponse = {
+      subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
+      paidComputeUnitsBalance: 1,
       consumptionRateHourly: 2,
-      eligibleGpus: ['T4'],
     };
     fetchStub
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/ccu-info',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/user-info',
+          queryParams: { get_ccu_consumption_info: 'true' },
+          withAuthUser: false,
         }),
       )
       .resolves(
         new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
       );
 
-    await expect(client.getCcuInfo()).to.eventually.be.rejectedWith(
-      /assignmentsCount.+received undefined/s,
+    await expect(client.getConsumptionUserInfo()).to.eventually.be.rejectedWith(
+      /eligibleAccelerators.+received undefined/s,
     );
   });
 

@@ -127,6 +127,13 @@ function normalizeVariant(variant: ColabGapiVariant): Variant {
   }
 }
 
+export const Accelerator = z.object({
+  /** The variant of the assignment. */
+  variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
+  /** The assigned accelerator. */
+  models: z.array(z.string().toUpperCase()),
+});
+
 /**
  * The schema for top level information about a user's tier, usage and
  * availability in Colab.
@@ -139,27 +146,21 @@ export const UserInfoSchema = z.object({
   /** The paid Colab Compute Units balance. */
   paidComputeUnitsBalance: z.number().optional(),
   /** The eligible machine accelerators. */
-  eligibleAccelerators: z
-    .array(
-      z.object({
-        /** The variant of the assignment. */
-        variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
-        /** The assigned accelerator. */
-        models: z.array(z.string().toUpperCase()),
-      }),
-    )
-    .optional(),
+  eligibleAccelerators: z.array(Accelerator),
+  /** The ineligible machine accelerators. */
+  ineligibleAccelerators: z.array(Accelerator),
 });
+/** Colab user information. */
+export type UserInfo = z.infer<typeof UserInfoSchema>;
 
-/** The schema of Colab Compute Units (CCU) information. */
-export const CcuInfoSchema = z.object({
-  /**
-   * The current balance of the paid CCUs.
-   *
-   * Naming is unfortunate due to historical reasons and free CCU quota
-   * balance is made available in a separate field for the same reasons.
-   */
-  currentBalance: z.number(),
+/**
+ * The schema for top level information about a user's tier, usage and
+ * availability in Colab when CCU consumption info is requested (consumption
+ * fields are required).
+ */
+export const ConsumptionUserInfoSchema = UserInfoSchema.required({
+  paidComputeUnitsBalance: true,
+}).extend({
   /**
    * The current rate of consumption of the user's CCUs (paid or free) based on
    * all assigned VMs.
@@ -170,18 +171,6 @@ export const CcuInfoSchema = z.object({
    * is positive.
    */
   assignmentsCount: z.number(),
-  /** The list of eligible GPU accelerators. */
-  eligibleGpus: z.array(z.string().toUpperCase()),
-  /** The list of ineligible GPU accelerators. */
-  ineligibleGpus: z.array(z.string().toUpperCase()).optional(),
-  /**
-   * The list of eligible TPU accelerators.
-   */
-  eligibleTpus: z.array(z.string().toUpperCase()),
-  /**
-   * The list of ineligible TPU accelerators.
-   */
-  ineligibleTpus: z.array(z.string().toUpperCase()).optional(),
   /** Free CCU quota information if applicable. */
   freeCcuQuotaInfo: z
     .object({
@@ -212,8 +201,8 @@ export const CcuInfoSchema = z.object({
     })
     .optional(),
 });
-/** Colab Compute Units (CCU) information. */
-export type CcuInfo = z.infer<typeof CcuInfoSchema>;
+/** Colab consumption user information. */
+export type ConsumptionUserInfo = z.infer<typeof ConsumptionUserInfoSchema>;
 
 /** The response when getting an assignment. */
 export const GetAssignmentResponseSchema = z

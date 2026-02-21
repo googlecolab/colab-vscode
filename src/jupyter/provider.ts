@@ -140,7 +140,7 @@ export class ColabJupyterServerProvider
     commands.push(AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB);
     if (this.isAuthorized) {
       try {
-        const tier = await this.client.getSubscriptionTier();
+        const tier = (await this.client.getUserInfo()).subscriptionTier;
         if (tier === SubscriptionTier.NONE) {
           commands.push(UPGRADE_TO_PRO);
         }
@@ -209,9 +209,8 @@ export class ColabJupyterServerProvider
   }
 
   private async assignServer(): Promise<JupyterServer> {
-    const tier = await this.client.getSubscriptionTier();
     const serverType = await this.serverPicker.prompt(
-      await this.assignmentManager.getAvailableServerDescriptors(tier),
+      await this.assignmentManager.getAvailableServerDescriptors(),
     );
     if (!serverType) {
       throw new this.vs.CancellationError();
