@@ -83,6 +83,12 @@ export enum Shape {
   // VERYHIGHMEM (2) is deprecated.
 }
 
+enum ColabGapiShape {
+  UNSPECIFIED = 'SHAPE_UNSPECIFIED',
+  STANDARD = 'SHAPE_DEFAULT',
+  HIGHMEM = 'SHAPE_HIGH_MEM',
+}
+
 /** Colab supported auth types. */
 export enum AuthType {
   DFS_EPHEMERAL = 'dfs_ephemeral',
@@ -124,6 +130,21 @@ function normalizeVariant(variant: ColabGapiVariant): Variant {
       return Variant.TPU;
     case ColabGapiVariant.UNSPECIFIED:
       return Variant.DEFAULT;
+  }
+}
+
+/**
+ * Normalize the similar but different GAPI representation for the variant.
+ *
+ * @param variant - the Colab Google API variant.
+ * @returns the normalized shape.
+ */
+function normalizeShape(shape: ColabGapiShape): Shape {
+  switch (shape) {
+    case ColabGapiShape.HIGHMEM:
+      return Shape.HIGHMEM;
+    default:
+      return Shape.STANDARD;
   }
 }
 
@@ -307,18 +328,17 @@ export type PostAssignmentResponse = z.infer<
 >;
 
 /** The schema of an assignment when listing all. */
-export const ListedAssignmentSchema = PostAssignmentResponseSchema.required({
-  accelerator: true,
-  endpoint: true,
-  variant: true,
-  machineShape: true,
-}).omit({
-  fit: true,
-  allowedCredentials: true,
-  sub: true,
-  subTier: true,
-  outcome: true,
-  runtimeProxyInfo: true,
+export const ListedAssignmentSchema = z.object({
+  /** The endpoint URL. */
+  endpoint: z.string(),
+  /** The assigned accelerator. */
+  accelerator: z.string().toUpperCase(),
+  /** The variant of the assignment. */
+  variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
+  /** The machine shape. */
+  machineShape: z.enum(ColabGapiShape).transform(normalizeShape),
+  /** Information about the runtime proxy. */
+  runtimeProxyInfo: RuntimeProxyTokenSchema.optional(),
 });
 /** An abbreviated, listed assignment in Colab. */
 export type ListedAssignment = z.infer<typeof ListedAssignmentSchema>;
