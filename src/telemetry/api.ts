@@ -88,4 +88,3 @@ export interface LogResponse {
    */
   next_request_wait_millis: string;
 }
-
