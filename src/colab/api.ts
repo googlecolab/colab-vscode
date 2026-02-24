@@ -345,7 +345,10 @@ export type ListedAssignment = z.infer<typeof ListedAssignmentSchema>;
 
 /** The schema of the Colab API's list assignments endpoint. */
 export const ListedAssignmentsSchema = z.object({
-  assignments: z.array(ListedAssignmentSchema),
+  assignments: z
+    .array(ListedAssignmentSchema)
+    .optional()
+    .transform((assignments) => assignments ?? []),
 });
 /** Abbreviated, listed assignments in Colab. */
 export type ListedAssignments = z.infer<typeof ListedAssignmentsSchema>;
