@@ -582,7 +582,7 @@ describe('ColabClient', () => {
     });
   });
 
-  it('successfully lists empty assignments', async () => {
+  it('successfully lists undefined assignments', async () => {
     fetchStub
       .withArgs(
         urlMatcher({
