@@ -582,6 +582,24 @@ describe('ColabClient', () => {
     });
   });
 
+  it('successfully lists empty assignments', async () => {
+    fetchStub
+      .withArgs(
+        urlMatcher({
+          method: 'GET',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/assignments',
+          withAuthUser: false,
+        }),
+      )
+      .resolves(new Response(withXSSI(JSON.stringify({})), { status: 200 }));
+
+    const results = client.listAssignments();
+
+    await expect(results).to.eventually.to.empty;
+    sinon.assert.calledOnce(fetchStub);
+  });
+
   it('successfully unassigns the specified assignment', async () => {
     const endpoint = 'mock-server';
     const path = `/tun/m/unassign/${endpoint}`;
