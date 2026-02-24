@@ -22,10 +22,7 @@ import {
   OPEN_TERMINAL,
 } from './colab/commands/constants';
 import { upload } from './colab/commands/files';
-import {
-  notebookToolbar,
-  insertCodeCellBelow,
-} from './colab/commands/notebook';
+import { notebookToolbar, appendCodeCell } from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
 import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
@@ -204,7 +201,7 @@ function registerCommands(
       },
     ),
     vscode.commands.registerCommand(MOUNT_DRIVE.id, async () => {
-      await insertCodeCellBelow(
+      await appendCodeCell(
         vscode,
         `from google.colab import drive
 drive.mount('/content/drive')`,

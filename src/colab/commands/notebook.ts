@@ -49,13 +49,13 @@ export async function notebookToolbar(
 }
 
 /**
- * Inserts a new code cell in the active notebook below the last selected cell.
+ * Appends a new code cell to the bottom of the active notebook.
  *
  * @param cellContent - Code content to add in the new cell.
  * @param languageId - Language of the code.
  * @returns `true` if cell is inserted successfully; `false` otherwise.
  */
-export async function insertCodeCellBelow(
+export async function appendCodeCell(
   vs: typeof vscode,
   cellContent: string,
   languageId: string,
@@ -109,9 +109,9 @@ async function getAvailableCommands(
     return externalCommands;
   }
   const serverCommands: NotebookCommand[] = [];
-  const colabConfigs = vs.workspace.getConfiguration('colab');
+  const colabConfig = vs.workspace.getConfiguration('colab');
 
-  const includeMountServer = colabConfigs.get<boolean>('serverMounting', false);
+  const includeMountServer = colabConfig.get<boolean>('serverMounting', false);
   if (includeMountServer) {
     serverCommands.push({
       label: MOUNT_SERVER.label,
@@ -125,7 +125,7 @@ async function getAvailableCommands(
       },
     });
   }
-  const includeTerminal = colabConfigs.get<boolean>('terminal', false);
+  const includeTerminal = colabConfig.get<boolean>('terminal', false);
   if (includeTerminal) {
     serverCommands.push({
       label: OPEN_TERMINAL.label,
