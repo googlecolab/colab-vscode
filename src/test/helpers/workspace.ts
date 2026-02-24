@@ -55,30 +55,32 @@ export class TestWorkspaceEdit implements WorkspaceEdit {
     throw new Error('Method not implemented.');
   }
 
-  set(uri: Uri, edits: ReadonlyArray<TextEdit | SnippetTextEdit>): void;
+  /* eslint-disable @typescript-eslint/unified-signatures */
+  set(uri: Uri, edits: readonly (TextEdit | SnippetTextEdit)[]): void;
   set(
     uri: Uri,
-    edits: ReadonlyArray<
-      [TextEdit | SnippetTextEdit, WorkspaceEditEntryMetadata | undefined]
-    >,
+    edits: readonly [
+      TextEdit | SnippetTextEdit,
+      WorkspaceEditEntryMetadata | undefined,
+    ][],
   ): void;
   set(uri: Uri, edits: readonly NotebookEdit[]): void;
   set(
     uri: Uri,
-    edits: ReadonlyArray<
-      [NotebookEdit, WorkspaceEditEntryMetadata | undefined]
-    >,
+    edits: readonly [NotebookEdit, WorkspaceEditEntryMetadata | undefined][],
   ): void;
-  set(uri: Uri, edits: ReadonlyArray<any>): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  set(uri: Uri, edits: readonly any[]): void {
     this.uri = uri as TestUri;
     this.edits = edits as TestNotebookEdit[];
   }
+  /* eslint-enable @typescript-eslint/unified-signatures */
 
   get(_uri: Uri): TextEdit[] {
     throw new Error('Method not implemented.');
   }
 
-  entries(): Array<[Uri, TextEdit[]]> {
+  entries(): [Uri, TextEdit[]][] {
     throw new Error('Method not implemented.');
   }
 
@@ -116,7 +118,7 @@ export class TestWorkspaceEdit implements WorkspaceEdit {
     throw new Error('Method not implemented.');
   }
 
-  [Symbol.iterator](): IterableIterator<[Uri, Array<TextEdit | NotebookEdit>]> {
+  [Symbol.iterator](): IterableIterator<[Uri, (TextEdit | NotebookEdit)[]]> {
     throw new Error('Method not implemented.');
   }
 }

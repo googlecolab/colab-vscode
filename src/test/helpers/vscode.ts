@@ -233,7 +233,8 @@ export function newVsCodeStub(): VsCodeStub {
         authentication: { ...this.authentication } as Partial<
           typeof vscode.authentication
         > as typeof vscode.authentication,
-        NotebookCellKind: this.NotebookCellKind as typeof vscode.NotebookCellKind,
+        NotebookCellKind: this
+          .NotebookCellKind as typeof vscode.NotebookCellKind,
         NotebookCellData: this.NotebookCellData as Partial<
           typeof vscode.NotebookCellData
         > as typeof vscode.NotebookCellData,
