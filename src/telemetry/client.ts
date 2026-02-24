@@ -5,6 +5,7 @@
  */
 
 import fetch, { Request } from 'node-fetch';
+import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { ExperimentFlag } from '../colab/api';
 import { getFlag } from '../colab/experiment-state';
@@ -59,7 +60,7 @@ export class ClearcutClient implements Disposable {
   /** Queue of events to be flushed to Clearcut. */
   private pendingEvents: LogEvent[] = [];
 
-  constructor(config: ClearcutConfig = DEFAULT_CONFIG) {
+  constructor(private readonly vs: typeof vscode, config: ClearcutConfig = DEFAULT_CONFIG) {
     this.maxPendingEvents =
       config.maxPendingEvents ?? DEFAULT_MAX_PENDING_EVENTS;
     this.minFlushWaitMs = config.minFlushWaitMs ?? DEFAULT_MIN_FLUSH_WAIT_MS;
@@ -105,15 +106,19 @@ export class ClearcutClient implements Disposable {
    * Flushes queued events to Clearcut.
    *
    * @param force - Flushes to Clearcut regardless of whether a flush is in
-   *   progress or if the flush interval's been met.
+   *   progress or if the flush interval's been met. Note that telemetry must
+   *   still be enabled.
    */
   private async flush(force = false) {
-    const canLogToClearcut = getFlag(ExperimentFlag.EnableTelemetry);
-    const canFlush =
-      canLogToClearcut &&
-      (force || (!this.isDoingFlush && new Date() >= this.nextFlush));
+    const isTelemetryEnabled =
+      getFlag(ExperimentFlag.EnableTelemetry) && this.vs.env.isTelemetryEnabled;
+    if (!isTelemetryEnabled || this.pendingEvents.length === 0) {
+      return;
+    }
 
-    if (this.pendingEvents.length === 0 || !canFlush) {
+    const canFlush =
+      force || (!this.isDoingFlush && new Date() >= this.nextFlush);
+    if (!canFlush) {
       return;
     }
 

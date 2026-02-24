@@ -46,7 +46,7 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
   };
 
   isTelemetryEnabled = () => vs.env.isTelemetryEnabled;
-  client = new ClearcutClient();
+  client = new ClearcutClient(vs);
 
   return {
     dispose: () => {
