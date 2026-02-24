@@ -31,8 +31,8 @@ const DEFAULT_MIN_FLUSH_WAIT_MS = 10 * 1000;
 /** The configuration for the Clearcut client. */
 export interface ClearcutConfig {
   /**
-   * Maximum number of pending events before flushing. When exceeded, events will
-   * be dropped from the front of the queue.
+   * Maximum number of pending events before flushing. When exceeded, events
+   * will be dropped from the front of the queue.
    */
   readonly maxPendingEvents?: number;
   /** Minimum wait time between flushes in milliseconds. */
@@ -71,7 +71,7 @@ export class ClearcutClient implements Disposable {
     }
     this.isDisposed = true;
     // Flush any remaining events before disposing.
-    this.flush(/* force= */ true).catch((err) => {
+    this.flush(/* force= */ true).catch((err: unknown) => {
       log.error('Failed to flush telemetry events during disposal', err);
     });
   }
@@ -96,7 +96,7 @@ export class ClearcutClient implements Disposable {
     }
 
     this.pendingEvents.push({ source_extension_json: JSON.stringify(event) });
-    this.flush().catch((err) => {
+    this.flush().catch((err: unknown) => {
       log.error('Failed to flush telemetry events', err);
     });
   }

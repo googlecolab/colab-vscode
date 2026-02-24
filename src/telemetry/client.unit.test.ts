@@ -146,7 +146,7 @@ describe('ClearcutClient', () => {
 
     const requeueStatuses = [500, 501];
     for (const status of requeueStatuses) {
-      it(`requeues events when Clearcut responds with a 500+ status: ${status}`, async () => {
+      it(`requeues events when Clearcut responds with a ${status.toString()}`, async () => {
         const firstFetchCalled = new Deferred<void>();
         fetchStub.onFirstCall().callsFake(() => {
           firstFetchCalled.resolve();
@@ -374,7 +374,8 @@ describe('ClearcutClient', () => {
         };
         client.log(secondLog);
 
-        // Resolve the pending flush and advance time to reach the flush interval.
+        // Resolve the pending flush and advance time to reach the flush
+        // interval.
         flushPending.resolve();
         await fakeClock.tickAsync(10);
         await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL + 10);
@@ -437,7 +438,8 @@ describe('ClearcutClient', () => {
         });
         client.log(triggerLog);
 
-        // Verify that the oldest queued events were dropped to maintain capacity.
+        // Verify that the oldest queued events were dropped to maintain
+        // capacity.
         await secondFetchCalled.promise;
         sinon.assert.calledOnceWithExactly(
           fetchStub,
