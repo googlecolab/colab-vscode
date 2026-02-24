@@ -110,6 +110,7 @@ export class ClearcutClient implements Disposable {
    *   still be enabled.
    */
   private async flush(force = false) {
+    // Must be enabled by Colab and the user before flushing to Clearcut.
     const isTelemetryEnabled =
       getFlag(ExperimentFlag.EnableTelemetry) && this.vs.env.isTelemetryEnabled;
     if (!isTelemetryEnabled || this.pendingEvents.length === 0) {
