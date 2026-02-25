@@ -233,7 +233,21 @@ export function newVsCodeStub(): VsCodeStub {
         authentication: { ...this.authentication } as Partial<
           typeof vscode.authentication
         > as typeof vscode.authentication,
-      } as unknown as Partial<typeof vscode> as typeof vscode;
+        NotebookCellKind: this
+          .NotebookCellKind as typeof vscode.NotebookCellKind,
+        NotebookCellData: this.NotebookCellData as Partial<
+          typeof vscode.NotebookCellData
+        > as typeof vscode.NotebookCellData,
+        NotebookEdit: this.NotebookEdit as Partial<
+          typeof vscode.NotebookEdit
+        > as typeof vscode.NotebookEdit,
+        NotebookRange: this.NotebookRange as Partial<
+          typeof vscode.NotebookRange
+        > as typeof vscode.NotebookRange,
+        WorkspaceEdit: this.WorkspaceEdit as Partial<
+          typeof vscode.WorkspaceEdit
+        > as typeof vscode.WorkspaceEdit,
+      } as Partial<typeof vscode> as typeof vscode;
     },
     ThemeIcon: TestThemeIcon,
     Uri: TestUri,
