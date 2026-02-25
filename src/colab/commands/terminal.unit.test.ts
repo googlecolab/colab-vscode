@@ -14,6 +14,7 @@ import {
   buildQuickPickStub,
   QuickPickStub,
 } from '../../test/helpers/quick-input';
+import { TestThemeIcon } from '../../test/helpers/theme';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { openTerminal } from './terminal';
@@ -93,8 +94,7 @@ describe('openTerminal command', () => {
       sinon.assert.calledOnceWithMatch(
         vsCodeStub.window.createTerminal,
         sinon.match(
-          (options: ExtensionTerminalOptions) =>
-            options.name === 'Colab Terminal: Server 1',
+          (options: ExtensionTerminalOptions) => options.name === 'Server 1',
         ),
       );
     });
@@ -167,8 +167,7 @@ describe('openTerminal command', () => {
         sinon.assert.calledOnceWithMatch(
           vsCodeStub.window.createTerminal,
           sinon.match(
-            (options: ExtensionTerminalOptions) =>
-              options.name === 'Colab Terminal: Server 2',
+            (options: ExtensionTerminalOptions) => options.name === 'Server 2',
           ),
         );
       });
@@ -191,7 +190,11 @@ describe('openTerminal command', () => {
         vsCodeStub.window.createTerminal,
         sinon.match(
           (options: ExtensionTerminalOptions) =>
-            options.name === 'Colab Terminal: Server 1' && !!options.pty,
+            options.name === 'Server 1' &&
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            !!options.pty &&
+            options.iconPath instanceof TestThemeIcon &&
+            options.iconPath.id === 'colab-logo',
         ),
       );
     });
