@@ -18,25 +18,52 @@ import {
   LOG_SOURCE,
 } from './api';
 
-// The Clearcut endpoint.
-const LOGS_ENDPOINT = 'https://play.googleapis.com/log?format=json_proto';
-// Maximum number of pending events before flushing. When exceeded, events will
-// be dropped from the front of the queue.
-const MAX_PENDING_EVENTS = 1000;
-// Minimum wait time between flushes in milliseconds.
-const MIN_WAIT_BETWEEN_FLUSHES_MS = 10 * 1000;
+/** The Clearcut endpoint. */
+export const LOG_ENDPOINT = 'https://play.googleapis.com/log?format=json_proto';
+/**
+ * Maximum number of pending events before flushing. When exceeded, events will
+ * be dropped from the front of the queue.
+ */
+const DEFAULT_MAX_PENDING_EVENTS = 1000;
+/** Minimum wait time between flushes in milliseconds. */
+const DEFAULT_MIN_FLUSH_WAIT_MS = 10 * 1000;
+
+/** The configuration for the Clearcut client. */
+export interface ClearcutConfig {
+  /**
+   * Maximum number of pending events before flushing. When exceeded, events
+   * will be dropped from the front of the queue.
+   */
+  readonly maxPendingEvents?: number;
+  /** Minimum wait time between flushes in milliseconds. */
+  readonly minFlushWaitMs?: number;
+}
+
+const DEFAULT_CONFIG: ClearcutConfig = {
+  maxPendingEvents: DEFAULT_MAX_PENDING_EVENTS,
+  minFlushWaitMs: DEFAULT_MIN_FLUSH_WAIT_MS,
+};
 
 /**
  * A client for sending logs to Clearcut.
  */
 export class ClearcutClient implements Disposable {
+  private readonly maxPendingEvents: number;
+  private readonly minFlushWaitMs: number;
+
   private isDisposed = false;
-  // Whether a flush request is currently in progress.
+  /** Whether a flush request is currently in progress. */
   private isDoingFlush = false;
-  // The time when the next flush request is allowed.
+  /** The time when the next flush request is allowed. */
   private nextFlush = new Date();
-  // Queue of events to be flushed to Clearcut.
+  /** Queue of events to be flushed to Clearcut. */
   private pendingEvents: LogEvent[] = [];
+
+  constructor(config: ClearcutConfig = DEFAULT_CONFIG) {
+    this.maxPendingEvents =
+      config.maxPendingEvents ?? DEFAULT_MAX_PENDING_EVENTS;
+    this.minFlushWaitMs = config.minFlushWaitMs ?? DEFAULT_MIN_FLUSH_WAIT_MS;
+  }
 
   dispose() {
     if (this.isDisposed) {
@@ -44,7 +71,9 @@ export class ClearcutClient implements Disposable {
     }
     this.isDisposed = true;
     // Flush any remaining events before disposing.
-    void this.flush(/* force= */ true);
+    this.flush(/* force= */ true).catch((err: unknown) => {
+      log.error('Failed to flush telemetry events during disposal', err);
+    });
   }
 
   /** Queues a Colab log event for sending to Clearcut. */
@@ -56,15 +85,20 @@ export class ClearcutClient implements Disposable {
     }
 
     const numPendingEvents = this.pendingEvents.length;
-    // In theory, we shouldn't exceed MAX_PENDING_EVENTS, but for posterity, we
+    // In theory, we shouldn't exceed maxPendingEvents, but for posterity, we
     // guard against it here.
-    if (numPendingEvents >= MAX_PENDING_EVENTS) {
+    if (numPendingEvents >= this.maxPendingEvents) {
       // Drop oldest events to make room.
-      this.pendingEvents.splice(0, numPendingEvents - MAX_PENDING_EVENTS + 1);
+      this.pendingEvents.splice(
+        0,
+        numPendingEvents - this.maxPendingEvents + 1,
+      );
     }
 
     this.pendingEvents.push({ source_extension_json: JSON.stringify(event) });
-    void this.flush();
+    this.flush().catch((err: unknown) => {
+      log.error('Failed to flush telemetry events', err);
+    });
   }
 
   /**
@@ -91,7 +125,7 @@ export class ClearcutClient implements Disposable {
       const waitBetweenFlushesMs = await this.issueRequest(events);
       this.nextFlush = new Date(Date.now() + waitBetweenFlushesMs);
     } catch (err) {
-      this.nextFlush = new Date(Date.now() + MIN_WAIT_BETWEEN_FLUSHES_MS);
+      this.nextFlush = new Date(Date.now() + this.minFlushWaitMs);
       throw err;
     } finally {
       this.isDoingFlush = false;
@@ -109,7 +143,7 @@ export class ClearcutClient implements Disposable {
       log_source: LOG_SOURCE,
       log_event: events,
     };
-    const request = new Request(LOGS_ENDPOINT, {
+    const request = new Request(LOG_ENDPOINT, {
       method: 'POST',
       body: JSON.stringify(logRequest),
       headers: {
@@ -121,19 +155,19 @@ export class ClearcutClient implements Disposable {
     if (!response.ok) {
       if (response.status >= 500) {
         this.requeue(events); // Retry on next flush
-        return MIN_WAIT_BETWEEN_FLUSHES_MS;
+        return this.minFlushWaitMs;
       }
       throw new Error(
         `Failed to issue request ${request.method} ${request.url}: ${response.statusText}`,
       );
     }
 
-    let next_flush_millis = MIN_WAIT_BETWEEN_FLUSHES_MS;
+    let next_flush_millis = this.minFlushWaitMs;
     try {
       const { next_request_wait_millis } =
         (await response.json()) as LogResponse;
       const wait = Number(next_request_wait_millis);
-      if (Number.isInteger(wait) && wait > MIN_WAIT_BETWEEN_FLUSHES_MS) {
+      if (Number.isInteger(wait) && wait > this.minFlushWaitMs) {
         next_flush_millis = wait;
       }
     } catch (err: unknown) {
@@ -144,7 +178,7 @@ export class ClearcutClient implements Disposable {
 
   /** Requeues events by placing them at the front of the queue. */
   private requeue(events: LogEvent[]) {
-    const capacity = MAX_PENDING_EVENTS - this.pendingEvents.length;
+    const capacity = this.maxPendingEvents - this.pendingEvents.length;
 
     // Queue is full, which means the oldest events should be dropped.
     if (capacity === 0) {
@@ -158,9 +192,3 @@ export class ClearcutClient implements Disposable {
     this.pendingEvents.unshift(...events.slice(-capacity));
   }
 }
-
-export const TEST_ONLY = {
-  LOGS_ENDPOINT,
-  MAX_PENDING_EVENTS,
-  MIN_WAIT_BETWEEN_FLUSHES_MS,
-};
