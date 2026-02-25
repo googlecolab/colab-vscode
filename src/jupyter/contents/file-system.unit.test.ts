@@ -624,10 +624,7 @@ describe('ContentsFileSystemProvider', () => {
 
     it('throws file system file is a directory when the contents are for a directory', async () => {
       const contentsStub = stubClient('m-s-foo');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/', content: 0 })
-        .resolves(FOO_CONTENT_DIR);
+      contentsStub.get.resolves(CONTENT_DIR.withoutContents);
 
       await expect(
         fs.readFile(TestUri.parse('colab://m-s-foo/')),
@@ -636,11 +633,6 @@ describe('ContentsFileSystemProvider', () => {
 
     it('throws file system file is a directory when the contents not base64 encoded', async () => {
       const contentsStub = stubClient('m-s-foo');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-      // For read call.
       contentsStub.get
         .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
         .resolves({ ...FOO_CONTENT_FILE, format: 'text' });
@@ -652,11 +644,6 @@ describe('ContentsFileSystemProvider', () => {
 
     it('throws file system file is a directory when the contents not a string', async () => {
       const contentsStub = stubClient('m-s-foo');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-      // For read call.
       contentsStub.get
         .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
         .resolves({ ...FOO_CONTENT_FILE, content: [] });
@@ -670,11 +657,6 @@ describe('ContentsFileSystemProvider', () => {
       const contentsStub = stubClient('m-s-foo');
       const content = 'hello world';
       const encoded = Buffer.from(content).toString('base64');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-      // For read call.
       contentsStub.get
         .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
         .resolves({

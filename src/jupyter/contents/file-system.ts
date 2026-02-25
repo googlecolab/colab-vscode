@@ -248,11 +248,6 @@ export class ContentsFileSystemProvider
     this.throwForVsCodeFile(uri);
     const path = uri.path;
     try {
-      const stat = await this.stat(uri);
-      if (stat.type === this.vs.FileType.Directory) {
-        throw this.vs.FileSystemError.FileIsADirectory(uri);
-      }
-
       const client = await this.getOrCreateClient(uri);
       const content = await client.get({
         path,
@@ -261,6 +256,7 @@ export class ContentsFileSystemProvider
       });
 
       if (
+        isDirectoryContents(content) ||
         content.format !== ContentsGetFormatEnum.Base64 ||
         typeof content.content !== 'string'
       ) {
