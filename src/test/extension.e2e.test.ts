@@ -145,10 +145,7 @@ df`);
       // the viewport.
       await workbench.executeCommand('Notebook: Collapse All Cell Outputs');
 
-      await assertCellExecutions(driver, workbench, {
-        numSuccess: 3,
-        numErrors: 0,
-      });
+      await assertCellExecutionSuccess(driver, workbench, /* numSuccess= */ 3);
     });
 
     it('mounts Google Drive', async () => {
@@ -181,10 +178,7 @@ df`);
         dialog: 'Please complete the authorization in your browser.',
       });
 
-      await assertCellExecutions(driver, workbench, {
-        numSuccess: 1,
-        numErrors: 0,
-      });
+      await assertCellExecutionSuccess(driver, workbench);
     });
   });
 
@@ -306,7 +300,6 @@ df`);
         until.urlContains(expectedRedirectUrl),
         ELEMENT_WAIT_MS,
       );
-      await oauthDriver.close();
       await oauthDriver.quit();
     } catch (_) {
       // If the OAuth flow fails, ensure we grab a screenshot for debugging.
@@ -382,10 +375,10 @@ async function safeClick(
   );
 }
 
-async function assertCellExecutions(
+async function assertCellExecutionSuccess(
   driver: WebDriver,
   workbench: Workbench,
-  expected: { numSuccess: number; numErrors: number },
+  numSuccess = 1,
 ): Promise<void> {
   await driver.wait(
     async () => {
@@ -397,11 +390,10 @@ async function assertCellExecutions(
         By.className('codicon-notebook-state-error'),
       );
       return (
-        successElements.length === expected.numSuccess &&
-        errorElements.length === expected.numErrors
+        successElements.length === numSuccess && errorElements.length === 0
       );
     },
     CELL_EXECUTION_WAIT_MS,
-    'Notebook: Run All failed',
+    'Notebook cell execution results not matching expectations',
   );
 }
