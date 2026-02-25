@@ -6,6 +6,7 @@
 
 import * as fs from 'fs';
 import { assert } from 'chai';
+import clipboard from 'clipboardy';
 import dotenv from 'dotenv';
 import { WebElement } from 'selenium-webdriver';
 import * as chrome from 'selenium-webdriver/chrome';
@@ -27,7 +28,7 @@ import { CONFIG } from '../colab-config';
 const ELEMENT_WAIT_MS = 10000;
 const CELL_EXECUTION_WAIT_MS = 30000;
 
-describe('Colab Extension', function () {
+describe('Colab Extension', () => {
   dotenv.config();
 
   let driver: WebDriver;
@@ -50,8 +51,8 @@ describe('Colab Extension', function () {
     testTitle = this.currentTest?.fullTitle() ?? '';
   });
 
-  describe('with a notebook', () => {
-    beforeEach(async () => {
+  describe('with a notebook authenticated and connected to a Colab server', () => {
+    before(async () => {
       // Create an executable notebook. Note that it's created with a single
       // code cell by default.
       await workbench.executeCommand('Create: New Jupyter Notebook');
@@ -59,29 +60,6 @@ describe('Colab Extension', function () {
       // it.
       await notebookLoaded(driver);
 
-      let focusedCell: WebElement;
-      // Input code into the first cell.
-      await workbench.executeCommand('Notebook: Edit Cell');
-      focusedCell = await driver.switchTo().activeElement();
-      await focusedCell.sendKeys('1 + 1');
-
-      // Add a second cell to display a data frame.
-      await workbench.executeCommand('Notebook: Insert Code Cell Below');
-      focusedCell = await driver.switchTo().activeElement();
-      await focusedCell.sendKeys(`import pandas as pd
-df = pd.DataFrame({
-'col1': [i for i in range(5)],
-'col2': [f'text_{i}' for i in range(5)]
-})
-df`);
-
-      // Add a third cell to plot the data frame.
-      await workbench.executeCommand('Notebook: Insert Code Cell Below');
-      focusedCell = await driver.switchTo().activeElement();
-      await focusedCell.sendKeys('df.plot()');
-    });
-
-    it('authenticates and executes the notebook on a Colab server', async () => {
       // Select the Colab server provider from the kernel selector.
       await workbench.executeCommand('Notebook: Select Notebook Kernel');
       await selectQuickPickItem({
@@ -107,9 +85,10 @@ df`);
         button: 'Copy',
         dialog: 'Do you want Code to open the external website?',
       });
-      // TODO: Remove this dynamic import
-      const clipboardy = await import('clipboardy');
-      await doOauthSignIn(/* oauthUrl= */ clipboardy.default.readSync());
+      await doOauthSignIn(
+        /* oauthUrl= */ clipboard.readSync(),
+        /* expectedRedirectUrl= */ 'vscode/auth-success',
+      );
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
@@ -128,27 +107,76 @@ df`);
         item: 'Python 3 (ipykernel)',
         quickPick: 'Select a Kernel from Colab CPU',
       });
+    });
 
-      // Execute the notebook and poll for the success indicator (green check).
-      // Why not the cell output? Because the output is rendered in a webview.
+    afterEach(async () => {
+      // Clear notebook and output
+      await workbench.executeCommand(
+        'Notebook: Delete All Notebook Editor Cells',
+      );
+    });
+
+    it('executes basic code cells', async () => {
+      let focusedCell: WebElement;
+      // Input code into the first cell.
+      await workbench.executeCommand('Notebook: Edit Cell');
+      focusedCell = await driver.switchTo().activeElement();
+      await focusedCell.sendKeys('1 + 1');
+
+      // Add a second cell to display a data frame.
+      await workbench.executeCommand('Notebook: Insert Code Cell Below');
+      focusedCell = await driver.switchTo().activeElement();
+      await focusedCell.sendKeys(`import pandas as pd
+df = pd.DataFrame({
+'col1': [i for i in range(5)],
+'col2': [f'text_{i}' for i in range(5)]
+})
+df`);
+
+      // Add a third cell to plot the data frame.
+      await workbench.executeCommand('Notebook: Insert Code Cell Below');
+      focusedCell = await driver.switchTo().activeElement();
+      await focusedCell.sendKeys('df.plot()');
+
       await workbench.executeCommand('Notebook: Run All');
       // Collapsing all cell outputs so execution status of all 3 cells are in
       // the viewport.
       await workbench.executeCommand('Notebook: Collapse All Cell Outputs');
-      await driver.wait(
-        async () => {
-          const container = workbench.getEnclosingElement();
-          const successElements = await container.findElements(
-            By.className('codicon-notebook-state-success'),
-          );
-          const errorElements = await container.findElements(
-            By.className('codicon-notebook-state-error'),
-          );
-          return successElements.length === 3 && errorElements.length === 0;
-        },
-        CELL_EXECUTION_WAIT_MS,
-        'Notebook: Run All failed',
+
+      await assertAllCellsExecutedSuccessfully(driver, workbench);
+    });
+
+    it('mounts Google Drive', async () => {
+      // Delete the initial empty cell first because Mount Drive command will
+      // insert code snippet in a new cell.
+      await workbench.executeCommand('Notebook: Delete Cell');
+      await workbench.executeCommand('Colab: Mount Google Drive to Server...');
+
+      await workbench.executeCommand('Notebook: Run All');
+
+      await pushDialogButton({
+        button: 'Connect to Google Drive',
+        dialog: 'Permit server to access your Google Drive files?',
+      });
+      // Begin the sign-in process by copying the OAuth URL to the clipboard and
+      // opening it in a browser window. Why do this instead of triggering the
+      // "Open" button in the dialog? We copy the URL so that we can use a new
+      // driver instance for the OAuth flow, since the original driver instance
+      // does not have a handle to the window that would be spawned with "Open".
+      await pushDialogButton({
+        button: 'Copy',
+        dialog: 'Do you want Code to open the external website?',
+      });
+      await doOauthSignIn(
+        /* oauthUrl= */ clipboard.readSync(),
+        /* expectedRedirectUrl= */ 'tun/m/authorize-for-drive-credentials-ephem',
       );
+      await pushDialogButton({
+        button: 'Continue',
+        dialog: 'Please complete the authorization in your browser.',
+      });
+
+      await assertAllCellsExecutedSuccessfully(driver, workbench);
     });
   });
 
@@ -215,7 +243,10 @@ df`);
   /**
    * Performs the OAuth sign-in flow for the Colab extension.
    */
-  async function doOauthSignIn(oauthUrl: string): Promise<void> {
+  async function doOauthSignIn(
+    oauthUrl: string,
+    expectedRedirectUrl: string,
+  ): Promise<void> {
     const oauthDriver = await getOAuthDriver();
 
     try {
@@ -225,6 +256,7 @@ df`);
       const emailInput = await oauthDriver.findElement(
         By.css("input[type='email']"),
       );
+      await emailInput.clear();
       await emailInput.sendKeys(process.env.TEST_ACCOUNT_EMAIL ?? '');
       await emailInput.sendKeys(Key.ENTER);
 
@@ -263,7 +295,7 @@ df`);
 
       // Check that the test account's authenticated. Close the browser window.
       await oauthDriver.wait(
-        until.urlContains('vscode/auth-success'),
+        until.urlContains(expectedRedirectUrl),
         ELEMENT_WAIT_MS,
       );
       await oauthDriver.quit();
@@ -338,5 +370,32 @@ async function safeClick(
     },
     ELEMENT_WAIT_MS,
     errorMsg,
+  );
+}
+
+async function assertAllCellsExecutedSuccessfully(
+  driver: WebDriver,
+  workbench: Workbench,
+): Promise<void> {
+  // Poll for the success indicator (green check).
+  // Why not the cell output? Because the output is rendered in a webview.
+  await driver.wait(
+    async () => {
+      const container = workbench.getEnclosingElement();
+      const cells = await container.findElements(
+        By.className('cell-statusbar-container'),
+      );
+      const successElements = await container.findElements(
+        By.className('codicon-notebook-state-success'),
+      );
+      const errorElements = await container.findElements(
+        By.className('codicon-notebook-state-error'),
+      );
+      return (
+        successElements.length === cells.length && errorElements.length === 0
+      );
+    },
+    CELL_EXECUTION_WAIT_MS,
+    'Not all cells executed successfully',
   );
 }
