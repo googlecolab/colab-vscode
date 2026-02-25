@@ -55,26 +55,19 @@ export class TestWorkspaceEdit implements WorkspaceEdit {
     throw new Error('Method not implemented.');
   }
 
-  /* eslint-disable @typescript-eslint/unified-signatures */
-  set(uri: Uri, edits: readonly (TextEdit | SnippetTextEdit)[]): void;
   set(
     uri: Uri,
-    edits: readonly [
-      TextEdit | SnippetTextEdit,
-      WorkspaceEditEntryMetadata | undefined,
-    ][],
-  ): void;
-  set(uri: Uri, edits: readonly NotebookEdit[]): void;
-  set(
-    uri: Uri,
-    edits: readonly [NotebookEdit, WorkspaceEditEntryMetadata | undefined][],
-  ): void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  set(uri: Uri, edits: readonly any[]): void {
+    edits: readonly (
+      | TextEdit
+      | SnippetTextEdit
+      | NotebookEdit
+      | [TextEdit | SnippetTextEdit, WorkspaceEditEntryMetadata | undefined]
+      | [NotebookEdit, WorkspaceEditEntryMetadata | undefined]
+    )[],
+  ): void {
     this.uri = uri as TestUri;
     this.edits = edits as TestNotebookEdit[];
   }
-  /* eslint-enable @typescript-eslint/unified-signatures */
 
   get(_uri: Uri): TextEdit[] {
     throw new Error('Method not implemented.');
