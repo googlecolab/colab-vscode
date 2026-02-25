@@ -18,7 +18,6 @@ ipynb
 jupyterclient
 kernelspecs
 KHTML
-labelledby
 milli
 millis
 mocharc
@@ -27,7 +26,6 @@ pkce
 Pyright
 quickpick
 refreshable
-selectioni
 toggleable
 tombstoned
 toolsai
