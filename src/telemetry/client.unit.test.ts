@@ -124,11 +124,10 @@ describe('ClearcutClient', () => {
 
       client.log(DEFAULT_LOG);
       await firstFetchCalled.promise;
-      await fakeClock.tickAsync(10);
       sinon.assert.calledOnce(fetchStub);
       fetchStub.reset(); // Reset to clear behavior and history
 
-      await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS + 10);
+      await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS);
       const OTHER_LOG = {
         ...DEFAULT_LOG,
         timestamp: new Date(fakeClock.now).toISOString(),
@@ -155,11 +154,10 @@ describe('ClearcutClient', () => {
 
         client.log(DEFAULT_LOG);
         await firstFetchCalled.promise;
-        await fakeClock.tickAsync(10);
         sinon.assert.calledOnce(fetchStub);
         fetchStub.reset();
 
-        await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS + 10);
+        await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS);
         const OTHER_LOG = {
           ...DEFAULT_LOG,
           timestamp: new Date(fakeClock.now).toISOString(),
@@ -200,7 +198,7 @@ describe('ClearcutClient', () => {
         const failedLogs = createLogEvents(3);
         for (const [i, log] of failedLogs.entries()) {
           if (i === failedLogs.length - 1) {
-            await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS + 10);
+            await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS);
           }
           client.log(log);
         }
@@ -215,7 +213,7 @@ describe('ClearcutClient', () => {
 
         // Resolve the pending flush, requeuing failed logs
         pendingFlush.resolve();
-        await fakeClock.tickAsync(10);
+        await fakeClock.tickAsync(1);
         fetchStub.reset();
 
         const secondFetchCalled = new Deferred<void>();
@@ -237,7 +235,7 @@ describe('ClearcutClient', () => {
         const failedLogs = createLogEvents(MAX_PENDING_EVENTS);
         for (const [i, log] of failedLogs.entries()) {
           if (i === failedLogs.length - 1) {
-            await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS + 10);
+            await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS);
           }
           client.log(log);
         }
@@ -252,7 +250,7 @@ describe('ClearcutClient', () => {
 
         // Resolve the pending flush, requeuing failed logs
         pendingFlush.resolve();
-        await fakeClock.tickAsync(10);
+        await fakeClock.tickAsync(1);
         fetchStub.reset();
 
         const secondFetchCalled = new Deferred<void>();
@@ -274,7 +272,7 @@ describe('ClearcutClient', () => {
         const failedLogs = createLogEvents(3);
         for (const [i, log] of failedLogs.entries()) {
           if (i === failedLogs.length - 1) {
-            await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS + 10);
+            await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS);
           }
           client.log(log);
         }
@@ -289,7 +287,6 @@ describe('ClearcutClient', () => {
 
         // Resolve the pending flush, requeuing failed logs
         pendingFlush.resolve();
-        await fakeClock.tickAsync(10);
         fetchStub.reset();
 
         const secondFetchCalled = new Deferred<void>();
@@ -317,7 +314,6 @@ describe('ClearcutClient', () => {
         // Log an event to trigger the first flush.
         client.log(firstLog);
         await firstFetchCalled.promise;
-        await fakeClock.tickAsync(10);
         sinon.assert.calledOnce(fetchStub);
         fetchStub.reset();
 
@@ -329,7 +325,7 @@ describe('ClearcutClient', () => {
         client.log(secondLog);
 
         // Advance time to reach the flush interval.
-        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL + 10);
+        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL);
         sinon.assert.notCalled(fetchStub);
 
         // Now that the interval's reached, the next log should trigger a flush.
@@ -377,8 +373,7 @@ describe('ClearcutClient', () => {
         // Resolve the pending flush and advance time to reach the flush
         // interval.
         flushPending.resolve();
-        await fakeClock.tickAsync(10);
-        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL + 10);
+        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL);
         sinon.assert.notCalled(fetchStub);
 
         // Now that the interval's reached and the previous flush has resolved,
@@ -412,7 +407,6 @@ describe('ClearcutClient', () => {
         // Log an event to trigger the first flush.
         client.log(firstLog);
         await firstFetchCalled.promise;
-        await fakeClock.tickAsync(10);
         sinon.assert.calledOnce(fetchStub);
         fetchStub.reset();
 
@@ -423,7 +417,7 @@ describe('ClearcutClient', () => {
         }
 
         // Advance time to reach the flush interval.
-        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL + 10);
+        await fakeClock.tickAsync(LOG_RESPONSE_FLUSH_INTERVAL);
         sinon.assert.notCalled(fetchStub);
 
         // Trigger flush by logging one more event.
@@ -459,7 +453,6 @@ describe('ClearcutClient', () => {
     // Log an event to trigger the first flush.
     client.log(DEFAULT_LOG);
     await firstFetchCalled.promise;
-    await fakeClock.tickAsync(10);
     sinon.assert.calledOnce(fetchStub);
     fetchStub.reset();
 
@@ -471,7 +464,7 @@ describe('ClearcutClient', () => {
 
     // Advance time to reach the flush interval from the response.
     const remainingInterval = LOG_RESPONSE_FLUSH_INTERVAL - MIN_FLUSH_WAIT_MS;
-    await fakeClock.tickAsync(remainingInterval + 10);
+    await fakeClock.tickAsync(remainingInterval);
 
     // Trigger flush
     const secondFetchCalled = new Deferred<void>();
@@ -516,13 +509,12 @@ describe('ClearcutClient', () => {
       // Log an event to trigger the first flush.
       client.log(DEFAULT_LOG);
       await firstFetchCalled.promise;
-      await fakeClock.tickAsync(10);
       sinon.assert.calledOnce(fetchStub);
       fetchStub.reset();
 
       // Advance time to reach the flush interval.
       client.log(DEFAULT_LOG);
-      await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS + 10);
+      await fakeClock.tickAsync(MIN_FLUSH_WAIT_MS);
       sinon.assert.notCalled(fetchStub);
 
       // Trigger flush
@@ -554,7 +546,6 @@ describe('ClearcutClient', () => {
       // Log an event to trigger the first flush.
       client.log(DEFAULT_LOG);
       await firstFetchCalled.promise;
-      await fakeClock.tickAsync(10);
       sinon.assert.calledOnce(fetchStub);
       fetchStub.reset();
 
