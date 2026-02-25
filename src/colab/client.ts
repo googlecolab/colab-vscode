@@ -243,12 +243,12 @@ export class ColabClient {
    * @returns The list of assignments.
    */
   async listAssignments(signal?: AbortSignal): Promise<ListedAssignment[]> {
-    const assignments = await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/assignments`, this.colabDomain),
+    const response = await this.issueRequest(
+      new URL('v1/assignments', this.colabGapiDomain),
       { method: 'GET', signal },
       ListedAssignmentsSchema,
     );
-    return assignments.assignments;
+    return response.assignments;
   }
 
   /**

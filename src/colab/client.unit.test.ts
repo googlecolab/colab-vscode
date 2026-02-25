@@ -20,12 +20,12 @@ import {
   SubscriptionTier,
   Variant,
   Outcome,
-  ListedAssignments,
   RuntimeProxyToken,
   AuthType,
   ExperimentFlag,
   ConsumptionUserInfo,
   UserInfo,
+  ListedAssignment,
 } from './api';
 import {
   ColabClient,
@@ -58,16 +58,6 @@ const DEFAULT_ASSIGNMENT_RESPONSE = {
     tokenExpiresInSeconds: 42,
     url: 'https://mock-url.com',
   },
-};
-const DEFAULT_LIST_ASSIGNMENTS_RESPONSE: ListedAssignments = {
-  assignments: [
-    {
-      accelerator: DEFAULT_ASSIGNMENT_RESPONSE.accelerator,
-      endpoint: DEFAULT_ASSIGNMENT_RESPONSE.endpoint,
-      variant: DEFAULT_ASSIGNMENT_RESPONSE.variant,
-      machineShape: DEFAULT_ASSIGNMENT_RESPONSE.machineShape,
-    },
-  ],
 };
 const { fit, sub, subTier, ...rest } = DEFAULT_ASSIGNMENT_RESPONSE;
 const DEFAULT_ASSIGNMENT: Assignment = {
@@ -518,28 +508,118 @@ describe('ColabClient', () => {
     });
   });
 
-  it('successfully lists assignments', async () => {
+  it('successfully lists multiple assignments', async () => {
+    const mockAssignment1 = {
+      endpoint: 'm-s-foo-1',
+      accelerator: 'A100',
+      variant: 'VARIANT_UNSPECIFIED',
+      machineShape: 'SHAPE_UNSPECIFIED',
+      runtimeProxyInfo: {
+        token: 'new_token',
+        tokenTtl: '3600s',
+        url: 'https://8080-m-s-foo-1.bar.prod.colab.dev',
+      },
+    };
+    const mockAssignment2 = {
+      endpoint: 'm-s-foo-2',
+      accelerator: 'T4',
+      variant: 'VARIANT_GPU',
+      machineShape: 'SHAPE_DEFAULT',
+      runtimeProxyInfo: {
+        token: 'new_token',
+        tokenTtl: '3600s',
+        url: 'https://8080-m-s-foo-2.bar.prod.colab.dev',
+      },
+    };
+    const mockAssignment3 = {
+      endpoint: 'm-s-foo-3',
+      accelerator: 'V28',
+      variant: 'VARIANT_TPU',
+      machineShape: 'SHAPE_HIGH_MEM',
+      runtimeProxyInfo: {
+        token: 'new_token',
+        tokenTtl: '3600s',
+        url: 'https://8080-m-s-foo-3.bar.prod.colab.dev',
+      },
+    };
     fetchStub
       .withArgs(
         urlMatcher({
           method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/assignments',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/assignments',
+          withAuthUser: false,
         }),
       )
       .resolves(
         new Response(
-          withXSSI(JSON.stringify(DEFAULT_LIST_ASSIGNMENTS_RESPONSE)),
-          {
-            status: 200,
-          },
+          withXSSI(
+            JSON.stringify({
+              assignments: [mockAssignment1, mockAssignment2, mockAssignment3],
+            }),
+          ),
+          { status: 200 },
         ),
       );
 
-    await expect(client.listAssignments()).to.eventually.deep.equal(
-      DEFAULT_LIST_ASSIGNMENTS_RESPONSE.assignments,
-    );
+    const results = client.listAssignments();
 
+    const expectedAssignment1: ListedAssignment = {
+      endpoint: mockAssignment1.endpoint,
+      accelerator: mockAssignment1.accelerator,
+      variant: Variant.DEFAULT,
+      machineShape: Shape.STANDARD,
+      runtimeProxyInfo: {
+        token: mockAssignment1.runtimeProxyInfo.token,
+        tokenExpiresInSeconds: 3600,
+        url: mockAssignment1.runtimeProxyInfo.url,
+      },
+    };
+    const expectedAssignment2: ListedAssignment = {
+      endpoint: mockAssignment2.endpoint,
+      accelerator: mockAssignment2.accelerator,
+      variant: Variant.GPU,
+      machineShape: Shape.STANDARD,
+      runtimeProxyInfo: {
+        token: mockAssignment2.runtimeProxyInfo.token,
+        tokenExpiresInSeconds: 3600,
+        url: mockAssignment2.runtimeProxyInfo.url,
+      },
+    };
+    const expectedAssignment3: ListedAssignment = {
+      endpoint: mockAssignment3.endpoint,
+      accelerator: mockAssignment3.accelerator,
+      variant: Variant.TPU,
+      machineShape: Shape.HIGHMEM,
+      runtimeProxyInfo: {
+        token: mockAssignment3.runtimeProxyInfo.token,
+        tokenExpiresInSeconds: 3600,
+        url: mockAssignment3.runtimeProxyInfo.url,
+      },
+    };
+    await expect(results).to.eventually.deep.equal([
+      expectedAssignment1,
+      expectedAssignment2,
+      expectedAssignment3,
+    ]);
+    sinon.assert.calledOnce(fetchStub);
+  });
+
+  it('successfully lists undefined assignments', async () => {
+    fetchStub
+      .withArgs(
+        urlMatcher({
+          method: 'GET',
+          host: GOOGLE_APIS_HOST,
+          path: '/v1/assignments',
+          withAuthUser: false,
+        }),
+      )
+      .resolves(new Response(withXSSI(JSON.stringify({})), { status: 200 }));
+
+    const results = client.listAssignments();
+
+    await expect(results).to.eventually.to.empty;
     sinon.assert.calledOnce(fetchStub);
   });
 
