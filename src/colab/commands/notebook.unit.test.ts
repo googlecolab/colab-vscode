@@ -18,7 +18,7 @@ import {
   MOUNT_SERVER,
   MOUNT_DRIVE,
 } from './constants';
-import { notebookToolbar, insertCodeCellBelow } from './notebook';
+import { notebookToolbar, appendCodeCell } from './notebook';
 
 describe('Notebook', () => {
   let vs: VsCodeStub;
@@ -207,9 +207,9 @@ describe('Notebook', () => {
     });
   });
 
-  describe('insertCodeCellBelow', () => {
+  describe('appendCodeCell', () => {
     it('returns false if no active notebook editor', async () => {
-      const result = await insertCodeCellBelow(vs.asVsCode(), '', '');
+      const result = await appendCodeCell(vs.asVsCode(), '', '');
 
       expect(result).to.be.false;
       sinon.assert.notCalled(vs.workspace.applyEdit);
@@ -242,11 +242,7 @@ describe('Notebook', () => {
           const code = 'print("Hello World")';
           const language = 'python';
 
-          const result = await insertCodeCellBelow(
-            vs.asVsCode(),
-            code,
-            language,
-          );
+          const result = await appendCodeCell(vs.asVsCode(), code, language);
 
           expect(result).to.equals(success);
           sinon.assert.calledOnceWithMatch(
