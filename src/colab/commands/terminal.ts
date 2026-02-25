@@ -69,8 +69,9 @@ function createColabTerminal(vs: typeof vscode, server: ColabAssignedServer) {
 
   // Create the VS Code terminal
   const terminal = vs.window.createTerminal({
-    name: `Colab Terminal: ${server.label}`,
+    name: server.label,
     pty,
+    iconPath: new vs.ThemeIcon('colab-logo'),
   });
 
   // Show the terminal
