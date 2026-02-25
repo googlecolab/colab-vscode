@@ -20,7 +20,7 @@ this extension exposes Colab servers directly in VS Code!
    or [Open VSX](https://open-vsx.org/extension/Google/colab).
 1. Open or create a notebook file.
 1. When prompted, sign in.
-1. Click `Select Kernel` > `Colab` > `New Colab Server`.
+1. Click `Select Kernel` > `Colab` > `Auto Connect`.
 1. 😎 Enjoy!
 
 ![Connecting to a new Colab server and executing a code
@@ -33,11 +33,11 @@ for more things you can do!
 
 Activate the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P` on Mac.
 
-| Command                                  | Description                                           |
-| ---------------------------------------- | ----------------------------------------------------- |
-| `Colab: Remove Server`                   | Select an assigned Colab server to remove.            |
-| `Colab: Sign Out`                        | Sign out of Colab.                                    |
-| `Colab: Mount Google Drive to Server...` | Add a code snippet in notebook to mount Google Drive. |
+| Command                                  | Description                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| `Colab: Remove Server`                   | Select an assigned Colab server to remove.                          |
+| `Colab: Sign Out`                        | Sign out of Colab.                                                  |
+| `Colab: Mount Google Drive to Server...` | Append a code snippet to the active notebook to mount Google Drive. |
 
 ## Contributing
 
