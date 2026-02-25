@@ -138,22 +138,20 @@ df`);
       focusedCell = await driver.switchTo().activeElement();
       await focusedCell.sendKeys('df.plot()');
 
-      // Execute the notebook and poll for the success indicator (green check).
-      // Why not the cell output? Because the output is rendered in a webview.
       await workbench.executeCommand('Notebook: Run All');
       // Collapsing all cell outputs so execution status of all 3 cells are in
       // the viewport.
       await workbench.executeCommand('Notebook: Collapse All Cell Outputs');
 
-      await assertCellExecutionSuccess(driver, workbench, /* numSuccess= */ 3);
+      await assertAllCellsExecutedSuccessfully(driver, workbench);
     });
 
     it('mounts Google Drive', async () => {
-      // Input code into the first cell.
+      // Delete the initial empty cell first because Mount Drive command will
+      // insert code snippet in a new cell.
+      await workbench.executeCommand('Notebook: Delete Cell');
       await workbench.executeCommand('Colab: Mount Google Drive to Server...');
 
-      // Execute the notebook and poll for the success indicator (green check).
-      // Why not the cell output? Because the output is rendered in a webview.
       await workbench.executeCommand('Notebook: Run All');
 
       await pushDialogButton({
@@ -178,7 +176,7 @@ df`);
         dialog: 'Please complete the authorization in your browser.',
       });
 
-      await assertCellExecutionSuccess(driver, workbench);
+      await assertAllCellsExecutedSuccessfully(driver, workbench);
     });
   });
 
@@ -375,14 +373,18 @@ async function safeClick(
   );
 }
 
-async function assertCellExecutionSuccess(
+async function assertAllCellsExecutedSuccessfully(
   driver: WebDriver,
   workbench: Workbench,
-  numSuccess = 1,
 ): Promise<void> {
+  // Poll for the success indicator (green check).
+  // Why not the cell output? Because the output is rendered in a webview.
   await driver.wait(
     async () => {
       const container = workbench.getEnclosingElement();
+      const cells = await container.findElements(
+        By.className('cell-statusbar-container'),
+      );
       const successElements = await container.findElements(
         By.className('codicon-notebook-state-success'),
       );
@@ -390,10 +392,10 @@ async function assertCellExecutionSuccess(
         By.className('codicon-notebook-state-error'),
       );
       return (
-        successElements.length === numSuccess && errorElements.length === 0
+        successElements.length === cells.length && errorElements.length === 0
       );
     },
     CELL_EXECUTION_WAIT_MS,
-    'Notebook cell execution results not matching expectations',
+    'Not all cells executed successfully',
   );
 }
