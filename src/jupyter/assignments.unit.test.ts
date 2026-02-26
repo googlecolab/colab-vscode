@@ -970,7 +970,10 @@ describe('AssignmentManager', () => {
 
   describe('unassignServer', () => {
     it('does nothing when the server does not exist', async () => {
-      await assignmentManager.unassignServer(defaultServer);
+      await assignmentManager.unassignServer(
+        defaultServer,
+        EventSource.COMMAND_PALETTE,
+      );
 
       sinon.assert.notCalled(colabClientStub.unassign);
       sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
@@ -1009,7 +1012,10 @@ describe('AssignmentManager', () => {
         };
         jupyterStub.sessions.list.resolves([session1, session2]);
 
-        await assignmentManager.unassignServer(defaultServer);
+        await assignmentManager.unassignServer(
+          defaultServer,
+          EventSource.COMMAND_PALETTE,
+        );
 
         sinon.assert.calledTwice(jupyterStub.sessions.delete);
         sinon.assert.calledWith(jupyterStub.sessions.delete, {
@@ -1023,7 +1029,10 @@ describe('AssignmentManager', () => {
       it('does not delete sessions when there are none', async () => {
         jupyterStub.sessions.list.resolves([]);
 
-        await assignmentManager.unassignServer(defaultServer);
+        await assignmentManager.unassignServer(
+          defaultServer,
+          EventSource.COMMAND_PALETTE,
+        );
 
         sinon.assert.notCalled(jupyterStub.sessions.delete);
       });
@@ -1031,7 +1040,10 @@ describe('AssignmentManager', () => {
       it('unassigns the server', async () => {
         jupyterStub.sessions.list.resolves([]);
 
-        await assignmentManager.unassignServer(defaultServer);
+        await assignmentManager.unassignServer(
+          defaultServer,
+          EventSource.COMMAND_PALETTE,
+        );
 
         const serversAfter = await assignmentManager.getServers('extension');
         expect(serversAfter).to.be.empty;
@@ -1059,7 +1071,10 @@ describe('AssignmentManager', () => {
           variant: Variant.DEFAULT,
         };
 
-        await assignmentManager.unassignServer(remoteServer);
+        await assignmentManager.unassignServer(
+          remoteServer,
+          EventSource.COMMAND_PALETTE,
+        );
 
         sinon.assert.calledOnceWithMatch(
           colabClientStub.unassign,
