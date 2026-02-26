@@ -255,12 +255,12 @@ export class ContentsFileSystemProvider
         type: ContentsGetTypeEnum.File,
       });
 
-      if (
-        isDirectoryContents(content) ||
-        content.format !== ContentsGetFormatEnum.Base64 ||
-        typeof content.content !== 'string'
-      ) {
-        throw this.vs.FileSystemError.FileIsADirectory(uri);
+      if (typeof content.content !== 'string') {
+        const err = new Error(
+          'Unexpected content format received from Jupyter Server',
+        );
+        log.error(`Cannot read file "${uri.toString()}"`, err, content);
+        throw err;
       }
 
       return Buffer.from(content.content, 'base64');
