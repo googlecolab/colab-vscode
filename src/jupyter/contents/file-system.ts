@@ -248,11 +248,6 @@ export class ContentsFileSystemProvider
     this.throwForVsCodeFile(uri);
     const path = uri.path;
     try {
-      const stat = await this.stat(uri);
-      if (stat.type === this.vs.FileType.Directory) {
-        throw this.vs.FileSystemError.FileIsADirectory(uri);
-      }
-
       const client = await this.getOrCreateClient(uri);
       const content = await client.get({
         path,
@@ -260,11 +255,12 @@ export class ContentsFileSystemProvider
         type: ContentsGetTypeEnum.File,
       });
 
-      if (
-        content.format !== ContentsGetFormatEnum.Base64 ||
-        typeof content.content !== 'string'
-      ) {
-        throw this.vs.FileSystemError.FileIsADirectory(uri);
+      if (typeof content.content !== 'string') {
+        const err = new Error(
+          'Unexpected content format received from Jupyter Server',
+        );
+        log.error(`Cannot read file "${uri.toString()}"`, err, content);
+        throw err;
       }
 
       return Buffer.from(content.content, 'base64');

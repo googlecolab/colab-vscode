@@ -622,59 +622,30 @@ describe('ContentsFileSystemProvider', () => {
       ).to.eventually.rejectedWith(/FileNotFound/);
     });
 
-    it('throws file system file is a directory when the contents are for a directory', async () => {
+    it('throws when the contents are not a string', async () => {
       const contentsStub = stubClient('m-s-foo');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/', content: 0 })
-        .resolves(FOO_CONTENT_DIR);
-
-      await expect(
-        fs.readFile(TestUri.parse('colab://m-s-foo/')),
-      ).to.eventually.rejectedWith(/FileIsADirectory/);
-    });
-
-    it('throws file system file is a directory when the contents not base64 encoded', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-      // For read call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
-        .resolves({ ...FOO_CONTENT_FILE, format: 'text' });
-
-      await expect(
-        fs.readFile(TestUri.parse('colab://m-s-foo/foo.txt')),
-      ).to.eventually.rejectedWith(/FileIsADirectory/);
-    });
-
-    it('throws file system file is a directory when the contents not a string', async () => {
-      const contentsStub = stubClient('m-s-foo');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-      // For read call.
       contentsStub.get
         .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
         .resolves({ ...FOO_CONTENT_FILE, content: [] });
 
       await expect(
         fs.readFile(TestUri.parse('colab://m-s-foo/foo.txt')),
-      ).to.eventually.rejectedWith(/FileIsADirectory/);
+      ).to.eventually.rejectedWith(/Unexpected content format/);
     });
 
-    it('returns a buffer of the the base64 encoded contents for a file', async () => {
+    it('returns a buffer for a file with empty content', async () => {
+      const contentsStub = stubClient('m-s-foo');
+      contentsStub.get.resolves(CONTENT_DIR.withoutContents);
+
+      const result = await fs.readFile(TestUri.parse('colab://m-s-foo/'));
+
+      expect(result).to.deep.equal(Buffer.from(''));
+    });
+
+    it('returns a buffer of the base64 encoded contents for a file', async () => {
       const contentsStub = stubClient('m-s-foo');
       const content = 'hello world';
       const encoded = Buffer.from(content).toString('base64');
-      // For stat call.
-      contentsStub.get
-        .withArgs({ path: '/foo.txt', content: 0 })
-        .resolves(FOO_CONTENT_FILE);
-      // For read call.
       contentsStub.get
         .withArgs({ path: '/foo.txt', format: 'base64', type: 'file' })
         .resolves({
