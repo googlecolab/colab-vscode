@@ -47,10 +47,37 @@ export type ColabEvent =
   | {
       /** An event representing an error. */
       error_event: ColabErrorEvent;
+    }
+  | {
+      /** An event that logs when the user selects the autoconnect option */
+      auto_connect_event: AutoConnectEvent;
+    }
+  | {
+      /** An event that logs when the user creates a server assignment */
+      assign_server_event: AssignServerEvent;
+    }
+  | {
+      /** An event that logs when servers are pruned */
+      prune_servers_event: PruneServersEvent;
+    }
+  | {
+      /** An event that logs when the remove server command is triggered */
+      remove_server_event: RemoveServerEvent;
     };
 
+/** An event representing a server assignment */
+export interface AssignServerEvent {
+  server: string;
+  variant: string;
+  accelerator?: string;
+  shape?: string;
+  version?: string;
+}
 /** An event representing extension activation. */
 type ColabActivationEvent = Record<string, never>;
+
+/** An event representing a server auto connection */
+type AutoConnectEvent = Record<string, never>;
 
 /** An event representing an error. */
 interface ColabErrorEvent {
@@ -60,6 +87,17 @@ interface ColabErrorEvent {
   msg: string;
   /** The stack trace of the error. */
   stack: string;
+}
+
+/** An event representing server pruning */
+interface PruneServersEvent {
+  servers: string[];
+}
+
+/** An event representing server removal */
+interface RemoveServerEvent {
+  server: string;
+  source: string;
 }
 
 /** The Clearcut log event structure. */

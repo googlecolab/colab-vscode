@@ -47,6 +47,7 @@ import {
   DEFAULT_CPU_SERVER,
 } from './servers';
 import { ServerStorage } from './storage';
+import { EventSource } from '../telemetry';
 
 const NOW = new Date();
 const TOKEN_EXPIRY_MS = 1000 * 60 * 60;
@@ -906,6 +907,7 @@ describe('AssignmentManager', () => {
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.commands.executeCommand,
           REMOVE_SERVER.id,
+          EventSource.NOTIFICATION,
         );
       });
     });

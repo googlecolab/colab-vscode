@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ColabLogEventBase, ColabEvent } from './api';
+import { ColabLogEventBase, ColabEvent, AssignServerEvent } from './api';
 import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
@@ -56,6 +56,14 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
   };
 }
 
+/** Enum to represent different event sources/triggers */
+export enum EventSource {
+  COMMAND_PALETTE = 'command-palette',
+  NOTEBOOK_TOOLBAR = 'toolbar',
+  NOTIFICATION = 'notification',
+  UNKNOWN = 'unknown',
+}
+
 /**
  * A collection of functions for logging telemetry events.
  */
@@ -74,6 +82,36 @@ export const telemetry = {
       const msg = e ? JSON.stringify(e) : String(e);
       log({ error_event: { name: 'Error', msg, stack: '' } });
     }
+  },
+  logAutoConnect: () => {
+    log({ auto_connect_event: {} });
+  },
+  logAssignServerEvent: ({
+    server,
+    variant,
+    accelerator,
+    shape,
+    version,
+  }: Partial<AssignServerEvent> = {}) => {
+    log({
+      assign_server_event: {
+        server: server ?? 'Unknown',
+        variant: variant ?? 'Unknown',
+        accelerator,
+        shape,
+        version,
+      },
+    });
+  },
+  logPruneServersEvent: (servers: string[]) => {
+    log({
+      prune_servers_event: { servers },
+    });
+  },
+  logRemoveServerEvent: (server: string, source?: EventSource) => {
+    log({
+      remove_server_event: { server, source: source ?? EventSource.UNKNOWN },
+    });
   },
 };
 
