@@ -352,9 +352,9 @@ export class AssignmentManager implements vscode.Disposable {
   async latestOrAutoAssignServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
-    telemetry.logAutoConnect();
     const latest = await this.latestServer(signal);
     if (latest) {
+      telemetry.logAutoConnect();
       return latest;
     }
     const alias = await this.getDefaultLabel(
@@ -365,7 +365,9 @@ export class AssignmentManager implements vscode.Disposable {
       ...DEFAULT_CPU_SERVER,
       label: alias,
     };
-    return this.assignServer(serverType, signal);
+    const server = await this.assignServer(serverType, signal);
+    telemetry.logAutoConnect();
+    return server;
   }
 
   /**

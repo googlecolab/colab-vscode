@@ -30,6 +30,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { EventSource } from '../telemetry';
 import { TestEventEmitter } from '../test/helpers/events';
 import {
   createJupyterClientStub,
@@ -47,7 +48,6 @@ import {
   DEFAULT_CPU_SERVER,
 } from './servers';
 import { ServerStorage } from './storage';
-import { EventSource } from '../telemetry';
 
 const NOW = new Date();
 const TOKEN_EXPIRY_MS = 1000 * 60 * 60;
