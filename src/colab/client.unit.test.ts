@@ -102,7 +102,10 @@ describe('ColabClient', () => {
           models: ['V5E1', 'V6E1', 'V28'],
         },
       ],
-      ineligibleAccelerators: [],
+      ineligibleAccelerators: [
+        { variant: 'VARIANT_GPU' },
+        { variant: 'VARIANT_TPU' },
+      ],
     };
     fetchStub
       .withArgs(
@@ -131,7 +134,10 @@ describe('ColabClient', () => {
           models: ['V5E1', 'V6E1', 'V28'],
         },
       ],
-      ineligibleAccelerators: [],
+      ineligibleAccelerators: [
+        { variant: Variant.GPU, models: [] },
+        { variant: Variant.TPU, models: [] },
+      ],
     };
     await expect(response).to.eventually.deep.equal(expectedResponse);
     sinon.assert.calledOnce(fetchStub);
