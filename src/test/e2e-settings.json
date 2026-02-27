@@ -1,0 +1,14 @@
+{
+  "colab.logging.level": "trace",
+  "jupyter.logging.level": "debug",
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "off",
+  "workbench.startupEditor": "none",
+  "workbench.welcomePage.enabled": false,
+  "extensions.autoCheckUpdates": false,
+  "extensions.autoUpdate": false,
+  "security.workspace.trust.enabled": false,
+  "window.restoreWindows": "none",
+  "workbench.editor.enablePreview": false,
+  "workbench.auxiliaryBar.visible": false
+}
