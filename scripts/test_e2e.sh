@@ -116,6 +116,8 @@ build_test_cmd() {
     base_cmd=(extest setup-and-run "${storage_flag[@]+"${storage_flag[@]}"}")
   fi
 
+  base_cmd+=("-o" "./out/test/e2e-settings.json" "-i")
+
   # Print each part of the command on a new line.
   printf "%s\n" "${base_cmd[@]}"
   printf "%s\n" ./out/test/*.e2e.test.js -m ./out/test/e2e.mocharc.js
