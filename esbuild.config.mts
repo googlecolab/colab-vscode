@@ -158,7 +158,7 @@ async function main(): Promise<void> {
     cpSync('src/auth/media/favicon.ico', 'out/auth/media/favicon.ico');
     if (isTestBuild) {
       cpSync('src/auth/media/favicon.ico', 'out/test/media/favicon.ico');
-      cpSync('src/test/e2e-settings.json', 'out/test/e2e-settings.json');
+      cpSync('src/test/e2e/settings.json', 'out/test/e2e/settings.json');
     }
 
     // Determine which build options to use based on 'isTestBuild' flag
@@ -172,8 +172,8 @@ async function main(): Promise<void> {
           testOptions('Unit Tests', 'src/**/*.unit.test.ts'),
           testOptions('Integration Tests', 'src/**/*.vscode.test.ts'),
           testOptions('E2E Tests', [
-            'src/test/*.e2e.test.ts',
-            'src/test/e2e.mocharc.js',
+            'src/**/*.e2e.test.ts',
+            'src/test/e2e/mocharc.js',
           ]),
         ]
       : [extensionOptions];

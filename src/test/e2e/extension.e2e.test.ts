@@ -23,7 +23,7 @@ import {
   VSBrowser,
   until,
 } from 'vscode-extension-tester';
-import { CONFIG } from '../colab-config';
+import { CONFIG } from '../../colab-config';
 
 const ELEMENT_WAIT_MS = 10000;
 const CELL_EXECUTION_WAIT_MS = 30000;
