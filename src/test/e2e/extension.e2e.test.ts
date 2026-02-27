@@ -13,17 +13,20 @@ import * as chrome from 'selenium-webdriver/chrome';
 import {
   Builder,
   By,
-  error,
   InputBox,
   Key,
-  Locator,
-  ModalDialog,
   WebDriver,
   Workbench,
   VSBrowser,
   until,
 } from 'vscode-extension-tester';
 import { CONFIG } from '../../colab-config';
+import {
+  notebookLoaded,
+  pushDialogButton,
+  safeClick,
+  selectQuickPickItem,
+} from './ui';
 
 const ELEMENT_WAIT_MS = 10000;
 const CELL_EXECUTION_WAIT_MS = 30000;
@@ -62,17 +65,17 @@ describe('Colab Extension', () => {
 
       // Select the Colab server provider from the kernel selector.
       await workbench.executeCommand('Notebook: Select Notebook Kernel');
-      await selectQuickPickItem({
+      await selectQuickPickItem(driver, {
         item: 'Colab',
         quickPick: 'Select Another Kernel',
       });
-      await selectQuickPickItem({
+      await selectQuickPickItem(driver, {
         item: 'New Colab Server',
         quickPick: 'Select a Jupyter Server',
       });
 
       // Accept the dialog allowing the Colab extension to sign in using Google.
-      await pushDialogButton({
+      await pushDialogButton(driver, {
         button: 'Allow',
         dialog: "The extension 'Colab' wants to sign in using Google.",
       });
@@ -81,7 +84,7 @@ describe('Colab Extension', () => {
       // "Open" button in the dialog? We copy the URL so that we can use a new
       // driver instance for the OAuth flow, since the original driver instance
       // does not have a handle to the window that would be spawned with "Open".
-      await pushDialogButton({
+      await pushDialogButton(driver, {
         button: 'Copy',
         dialog: 'Do you want Code to open the external website?',
       });
@@ -92,18 +95,18 @@ describe('Colab Extension', () => {
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
-      await selectQuickPickItem({
+      await selectQuickPickItem(driver, {
         item: 'CPU',
         quickPick: 'Select a variant (1/3)',
       });
-      await selectQuickPickItem({
+      await selectQuickPickItem(driver, {
         item: 'Latest',
         quickPick: 'Select a runtime version (2/3)',
       });
       // Alias the server with the default name.
       const inputBox = await InputBox.create();
       await inputBox.sendKeys(Key.ENTER);
-      await selectQuickPickItem({
+      await selectQuickPickItem(driver, {
         item: 'Python 3 (ipykernel)',
         quickPick: 'Select a Kernel from Colab CPU',
       });
@@ -154,7 +157,7 @@ df`);
 
       await workbench.executeCommand('Notebook: Run All');
 
-      await pushDialogButton({
+      await pushDialogButton(driver, {
         button: 'Connect to Google Drive',
         dialog: 'Permit server to access your Google Drive files?',
       });
@@ -163,7 +166,7 @@ df`);
       // "Open" button in the dialog? We copy the URL so that we can use a new
       // driver instance for the OAuth flow, since the original driver instance
       // does not have a handle to the window that would be spawned with "Open".
-      await pushDialogButton({
+      await pushDialogButton(driver, {
         button: 'Copy',
         dialog: 'Do you want Code to open the external website?',
       });
@@ -171,7 +174,7 @@ df`);
         /* oauthUrl= */ clipboard.readSync(),
         /* expectedRedirectUrl= */ 'tun/m/authorize-for-drive-credentials-ephem',
       );
-      await pushDialogButton({
+      await pushDialogButton(driver, {
         button: 'Continue',
         dialog: 'Please complete the authorization in your browser.',
       });
@@ -179,66 +182,6 @@ df`);
       await assertAllCellsExecutedSuccessfully(driver, workbench);
     });
   });
-
-  /**
-   * Selects the QuickPick option.
-   */
-  async function selectQuickPickItem({
-    item,
-    quickPick,
-  }: {
-    item: string;
-    quickPick: string;
-  }) {
-    return driver.wait(
-      async () => {
-        try {
-          const inputBox = await InputBox.create();
-          // We check for the item's presence before selecting it, since
-          // InputBox.selectQuickPick will not throw if the item is not found.
-          const quickPickItem = await inputBox.findQuickPick(item);
-          if (!quickPickItem) {
-            return false;
-          }
-          await quickPickItem.select();
-          return true;
-        } catch (_) {
-          // Swallow errors since we want to fail when our timeout's reached.
-          return false;
-        }
-      },
-      ELEMENT_WAIT_MS,
-      `Select "${item}" item for QuickPick "${quickPick}" failed`,
-    );
-  }
-
-  /**
-   * Pushes a button in a modal dialog and waits for the action to complete.
-   */
-  async function pushDialogButton({
-    button,
-    dialog,
-  }: {
-    button: string;
-    dialog: string;
-  }) {
-    // ModalDialog.pushButton will throw if the dialog is not found; to reduce
-    // flakes we attempt this until it succeeds or times out.
-    return driver.wait(
-      async () => {
-        try {
-          const dialog = new ModalDialog();
-          await dialog.pushButton(button);
-          return true;
-        } catch (_) {
-          // Swallow the error since we want to fail when the timeout's reached.
-          return false;
-        }
-      },
-      ELEMENT_WAIT_MS,
-      `Push "${button}" button for dialog "${dialog}" failed`,
-    );
-  }
 
   /**
    * Performs the OAuth sign-in flow for the Colab extension.
@@ -329,48 +272,6 @@ function getOAuthDriver(): Promise<WebDriver> {
       new chrome.Options().addArguments(...authDriverArgs) as chrome.Options,
     )
     .build();
-}
-
-async function notebookLoaded(driver: WebDriver): Promise<void> {
-  await driver.wait(
-    async () => {
-      const editors = await driver.findElements(
-        By.className('notebook-editor'),
-      );
-      return editors.length > 0;
-    },
-    ELEMENT_WAIT_MS,
-    'Notebook editor did not load in time',
-  );
-}
-
-/**
- * Waits for an element to be displayed and enabled, then clicks it.
- */
-async function safeClick(
-  driver: WebDriver,
-  locator: Locator,
-  errorMsg: string,
-): Promise<boolean> {
-  return driver.wait(
-    async () => {
-      try {
-        const element = await driver.findElement(locator);
-        if ((await element.isDisplayed()) && (await element.isEnabled())) {
-          await element.click();
-          return true;
-        }
-        return false;
-      } catch (e) {
-        if (e instanceof error.StaleElementReferenceError) {
-          return false;
-        }
-        throw e;
-      }
-    },
-    ELEMENT_WAIT_MS,
-    errorMsg,
-  );
 }
 
 async function assertAllCellsExecutedSuccessfully(
