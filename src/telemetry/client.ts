@@ -60,7 +60,10 @@ export class ClearcutClient implements Disposable {
   /** Queue of events to be flushed to Clearcut. */
   private pendingEvents: LogEvent[] = [];
 
-  constructor(private readonly vs: typeof vscode, config: ClearcutConfig = DEFAULT_CONFIG) {
+  constructor(
+    private readonly vs: typeof vscode,
+    config: ClearcutConfig = DEFAULT_CONFIG,
+  ) {
     this.maxPendingEvents =
       config.maxPendingEvents ?? DEFAULT_MAX_PENDING_EVENTS;
     this.minFlushWaitMs = config.minFlushWaitMs ?? DEFAULT_MIN_FLUSH_WAIT_MS;
@@ -106,8 +109,9 @@ export class ClearcutClient implements Disposable {
    * Flushes queued events to Clearcut.
    *
    * @param force - Flushes to Clearcut regardless of whether a flush is in
-   *   progress or if the flush interval's been met. Note that telemetry must
-   *   still be enabled.
+   *   progress or if the flush interval's been met. Note that the VS Code 
+   *   telemetry setting must still be enabled along with Colab's telemetry
+   *   experiment flag.
    */
   private async flush(force = false) {
     // Must be enabled by Colab and the user before flushing to Clearcut.
