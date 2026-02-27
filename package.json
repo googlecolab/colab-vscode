@@ -362,7 +362,7 @@
     "eslint-plugin-tsdoc": "^0.4.0",
     "mocha": "^10.8.2",
     "prettier": "3.4.2",
-    "selenium-webdriver": "^4.34.0",
+    "selenium-webdriver": "^4.41.0",
     "sinon": "^21.0.1",
     "source-map-support": "^0.5.21",
     "tsx": "^4.19.4",
