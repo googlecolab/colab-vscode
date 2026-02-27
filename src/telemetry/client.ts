@@ -109,7 +109,7 @@ export class ClearcutClient implements Disposable {
    * Flushes queued events to Clearcut.
    *
    * @param force - Flushes to Clearcut regardless of whether a flush is in
-   *   progress or if the flush interval's been met. Note that the VS Code 
+   *   progress or if the flush interval's been met. Note that the VS Code
    *   telemetry setting must still be enabled along with Colab's telemetry
    *   experiment flag.
    */
