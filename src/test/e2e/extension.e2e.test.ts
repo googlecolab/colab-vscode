@@ -28,8 +28,11 @@ import {
   selectQuickPickItem,
 } from './ui';
 
+const VSC_SETUP_WAIT_MS = 8000;
 const ELEMENT_WAIT_MS = 10000;
 const CELL_EXECUTION_WAIT_MS = 30000;
+const OAUTH_PASSWORD_WAIT_MS = 1000;
+const DRIVE_AUTH_WAIT_MS = 60000;
 
 describe('Colab Extension', () => {
   dotenv.config();
@@ -47,7 +50,7 @@ describe('Colab Extension', () => {
     // Wait for VS Code UI to settle before running tests.
     workbench = new Workbench();
     driver = workbench.getDriver();
-    await driver.sleep(8000);
+    await driver.sleep(VSC_SETUP_WAIT_MS);
   });
 
   beforeEach(function () {
@@ -88,10 +91,11 @@ describe('Colab Extension', () => {
         button: 'Copy',
         dialog: 'Do you want Code to open the external website?',
       });
-      await doOauthSignIn(
+      const oauthResult = await doOauthSignIn(
         /* oauthUrl= */ clipboard.readSync(),
         /* expectedRedirectUrl= */ 'vscode/auth-success',
       );
+      assert(oauthResult, 'Colab auth failed');
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
@@ -170,9 +174,15 @@ df`);
         button: 'Copy',
         dialog: 'Do you want Code to open the external website?',
       });
-      await doOauthSignIn(
-        /* oauthUrl= */ clipboard.readSync(),
-        /* expectedRedirectUrl= */ 'tun/m/authorize-for-drive-credentials-ephem',
+      // Drive auth can be flaky. Repeat the Drive auth flow until it succeeds
+      // or times out.
+      await driver.wait(
+        doOauthSignIn(
+          /* oauthUrl= */ clipboard.readSync(),
+          /* expectedRedirectUrl= */ 'tun/m/authorize-for-drive-credentials-ephem',
+        ),
+        DRIVE_AUTH_WAIT_MS,
+        'Drive auth failed',
       );
       await pushDialogButton(driver, {
         button: 'Continue',
@@ -189,7 +199,7 @@ df`);
   async function doOauthSignIn(
     oauthUrl: string,
     expectedRedirectUrl: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const oauthDriver = await getOAuthDriver();
 
     try {
@@ -209,7 +219,7 @@ df`);
         until.urlContains('accounts.google.com/v3/signin/challenge'),
         ELEMENT_WAIT_MS,
       );
-      await oauthDriver.sleep(1000);
+      await oauthDriver.sleep(OAUTH_PASSWORD_WAIT_MS);
       const passwordInput = await oauthDriver.findElement(
         By.css("input[type='password']"),
       );
@@ -242,7 +252,9 @@ df`);
         ELEMENT_WAIT_MS,
       );
       await oauthDriver.quit();
-    } catch (_) {
+      return true;
+    } catch (e: unknown) {
+      console.error('OAuth window failed:', e);
       // If the OAuth flow fails, ensure we grab a screenshot for debugging.
       const screenshotsDir = VSBrowser.instance.getScreenshotsDir();
       if (!fs.existsSync(screenshotsDir)) {
@@ -253,7 +265,7 @@ df`);
         await oauthDriver.takeScreenshot(),
         'base64',
       );
-      throw _;
+      return false;
     }
   }
 });
