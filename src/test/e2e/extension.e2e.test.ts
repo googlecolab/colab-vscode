@@ -28,6 +28,9 @@ import {
   selectQuickPickItem,
 } from './ui';
 
+const VSC_SETUP_SLEEP_MS = 8000;
+const OAUTH_PASSWORD_SLEEP_MS = 1000;
+const OAUTH_PASSWORD_WAIT_MS = 20000;
 const ELEMENT_WAIT_MS = 10000;
 const CELL_EXECUTION_WAIT_MS = 30000;
 
@@ -47,7 +50,7 @@ describe('Colab Extension', () => {
     // Wait for VS Code UI to settle before running tests.
     workbench = new Workbench();
     driver = workbench.getDriver();
-    await driver.sleep(8000);
+    await driver.sleep(VSC_SETUP_SLEEP_MS);
   });
 
   beforeEach(function () {
@@ -207,9 +210,9 @@ df`);
       // settle to avoid getting a stale element reference.
       await oauthDriver.wait(
         until.urlContains('accounts.google.com/v3/signin/challenge'),
-        ELEMENT_WAIT_MS,
+        OAUTH_PASSWORD_WAIT_MS,
       );
-      await oauthDriver.sleep(1000);
+      await oauthDriver.sleep(OAUTH_PASSWORD_SLEEP_MS);
       const passwordInput = await oauthDriver.findElement(
         By.css("input[type='password']"),
       );
