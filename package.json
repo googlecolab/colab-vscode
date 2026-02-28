@@ -246,6 +246,10 @@
           "when": "false"
         },
         {
+          "command": "colab.mountDrive",
+          "when": "activeEditor == 'workbench.editor.notebook'"
+        },
+        {
           "command": "colab.mountServer",
           "when": "config.colab.serverMounting"
         },
