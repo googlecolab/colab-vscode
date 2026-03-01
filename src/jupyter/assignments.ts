@@ -36,6 +36,7 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
+import { EventSource, telemetry } from '../telemetry';
 import { ProxiedJupyterClient } from './client';
 import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
@@ -334,6 +335,13 @@ export class AssignmentManager implements vscode.Disposable {
       removed: [],
       changed: [],
     });
+    telemetry.logAssignServerEvent({
+      server: server.endpoint,
+      variant,
+      accelerator,
+      shape: String(shape),
+      version,
+    });
     return server;
   }
 
@@ -346,6 +354,7 @@ export class AssignmentManager implements vscode.Disposable {
   ): Promise<ColabAssignedServer> {
     const latest = await this.latestServer(signal);
     if (latest) {
+      telemetry.logAutoConnect();
       return latest;
     }
     const alias = await this.getDefaultLabel(
@@ -356,7 +365,9 @@ export class AssignmentManager implements vscode.Disposable {
       ...DEFAULT_CPU_SERVER,
       label: alias,
     };
-    return this.assignServer(serverType, signal);
+    const server = await this.assignServer(serverType, signal);
+    telemetry.logAutoConnect();
+    return server;
   }
 
   /**
@@ -427,6 +438,7 @@ export class AssignmentManager implements vscode.Disposable {
    */
   async unassignServer(
     server: ColabAssignedServer | UnownedServer,
+    source: EventSource,
     signal?: AbortSignal,
   ): Promise<void> {
     if (isColabAssignedServer(server)) {
@@ -449,6 +461,7 @@ export class AssignmentManager implements vscode.Disposable {
       );
     }
     await this.client.unassign(server.endpoint, signal);
+    telemetry.logRemoveServerEvent(server.endpoint, source);
   }
 
   async getDefaultLabel(
@@ -512,6 +525,7 @@ export class AssignmentManager implements vscode.Disposable {
       removed: removed.map((s) => ({ server: s, userInitiated: false })),
       changed: [],
     });
+    telemetry.logPruneServersEvent(removed.map((s) => s.endpoint));
     return reconciled;
   }
 
@@ -561,7 +575,10 @@ export class AssignmentManager implements vscode.Disposable {
     );
     switch (selectedAction) {
       case AssignmentsExceededActions.REMOVE_SERVER:
-        this.vs.commands.executeCommand(REMOVE_SERVER.id);
+        this.vs.commands.executeCommand(
+          REMOVE_SERVER.id,
+          EventSource.NOTIFICATION,
+        );
         return;
       default:
         return;

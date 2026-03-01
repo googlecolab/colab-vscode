@@ -12,6 +12,7 @@ import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { ServerStorage } from '../../jupyter/storage';
+import { EventSource } from '../../telemetry';
 import {
   buildQuickPickStub,
   QuickPickStub,
@@ -389,6 +390,7 @@ describe('Server Commands', () => {
 
           assignmentManagerStub.unassignServer.calledOnceWithExactly(
             defaultServer,
+            EventSource.COMMAND_PALETTE,
           );
         });
 

@@ -13,7 +13,7 @@ import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ColabLogEventBase } from './api';
 import { ClearcutClient } from './client';
-import { initializeTelemetry, telemetry } from '.';
+import { initializeTelemetry, telemetry, EventSource } from '.';
 
 const NOW = Date.now();
 const SESSION_ID = 'sessionId';
@@ -197,6 +197,50 @@ describe('Telemetry Module', () => {
         ...baseLog,
         activation_event: {},
         timestamp: new Date(curTime).toISOString(),
+      });
+    });
+
+    it('logs on auto connect', () => {
+      telemetry.logAutoConnect();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        auto_connect_event: {},
+      });
+    });
+
+    it('logs on server assignment', () => {
+      telemetry.logAssignServerEvent();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        assign_server_event: {
+          server: 'Unknown',
+          variant: 'Unknown',
+          accelerator: undefined,
+          shape: undefined,
+          version: undefined,
+        },
+      });
+    });
+
+    it('logs when servers are pruned', () => {
+      const servers = ['server1', 'server2'];
+      telemetry.logPruneServersEvent(servers);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        prune_servers_event: { servers },
+      });
+    });
+
+    it('logs on server removal', () => {
+      const server = 'server';
+      telemetry.logRemoveServerEvent(server);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        remove_server_event: { server, source: EventSource.UNKNOWN },
       });
     });
   });
