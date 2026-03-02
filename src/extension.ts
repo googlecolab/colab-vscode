@@ -20,8 +20,10 @@ import {
   REMOVE_SERVER,
   SIGN_OUT,
   OPEN_TERMINAL,
+  IMPORT_NOTEBOOK_FROM_URL,
 } from './colab/commands/constants';
 import { upload } from './colab/commands/files';
+import { importNotebookFromUrl } from './colab/commands/import';
 import { notebookToolbar, appendCodeCell } from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
 import { openTerminal } from './colab/commands/terminal';
@@ -151,7 +153,13 @@ export async function activate(context: vscode.ExtensionContext) {
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
-    ...registerCommands(authProvider, assignmentManager, serverTreeView, fs),
+    ...registerCommands(
+      authProvider,
+      assignmentManager,
+      serverTreeView,
+      fs,
+      colabClient,
+    ),
   );
 }
 
@@ -187,6 +195,7 @@ function registerCommands(
   assignmentManager: AssignmentManager,
   serverTreeProvider: ServerTreeProvider,
   fs: ContentsFileSystemProvider,
+  colabClient: ColabClient,
 ): Disposable[] {
   return [
     vscode.commands.registerCommand(SIGN_OUT.id, async () => {
@@ -262,6 +271,9 @@ drive.mount('/content/drive')`,
         await openTerminal(vscode, assignmentManager, withBackButton);
       },
     ),
+    vscode.commands.registerCommand(IMPORT_NOTEBOOK_FROM_URL.id, async () => {
+      await importNotebookFromUrl(vscode, colabClient);
+    }),
   ];
 }
 

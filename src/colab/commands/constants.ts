@@ -110,3 +110,11 @@ export const OPEN_TERMINAL: RegisteredCommand = {
   icon: 'terminal',
   description: 'Opens a terminal connected to a Colab runtime.',
 };
+
+/** Command to open a Colab terminal. */
+export const IMPORT_NOTEBOOK_FROM_URL: RegisteredCommand = {
+  id: 'colab.importNotebookFromUrl',
+  label: 'Import notebook file from URL',
+  icon: 'arrow-down',
+  description: 'Imports a notebook file from the provided URL',
+};
