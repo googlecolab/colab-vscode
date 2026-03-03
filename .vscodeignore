@@ -15,5 +15,6 @@ out/test/
 project-words.txt
 scripts/
 src/
+test-resources
 tsconfig*.json
 tsdoc.json

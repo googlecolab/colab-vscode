@@ -22,6 +22,7 @@ milli
 millis
 mocharc
 openapitools
+outbase
 pkce
 Pyright
 quickpick

@@ -10,5 +10,7 @@
   "security.workspace.trust.enabled": false,
   "window.restoreWindows": "none",
   "workbench.editor.enablePreview": false,
-  "workbench.auxiliaryBar.visible": false
+  "workbench.auxiliaryBar.visible": false,
+  "extensions.ignoreRecommendations": true,
+  "chat.disableAIFeatures": true
 }
