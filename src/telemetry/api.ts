@@ -45,24 +45,24 @@ export type ColabEvent =
       activation_event: ColabActivationEvent;
     }
   | {
+      /** An event that logs when the user creates a server assignment */
+      assign_server_event: ColabAssignServerEvent;
+    }
+  | {
+      /** An event that logs when the user selects the autoconnect option */
+      auto_connect_event: ColabAutoConnectEvent;
+    }
+  | {
       /** An event representing an error. */
       error_event: ColabErrorEvent;
     }
   | {
-      /** An event that logs when the user selects the autoconnect option */
-      auto_connect_event: AutoConnectEvent;
-    }
-  | {
-      /** An event that logs when the user creates a server assignment */
-      assign_server_event: AssignServerEvent;
-    }
-  | {
       /** An event that logs when servers are pruned */
-      prune_servers_event: PruneServersEvent;
+      prune_servers_event: ColabPruneServersEvent;
     }
   | {
       /** An event that logs when the remove server command is triggered */
-      remove_server_event: RemoveServerEvent;
+      remove_server_event: ColabRemoveServerEvent;
     };
 
 /** Enum to represent different command sources/triggers */
@@ -77,11 +77,11 @@ export enum CommandSource {
 /** An event representing extension activation. */
 type ColabActivationEvent = Record<string, never>;
 
-/** An event representing a server auto connection */
-type AutoConnectEvent = Record<string, never>;
-
 /** An event representing a server assignment */
-type AssignServerEvent = Record<string, never>;
+type ColabAssignServerEvent = Record<string, never>;
+
+/** An event representing a server auto connection */
+type ColabAutoConnectEvent = Record<string, never>;
 
 /** An event representing an error. */
 interface ColabErrorEvent {
@@ -94,12 +94,12 @@ interface ColabErrorEvent {
 }
 
 /** An event representing server pruning */
-interface PruneServersEvent {
+interface ColabPruneServersEvent {
   servers: string[];
 }
 
 /** An event representing server removal */
-interface RemoveServerEvent {
+interface ColabRemoveServerEvent {
   source: CommandSource;
 }
 
