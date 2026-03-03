@@ -121,6 +121,7 @@ build_test_cmd() {
 
   # Print each part of the command on a new line.
   printf "%s\n" "${base_cmd[@]}"
+  printf "%s\n" ./out/test/test/e2e/test-setup.js
   printf "%s\n" ./out/test/**/*.e2e.test.js
 
   if [[ ${#AUTH_DRIVER_ARGS[@]} -gt 0 ]]; then

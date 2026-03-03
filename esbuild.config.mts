@@ -175,6 +175,7 @@ async function main(): Promise<void> {
           testOptions('Unit Tests', 'src/**/*.unit.test.ts'),
           testOptions('Integration Tests', 'src/**/*.vscode.test.ts'),
           testOptions('E2E Tests', [
+            'src/test/e2e/test-setup.ts',
             'src/**/*.e2e.test.ts',
             'src/test/e2e/mocharc.ts',
           ]),
