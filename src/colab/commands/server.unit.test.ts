@@ -390,7 +390,6 @@ describe('Server Commands', () => {
 
           assignmentManagerStub.unassignServer.calledOnceWithExactly(
             defaultServer,
-            EventSource.COMMAND_PALETTE,
           );
         });
 
