@@ -36,7 +36,8 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
-import { EventSource, telemetry } from '../telemetry';
+import { telemetry } from '../telemetry';
+import { CommandSource } from '../telemetry/api';
 import { ProxiedJupyterClient } from './client';
 import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
@@ -565,7 +566,7 @@ export class AssignmentManager implements vscode.Disposable {
       case AssignmentsExceededActions.REMOVE_SERVER:
         this.vs.commands.executeCommand(
           REMOVE_SERVER.id,
-          EventSource.NOTIFICATION,
+          CommandSource.COMMAND_SOURCE_NOTIFICATION,
         );
         return;
       default:

@@ -51,7 +51,7 @@ import { getJupyterApi } from './jupyter/jupyter-extension';
 import { ColabJupyterServerProvider } from './jupyter/provider';
 import { ServerStorage } from './jupyter/storage';
 import { ExtensionUriHandler } from './system/uri';
-import { EventSource } from './telemetry';
+import { CommandSource } from './telemetry/api';
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
@@ -211,7 +211,7 @@ drive.mount('/content/drive')`,
     }),
     vscode.commands.registerCommand(
       REMOVE_SERVER.id,
-      async (source?: EventSource, withBackButton?: boolean) => {
+      async (source?: CommandSource, withBackButton?: boolean) => {
         await removeServer(vscode, assignmentManager, withBackButton, source);
       },
     ),

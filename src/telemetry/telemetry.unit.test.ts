@@ -11,9 +11,9 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { ColabLogEventBase } from './api';
+import { ColabLogEventBase, CommandSource } from './api';
 import { ClearcutClient } from './client';
-import { initializeTelemetry, telemetry, EventSource } from '.';
+import { initializeTelemetry, telemetry } from '.';
 
 const NOW = Date.now();
 const SESSION_ID = 'sessionId';
@@ -233,7 +233,9 @@ describe('Telemetry Module', () => {
 
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
-        remove_server_event: { source: EventSource.UNKNOWN },
+        remove_server_event: {
+          source: CommandSource.COMMAND_SOURCE_UNSPECIFIED,
+        },
       });
     });
   });

@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ColabLogEventBase, ColabEvent } from './api';
+import { ColabLogEventBase, ColabEvent, CommandSource } from './api';
 import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
@@ -56,14 +56,6 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
   };
 }
 
-/** Enum to represent different event sources/triggers */
-export enum EventSource {
-  COMMAND_PALETTE = 'command-palette',
-  NOTEBOOK_TOOLBAR = 'toolbar',
-  NOTIFICATION = 'notification',
-  UNKNOWN = 'unknown',
-}
-
 /**
  * A collection of functions for logging telemetry events.
  */
@@ -92,8 +84,12 @@ export const telemetry = {
   logPruneServers: (servers: string[]) => {
     log({ prune_servers_event: { servers } });
   },
-  logRemoveServer: (source?: EventSource) => {
-    log({ remove_server_event: { source: source ?? EventSource.UNKNOWN } });
+  logRemoveServer: (source = CommandSource.COMMAND_SOURCE_UNSPECIFIED) => {
+    log({
+      remove_server_event: {
+        source,
+      },
+    });
   },
 };
 

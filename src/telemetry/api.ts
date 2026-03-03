@@ -65,6 +65,15 @@ export type ColabEvent =
       remove_server_event: RemoveServerEvent;
     };
 
+/** Enum to represent different command sources/triggers */
+export enum CommandSource {
+  COMMAND_SOURCE_UNSPECIFIED = 0,
+  COMMAND_SOURCE_SERVER_PROVIDER = 1,
+  COMMAND_SOURCE_COLAB_TOOLBAR = 2,
+  COMMAND_SOURCE_COMMAND_PALETTE = 3,
+  COMMAND_SOURCE_NOTIFICATION = 4,
+}
+
 /** An event representing extension activation. */
 type ColabActivationEvent = Record<string, never>;
 
@@ -91,7 +100,7 @@ interface PruneServersEvent {
 
 /** An event representing server removal */
 interface RemoveServerEvent {
-  source: string;
+  source: CommandSource;
 }
 
 /** The Clearcut log event structure. */
