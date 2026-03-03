@@ -68,29 +68,17 @@ describe('Colab Extension', () => {
 
       // Select the Colab server provider from the kernel selector.
       await workbench.executeCommand('Notebook: Select Notebook Kernel');
-      await selectQuickPickItem(driver, {
-        item: 'Colab',
-        quickPick: 'Select Another Kernel',
-      });
-      await selectQuickPickItem(driver, {
-        item: 'New Colab Server',
-        quickPick: 'Select a Jupyter Server',
-      });
+      await selectQuickPickItem(driver, 'Colab');
+      await selectQuickPickItem(driver, 'New Colab Server');
 
       // Accept the dialog allowing the Colab extension to sign in using Google.
-      await pushDialogButton(driver, {
-        button: 'Allow',
-        dialog: "The extension 'Colab' wants to sign in using Google.",
-      });
+      await pushDialogButton(driver, 'Allow');
       // Begin the sign-in process by copying the OAuth URL to the clipboard and
       // opening it in a browser window. Why do this instead of triggering the
       // "Open" button in the dialog? We copy the URL so that we can use a new
       // driver instance for the OAuth flow, since the original driver instance
       // does not have a handle to the window that would be spawned with "Open".
-      await pushDialogButton(driver, {
-        button: 'Copy',
-        dialog: 'Do you want Code to open the external website?',
-      });
+      await pushDialogButton(driver, 'Copy');
       await doOauthSignIn(
         /* oauthUrl= */ clipboard.readSync(),
         /* expectedRedirectUrl= */ 'vscode/auth-success',
@@ -98,21 +86,12 @@ describe('Colab Extension', () => {
 
       // Now that we're authenticated, we can resume creating a Colab server via
       // the open kernel selector.
-      await selectQuickPickItem(driver, {
-        item: 'CPU',
-        quickPick: 'Select a variant (1/3)',
-      });
-      await selectQuickPickItem(driver, {
-        item: 'Latest',
-        quickPick: 'Select a runtime version (2/3)',
-      });
+      await selectQuickPickItem(driver, 'CPU');
+      await selectQuickPickItem(driver, 'Latest');
       // Alias the server with the default name.
       const inputBox = await InputBox.create();
       await inputBox.sendKeys(Key.ENTER);
-      await selectQuickPickItem(driver, {
-        item: 'Python 3 (ipykernel)',
-        quickPick: 'Select a Kernel from Colab CPU',
-      });
+      await selectQuickPickItem(driver, 'Python 3 (ipykernel)');
     });
 
     afterEach(async () => {
@@ -160,27 +139,18 @@ df`);
 
       await workbench.executeCommand('Notebook: Run All');
 
-      await pushDialogButton(driver, {
-        button: 'Connect to Google Drive',
-        dialog: 'Permit server to access your Google Drive files?',
-      });
+      await pushDialogButton(driver, 'Connect to Google Drive');
       // Begin the sign-in process by copying the OAuth URL to the clipboard and
       // opening it in a browser window. Why do this instead of triggering the
       // "Open" button in the dialog? We copy the URL so that we can use a new
       // driver instance for the OAuth flow, since the original driver instance
       // does not have a handle to the window that would be spawned with "Open".
-      await pushDialogButton(driver, {
-        button: 'Copy',
-        dialog: 'Do you want Code to open the external website?',
-      });
+      await pushDialogButton(driver, 'Copy');
       await doOauthSignIn(
         /* oauthUrl= */ clipboard.readSync(),
         /* expectedRedirectUrl= */ 'tun/m/authorize-for-drive-credentials-ephem',
       );
-      await pushDialogButton(driver, {
-        button: 'Continue',
-        dialog: 'Please complete the authorization in your browser.',
-      });
+      await pushDialogButton(driver, 'Continue');
 
       await assertAllCellsExecutedSuccessfully(driver, workbench);
     });

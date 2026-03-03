@@ -18,16 +18,7 @@ const ELEMENT_WAIT_MS = 10000;
 /**
  * Selects the QuickPick option.
  */
-export function selectQuickPickItem(
-  driver: WebDriver,
-  {
-    item,
-    quickPick,
-  }: {
-    item: string;
-    quickPick: string;
-  },
-) {
+export function selectQuickPickItem(driver: WebDriver, item: string) {
   return driver.wait(
     async () => {
       try {
@@ -46,23 +37,14 @@ export function selectQuickPickItem(
       }
     },
     ELEMENT_WAIT_MS,
-    `Select "${item}" item for QuickPick "${quickPick}" failed`,
+    `Could not select "${item}" from QuickPick`,
   );
 }
 
 /**
  * Pushes a button in a modal dialog and waits for the action to complete.
  */
-export function pushDialogButton(
-  driver: WebDriver,
-  {
-    button,
-    dialog,
-  }: {
-    button: string;
-    dialog: string;
-  },
-) {
+export function pushDialogButton(driver: WebDriver, button: string) {
   // ModalDialog.pushButton will throw if the dialog is not found; to reduce
   // flakes we attempt this until it succeeds or times out.
   return driver.wait(
@@ -77,7 +59,7 @@ export function pushDialogButton(
       }
     },
     ELEMENT_WAIT_MS,
-    `Push "${button}" button for dialog "${dialog}" failed`,
+    `Could not select "${button}" from dialog`,
   );
 }
 
