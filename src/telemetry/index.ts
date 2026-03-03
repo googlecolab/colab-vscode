@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ColabLogEventBase, ColabEvent, AssignServerEvent } from './api';
+import { ColabLogEventBase, ColabEvent } from './api';
 import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
@@ -86,32 +86,14 @@ export const telemetry = {
   logAutoConnect: () => {
     log({ auto_connect_event: {} });
   },
-  logAssignServerEvent: ({
-    server,
-    variant,
-    accelerator,
-    shape,
-    version,
-  }: Partial<AssignServerEvent> = {}) => {
-    log({
-      assign_server_event: {
-        server: server ?? 'Unknown',
-        variant: variant ?? 'Unknown',
-        accelerator,
-        shape,
-        version,
-      },
-    });
+  logAssignServer: () => {
+    log({ assign_server_event: {} });
   },
-  logPruneServersEvent: (servers: string[]) => {
-    log({
-      prune_servers_event: { servers },
-    });
+  logPruneServers: (servers: string[]) => {
+    log({ prune_servers_event: { servers } });
   },
-  logRemoveServerEvent: (server: string, source?: EventSource) => {
-    log({
-      remove_server_event: { server, source: source ?? EventSource.UNKNOWN },
-    });
+  logRemoveServer: (source?: EventSource) => {
+    log({ remove_server_event: { source: source ?? EventSource.UNKNOWN } });
   },
 };
 

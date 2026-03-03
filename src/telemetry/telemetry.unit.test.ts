@@ -210,23 +210,17 @@ describe('Telemetry Module', () => {
     });
 
     it('logs on server assignment', () => {
-      telemetry.logAssignServerEvent();
+      telemetry.logAssignServer();
 
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
-        assign_server_event: {
-          server: 'Unknown',
-          variant: 'Unknown',
-          accelerator: undefined,
-          shape: undefined,
-          version: undefined,
-        },
+        assign_server_event: {},
       });
     });
 
     it('logs when servers are pruned', () => {
       const servers = ['server1', 'server2'];
-      telemetry.logPruneServersEvent(servers);
+      telemetry.logPruneServers(servers);
 
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
@@ -235,12 +229,11 @@ describe('Telemetry Module', () => {
     });
 
     it('logs on server removal', () => {
-      const server = 'server';
-      telemetry.logRemoveServerEvent(server);
+      telemetry.logRemoveServer();
 
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
-        remove_server_event: { server, source: EventSource.UNKNOWN },
+        remove_server_event: { source: EventSource.UNKNOWN },
       });
     });
   });

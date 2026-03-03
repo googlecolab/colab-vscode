@@ -33,6 +33,7 @@ import { traceMethod } from '../common/logging/decorators';
 import { InputFlowAction } from '../common/multi-step-quickpick';
 import { isUUID } from '../utils/uuid';
 import { AssignmentChangeEvent, AssignmentManager } from './assignments';
+import { telemetry } from '../telemetry';
 
 /**
  * Colab Jupyter server provider.
@@ -178,8 +179,10 @@ export class ColabJupyterServerProvider
           await this.assignmentManager.reconcileAssignedServers();
           throw InputFlowAction.back;
         case AUTO_CONNECT.label:
+          telemetry.logAutoConnect();
           return await this.assignmentManager.latestOrAutoAssignServer();
         case NEW_SERVER.label:
+          telemetry.logAssignServer();
           return await this.assignServer();
         case OPEN_COLAB_WEB.label:
           openColabWeb(this.vs);

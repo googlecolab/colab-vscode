@@ -65,19 +65,14 @@ export type ColabEvent =
       remove_server_event: RemoveServerEvent;
     };
 
-/** An event representing a server assignment */
-export interface AssignServerEvent {
-  server: string;
-  variant: string;
-  accelerator?: string;
-  shape?: string;
-  version?: string;
-}
 /** An event representing extension activation. */
 type ColabActivationEvent = Record<string, never>;
 
 /** An event representing a server auto connection */
 type AutoConnectEvent = Record<string, never>;
+
+/** An event representing a server assignment */
+type AssignServerEvent = Record<string, never>;
 
 /** An event representing an error. */
 interface ColabErrorEvent {
@@ -96,7 +91,6 @@ interface PruneServersEvent {
 
 /** An event representing server removal */
 interface RemoveServerEvent {
-  server: string;
   source: string;
 }
 

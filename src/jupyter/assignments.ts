@@ -335,13 +335,6 @@ export class AssignmentManager implements vscode.Disposable {
       removed: [],
       changed: [],
     });
-    telemetry.logAssignServerEvent({
-      server: server.endpoint,
-      variant,
-      accelerator,
-      shape: String(shape),
-      version,
-    });
     return server;
   }
 
@@ -354,7 +347,6 @@ export class AssignmentManager implements vscode.Disposable {
   ): Promise<ColabAssignedServer> {
     const latest = await this.latestServer(signal);
     if (latest) {
-      telemetry.logAutoConnect();
       return latest;
     }
     const alias = await this.getDefaultLabel(
@@ -366,7 +358,6 @@ export class AssignmentManager implements vscode.Disposable {
       label: alias,
     };
     const server = await this.assignServer(serverType, signal);
-    telemetry.logAutoConnect();
     return server;
   }
 
@@ -438,7 +429,6 @@ export class AssignmentManager implements vscode.Disposable {
    */
   async unassignServer(
     server: ColabAssignedServer | UnownedServer,
-    source: EventSource,
     signal?: AbortSignal,
   ): Promise<void> {
     if (isColabAssignedServer(server)) {
@@ -461,7 +451,6 @@ export class AssignmentManager implements vscode.Disposable {
       );
     }
     await this.client.unassign(server.endpoint, signal);
-    telemetry.logRemoveServerEvent(server.endpoint, source);
   }
 
   async getDefaultLabel(
@@ -518,6 +507,7 @@ export class AssignmentManager implements vscode.Disposable {
       return reconciled;
     }
 
+    telemetry.logPruneServers(removed.map((s) => s.endpoint));
     await this.storage.clear();
     await this.storage.store(reconciled);
     this.assignmentChange.fire({
@@ -525,7 +515,6 @@ export class AssignmentManager implements vscode.Disposable {
       removed: removed.map((s) => ({ server: s, userInitiated: false })),
       changed: [],
     });
-    telemetry.logPruneServersEvent(removed.map((s) => s.endpoint));
     return reconciled;
   }
 
