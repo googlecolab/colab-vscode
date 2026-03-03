@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import vscode from 'vscode';
-import { ColabClient } from '../client';
+import { log } from '../../common/logging';
+import { DriveProvider } from '../drive-provider';
 
 /**
  * Prompts the user for a notebook URL and attempts to copy the notebook
@@ -12,10 +13,10 @@ import { ColabClient } from '../client';
  */
 export async function importNotebookFromUrl(
   vs: typeof vscode,
-  client: ColabClient,
+  driveProvider: DriveProvider,
 ): Promise<void> {
   const inputUrl = await vs.window.showInputBox({
-    prompt: 'Paste a Colab link (Drive or Notebooks)',
+    prompt: 'Link to the Colab Notebook to import',
     placeHolder: 'https://colab.research.google.com/drive/...',
   });
 
@@ -23,15 +24,13 @@ export async function importNotebookFromUrl(
 
   try {
     const id = resolveRemoteSource(inputUrl);
-    const metadata = await client.getDriveFileMetadata(id);
-    const fileName = metadata.name;
+    const fileName = await driveProvider.getDriveFileName(id);
     const targetUri = await getSaveLocation(vs, fileName);
     if (!targetUri) {
       return; // User cancelled
     }
 
-    const content = await client.fetchDriveFileContent(id);
-
+    const content = await driveProvider.getDriveFileContent(id);
     await vs.workspace.fs.writeFile(targetUri, content);
 
     const doc = await vs.workspace.openNotebookDocument(targetUri);
@@ -40,25 +39,53 @@ export async function importNotebookFromUrl(
     vs.window.showInformationMessage(
       `Successfully saved to ${targetUri.fsPath}`,
     );
-  } catch (e) {
-    vs.window.showErrorMessage(`${e.message}`);
+  } catch (e: unknown) {
+    log.error('Failed to import notebook:', e);
+    if (e instanceof Error) {
+      vs.window.showErrorMessage(`Failed to import notebook: ${e.message}`);
+    } else {
+      vs.window.showErrorMessage(
+        `An unknown error occurred while importing notebook: ${String(e)}`,
+      );
+    }
   }
 }
 
 function resolveRemoteSource(url: string): string {
-  // Check for Format 1: Colab Notebook URL (https://colab.researcg.google.com/drive/1n63kpahuH-sxBQ1lJ9zh0cf6-uI7vSuk)
-  const colabMatch = url.match(/\/drive\/([a-zA-Z0-9_-]+)/);
-  if (colabMatch && colabMatch.length == 2) {
-    return colabMatch[1];
+  const supportedFormats = [
+    {
+      // Format 1: Colab Notebook URL
+      regex: /\/drive\/([a-zA-Z0-9_-]+)/,
+      description: '"https://colab.research.google.com/drive/..."',
+    },
+    {
+      // Format 2: Drive Notebook URL
+      regex: /\/file\/d\/([a-zA-Z0-9_-]+)/,
+      description: '"https://drive.google.com/file/d/..."',
+    },
+  ];
+
+  for (const format of supportedFormats) {
+    const match = format.regex.exec(url);
+    if (match && match.length === 2) {
+      return match[1];
+    }
   }
 
-  // Check for Format 2: Drive Notebook URL (https://drive.google.com/file/d/1hqzZq-7933qCLMAk1I1Md1QK02akdOsF/view?usp=drive_link)
-  const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (driveMatch && driveMatch.length == 2) {
-    return driveMatch[1];
+  const descriptions = supportedFormats.map((f) => f.description);
+  let formattedDescriptions: string;
+  if (descriptions.length < 3) {
+    formattedDescriptions = descriptions.join(' and ');
+  } else {
+    formattedDescriptions =
+      descriptions.slice(0, -1).join(', ') +
+      ', and ' +
+      descriptions[descriptions.length - 1];
   }
 
-  throw new Error('Unsupported Colab link format.');
+  throw new Error(
+    `Unsupported Colab link format. Supported formats are ${formattedDescriptions}`,
+  );
 }
 
 async function getSaveLocation(
@@ -67,15 +94,15 @@ async function getSaveLocation(
 ): Promise<vscode.Uri | undefined> {
   const options: vscode.SaveDialogOptions = {
     defaultUri: vs.workspace.workspaceFolders
-      ? vscode.Uri.joinPath(vs.workspace.workspaceFolders[0].uri, defaultName)
-      : vscode.Uri.file(defaultName),
+      ? vs.Uri.joinPath(vs.workspace.workspaceFolders[0].uri, defaultName)
+      : vs.Uri.file(defaultName),
     filters: {
       'Jupyter Notebooks': ['ipynb'],
       'All Files': ['*'],
     },
-    saveLabel: 'Download Notebook',
+    saveLabel: 'Import Notebook',
     title: 'Select where to save the notebook',
   };
 
-  return await vscode.window.showSaveDialog(options);
+  return await vs.window.showSaveDialog(options);
 }

@@ -30,6 +30,7 @@ import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
+import { DriveProvider } from './colab/drive-provider';
 import { ExperimentStateProvider } from './colab/experiment-state';
 import { ServerKeepAliveController } from './colab/keep-alive';
 import {
@@ -136,6 +137,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const disposeTreeView = vscode.window.createTreeView('colab-servers-view', {
     treeDataProvider: serverTreeView,
   });
+  const driveProvider = new DriveProvider(colabClient);
 
   context.subscriptions.push(
     logging,
@@ -158,7 +160,7 @@ export async function activate(context: vscode.ExtensionContext) {
       assignmentManager,
       serverTreeView,
       fs,
-      colabClient,
+      driveProvider,
     ),
   );
 }
@@ -195,7 +197,7 @@ function registerCommands(
   assignmentManager: AssignmentManager,
   serverTreeProvider: ServerTreeProvider,
   fs: ContentsFileSystemProvider,
-  colabClient: ColabClient,
+  driveProvider: DriveProvider,
 ): Disposable[] {
   return [
     vscode.commands.registerCommand(SIGN_OUT.id, async () => {
@@ -272,7 +274,7 @@ drive.mount('/content/drive')`,
       },
     ),
     vscode.commands.registerCommand(IMPORT_NOTEBOOK_FROM_URL.id, async () => {
-      await importNotebookFromUrl(vscode, colabClient);
+      await importNotebookFromUrl(vscode, driveProvider);
     }),
   ];
 }
