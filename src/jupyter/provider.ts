@@ -31,9 +31,9 @@ import { ServerPicker } from '../colab/server-picker';
 import { LatestCancelable } from '../common/async';
 import { traceMethod } from '../common/logging/decorators';
 import { InputFlowAction } from '../common/multi-step-quickpick';
+import { telemetry } from '../telemetry';
 import { isUUID } from '../utils/uuid';
 import { AssignmentChangeEvent, AssignmentManager } from './assignments';
-import { telemetry } from '../telemetry';
 
 /**
  * Colab Jupyter server provider.
