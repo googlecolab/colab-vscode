@@ -36,6 +36,8 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
+import { telemetry } from '../telemetry';
+import { CommandSource } from '../telemetry/api';
 import { ProxiedJupyterClient } from './client';
 import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
@@ -505,6 +507,7 @@ export class AssignmentManager implements vscode.Disposable {
       return reconciled;
     }
 
+    telemetry.logPruneServers(removed.map((s) => s.endpoint));
     await this.storage.clear();
     await this.storage.store(reconciled);
     this.assignmentChange.fire({
@@ -561,7 +564,10 @@ export class AssignmentManager implements vscode.Disposable {
     );
     switch (selectedAction) {
       case AssignmentsExceededActions.REMOVE_SERVER:
-        this.vs.commands.executeCommand(REMOVE_SERVER.id);
+        this.vs.commands.executeCommand(
+          REMOVE_SERVER.id,
+          CommandSource.COMMAND_SOURCE_NOTIFICATION,
+        );
         return;
       default:
         return;

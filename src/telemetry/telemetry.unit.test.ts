@@ -11,7 +11,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { ColabLogEventBase } from './api';
+import { ColabLogEventBase, CommandSource } from './api';
 import { ClearcutClient } from './client';
 import { initializeTelemetry, telemetry } from '.';
 
@@ -197,6 +197,45 @@ describe('Telemetry Module', () => {
         ...baseLog,
         activation_event: {},
         timestamp: new Date(curTime).toISOString(),
+      });
+    });
+
+    it('logs on auto connect', () => {
+      telemetry.logAutoConnect();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        auto_connect_event: {},
+      });
+    });
+
+    it('logs on server assignment', () => {
+      telemetry.logAssignServer();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        assign_server_event: {},
+      });
+    });
+
+    it('logs when servers are pruned', () => {
+      const servers = ['server1', 'server2'];
+      telemetry.logPruneServers(servers);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        prune_servers_event: { servers },
+      });
+    });
+
+    it('logs on server removal', () => {
+      telemetry.logRemoveServer();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        remove_server_event: {
+          source: CommandSource.COMMAND_SOURCE_UNSPECIFIED,
+        },
       });
     });
   });

@@ -30,6 +30,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { CommandSource } from '../telemetry/api';
 import { TestEventEmitter } from '../test/helpers/events';
 import {
   createJupyterClientStub,
@@ -906,6 +907,7 @@ describe('AssignmentManager', () => {
         sinon.assert.calledOnceWithExactly(
           vsCodeStub.commands.executeCommand,
           REMOVE_SERVER.id,
+          CommandSource.COMMAND_SOURCE_NOTIFICATION,
         );
       });
     });

@@ -7,6 +7,7 @@
 import vscode, { QuickPickItem } from 'vscode';
 import { InputFlowAction } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
+import { CommandSource } from '../../telemetry/api';
 import {
   MOUNT_DRIVE,
   MOUNT_SERVER,
@@ -148,6 +149,7 @@ async function getAvailableCommands(
       invoke: () => {
         return vs.commands.executeCommand(
           REMOVE_SERVER.id,
+          CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR,
           /* withBackButton= */ true,
         );
       },

@@ -10,6 +10,8 @@ import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer, UnownedServer } from '../../jupyter/servers';
 import { ServerStorage } from '../../jupyter/storage';
+import { telemetry } from '../../telemetry';
+import { CommandSource } from '../../telemetry/api';
 import { PROMPT_SERVER_ALIAS, validateServerAlias } from '../server-picker';
 import { MOUNT_SERVER, REMOVE_SERVER, RENAME_SERVER_ALIAS } from './constants';
 
@@ -113,7 +115,11 @@ export async function removeServer(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
   withBackButton?: boolean,
+  source?: CommandSource,
 ) {
+  telemetry.logRemoveServer(
+    source ?? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
+  );
   const allServers = await assignmentManager.getServers('all');
   const vsCodeServers = allServers.assigned;
   const nonVsCodeServers = allServers.unowned;

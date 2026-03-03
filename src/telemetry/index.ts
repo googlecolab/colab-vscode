@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ColabLogEventBase, ColabEvent } from './api';
+import { ColabLogEventBase, ColabEvent, CommandSource } from './api';
 import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
@@ -74,6 +74,22 @@ export const telemetry = {
       const msg = e ? JSON.stringify(e) : String(e);
       log({ error_event: { name: 'Error', msg, stack: '' } });
     }
+  },
+  logAutoConnect: () => {
+    log({ auto_connect_event: {} });
+  },
+  logAssignServer: () => {
+    log({ assign_server_event: {} });
+  },
+  logPruneServers: (servers: string[]) => {
+    log({ prune_servers_event: { servers } });
+  },
+  logRemoveServer: (source = CommandSource.COMMAND_SOURCE_UNSPECIFIED) => {
+    log({
+      remove_server_event: {
+        source,
+      },
+    });
   },
 };
 
