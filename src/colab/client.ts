@@ -113,7 +113,7 @@ export class ColabClient {
     signal?: AbortSignal,
   ): Promise<ConsumptionUserInfo> {
     const url = new URL('v1/user-info', this.colabGapiDomain);
-    url.searchParams.append('get_ccu_consumption_info', 'true');
+    url.searchParams.set('get_ccu_consumption_info', 'true');
     return await this.issueRequest(
       url,
       { method: 'GET', signal },
@@ -227,8 +227,8 @@ export class ColabClient {
     signal?: AbortSignal,
   ): Promise<RuntimeProxyToken> {
     const url = new URL('v1/runtime-proxy-token', this.colabGapiDomain);
-    url.searchParams.append('endpoint', endpoint);
-    url.searchParams.append('port', '8080');
+    url.searchParams.set('endpoint', endpoint);
+    url.searchParams.set('port', '8080');
     return await this.issueRequest(
       url,
       { method: 'GET', signal },
@@ -406,12 +406,12 @@ export class ColabClient {
     { variant, accelerator, shape, version }: AssignParams,
   ): URL {
     const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
-    url.searchParams.append('nbh', uuidToWebSafeBase64(notebookHash));
+    url.searchParams.set('nbh', uuidToWebSafeBase64(notebookHash));
     if (variant !== Variant.DEFAULT) {
-      url.searchParams.append('variant', variant);
+      url.searchParams.set('variant', variant);
     }
     if (accelerator) {
-      url.searchParams.append('accelerator', accelerator);
+      url.searchParams.set('accelerator', accelerator);
     }
     const shapeURLParam = mapShapeToURLParam(
       // High mem only accelerators only have one shape option
@@ -420,10 +420,10 @@ export class ColabClient {
         : (shape ?? Shape.STANDARD),
     );
     if (shapeURLParam) {
-      url.searchParams.append('shape', shapeURLParam);
+      url.searchParams.set('shape', shapeURLParam);
     }
     if (version) {
-      url.searchParams.append('runtime_version_label', version);
+      url.searchParams.set('runtime_version_label', version);
     }
     return url;
   }
@@ -463,7 +463,7 @@ export class ColabClient {
   ): Promise<unknown> {
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
-      endpoint.searchParams.append('authuser', '0');
+      endpoint.searchParams.set('authuser', '0');
     }
 
     let response: Response | undefined;
