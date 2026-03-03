@@ -152,7 +152,10 @@ export const Accelerator = z.object({
   /** The variant of the assignment. */
   variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
   /** The assigned accelerator. */
-  models: z.array(z.string().toUpperCase()),
+  models: z
+    .array(z.string().toUpperCase())
+    .optional()
+    .transform((models) => models ?? []),
 });
 
 /**

@@ -8,10 +8,12 @@ import { expect } from 'chai';
 import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
+import type vscode from 'vscode';
 import { ExperimentFlag } from '../colab/api';
 import { TEST_ONLY as FLAGS_TEST_ONLY } from '../colab/experiment-state';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 import { Deferred } from '../test/helpers/async';
+import { newVsCodeStub } from '../test/helpers/vscode';
 import { ColabLogEvent, LOG_SOURCE } from './api';
 import { ClearcutClient, LOG_ENDPOINT } from './client';
 
@@ -39,13 +41,15 @@ const MAX_PENDING_EVENTS = 10;
 const MIN_FLUSH_WAIT_MS = 1000;
 
 describe('ClearcutClient', () => {
+  let vs: typeof vscode;
   let client: ClearcutClient;
   let fakeClock: SinonFakeTimers;
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
 
   beforeEach(() => {
+    vs = newVsCodeStub().asVsCode();
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
-    client = new ClearcutClient({
+    client = new ClearcutClient(vs, {
       maxPendingEvents: MAX_PENDING_EVENTS,
       minFlushWaitMs: MIN_FLUSH_WAIT_MS,
     });
@@ -72,8 +76,18 @@ describe('ClearcutClient', () => {
       sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
     });
 
-    it('does not flush an event to Clearcut when telemetry is disabled', async () => {
+    it('does not flush an event to Clearcut when telemetry is disabled by a Colab flag', async () => {
       FLAGS_TEST_ONLY.setFlagForTest(ExperimentFlag.EnableTelemetry, false);
+
+      client.log(DEFAULT_LOG);
+
+      await fakeClock.tickAsync(1);
+      sinon.assert.notCalled(fetchStub);
+    });
+
+    it('does not flush an event to Clearcut when telemetry is disabled by user setting', async () => {
+      // Required to change read-only property
+      (vs.env as { isTelemetryEnabled: boolean }).isTelemetryEnabled = false;
 
       client.log(DEFAULT_LOG);
 

@@ -88,7 +88,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.unit.test.ts', '**/*.vscode.test.ts'],
+    files: ['**/*.unit.test.ts', '**/*.vscode.test.ts', '**/*.e2e.test.ts'],
     rules: {
       '@typescript-eslint/unbound-method': 'off',
       '@typescript-eslint/no-unused-expressions': 'off',
