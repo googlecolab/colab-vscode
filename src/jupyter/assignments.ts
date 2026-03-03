@@ -357,8 +357,7 @@ export class AssignmentManager implements vscode.Disposable {
       ...DEFAULT_CPU_SERVER,
       label: alias,
     };
-    const server = await this.assignServer(serverType, signal);
-    return server;
+    return await this.assignServer(serverType, signal);
   }
 
   /**
