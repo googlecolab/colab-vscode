@@ -51,6 +51,7 @@ import { getJupyterApi } from './jupyter/jupyter-extension';
 import { ColabJupyterServerProvider } from './jupyter/provider';
 import { ServerStorage } from './jupyter/storage';
 import { ExtensionUriHandler } from './system/uri';
+import { telemetry } from './telemetry';
 import { CommandSource } from './telemetry/api';
 
 // Called when the extension is activated.
@@ -154,6 +155,7 @@ export async function activate(context: vscode.ExtensionContext) {
     whileAuthorizedToggle,
     ...registerCommands(authProvider, assignmentManager, serverTreeView, fs),
   );
+  telemetry.logActivation();
 }
 
 function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
