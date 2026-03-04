@@ -274,6 +274,11 @@
       ],
       "view/item/context": [
         {
+          "command": "colab.openTerminal",
+          "when": "view == colab-servers-view && viewItem == server && config.colab.terminal",
+          "group": "inline"
+        },
+        {
           "command": "colab.newFile",
           "when": "view == colab-servers-view",
           "group": "navigation"
