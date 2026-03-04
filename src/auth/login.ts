@@ -10,7 +10,12 @@ import {
 } from 'google-auth-library';
 import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
+import { log } from '../common/logging';
+import { telemetry } from '../telemetry';
+import { AuthFlow } from '../telemetry/api';
 import { OAuth2TriggerOptions, FlowResult, OAuth2Flow } from './flows/flows';
+import { LocalServerFlow } from './flows/loopback';
+import { ProxiedRedirectFlow } from './flows/proxied';
 
 /**
  * A complete set of credentials produced from completing OAuth2 authentication.
@@ -41,11 +46,12 @@ export async function login(
   }
 
   for (const flow of flows) {
+    let success = false;
     try {
       if (flow !== flows[0] && !(await promptIfFallback(vs))) {
         break;
       }
-      return await vs.window.withProgress<Credentials>(
+      const res = await vs.window.withProgress<Credentials>(
         {
           location: vs.ProgressLocation.Notification,
           title: 'Signing in to Google...',
@@ -70,11 +76,15 @@ export async function login(
           return res;
         },
       );
+      success = true;
+      return res;
     } catch (err) {
       const innerMsg = err instanceof Error ? err.message : 'unknown error';
       const msg = `Sign-in attempt failed: ${innerMsg}.`;
       // Notify this attempt failed, but try other methods 🤞.
       vs.window.showErrorMessage(msg);
+    } finally {
+      logSignIn(flow, success);
     }
   }
 
@@ -132,4 +142,17 @@ function isDefinedCredentials(
     credentials.expiry_date != null &&
     credentials.scope != null
   );
+}
+
+function logSignIn(flow: OAuth2Flow, succeeded: boolean) {
+  let f: AuthFlow;
+  if (flow instanceof LocalServerFlow) {
+    f = AuthFlow.AUTH_FLOW_LOOPBACK;
+  } else if (flow instanceof ProxiedRedirectFlow) {
+    f = AuthFlow.AUTH_FLOW_PROXIED_REDIRECT;
+  } else {
+    log.error(`Unknown auth flow type: ${flow.constructor.name}`);
+    f = AuthFlow.AUTH_FLOW_UNSPECIFIED;
+  }
+  telemetry.logSignIn(f, succeeded);
 }

@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { AUTHORIZATION_HEADER } from '../colab/headers';
 import { log } from '../common/logging';
 import { Toggleable } from '../common/toggleable';
+import { telemetry } from '../telemetry';
 import { Credentials } from './login';
 import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
@@ -335,6 +336,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (!this.session) {
       return;
     }
+    telemetry.logSignOut();
     await this.removeSession(this.session.id);
   }
 

@@ -11,7 +11,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { ColabLogEventBase, CommandSource } from './api';
+import { ColabLogEventBase, CommandSource, AuthFlow } from './api';
 import { ClearcutClient } from './client';
 import { initializeTelemetry, telemetry } from '.';
 
@@ -236,6 +236,27 @@ describe('Telemetry Module', () => {
         remove_server_event: {
           source: CommandSource.COMMAND_SOURCE_UNSPECIFIED,
         },
+      });
+    });
+
+    it('logs on sign in', () => {
+      telemetry.logSignIn(AuthFlow.AUTH_FLOW_LOOPBACK, true);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        sign_in_event: {
+          auth_flow: AuthFlow.AUTH_FLOW_LOOPBACK,
+          succeeded: true,
+        },
+      });
+    });
+
+    it('logs on sign out', () => {
+      telemetry.logSignOut();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        sign_out_event: {},
       });
     });
   });

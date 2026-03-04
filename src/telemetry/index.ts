@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ColabLogEventBase, ColabEvent, CommandSource } from './api';
+import { ColabLogEventBase, ColabEvent, CommandSource, AuthFlow } from './api';
 import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
@@ -90,6 +90,12 @@ export const telemetry = {
         source,
       },
     });
+  },
+  logSignIn: (flow: AuthFlow, succeeded: boolean) => {
+    log({ sign_in_event: { auth_flow: flow, succeeded } });
+  },
+  logSignOut: () => {
+    log({ sign_out_event: {} });
   },
 };
 

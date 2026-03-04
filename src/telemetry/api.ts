@@ -63,6 +63,14 @@ export type ColabEvent =
   | {
       /** An event that logs when the remove server command is triggered */
       remove_server_event: ColabRemoveServerEvent;
+    }
+  | {
+      /** An event representing a sign-in. */
+      sign_in_event: SignInEvent;
+    }
+  | {
+      /** An event representing a sign-out. */
+      sign_out_event: SignOutEvent;
     };
 
 /** Enum to represent different command sources/triggers */
@@ -102,6 +110,26 @@ interface ColabPruneServersEvent {
 interface ColabRemoveServerEvent {
   source: CommandSource;
 }
+
+// The authentication flow used for sign in.
+export enum AuthFlow {
+  AUTH_FLOW_UNSPECIFIED = 0,
+  /** The loopback authentication flow. */
+  AUTH_FLOW_LOOPBACK = 1,
+  /** The proxied redirect authentication flow. */
+  AUTH_FLOW_PROXIED_REDIRECT = 2,
+}
+
+/** An event representing a sign-in. */
+interface SignInEvent {
+  /** The authentication flow used for sign-in. */
+  auth_flow: AuthFlow;
+  /** Whether the sign-in attempt succeeded or failed. */
+  succeeded: boolean;
+}
+
+/** An event representing a sign-out. */
+type SignOutEvent = Record<string, never>;
 
 /** The Clearcut log event structure. */
 export interface LogEvent {
