@@ -75,5 +75,7 @@ async function authorizeDrive() {
       'base64',
     );
     throw err;
+  } finally {
+    await chromeDriver.close();
   }
 }

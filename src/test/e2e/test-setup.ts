@@ -50,6 +50,8 @@ before(async function () {
       );
     }
     throw err;
+  } finally {
+    await chromeDriver.close();
   }
   console.log('Finished global E2E test setup.');
 });
@@ -82,7 +84,7 @@ async function signIn(
   );
 
   // Cleanup so tests start from a clean slate.
-  await selectQuickPickItem(vsCodeDriver, 'Python');
+  await selectQuickPickItem(vsCodeDriver, 'Does not exist');
   await workbench.executeCommand('Colab: Remove Server');
   await selectQuickPickItem(vsCodeDriver, 'Colab CPU');
   await workbench.executeCommand('View: Close All Editors');
