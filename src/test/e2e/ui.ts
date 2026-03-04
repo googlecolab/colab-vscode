@@ -10,10 +10,20 @@ import {
   Locator,
   ModalDialog,
   WebDriver,
+  Workbench,
   error as extestError,
 } from 'vscode-extension-tester';
 
 const ELEMENT_WAIT_MS = 10000;
+const CELL_EXECUTION_WAIT_MS = 30000;
+
+/**
+ * Creates a new Jupyter notebook and waits for it to be fully loaded.
+ */
+export async function createNotebook(workbench: Workbench): Promise<void> {
+  await workbench.executeCommand('Create: New Jupyter Notebook');
+  await notebookLoaded(workbench.getDriver());
+}
 
 /**
  * Selects the QuickPick option.
@@ -23,6 +33,9 @@ export function selectQuickPickItem(driver: WebDriver, item: string) {
     async () => {
       try {
         const inputBox = await InputBox.create();
+        // Some hover events can interfere with clicking the quick pick item.
+        // Filtering the text first to ensure we click the right item.
+        await inputBox.setText(item);
         // We check for the item's presence before selecting it, since
         // InputBox.selectQuickPick will not throw if the item is not found.
         const quickPickItem = await inputBox.findQuickPick(item);
@@ -39,6 +52,62 @@ export function selectQuickPickItem(driver: WebDriver, item: string) {
     ELEMENT_WAIT_MS,
     `Could not select "${item}" from QuickPick`,
   );
+}
+
+/**
+ * Checks whether a QuickPick item is present in the current QuickPick options.
+ */
+export async function hasQuickPickItem(
+  driver: WebDriver,
+  item: string,
+): Promise<boolean> {
+  const containsOrOthers = await driver.wait(
+    async () => {
+      try {
+        const inputBox = await InputBox.create();
+        const quickPickItem = await inputBox.findQuickPick(item);
+        if (quickPickItem) {
+          return true;
+        }
+        const items = await inputBox.getQuickPicks();
+        // A QuickPick was rendered with options other than the one we're
+        // looking for.
+        if (items.length !== 0) {
+          return await Promise.all(items.map(async (i) => await i.getLabel()));
+        }
+        // No QuickPick items were shown, which likely means the QuickPick is
+        // still loading. Keep waiting.
+        return false;
+      } catch (_) {
+        // Swallow errors since we want to fail when our timeout's reached.
+        return false;
+      }
+    },
+    ELEMENT_WAIT_MS,
+    `Could not find "${item}" in QuickPick`,
+  );
+  if (typeof containsOrOthers === 'boolean') {
+    return containsOrOthers;
+  }
+  const others = containsOrOthers;
+  console.log(
+    `Could not find "${item}" in QuickPick, available items: ${others.join(', ')}`,
+  );
+  return false;
+}
+
+/**
+ * Selects the QuickPick options in order.
+ *
+ * Useful for selecting through multiple QuickPick prompts in a row.
+ */
+export async function selectQuickPicksInOrder(
+  driver: WebDriver,
+  items: string[],
+) {
+  for (const item of items) {
+    await selectQuickPickItem(driver, item);
+  }
 }
 
 /**
@@ -60,19 +129,6 @@ export function pushDialogButton(driver: WebDriver, button: string) {
     },
     ELEMENT_WAIT_MS,
     `Could not select "${button}" from dialog`,
-  );
-}
-
-export async function notebookLoaded(driver: WebDriver): Promise<void> {
-  await driver.wait(
-    async () => {
-      const editors = await driver.findElements(
-        By.className('notebook-editor'),
-      );
-      return editors.length > 0;
-    },
-    ELEMENT_WAIT_MS,
-    'Notebook editor did not load in time',
   );
 }
 
@@ -102,5 +158,51 @@ export async function safeClick(
     },
     ELEMENT_WAIT_MS,
     errorMsg,
+  );
+}
+
+/**
+ * Asserts that all cells in the active notebook have executed successfully.
+ *
+ * This is done by checking for the success indicator in the cell status bar.
+ */
+export async function assertAllCellsExecutedSuccessfully(
+  driver: WebDriver,
+  workbench: Workbench,
+  waitMs: number = CELL_EXECUTION_WAIT_MS,
+): Promise<void> {
+  // Poll for the success indicator (green check).
+  // Why not the cell output? Because the output is rendered in a webview.
+  await driver.wait(
+    async () => {
+      const container = workbench.getEnclosingElement();
+      const cells = await container.findElements(
+        By.className('cell-statusbar-container'),
+      );
+      const successElements = await container.findElements(
+        By.className('codicon-notebook-state-success'),
+      );
+      const errorElements = await container.findElements(
+        By.className('codicon-notebook-state-error'),
+      );
+      return (
+        successElements.length === cells.length && errorElements.length === 0
+      );
+    },
+    waitMs,
+    'Not all cells executed successfully',
+  );
+}
+
+async function notebookLoaded(driver: WebDriver): Promise<void> {
+  await driver.wait(
+    async () => {
+      const editors = await driver.findElements(
+        By.className('notebook-editor'),
+      );
+      return editors.length > 0;
+    },
+    ELEMENT_WAIT_MS,
+    'Notebook editor did not load in time',
   );
 }
