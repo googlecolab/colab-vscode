@@ -66,11 +66,11 @@ export type ColabEvent =
     }
   | {
       /** An event representing a sign-in. */
-      sign_in_event: SignInEvent;
+      sign_in_event: ColabSignInEvent;
     }
   | {
       /** An event representing a sign-out. */
-      sign_out_event: SignOutEvent;
+      sign_out_event: ColabSignOutEvent;
     };
 
 /** Enum to represent different command sources/triggers */
@@ -121,7 +121,7 @@ export enum AuthFlow {
 }
 
 /** An event representing a sign-in. */
-interface SignInEvent {
+interface ColabSignInEvent {
   /** The authentication flow used for sign-in. */
   auth_flow: AuthFlow;
   /** Whether the sign-in attempt succeeded or failed. */
@@ -129,7 +129,7 @@ interface SignInEvent {
 }
 
 /** An event representing a sign-out. */
-type SignOutEvent = Record<string, never>;
+type ColabSignOutEvent = Record<string, never>;
 
 /** The Clearcut log event structure. */
 export interface LogEvent {
