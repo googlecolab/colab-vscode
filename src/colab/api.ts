@@ -422,6 +422,91 @@ export const SessionSchema: z.ZodType<GeneratedSession> = z.object({
 });
 export type Session = z.infer<typeof SessionSchema>;
 
+/** Information about memory usage on a Colab runtime. */
+export const MemorySchema = z.object({
+  /** Total memory available in bytes. */
+  totalBytes: z.number(),
+  /** Free memory available in bytes. */
+  freeBytes: z.number(),
+});
+/** Memory usage on a Colab runtime. */
+export type Memory = z.infer<typeof MemorySchema>;
+
+/** Information about a GPU on a Colab runtime. */
+export const GpuInfoSchema = z.object({
+  /** The name of the GPU. */
+  name: z.string(),
+  /** Memory used in bytes. */
+  memoryUsedBytes: z.number(),
+  /** Total memory in bytes. */
+  memoryTotalBytes: z.number(),
+  /** GPU utilization as a percentage (0-1). */
+  gpuUtilization: z.number(),
+  /** Memory utilization as a percentage (0-1). */
+  memoryUtilization: z.number(),
+  /** Whether the GPU has ever been used. */
+  everUsed: z.boolean(),
+});
+/** GPU information on a Colab runtime. */
+export type GpuInfo = z.infer<typeof GpuInfoSchema>;
+
+/** Information about a filesystem on a Colab runtime. */
+export const FilesystemSchema = z
+  .object({
+    /** The name of the filesystem. */
+    name: z.string().optional(),
+    /** The label of the filesystem (legacy). */
+    label: z.string().optional(),
+    /** Total space on the filesystem in bytes. */
+    totalBytes: z.number(),
+    /** Used space on the filesystem in bytes (legacy). */
+    usedBytes: z.number().optional(),
+    /** Free space on the filesystem in bytes. */
+    freeBytes: z.number().optional(),
+  })
+  .transform((val) => ({
+    name: val.name ?? val.label ?? '',
+    totalBytes: val.totalBytes,
+    freeBytes: val.freeBytes ?? val.totalBytes - (val.usedBytes ?? 0),
+  }));
+/** A filesystem on a Colab runtime. */
+export type Filesystem = z.infer<typeof FilesystemSchema>;
+
+/** Information about a disk on a Colab runtime. */
+export const DiskSchema = z
+  .object({
+    /** The name of the disk. */
+    name: z.string().optional(),
+    /** Total size of the disk in bytes. */
+    sizeBytes: z.number().optional(),
+    /** The filesystems on the disk. */
+    filesystems: z.array(FilesystemSchema).optional(),
+    /** Legacy representation of a single filesystem. */
+    filesystem: FilesystemSchema.optional(),
+  })
+  .transform((val) => ({
+    name: val.name ?? '',
+    sizeBytes: val.sizeBytes ?? val.filesystem?.totalBytes ?? 0,
+    filesystems: val.filesystems ?? (val.filesystem ? [val.filesystem] : []),
+  }));
+/** A disk on a Colab runtime. */
+export type Disk = z.infer<typeof DiskSchema>;
+
+/** The schema for resources (RAM, disk, etc.) on a Colab runtime. */
+export const ResourcesSchema = z.object({
+  /** Memory usage information. */
+  memory: MemorySchema.optional(),
+  /** Disk usage information. */
+  disks: z.array(DiskSchema),
+  /** GPU information. */
+  gpus: z
+    .array(GpuInfoSchema)
+    .optional()
+    .transform((val) => val ?? []),
+});
+/** Resources on a Colab runtime. */
+export type Resources = z.infer<typeof ResourcesSchema>;
+
 /** Result from the Colab Drive credentials propagation API. */
 export const CredentialsPropagationResultSchema = z
   .object({

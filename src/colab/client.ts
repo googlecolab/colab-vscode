@@ -37,6 +37,8 @@ import {
   ExperimentStateSchema,
   ExperimentState,
   isHighMemOnlyAccelerator,
+  Resources,
+  ResourcesSchema,
 } from './api';
 import {
   ACCEPT_JSON_HEADER,
@@ -294,6 +296,34 @@ export class ColabClient {
         signal,
       },
       z.array(SessionSchema),
+    );
+  }
+
+  /**
+   * Gets the resources (RAM and disk usage) for a given server by its endpoint.
+   *
+   * @param endpoint - The assignment endpoint to get resources for.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns The resources information.
+   */
+  async getResources(
+    endpoint: string,
+    signal?: AbortSignal,
+  ): Promise<Resources> {
+    const url = new URL(
+      `${TUN_ENDPOINT}/${endpoint}/api/colab/resources`,
+      this.colabDomain,
+    );
+    const headers = { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value };
+
+    return await this.issueRequest(
+      url,
+      {
+        method: 'GET',
+        headers,
+        signal,
+      },
+      ResourcesSchema,
     );
   }
 

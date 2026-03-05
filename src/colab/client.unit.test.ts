@@ -787,6 +787,63 @@ describe('ColabClient', () => {
 
       sinon.assert.calledOnce(fetchStub);
     });
+
+    it('successfully gets resources by assignment endpoint', async () => {
+      const mockResources = {
+        memory: { totalBytes: 13605834752, freeBytes: 12475244544 },
+        disks: [
+          {
+            filesystem: {
+              label: 'kernel',
+              totalBytes: 115658190848,
+              usedBytes: 22869635072,
+            },
+          },
+        ],
+        gpus: [],
+      };
+      fetchStub
+        .withArgs(
+          urlMatcher({
+            method: 'GET',
+            host: COLAB_HOST,
+            path: `/tun/m/${assignedServer.endpoint}/api/colab/resources`,
+            otherHeaders: {
+              [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
+            },
+            withAuthUser: false,
+          }),
+        )
+        .resolves(
+          new Response(withXSSI(JSON.stringify(mockResources)), {
+            status: 200,
+          }),
+        );
+
+      const response = await client.getResources(assignedServer.endpoint);
+
+      const expectedResources = {
+        memory: mockResources.memory,
+        disks: [
+          {
+            name: '',
+            sizeBytes: mockResources.disks[0].filesystem.totalBytes,
+            filesystems: [
+              {
+                name: mockResources.disks[0].filesystem.label,
+                totalBytes: mockResources.disks[0].filesystem.totalBytes,
+                freeBytes:
+                  mockResources.disks[0].filesystem.totalBytes -
+                  mockResources.disks[0].filesystem.usedBytes,
+              },
+            ],
+          },
+        ],
+        gpus: [],
+      };
+      expect(response).to.deep.equal(expectedResources);
+      sinon.assert.calledOnce(fetchStub);
+    });
   });
 
   it('successfully issues keep-alive pings', async () => {
