@@ -42,55 +42,55 @@ export interface ColabLogEventBase {
 export type ColabEvent =
   | {
       /** An event representing extension activation. */
-      activation_event: ColabActivationEvent;
+      activation_event: ActivationEvent;
     }
   | {
       /** An event that logs when the user creates a server assignment */
-      assign_server_event: ColabAssignServerEvent;
+      assign_server_event: AssignServerEvent;
     }
   | {
       /** An event that logs when the user selects the autoconnect option */
-      auto_connect_event: ColabAutoConnectEvent;
-    }
-  | {
-      /** An event representing an error. */
-      error_event: ColabErrorEvent;
-    }
-  | {
-      /** An event that logs when servers are pruned */
-      prune_servers_event: ColabPruneServersEvent;
-    }
-  | {
-      /** An event that logs when the remove server command is triggered */
-      remove_server_event: ColabRemoveServerEvent;
-    }
-  | {
-      /** An event representing a sign-in. */
-      sign_in_event: ColabSignInEvent;
-    }
-  | {
-      /** An event representing a sign-out. */
-      sign_out_event: ColabSignOutEvent;
+      auto_connect_event: AutoConnectEvent;
     }
   | {
       /** An event representing a Colab toolbar click. */
       colab_toolbar_event: ColabToolbarEvent;
     }
   | {
+      /** An event representing an error. */
+      error_event: ErrorEvent;
+    }
+  | {
       /** An event representing a click to insert Drive mounting snippet. */
-      mount_drive_snippet_event: ColabMountDriveSnippetEvent;
+      mount_drive_snippet_event: MountDriveSnippetEvent;
     }
   | {
       /** An event representing a Colab server mounting. */
-      mount_server_event: ColabMountServerEvent;
+      mount_server_event: MountServerEvent;
     }
   | {
       /** An event representing a click to open Colab web. */
       open_colab_web_event: OpenColabWebEvent;
     }
   | {
+      /** An event that logs when servers are pruned */
+      prune_servers_event: PruneServersEvent;
+    }
+  | {
+      /** An event that logs when the remove server command is triggered */
+      remove_server_event: RemoveServerEvent;
+    }
+  | {
+      /** An event representing a sign-in. */
+      sign_in_event: SignInEvent;
+    }
+  | {
+      /** An event representing a sign-out. */
+      sign_out_event: SignOutEvent;
+    }
+  | {
       /** An event representing a click to upgrade to Colab Pro. */
-      upgrade_to_pro_event: ColabUpgradeToProEvent;
+      upgrade_to_pro_event: UpgradeToProEvent;
     };
 
 /** Enum to represent different command sources/triggers */
@@ -102,46 +102,6 @@ export enum CommandSource {
   COMMAND_SOURCE_NOTIFICATION = 4,
 }
 
-/** An event representing extension activation. */
-type ColabActivationEvent = Record<string, never>;
-
-/** An event representing a server assignment */
-type ColabAssignServerEvent = Record<string, never>;
-
-/** An event representing a server auto connection */
-type ColabAutoConnectEvent = Record<string, never>;
-
-/** An event representing an error. */
-interface ColabErrorEvent {
-  /** The name of the error. */
-  name: string;
-  /** The error message. */
-  msg: string;
-  /** The stack trace of the error. */
-  stack: string;
-}
-
-/** An event representing a click to insert Drive mounting snippet. */
-interface ColabMountDriveSnippetEvent {
-  source: CommandSource;
-}
-
-/** An event representing a Colab server mounting. */
-interface ColabMountServerEvent {
-  source: CommandSource;
-  server?: string;
-}
-
-/** An event representing server pruning */
-interface ColabPruneServersEvent {
-  servers: string[];
-}
-
-/** An event representing server removal */
-interface ColabRemoveServerEvent {
-  source: CommandSource;
-}
-
 // The authentication flow used for sign in.
 export enum AuthFlow {
   AUTH_FLOW_UNSPECIFIED = 0,
@@ -151,8 +111,56 @@ export enum AuthFlow {
   AUTH_FLOW_PROXIED_REDIRECT = 2,
 }
 
+/** An event representing extension activation. */
+type ActivationEvent = Record<string, never>;
+
+/** An event representing a server assignment */
+type AssignServerEvent = Record<string, never>;
+
+/** An event representing a server auto connection */
+type AutoConnectEvent = Record<string, never>;
+
+/** An event representing a Colab toolbar click. */
+type ColabToolbarEvent = Record<string, never>;
+
+/** An event representing an error. */
+interface ErrorEvent {
+  /** The name of the error. */
+  name: string;
+  /** The error message. */
+  msg: string;
+  /** The stack trace of the error. */
+  stack: string;
+}
+
+/** An event representing a click to insert Drive mounting snippet. */
+interface MountDriveSnippetEvent {
+  source: CommandSource;
+}
+
+/** An event representing a Colab server mounting. */
+interface MountServerEvent {
+  source: CommandSource;
+  server?: string;
+}
+
+/** An event representing a click to open Colab web. */
+interface OpenColabWebEvent {
+  source: CommandSource;
+}
+
+/** An event representing server pruning */
+interface PruneServersEvent {
+  servers: string[];
+}
+
+/** An event representing server removal */
+interface RemoveServerEvent {
+  source: CommandSource;
+}
+
 /** An event representing a sign-in. */
-interface ColabSignInEvent {
+interface SignInEvent {
   /** The authentication flow used for sign-in. */
   auth_flow: AuthFlow;
   /** Whether the sign-in attempt succeeded or failed. */
@@ -160,18 +168,10 @@ interface ColabSignInEvent {
 }
 
 /** An event representing a sign-out. */
-type ColabSignOutEvent = Record<string, never>;
-
-/** An event representing a Colab toolbar click. */
-type ColabToolbarEvent = Record<string, never>;
+type SignOutEvent = Record<string, never>;
 
 /** An event representing a click to upgrade to Colab Pro. */
-interface ColabUpgradeToProEvent {
-  source: CommandSource;
-}
-
-/** An event representing a click to open Colab web. */
-interface OpenColabWebEvent {
+interface UpgradeToProEvent {
   source: CommandSource;
 }
 
