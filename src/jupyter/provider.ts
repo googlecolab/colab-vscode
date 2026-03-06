@@ -32,6 +32,7 @@ import { LatestCancelable } from '../common/async';
 import { traceMethod } from '../common/logging/decorators';
 import { InputFlowAction } from '../common/multi-step-quickpick';
 import { telemetry } from '../telemetry';
+import { CommandSource } from '../telemetry/api';
 import { isUUID } from '../utils/uuid';
 import { AssignmentChangeEvent, AssignmentManager } from './assignments';
 
@@ -185,10 +186,13 @@ export class ColabJupyterServerProvider
           telemetry.logAssignServer();
           return await this.assignServer();
         case OPEN_COLAB_WEB.label:
-          openColabWeb(this.vs);
+          openColabWeb(this.vs, CommandSource.COMMAND_SOURCE_SERVER_PROVIDER);
           return;
         case UPGRADE_TO_PRO.label:
-          openColabSignup(this.vs);
+          openColabSignup(
+            this.vs,
+            CommandSource.COMMAND_SOURCE_SERVER_PROVIDER,
+          );
           return;
         default:
           throw new Error('Unexpected command');
