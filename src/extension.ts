@@ -60,6 +60,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await activateInternal(context);
   } catch (err) {
     telemetry.logError(err);
+    throw err;
   }
 }
 
