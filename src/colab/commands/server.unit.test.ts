@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
-import sinon, { SinonStubbedInstance } from 'sinon';
+import sinon, { SinonStubbedInstance, SinonStubbedFunction } from 'sinon';
 import { InputBox, QuickPick, QuickPickItem } from 'vscode';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
@@ -168,7 +168,7 @@ describe('Server Commands', () => {
     const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
     let assignmentManagerStub: SinonStubbedInstance<AssignmentManager>;
     let fsStub: SinonStubbedInstance<ContentsFileSystemProvider>;
-    let logStub: sinon.SinonStub;
+    let logStub: SinonStubbedFunction<typeof telemetry.logMountServer>;
 
     beforeEach(() => {
       assignmentManagerStub = sinon.createStubInstance(AssignmentManager);
