@@ -73,37 +73,44 @@ export async function mountServer(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
   fs: ContentsFileSystemProvider,
+  source: CommandSource,
   withBackButton?: boolean,
 ) {
-  const allServers = await assignmentManager.getServers('extension');
-  if (!allServers.length) {
-    return;
-  }
-  if (allServers.length === 1) {
-    fs.mount(allServers[0]);
-    return;
-  }
-
-  await MultiStepInput.run(vs, async (input) => {
-    const items: MountServerItem[] = allServers.map((s) => ({
-      label: s.label,
-      description: ServerCategory.VS_CODE,
-      value: s,
-    }));
-    const selectedServer = (
-      await input.showQuickPick({
-        title: MOUNT_SERVER.label,
-        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
-        items,
-      })
-    ).value;
-    if (!selectedServer) {
+  let selectedServer: ColabAssignedServer | undefined;
+  try {
+    const allServers = await assignmentManager.getServers('extension');
+    if (!allServers.length) {
       return;
     }
-    fs.mount(selectedServer);
+    if (allServers.length === 1) {
+      selectedServer = allServers[0];
+      fs.mount(selectedServer);
+      return;
+    }
 
-    return undefined;
-  });
+    await MultiStepInput.run(vs, async (input) => {
+      const items: MountServerItem[] = allServers.map((s) => ({
+        label: s.label,
+        description: ServerCategory.VS_CODE,
+        value: s,
+      }));
+      selectedServer = (
+        await input.showQuickPick({
+          title: MOUNT_SERVER.label,
+          buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
+          items,
+        })
+      ).value;
+      if (!selectedServer) {
+        return;
+      }
+      fs.mount(selectedServer);
+
+      return undefined;
+    });
+  } finally {
+    telemetry.logMountServer(source, selectedServer?.endpoint);
+  }
 }
 
 /**

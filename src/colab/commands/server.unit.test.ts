@@ -12,6 +12,8 @@ import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { ServerStorage } from '../../jupyter/storage';
+import { telemetry } from '../../telemetry';
+import { CommandSource } from '../../telemetry/api';
 import {
   buildQuickPickStub,
   QuickPickStub,
@@ -163,12 +165,15 @@ describe('Server Commands', () => {
   });
 
   describe('mountServer', () => {
+    const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
     let assignmentManagerStub: SinonStubbedInstance<AssignmentManager>;
     let fsStub: SinonStubbedInstance<ContentsFileSystemProvider>;
+    let logStub: sinon.SinonStub;
 
     beforeEach(() => {
       assignmentManagerStub = sinon.createStubInstance(AssignmentManager);
       fsStub = sinon.createStubInstance(ContentsFileSystemProvider);
+      logStub = sinon.stub(telemetry, 'logMountServer');
     });
 
     it('does nothing when no servers are assigned', async () => {
@@ -177,10 +182,16 @@ describe('Server Commands', () => {
         .withArgs('extension')
         .resolves([]);
 
-      await mountServer(vsCodeStub.asVsCode(), assignmentManagerStub, fsStub);
+      await mountServer(
+        vsCodeStub.asVsCode(),
+        assignmentManagerStub,
+        fsStub,
+        source,
+      );
 
       sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
       sinon.assert.notCalled(fsStub.mount);
+      sinon.assert.calledOnceWithExactly(logStub, source, undefined);
     });
 
     it('mounts the server directly when only one is assigned', async () => {
@@ -189,10 +200,20 @@ describe('Server Commands', () => {
         .withArgs('extension')
         .resolves([defaultServer]);
 
-      await mountServer(vsCodeStub.asVsCode(), assignmentManagerStub, fsStub);
+      await mountServer(
+        vsCodeStub.asVsCode(),
+        assignmentManagerStub,
+        fsStub,
+        source,
+      );
 
       sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
       sinon.assert.calledOnceWithExactly(fsStub.mount, defaultServer);
+      sinon.assert.calledOnceWithExactly(
+        logStub,
+        source,
+        defaultServer.endpoint,
+      );
     });
 
     describe('when multiple servers are assigned', () => {
@@ -207,7 +228,12 @@ describe('Server Commands', () => {
       });
 
       it('lists servers for selection', async () => {
-        void mountServer(vsCodeStub.asVsCode(), assignmentManagerStub, fsStub);
+        void mountServer(
+          vsCodeStub.asVsCode(),
+          assignmentManagerStub,
+          fsStub,
+          source,
+        );
         await quickPickStub.nextShow();
 
         expect(quickPickStub.items).to.deep.equal([
@@ -229,6 +255,7 @@ describe('Server Commands', () => {
           vsCodeStub.asVsCode(),
           assignmentManagerStub,
           fsStub,
+          source,
         );
         await quickPickStub.nextShow();
         quickPickStub.onDidChangeSelection.yield([
@@ -237,6 +264,11 @@ describe('Server Commands', () => {
 
         await expect(mount).to.eventually.be.fulfilled;
         sinon.assert.calledOnceWithExactly(fsStub.mount, defaultServer);
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          source,
+          defaultServer.endpoint,
+        );
       });
 
       it('does not mount if selection is cancelled', async () => {
@@ -244,12 +276,14 @@ describe('Server Commands', () => {
           vsCodeStub.asVsCode(),
           assignmentManagerStub,
           fsStub,
+          source,
         );
         await quickPickStub.nextShow();
         quickPickStub.onDidHide.yield();
 
         await expect(mount).to.eventually.be.fulfilled;
         sinon.assert.notCalled(fsStub.mount);
+        sinon.assert.calledOnceWithExactly(logStub, source, undefined);
       });
 
       it('shows back button when requested', async () => {
@@ -257,7 +291,8 @@ describe('Server Commands', () => {
           vsCodeStub.asVsCode(),
           assignmentManagerStub,
           fsStub,
-          true,
+          source,
+          /* withBackButton= */ true,
         );
         await quickPickStub.nextShow();
 

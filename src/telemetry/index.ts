@@ -97,6 +97,21 @@ export const telemetry = {
   logSignOut: () => {
     log({ sign_out_event: {} });
   },
+  logColabToolbar: () => {
+    log({ colab_toolbar_event: {} });
+  },
+  logMountDriveSnippet: (source: CommandSource) => {
+    log({ mount_drive_snippet_event: { source } });
+  },
+  logMountServer: (source: CommandSource, server?: string) => {
+    log({ mount_server_event: { source, server: server ?? '' } });
+  },
+  logOpenColabWeb: (source: CommandSource) => {
+    log({ open_colab_web_event: { source } });
+  },
+  logUpgradeToPro: (source: CommandSource) => {
+    log({ upgrade_to_pro_event: { source } });
+  },
 };
 
 function log(event: ColabEvent) {

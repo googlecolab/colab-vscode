@@ -118,7 +118,7 @@ describe('Telemetry Module', () => {
     sinon.assert.notCalled(logStub);
   });
 
-  describe('logs to Clearcut', () => {
+  describe('log interfaces', () => {
     const PLATFORM = 'darwin';
     let baseLog: ColabLogEventBase & { timestamp: string };
     let logStub: SinonSpy;
@@ -139,7 +139,7 @@ describe('Telemetry Module', () => {
       disposeTelemetry = initializeTelemetry(vs.asVsCode());
     });
 
-    it('on activation', () => {
+    it('logs on activation', () => {
       telemetry.logActivation();
 
       sinon.assert.calledOnceWithExactly(logStub, {
@@ -178,7 +178,7 @@ describe('Telemetry Module', () => {
       },
     ];
     for (const { type, getError, error_event } of errors) {
-      it(`on error with type ${type}`, () => {
+      it(`logs on error with type ${type}`, () => {
         telemetry.logError(getError());
 
         sinon.assert.calledOnceWithExactly(logStub, {
@@ -188,7 +188,7 @@ describe('Telemetry Module', () => {
       });
     }
 
-    it('with the correct time', () => {
+    it('logs with the correct time', () => {
       const curTime = fakeClock.tick(100);
 
       telemetry.logActivation();
@@ -257,6 +257,60 @@ describe('Telemetry Module', () => {
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         sign_out_event: {},
+      });
+    });
+
+    it('logs on Colab toolbar click', () => {
+      telemetry.logColabToolbar();
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        colab_toolbar_event: {},
+      });
+    });
+
+    it('logs on mount Drive snippet', () => {
+      const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
+
+      telemetry.logMountDriveSnippet(source);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        mount_drive_snippet_event: { source },
+      });
+    });
+
+    it('logs on mount server', () => {
+      const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
+      const server = 'test-server';
+
+      telemetry.logMountServer(source, server);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        mount_server_event: { source, server },
+      });
+    });
+
+    it('logs on open Colab web', () => {
+      const source = CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR;
+
+      telemetry.logOpenColabWeb(source);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        open_colab_web_event: { source },
+      });
+    });
+
+    it('logs on upgrade to pro', () => {
+      const source = CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR;
+
+      telemetry.logUpgradeToPro(source);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        upgrade_to_pro_event: { source },
       });
     });
   });
