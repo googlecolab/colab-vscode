@@ -63,6 +63,15 @@ export const telemetry = {
   logActivation: () => {
     log({ activation_event: {} });
   },
+  logAutoConnect: () => {
+    log({ auto_connect_event: {} });
+  },
+  logAssignServer: () => {
+    log({ assign_server_event: {} });
+  },
+  logColabToolbar: () => {
+    log({ colab_toolbar_event: {} });
+  },
   logError: (e: unknown) => {
     if (e instanceof Error) {
       log({
@@ -75,11 +84,14 @@ export const telemetry = {
       log({ error_event: { name: 'Error', msg, stack: '' } });
     }
   },
-  logAutoConnect: () => {
-    log({ auto_connect_event: {} });
+  logMountDriveSnippet: (source: CommandSource) => {
+    log({ mount_drive_snippet_event: { source } });
   },
-  logAssignServer: () => {
-    log({ assign_server_event: {} });
+  logMountServer: (source: CommandSource, server?: string) => {
+    log({ mount_server_event: { source, server } });
+  },
+  logOpenColabWeb: (source: CommandSource) => {
+    log({ open_colab_web_event: { source } });
   },
   logPruneServers: (servers: string[]) => {
     log({ prune_servers_event: { servers } });
@@ -96,18 +108,6 @@ export const telemetry = {
   },
   logSignOut: () => {
     log({ sign_out_event: {} });
-  },
-  logColabToolbar: () => {
-    log({ colab_toolbar_event: {} });
-  },
-  logMountDriveSnippet: (source: CommandSource) => {
-    log({ mount_drive_snippet_event: { source } });
-  },
-  logMountServer: (source: CommandSource, server?: string) => {
-    log({ mount_server_event: { source, server: server ?? '' } });
-  },
-  logOpenColabWeb: (source: CommandSource) => {
-    log({ open_colab_web_event: { source } });
   },
   logUpgradeToPro: (source: CommandSource) => {
     log({ upgrade_to_pro_event: { source } });

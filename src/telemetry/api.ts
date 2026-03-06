@@ -121,6 +121,17 @@ interface ColabErrorEvent {
   stack: string;
 }
 
+/** An event representing a click to insert Drive mounting snippet. */
+interface ColabMountDriveSnippetEvent {
+  source: CommandSource;
+}
+
+/** An event representing a Colab server mounting. */
+interface ColabMountServerEvent {
+  source: CommandSource;
+  server?: string;
+}
+
 /** An event representing server pruning */
 interface ColabPruneServersEvent {
   servers: string[];
@@ -154,24 +165,13 @@ type ColabSignOutEvent = Record<string, never>;
 /** An event representing a Colab toolbar click. */
 type ColabToolbarEvent = Record<string, never>;
 
-/** An event representing a click to insert Drive mounting snippet. */
-interface ColabMountDriveSnippetEvent {
+/** An event representing a click to upgrade to Colab Pro. */
+interface ColabUpgradeToProEvent {
   source: CommandSource;
-}
-
-/** An event representing a Colab server mounting. */
-interface ColabMountServerEvent {
-  source: CommandSource;
-  server: string;
 }
 
 /** An event representing a click to open Colab web. */
 interface OpenColabWebEvent {
-  source: CommandSource;
-}
-
-/** An event representing a click to upgrade to Colab Pro. */
-interface ColabUpgradeToProEvent {
   source: CommandSource;
 }
 

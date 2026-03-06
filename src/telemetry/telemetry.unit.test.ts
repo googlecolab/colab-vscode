@@ -292,6 +292,17 @@ describe('Telemetry Module', () => {
       });
     });
 
+    it('logs on mount server without server', () => {
+      const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
+
+      telemetry.logMountServer(source);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        mount_server_event: { source, server: undefined },
+      });
+    });
+
     it('logs on open Colab web', () => {
       const source = CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR;
 
