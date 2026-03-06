@@ -56,6 +56,15 @@ import { CommandSource } from './telemetry/api';
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
+  try {
+    await activateInternal(context);
+  } catch (err) {
+    telemetry.logError(err);
+    throw err;
+  }
+}
+
+async function activateInternal(context: vscode.ExtensionContext) {
   const logging = initializeLogger(vscode, context.extensionMode);
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
