@@ -71,6 +71,26 @@ export type ColabEvent =
   | {
       /** An event representing a sign-out. */
       sign_out_event: ColabSignOutEvent;
+    }
+  | {
+      /** An event representing a Colab toolbar click. */
+      colab_toolbar_event: ColabToolbarEvent;
+    }
+  | {
+      /** An event representing a click to insert Drive mounting snippet. */
+      mount_drive_snippet_event: ColabMountDriveSnippetEvent;
+    }
+  | {
+      /** An event representing a Colab server mounting. */
+      mount_server_event: ColabMountServerEvent;
+    }
+  | {
+      /** An event representing a click to open Colab web. */
+      open_colab_web_event: OpenColabWebEvent;
+    }
+  | {
+      /** An event representing a click to upgrade to Colab Pro. */
+      upgrade_to_pro_event: ColabUpgradeToProEvent;
     };
 
 /** Enum to represent different command sources/triggers */
@@ -99,6 +119,17 @@ interface ColabErrorEvent {
   msg: string;
   /** The stack trace of the error. */
   stack: string;
+}
+
+/** An event representing a click to insert Drive mounting snippet. */
+interface ColabMountDriveSnippetEvent {
+  source: CommandSource;
+}
+
+/** An event representing a Colab server mounting. */
+interface ColabMountServerEvent {
+  source: CommandSource;
+  server?: string;
 }
 
 /** An event representing server pruning */
@@ -130,6 +161,19 @@ interface ColabSignInEvent {
 
 /** An event representing a sign-out. */
 type ColabSignOutEvent = Record<string, never>;
+
+/** An event representing a Colab toolbar click. */
+type ColabToolbarEvent = Record<string, never>;
+
+/** An event representing a click to upgrade to Colab Pro. */
+interface ColabUpgradeToProEvent {
+  source: CommandSource;
+}
+
+/** An event representing a click to open Colab web. */
+interface OpenColabWebEvent {
+  source: CommandSource;
+}
 
 /** The Clearcut log event structure. */
 export interface LogEvent {

@@ -5,6 +5,7 @@
  */
 
 import vscode, { Disposable, Event } from 'vscode';
+import { CommandSource } from '../../telemetry/api';
 import { ConsumptionUserInfo, SubscriptionTier } from '../api';
 import { openColabSignup } from '../commands/external';
 
@@ -74,7 +75,7 @@ export class ConsumptionNotifier implements Disposable {
     );
     this.setSnoozeTimeout(notification.notify);
     if (await action) {
-      openColabSignup(this.vs);
+      openColabSignup(this.vs, CommandSource.COMMAND_SOURCE_NOTIFICATION);
     }
   }
 

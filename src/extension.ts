@@ -199,18 +199,30 @@ function registerCommands(
     // in the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
     vscode.commands.registerCommand(
       MOUNT_SERVER.id,
-      async (withBackButton?: boolean) => {
-        await mountServer(vscode, assignmentManager, fs, withBackButton);
+      async (source?: CommandSource, withBackButton?: boolean) => {
+        await mountServer(
+          vscode,
+          assignmentManager,
+          fs,
+          source ?? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
+          withBackButton,
+        );
       },
     ),
-    vscode.commands.registerCommand(MOUNT_DRIVE.id, async () => {
-      await appendCodeCell(
-        vscode,
-        `from google.colab import drive
+    vscode.commands.registerCommand(
+      MOUNT_DRIVE.id,
+      async (source?: CommandSource) => {
+        telemetry.logMountDriveSnippet(
+          source ?? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
+        );
+        await appendCodeCell(
+          vscode,
+          `from google.colab import drive
 drive.mount('/content/drive')`,
-        'python',
-      );
-    }),
+          'python',
+        );
+      },
+    ),
     vscode.commands.registerCommand(
       REMOVE_SERVER.id,
       async (source?: CommandSource, withBackButton?: boolean) => {
