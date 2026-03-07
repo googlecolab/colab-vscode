@@ -37,6 +37,8 @@ import {
   ExperimentStateSchema,
   ExperimentState,
   isHighMemOnlyAccelerator,
+  DriveFileMetadata,
+  DriveFileMetadataSchema,
 } from './api';
 import {
   ACCEPT_JSON_HEADER,
@@ -363,6 +365,35 @@ export class ColabClient {
       { requireAccessToken },
     );
     return expState;
+  }
+
+  async getDriveFileMetadata(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<DriveFileMetadata> {
+    const url = new URL(`https://www.googleapis.com/drive/v3/files/${id}`);
+
+    url.searchParams.append('fields', 'name');
+
+    const response = await this.issueRequest(
+      url,
+      { method: 'GET', signal },
+      DriveFileMetadataSchema,
+    );
+    return response;
+  }
+
+  async fetchDriveFileContent(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    const response = await this.issueRequest(
+      new URL(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`),
+      { method: 'GET', signal },
+      z.unknown(),
+    );
+    const encoder = new TextEncoder();
+    return encoder.encode(JSON.stringify(response));
   }
 
   private async getAssignment(
