@@ -127,38 +127,31 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (this.isInitialized) {
       return;
     }
-    const record = await this.storage.getSession(REQUIRED_SCOPES);
-    if (!record) {
-      this.isInitialized = true;
-      this.register();
-      return;
-    }
-    this.oAuth2Client.setCredentials({
-      refresh_token: record.refreshToken,
-      token_type: 'Bearer',
-      scope: record.scopes.join(' '),
-    });
-    try {
-      await this.oAuth2Client.refreshAccessToken();
-    } catch (err: unknown) {
-      const { shouldClearSession, reason } =
-        this.shouldClearSessionOnRefreshError(err);
-      if (shouldClearSession) {
-        log.warn(`${reason}. Clearing session.`, err);
-        await this.storage.removeSession(record.id);
-        await this.initialize();
-        return;
+    const records = await this.storage.getSessions();
+    for (const record of records) {
+      try {
+        const { accessToken } = await this.refreshSession(
+          record,
+          /* force= */ true,
+        );
+        if (!accessToken) {
+          throw new Error('Failed to refresh Google OAuth token.');
+        }
+        const updatedSession = this.updateSession(record, accessToken);
+        this.notifySessionChanged(updatedSession);
+      } catch (err: unknown) {
+        const { shouldClearSession, reason } =
+          this.shouldClearSessionOnRefreshError(err);
+        if (shouldClearSession) {
+          log.warn(`${reason}. Clearing session.`, err);
+          await this.storage.removeSession(record.id);
+        } else {
+          log.error('Unable to refresh access token', err);
+          throw err;
+        }
       }
-      log.error('Unable to refresh access token', err);
-      throw err;
     }
-    const accessToken = this.oAuth2Client.credentials.access_token;
-    if (!accessToken) {
-      throw new Error('Failed to refresh Google OAuth token.');
-    }
-    const updatedSession = this.updateSession(record, accessToken);
     this.isInitialized = true;
-    this.notifySessionChanged(updatedSession);
     this.register();
   }
 
@@ -218,8 +211,21 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     }
     const sessions: AuthenticationSession[] = [];
     for (const session of candidates) {
+      const record = await this.storage.getSessionById(session.id);
+      if (!record) {
+        continue;
+      }
+
       try {
-        sessions.push(await this.refreshSessionIfNeeded(session));
+        const { refreshed, accessToken } = await this.refreshSession(
+          record,
+          /* force= */ false,
+        );
+        if (refreshed && accessToken) {
+          sessions.push(this.updateSession(record, accessToken));
+        } else {
+          sessions.push(session);
+        }
       } catch (err: unknown) {
         const { shouldClearSession, reason } =
           this.shouldClearSessionOnRefreshError(err);
@@ -365,19 +371,25 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     return { shouldClearSession: false, reason: '' };
   }
 
-  private async refreshSessionIfNeeded(
-    session: AuthenticationSession,
-  ): Promise<AuthenticationSession> {
-    const expiryDateMs = this.oAuth2Client.credentials.expiry_date;
-    if (expiryDateMs && expiryDateMs > Date.now() + REFRESH_MARGIN_MS) {
-      return session;
+  private async refreshSession(
+    session: RefreshableAuthenticationSession,
+    force: boolean,
+  ): Promise<{ refreshed: boolean; accessToken?: string | null }> {
+    this.oAuth2Client.setCredentials({
+      refresh_token: session.refreshToken,
+      token_type: 'Bearer',
+      scope: session.scopes.join(' '),
+    });
+
+    if (!force) {
+      const expiryDateMs = this.oAuth2Client.credentials.expiry_date;
+      if (expiryDateMs && expiryDateMs > Date.now() + REFRESH_MARGIN_MS) {
+        return { refreshed: false };
+      }
     }
     await this.oAuth2Client.refreshAccessToken();
     const accessToken = this.oAuth2Client.credentials.access_token;
-    if (!accessToken) {
-      throw new Error('Failed to refresh Google OAuth token.');
-    }
-    return this.updateSession(session, accessToken);
+    return { refreshed: true, accessToken };
   }
 
   private async getUserInfo(
