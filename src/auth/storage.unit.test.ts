@@ -7,14 +7,11 @@
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { SecretStorage } from 'vscode';
+import { PROVIDER_ID } from '../config/constants';
 import { SecretStorageFake } from '../test/helpers/secret-storage';
-import {
-  AuthStorage,
-  RefreshableAuthenticationSession,
-  TEST_ONLY,
-} from './storage';
+import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
-const SESSIONS_KEY = TEST_ONLY.SESSIONS_KEY;
+const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
 const SESSION_1: RefreshableAuthenticationSession = {
   id: '1',
   refreshToken: '//42',
@@ -62,29 +59,16 @@ describe('AuthStorage', () => {
       sinon.assert.calledOnceWithExactly(secretsStub.get, SESSIONS_KEY);
     });
 
-    it('caches the results after the first read', async () => {
-      secretsStub.get.resolves(JSON.stringify([SESSION_1]));
-
-      await authStorage.getSessions();
-      await authStorage.getSessions();
-
-      sinon.assert.calledOnce(secretsStub.get);
-    });
-
     it('returns an empty array when storage is corrupted', async () => {
       secretsStub.get.resolves('invalid-json-{[}');
 
-      const sessions = await authStorage.getSessions();
-
-      expect(sessions).to.deep.equal([]);
+      await expect(authStorage.getSessions()).to.be.rejected;
     });
 
     it('returns an empty array if schema validation fails', async () => {
       secretsStub.get.resolves(JSON.stringify([{ id: 'missing-fields' }]));
 
-      const sessions = await authStorage.getSessions();
-
-      expect(sessions).to.deep.equal([]);
+      await expect(authStorage.getSessions()).to.be.rejected;
     });
   });
 
@@ -99,7 +83,7 @@ describe('AuthStorage', () => {
       expect(found?.id).to.equal(SESSION_2.id);
     });
 
-    it('finds a session that has more scopes than requested', async () => {
+    it('does not find a session that has more scopes than requested', async () => {
       const sessionWithMoreScopes = {
         ...SESSION_2,
         scopes: [...SESSION_2.scopes, 'another-scope'],
@@ -110,7 +94,7 @@ describe('AuthStorage', () => {
 
       const found = await authStorage.getSession(SESSION_2.scopes);
 
-      expect(found?.id).to.equal(SESSION_2.id);
+      expect(found).to.equal(undefined);
     });
 
     it('returns undefined if no session satisfies all scopes', async () => {
@@ -121,10 +105,12 @@ describe('AuthStorage', () => {
       expect(found).to.be.undefined;
     });
 
-    it('returns the first session if an empty scope array is requested', async () => {
-      secretsStub.get.resolves(JSON.stringify([SESSION_1, SESSION_2]));
+    it('returns the first session if two sessions have the same scopes', async () => {
+      secretsStub.get.resolves(
+        JSON.stringify([SESSION_1, { ...SESSION_1, id: SESSION_2.id }]),
+      );
 
-      const found = await authStorage.getSession([]);
+      const found = await authStorage.getSession(SESSION_1.scopes);
 
       expect(found).to.deep.equal(SESSION_1);
     });
@@ -180,7 +166,7 @@ describe('AuthStorage', () => {
       expect(sessions[0].refreshToken).to.equal('new-token');
     });
 
-    it('updates the cache after storing', async () => {
+    it('updates secrets after storing', async () => {
       await authStorage.getSessions();
       secretsStub.get.resetHistory();
 
@@ -188,7 +174,8 @@ describe('AuthStorage', () => {
       const sessions = await authStorage.getSessions();
 
       expect(sessions).to.deep.equal([SESSION_1]);
-      sinon.assert.notCalled(secretsStub.get);
+      sinon.assert.calledOnce(secretsStub.store);
+      sinon.assert.calledTwice(secretsStub.get);
     });
   });
 
