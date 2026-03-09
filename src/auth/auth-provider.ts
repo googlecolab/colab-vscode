@@ -69,10 +69,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Initializes the GoogleAuthProvider.
    *
    * @param vs - The VS Code API.
-   * @param context - The extension context used for managing lifecycle.
-   * @param oAuth2Client - The OAuth2 client for handling Google authentication.
-   * @param codeProvider - The provider responsible for generating authorization
-   * codes.
+   * @param storage - Persistent storage for refresh tokens and session metadata
+   * @param oAuth2Client - The OAuth2 client for handling Google authentication
    * @param login - A function that initiates the login process with the
    * specified scopes.
    */
@@ -128,16 +126,16 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (this.isInitialized) {
       return;
     }
-    const session = await this.storage.getSession(REQUIRED_SCOPES);
-    if (!session) {
+    const record = await this.storage.getSession(REQUIRED_SCOPES);
+    if (!record) {
       this.isInitialized = true;
       this.register();
       return;
     }
     this.oAuth2Client.setCredentials({
-      refresh_token: session.refreshToken,
+      refresh_token: record.refreshToken,
       token_type: 'Bearer',
-      scope: session.scopes.join(' '),
+      scope: record.scopes.join(' '),
     });
     try {
       await this.oAuth2Client.refreshAccessToken();
@@ -146,7 +144,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         this.shouldClearSessionOnRefreshError(err);
       if (shouldClearSession) {
         log.warn(`${reason}. Clearing session.`, err);
-        await this.storage.removeSession(session.id);
+        await this.storage.removeSession(record.id);
         await this.initialize();
         return;
       }
@@ -157,20 +155,9 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (!accessToken) {
       throw new Error('Failed to refresh Google OAuth token.');
     }
-
-    this.session = {
-      id: session.id,
-      accessToken,
-      account: session.account,
-      scopes: session.scopes,
-    };
+    const updatedSession = this.updateSession(record, accessToken);
     this.isInitialized = true;
-    this.emitter.fire({
-      added: [],
-      removed: [],
-      changed: [this.session],
-      hasValidSession: true,
-    });
+    this.notifySessionChanged(updatedSession);
     this.register();
   }
 
@@ -183,7 +170,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   whileAuthorized(...toggles: Toggleable[]): Disposable {
     this.assertReady();
     const setToggles = () => {
-      if (this.session === undefined) {
+      if (!this.hasSessionForScopes(REQUIRED_SCOPES)) {
         toggles.forEach((t) => {
           t.off();
         });
@@ -219,24 +206,35 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (scopes && !matchesRequiredScopes(scopes)) {
       return [];
     }
-    try {
-      await this.refreshSessionIfNeeded();
-    } catch (err: unknown) {
-      const { shouldClearSession, reason } =
-        this.shouldClearSessionOnRefreshError(err);
-      if (shouldClearSession) {
-        log.warn(`${reason}. Clearing session.`, err);
-        if (this.session?.id) {
-          await this.removeSession(this.session.id);
+    let candidates = this.listSessions();
+    if (scopes) {
+      candidates = candidates.filter((s) => matchesRequiredScopes(s.scopes));
+    }
+    if (options.account) {
+      candidates = candidates.filter(
+        (s) => s.account.id === options.account?.id,
+      );
+    }
+    const sessions: AuthenticationSession[] = [];
+    for (const session of candidates) {
+      try {
+        sessions.push(await this.refreshSessionIfNeeded(session));
+      } catch (err: unknown) {
+        const { shouldClearSession, reason } =
+          this.shouldClearSessionOnRefreshError(err);
+        if (shouldClearSession) {
+          log.warn(`${reason}. Clearing session.`, err);
+          if (session.id) {
+            await this.removeSession(session.id);
+          }
+        } else {
+          log.error('Unable to refresh access token', err);
+          sessions.push(session);
         }
-        return [];
       }
-      log.error('Unable to refresh access token', err);
     }
-    if (options.account && this.session?.account != options.account) {
-      return [];
-    }
-    return this.session ? [this.session] : [];
+
+    return sessions;
   }
 
   /**
@@ -258,9 +256,9 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       }
       const tokenInfo = await this.login(sortedScopes);
       const user = await this.getUserInfo(tokenInfo.access_token);
-      const existingSession = await this.storage.getSession(REQUIRED_SCOPES);
-      const newSession: RefreshableAuthenticationSession = {
-        id: existingSession ? existingSession.id : uuid(),
+      const existingRecord = await this.storage.getSession(REQUIRED_SCOPES);
+      const newRecord: RefreshableAuthenticationSession = {
+        id: existingRecord ? existingRecord.id : uuid(),
         refreshToken: tokenInfo.refresh_token,
         account: {
           id: user.email,
@@ -268,32 +266,16 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         },
         scopes: sortedScopes,
       };
-      await this.storage.storeSession(newSession);
+      await this.storage.storeSession(newRecord);
       this.oAuth2Client.setCredentials(tokenInfo);
-      this.session = {
-        id: newSession.id,
-        accessToken: tokenInfo.access_token,
-        account: newSession.account,
-        scopes: sortedScopes,
-      };
-
-      if (existingSession) {
-        this.emitter.fire({
-          added: [],
-          removed: [],
-          changed: [this.session],
-          hasValidSession: true,
-        });
+      const session = this.updateSession(newRecord, tokenInfo.access_token);
+      if (existingRecord) {
+        this.notifySessionChanged(session);
       } else {
-        this.emitter.fire({
-          added: [this.session],
-          removed: [],
-          changed: [],
-          hasValidSession: true,
-        });
+        this.notifySessionAdded(session);
       }
       this.vs.window.showInformationMessage('Signed in to Google!');
-      return this.session;
+      return session;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'unknown error';
       this.vs.window.showErrorMessage(`Sign in failed: ${msg}`);
@@ -311,11 +293,11 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    */
   async removeSession(sessionId: string): Promise<void> {
     this.assertReady();
-    if (!this.session || this.session.id !== sessionId) {
+    const removedSession = this.getSession(sessionId);
+    if (!removedSession) {
       return;
     }
-    const removedSession = this.session;
-    this.session = undefined;
+    this.deleteSession(sessionId);
     try {
       await this.oAuth2Client.revokeCredentials();
     } catch {
@@ -323,21 +305,18 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       // errors since the user will be required to login again.
     }
     await this.storage.removeSession(sessionId);
-
-    this.emitter.fire({
-      added: [],
-      removed: [removedSession],
-      changed: [],
-      hasValidSession: false,
-    });
+    this.notifySessionRemoved(removedSession);
   }
 
   async signOut() {
-    if (!this.session) {
+    if (!this.hasSessions()) {
       return;
     }
     telemetry.logSignOut();
-    await this.removeSession(this.session.id);
+    const sessions = this.listSessions();
+    for (const session of sessions) {
+      await this.removeSession(session.id);
+    }
   }
 
   private register() {
@@ -353,7 +332,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     await this.vs.commands.executeCommand(
       'setContext',
       'colab.isSignedIn',
-      !!this.session,
+      !!this.hasSessions(),
     );
   }
 
@@ -377,13 +356,12 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     return { shouldClearSession: false, reason: '' };
   }
 
-  private async refreshSessionIfNeeded(): Promise<void> {
-    if (!this.session) {
-      return;
-    }
+  private async refreshSessionIfNeeded(
+    session: AuthenticationSession,
+  ): Promise<AuthenticationSession> {
     const expiryDateMs = this.oAuth2Client.credentials.expiry_date;
     if (expiryDateMs && expiryDateMs > Date.now() + REFRESH_MARGIN_MS) {
-      return;
+      return session;
     }
     await this.oAuth2Client.refreshAccessToken();
     const accessToken = this.oAuth2Client.credentials.access_token;
@@ -391,10 +369,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       throw new Error('Failed to refresh Google OAuth token.');
     }
 
-    this.session = {
-      ...this.session,
-      accessToken,
-    };
+    return this.updateSession(session, accessToken);
   }
 
   private async getUserInfo(
@@ -423,6 +398,74 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (this.disposeSignal.aborted) {
       throw this.disposeSignal.reason;
     }
+  }
+
+  private listSessions(): AuthenticationSession[] {
+    return this.session ? [this.session] : [];
+  }
+
+  private hasSessions(): boolean {
+    return this.session !== undefined;
+  }
+
+  private hasSessionForScopes(scopes: readonly string[]): boolean {
+    if (matchesRequiredScopes(scopes)) {
+      return this.hasSessions();
+    }
+    return false;
+  }
+
+  private getSession(id: string): AuthenticationSession | undefined {
+    if (this.session?.id === id) {
+      return this.session;
+    }
+    return undefined;
+  }
+
+  private updateSession(
+    record: AuthenticationSession | RefreshableAuthenticationSession,
+    accessToken: string,
+  ): AuthenticationSession {
+    this.session = {
+      id: record.id,
+      accessToken,
+      account: record.account,
+      scopes: record.scopes,
+    };
+    return this.session;
+  }
+
+  private deleteSession(id: string) {
+    if (this.session?.id === id) {
+      this.session = undefined;
+    }
+  }
+
+  private notifySessionAdded(session: AuthenticationSession) {
+    this.emitter.fire({
+      added: [session],
+      removed: [],
+      changed: [],
+      hasValidSession: true,
+    });
+  }
+
+  private notifySessionChanged(session: AuthenticationSession) {
+    this.emitter.fire({
+      added: [],
+      removed: [],
+      changed: [session],
+      hasValidSession: true,
+    });
+  }
+
+  private notifySessionRemoved(session: AuthenticationSession) {
+    this.emitter.fire({
+      added: [],
+      removed: [session],
+      changed: [],
+      hasValidSession: this.hasSessions(),
+    });
   }
 }
 
