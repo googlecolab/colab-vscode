@@ -27,7 +27,7 @@ describe('withErrorTracking', () => {
       const error = new Error('error');
       const fn = async () => {
         await fnCalled.promise;
-        throw error;
+        return Promise.reject(error);
       };
 
       const result = withErrorTracking(fn)();
