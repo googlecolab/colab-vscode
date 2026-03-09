@@ -203,12 +203,12 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     options: AuthenticationProviderSessionOptions,
   ): Promise<AuthenticationSession[]> {
     this.assertReady();
-    if (scopes && !matchesRequiredScopes(scopes)) {
+    if (scopes && !matchesScopes(scopes, REQUIRED_SCOPES)) {
       return [];
     }
     let candidates = this.listSessions();
     if (scopes) {
-      candidates = candidates.filter((s) => matchesRequiredScopes(s.scopes));
+      candidates = candidates.filter((s) => matchesScopes(s.scopes, scopes));
     }
     if (options.account) {
       candidates = candidates.filter(
@@ -249,14 +249,14 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     this.assertReady();
     try {
       const sortedScopes = scopes.sort();
-      if (!matchesRequiredScopes(sortedScopes)) {
+      if (!matchesScopes(sortedScopes, REQUIRED_SCOPES)) {
         throw new Error(
           `Only supports the following scopes: ${sortedScopes.join(', ')}`,
         );
       }
       const tokenInfo = await this.login(sortedScopes);
       const user = await this.getUserInfo(tokenInfo.access_token);
-      const existingRecord = await this.storage.getSession(REQUIRED_SCOPES);
+      const existingRecord = await this.storage.getSession(scopes);
       const newRecord: RefreshableAuthenticationSession = {
         id: existingRecord ? existingRecord.id : uuid(),
         refreshToken: tokenInfo.refresh_token,
@@ -409,7 +409,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   }
 
   private hasSessionForScopes(scopes: readonly string[]): boolean {
-    if (matchesRequiredScopes(scopes)) {
+    if (matchesScopes(scopes, REQUIRED_SCOPES)) {
       return this.hasSessions();
     }
     return false;
@@ -469,10 +469,13 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   }
 }
 
-function matchesRequiredScopes(scopes: readonly string[]): boolean {
+function matchesScopes(
+  scopes: readonly string[],
+  scopesToMatch: readonly string[],
+): boolean {
   return (
-    scopes.length === REQUIRED_SCOPES.length &&
-    REQUIRED_SCOPES.every((r) => scopes.includes(r))
+    scopes.length === scopesToMatch.length &&
+    scopesToMatch.every((r) => scopes.includes(r))
   );
 }
 
