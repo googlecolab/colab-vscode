@@ -124,7 +124,8 @@ export async function activate(context: vscode.ExtensionContext) {
   // issuing authenticated requests to Colab. This can only be done after the
   // user has signed in. We don't block extension activation on completing the
   // heavily asynchronous sign-in flow.
-  const whileAuthorizedToggle = authProvider.whileAuthorized(REQUIRED_SCOPES,
+  const whileAuthorizedToggle = authProvider.whileAuthorized(
+    REQUIRED_SCOPES,
     connections,
     keepServersAlive,
     consumptionMonitor.toggle,

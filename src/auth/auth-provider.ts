@@ -294,21 +294,21 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       return;
     }
     const record = await this.storage.getSessionById(sessionId);
-    if(record){
-    try {
-      // OR this.oAuth2Client.revokeToken() OR do I need to store tokenInfo
-      this.oAuth2Client.setCredentials({
+    if (record) {
+      try {
+        // OR this.oAuth2Client.revokeToken() OR do I need to store tokenInfo
+        this.oAuth2Client.setCredentials({
           refresh_token: record.refreshToken,
           token_type: 'Bearer',
           scope: record.scopes.join(' '),
         });
-      await this.oAuth2Client.revokeCredentials();
-    } catch {
-      // It's possible the token is already expired or revoked. We can swallow
-      // errors since the user will be required to login again.
+        await this.oAuth2Client.revokeCredentials();
+      } catch {
+        // It's possible the token is already expired or revoked. We can swallow
+        // errors since the user will be required to login again.
+      }
+      await this.storage.removeSession(sessionId);
     }
-    await this.storage.removeSession(sessionId);
-  }
     this.deleteSession(sessionId);
     this.notifySessionRemoved(removedSession);
   }
@@ -410,26 +410,24 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     }
   }
 
-  private listSessions() {
+  private listSessions(): AuthenticationSession[] {
     return Array.from(this.sessions.values());
   }
 
-  private hasSessions() {
+  private hasSessions(): boolean {
     return this.sessions.size > 0;
   }
 
-  private hasSessionForScopes(scopes: readonly string[]) {
-    return this.listSessions().some((s) =>
-      matchesScopes(s.scopes, scopes),
-    );
+  private hasSessionForScopes(scopes: readonly string[]): boolean {
+    return this.listSessions().some((s) => matchesScopes(s.scopes, scopes));
   }
 
-  private getSession(id: string) {
+  private getSession(id: string): AuthenticationSession | undefined {
     return this.sessions.get(id);
   }
 
   private updateSession(
-    record: RefreshableAuthenticationSession,
+    record: AuthenticationSession | RefreshableAuthenticationSession,
     accessToken: string,
   ): AuthenticationSession {
     const session: AuthenticationSession = {
