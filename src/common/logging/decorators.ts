@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isPromiseLike } from '../async';
 import { getLevel, log, LogLevel } from '.';
 
 /**
@@ -93,15 +94,4 @@ export function traceMethod(
   };
 
   return descriptor;
-}
-
-/**
- * Checks if an unknown value is {@link PromiseLike}.
- */
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return (
-    value !== null &&
-    (typeof value === 'object' || typeof value === 'function') &&
-    typeof (value as { then?: unknown }).then === 'function'
-  );
 }

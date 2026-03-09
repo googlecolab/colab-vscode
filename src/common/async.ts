@@ -63,3 +63,14 @@ export class LatestCancelable<T extends unknown[]> {
     this.curAbort?.abort();
   }
 }
+
+/**
+ * Checks if an unknown value is {@link PromiseLike}.
+ */
+export function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
