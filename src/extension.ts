@@ -7,7 +7,7 @@
 import { Jupyter } from '@vscode/jupyter-extension';
 import { OAuth2Client } from 'google-auth-library';
 import vscode, { Disposable } from 'vscode';
-import { GoogleAuthProvider } from './auth/auth-provider';
+import { GoogleAuthProvider, REQUIRED_SCOPES } from './auth/auth-provider';
 import { getOAuth2Flows } from './auth/flows/flows';
 import { login } from './auth/login';
 import { AuthStorage } from './auth/storage';
@@ -80,7 +80,7 @@ export async function activate(context: vscode.ExtensionContext) {
     new URL(CONFIG.ColabApiDomain),
     new URL(CONFIG.ColabGapiDomain),
     () =>
-      GoogleAuthProvider.getOrCreateSession(vscode).then(
+      GoogleAuthProvider.getOrCreateSession(vscode, REQUIRED_SCOPES).then(
         (session) => session.accessToken,
       ),
     () => authProvider.signOut(),
@@ -124,7 +124,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // issuing authenticated requests to Colab. This can only be done after the
   // user has signed in. We don't block extension activation on completing the
   // heavily asynchronous sign-in flow.
-  const whileAuthorizedToggle = authProvider.whileAuthorized(
+  const whileAuthorizedToggle = authProvider.whileAuthorized(REQUIRED_SCOPES,
     connections,
     keepServersAlive,
     consumptionMonitor.toggle,

@@ -61,7 +61,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   private isInitialized = false;
   private authProvider?: Disposable;
   private readonly emitter: EventEmitter<AuthChangeEvent>;
-  private session?: Readonly<AuthenticationSession>;
+  private readonly sessions = new Map<string, AuthenticationSession>();
   private readonly disposeController = new AbortController();
   private readonly disposeSignal: AbortSignal = this.disposeController.signal;
 
@@ -96,14 +96,11 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    */
   static async getOrCreateSession(
     vs: typeof vscode,
+    scopes: readonly string[],
   ): Promise<AuthenticationSession> {
-    const session = await vs.authentication.getSession(
-      PROVIDER_ID,
-      REQUIRED_SCOPES,
-      {
-        createIfNone: true,
-      },
-    );
+    const session = await vs.authentication.getSession(PROVIDER_ID, scopes, {
+      createIfNone: true,
+    });
     return session;
   }
 
@@ -160,10 +157,13 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * @returns A {@link Disposable} that can be used to stop toggling the
    * provided toggles when there are changes to the authorization status.
    */
-  whileAuthorized(...toggles: Toggleable[]): Disposable {
+  whileAuthorized(
+    scopes: readonly string[],
+    ...toggles: Toggleable[]
+  ): Disposable {
     this.assertReady();
     const setToggles = () => {
-      if (!this.hasSessionForScopes(REQUIRED_SCOPES)) {
+      if (!this.hasSessionForScopes(scopes)) {
         toggles.forEach((t) => {
           t.off();
         });
@@ -196,9 +196,6 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     options: AuthenticationProviderSessionOptions,
   ): Promise<AuthenticationSession[]> {
     this.assertReady();
-    if (scopes && !matchesScopes(scopes, REQUIRED_SCOPES)) {
-      return [];
-    }
     let candidates = this.listSessions();
     if (scopes) {
       candidates = candidates.filter((s) => matchesScopes(s.scopes, scopes));
@@ -246,8 +243,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   /**
    * Creates and stores an authentication session with the given scopes.
    *
-   * @param scopes - Scopes required for the session. These must strictly be the
-   * collection of {@link REQUIRED_SCOPES}.
+   * @param scopes - Scopes required for the session.
    * @returns The created session.
    * @throws An error if login fails.
    */
@@ -255,11 +251,6 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     this.assertReady();
     try {
       const sortedScopes = scopes.sort();
-      if (!matchesScopes(sortedScopes, REQUIRED_SCOPES)) {
-        throw new Error(
-          `Only supports the following scopes: ${sortedScopes.join(', ')}`,
-        );
-      }
       const tokenInfo = await this.login(sortedScopes);
       const user = await this.getUserInfo(tokenInfo.access_token);
       const existingRecord = await this.storage.getSession(scopes);
@@ -419,45 +410,41 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     }
   }
 
-  private listSessions(): AuthenticationSession[] {
-    return this.session ? [this.session] : [];
+  private listSessions() {
+    return Array.from(this.sessions.values());
   }
 
-  private hasSessions(): boolean {
-    return this.session !== undefined;
+  private hasSessions() {
+    return this.sessions.size > 0;
   }
 
-  private hasSessionForScopes(scopes: readonly string[]): boolean {
-    if (matchesScopes(scopes, REQUIRED_SCOPES)) {
-      return this.hasSessions();
-    }
-    return false;
+  private hasSessionForScopes(scopes: readonly string[]) {
+    return this.listSessions().some((s) =>
+      matchesScopes(s.scopes, scopes),
+    );
   }
 
-  private getSession(id: string): AuthenticationSession | undefined {
-    if (this.session?.id === id) {
-      return this.session;
-    }
-    return undefined;
+  private getSession(id: string) {
+    return this.sessions.get(id);
   }
 
   private updateSession(
-    record: AuthenticationSession | RefreshableAuthenticationSession,
+    record: RefreshableAuthenticationSession,
     accessToken: string,
   ): AuthenticationSession {
-    this.session = {
+    const session: AuthenticationSession = {
       id: record.id,
       accessToken,
       account: record.account,
       scopes: record.scopes,
     };
-    return this.session;
+
+    this.sessions.set(session.id, session);
+    return session;
   }
 
   private deleteSession(id: string) {
-    if (this.session?.id === id) {
-      this.session = undefined;
-    }
+    this.sessions.delete(id);
   }
 
   private notifySessionAdded(session: AuthenticationSession) {
@@ -465,6 +452,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       added: [session],
       removed: [],
       changed: [],
+      //TODO: is a valid session any session or a session that has REQUIRED_SCOPES?
       hasValidSession: true,
     });
   }
@@ -474,6 +462,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       added: [],
       removed: [],
       changed: [session],
+      //TODO: is a valid session any session or a session that has REQUIRED_SCOPES?
       hasValidSession: true,
     });
   }
@@ -483,6 +472,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       added: [],
       removed: [session],
       changed: [],
+      //TODO: is a valid session any session or a session that has REQUIRED_SCOPES?
       hasValidSession: this.hasSessions(),
     });
   }
