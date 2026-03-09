@@ -19,8 +19,6 @@ const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
  * and string parsing.
  */
 export class AuthStorage {
-  private cachedSessions: RefreshableAuthenticationSession[] | undefined;
-
   constructor(private readonly secrets: vscode.SecretStorage) {}
 
   /**
@@ -30,29 +28,22 @@ export class AuthStorage {
    * If no sessions are stored, returns an empty array.
    */
   async getSessions(): Promise<RefreshableAuthenticationSession[]> {
-    if (this.cachedSessions) {
-      return this.cachedSessions;
-    }
-
     const sessionJson = await this.secrets.get(SESSIONS_KEY);
     if (!sessionJson) {
-      this.cachedSessions = [];
       return [];
     }
 
     try {
-      this.cachedSessions = parseAuthenticationSessions(sessionJson);
-    } catch (err) {
-      // If storage is corrupted, we return empty to allow the user to re-auth
-      // rather than breaking the extension.
-      log.error('Failed to parse stored authentication sessions:', err);
-      this.cachedSessions = [];
+      return parseAuthenticationSessions(sessionJson);
+    } catch (err: unknown) {
+      // e.g. if storage is corrupted
+      log.error(`Failed to parse stored authentication sessions:`, err);
+      throw new Error(`Failed to parse stored authentication sessions`);
     }
-    return this.cachedSessions;
   }
 
   /**
-   * Retrieves a session that satisfies the requested scopes.
+   * Retrieves a session that matches the requested scopes exactly.
    *
    * @param scopes - An array of scopes. The returned session will have all of
    * these scopes included in its permissions.
@@ -60,11 +51,13 @@ export class AuthStorage {
    * `undefined`.
    */
   async getSession(
-    scopes: readonly string[] | string[],
+    scopes: readonly string[],
   ): Promise<RefreshableAuthenticationSession | undefined> {
     const sessions = await this.getSessions();
-    return sessions.find((session) =>
-      scopes.every((scope) => session.scopes.includes(scope)),
+    return sessions.find(
+      (session) =>
+        scopes.every((scope) => session.scopes.includes(scope)) &&
+        scopes.length === session.scopes.length,
     );
   }
 
@@ -83,7 +76,8 @@ export class AuthStorage {
   }
 
   /**
-   * Stores a session, replacing any existing session with the same ID.
+   * Stores a session, replacing the session with a matching ID
+   * if it has already been stored
    *
    * @param session - The session to store.
    * @returns A promise that resolves when the session has been stored.
@@ -91,8 +85,7 @@ export class AuthStorage {
   async storeSession(session: RefreshableAuthenticationSession): Promise<void> {
     const sessions = await this.getSessions();
     const otherSessions = sessions.filter((s) => s.id !== session.id);
-    this.cachedSessions = [...otherSessions, session];
-    await this.save();
+    await this.save([...otherSessions, session]);
   }
 
   /**
@@ -111,24 +104,21 @@ export class AuthStorage {
       return undefined;
     }
 
-    this.cachedSessions = sessions.filter((s) => s.id !== sessionId);
-    if (this.cachedSessions.length > 0) {
-      await this.save();
-    } else {
-      await this.secrets.delete(SESSIONS_KEY);
-    }
+    const updatedSessions = sessions.filter((s) => s.id !== sessionId);
+    await this.save(updatedSessions);
     return sessionToRemove;
   }
 
   /**
    * Internal helper to commit the current cache to the secret store.
    */
-  private async save(): Promise<void> {
-    if (this.cachedSessions) {
-      await this.secrets.store(
-        SESSIONS_KEY,
-        JSON.stringify(this.cachedSessions),
-      );
+  private async save(
+    sessions: RefreshableAuthenticationSession[],
+  ): Promise<void> {
+    if (sessions.length > 0) {
+      await this.secrets.store(SESSIONS_KEY, JSON.stringify(sessions));
+    } else {
+      await this.secrets.delete(SESSIONS_KEY);
     }
   }
 }
@@ -153,7 +143,3 @@ function parseAuthenticationSessions(
 
   return z.array(RefreshableAuthenticationSessionSchema).parse(sessions);
 }
-
-export const TEST_ONLY = {
-  SESSIONS_KEY,
-};
