@@ -29,7 +29,7 @@ export function withErrorTracking<
     if (isPromiseLike(result)) {
       return Promise.resolve(result).catch((error: unknown) => {
         telemetry.logError(error);
-        throw error;
+        return Promise.reject(error as Error);
       }) as ReturnType<T>;
     }
 
