@@ -128,7 +128,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (this.isInitialized) {
       return;
     }
-    const session = await this.storage.getSession();
+    const session = await this.storage.getSession(REQUIRED_SCOPES);
     if (!session) {
       this.isInitialized = true;
       this.register();
@@ -258,7 +258,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       }
       const tokenInfo = await this.login(sortedScopes);
       const user = await this.getUserInfo(tokenInfo.access_token);
-      const existingSession = await this.storage.getSession();
+      const existingSession = await this.storage.getSession(REQUIRED_SCOPES);
       const newSession: RefreshableAuthenticationSession = {
         id: existingSession ? existingSession.id : uuid(),
         refreshToken: tokenInfo.refresh_token,
