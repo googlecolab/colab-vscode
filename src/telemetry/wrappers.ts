@@ -21,7 +21,7 @@ export function withErrorTracking<
     let result: ReturnType<T>;
     try {
       result = fn.apply(this, args);
-    } catch (error) {
+    } catch (error: unknown) {
       telemetry.logError(error);
       throw error;
     }
