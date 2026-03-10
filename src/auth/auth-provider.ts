@@ -24,6 +24,7 @@ import { Toggleable } from '../common/toggleable';
 import { telemetry } from '../telemetry';
 import { Credentials } from './login';
 import { AuthStorage, RefreshableAuthenticationSession } from './storage';
+import { access } from 'fs';
 
 export const REQUIRED_SCOPES = [
   'profile',
@@ -296,11 +297,11 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (!removedSession) {
       return;
     }
-    const record = await this.storage.getSessionById(sessionId);
-    if(record){
+    const record = await this.storage.getSession(removedSession.scopes);
+    if(record && record.id === sessionId) {
     try {
-      // OR this.oAuth2Client.revokeToken() OR do I need to store tokenInfo
       this.oAuth2Client.setCredentials({
+          access_token: removedSession.accessToken,
           refresh_token: record.refreshToken,
           token_type: 'Bearer',
           scope: record.scopes.join(' '),
