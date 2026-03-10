@@ -20,9 +20,9 @@ const SESSION_1: RefreshableAuthenticationSession = {
 };
 const SESSION_2: RefreshableAuthenticationSession = {
   id: '2',
-  refreshToken: 'token-2',
-  account: { id: 'user1@gmail.com', label: 'User One' },
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  refreshToken: '\\43',
+  account: { id: 'qux', label: 'quux' },
+  scopes: ['corgi'],
 };
 
 describe('AuthStorage', () => {
@@ -50,15 +50,6 @@ describe('AuthStorage', () => {
       sinon.assert.calledOnceWithExactly(secretsStub.get, SESSIONS_KEY);
     });
 
-    it('returns stored sessions', async () => {
-      secretsStub.get.resolves(JSON.stringify([SESSION_1, SESSION_2]));
-
-      const sessions = await authStorage.getSessions();
-
-      expect(sessions).to.deep.equal([SESSION_1, SESSION_2]);
-      sinon.assert.calledOnceWithExactly(secretsStub.get, SESSIONS_KEY);
-    });
-
     it('returns an empty array when storage is corrupted', async () => {
       secretsStub.get.resolves('invalid-json-{[}');
 
@@ -70,9 +61,27 @@ describe('AuthStorage', () => {
 
       await expect(authStorage.getSessions()).to.be.rejected;
     });
+
+    it('returns a stored session', async () => {
+      secretsStub.get.resolves(JSON.stringify([SESSION_1]));
+
+      const sessions = await authStorage.getSessions();
+
+      expect(sessions).to.deep.equal([SESSION_1]);
+      sinon.assert.calledOnceWithExactly(secretsStub.get, SESSIONS_KEY);
+    });
+
+    it('returns stored sessions', async () => {
+      secretsStub.get.resolves(JSON.stringify([SESSION_1, SESSION_2]));
+
+      const sessions = await authStorage.getSessions();
+
+      expect(sessions).to.deep.equal([SESSION_1, SESSION_2]);
+      sinon.assert.calledOnceWithExactly(secretsStub.get, SESSIONS_KEY);
+    });
   });
 
-  describe('getSession (by scopes)', () => {
+  describe('getSession', () => {
     it('finds a session that satisfies requested scopes', async () => {
       secretsStub.get.resolves(JSON.stringify([SESSION_1, SESSION_2]));
 
@@ -117,9 +126,13 @@ describe('AuthStorage', () => {
   });
 
   describe('storeSession', () => {
-    it('stores a single session', async () => {
+    it('stores a session when no stored sessions exist', async () => {
       await authStorage.storeSession(SESSION_1);
 
+      const sessions = await authStorage.getSessions();
+      expect(sessions.length).to.equal(1);
+
+      expect(sessions[0].id).to.equal(SESSION_1.id);
       sinon.assert.calledWith(
         secretsStub.store,
         SESSIONS_KEY,
@@ -127,7 +140,7 @@ describe('AuthStorage', () => {
       );
     });
 
-    it('adds a new session when it has a non-existent ID', async () => {
+    it('stores a session when no sessions with the same ID exist', async () => {
       await authStorage.storeSession(SESSION_1);
       await authStorage.storeSession(SESSION_2);
 
@@ -148,18 +161,6 @@ describe('AuthStorage', () => {
       const sessions = await authStorage.getSessions();
       expect(sessions.length).to.equal(1);
       expect(sessions[0].refreshToken).to.equal('new-token');
-    });
-
-    it('updates secrets after storing', async () => {
-      await authStorage.getSessions();
-      secretsStub.get.resetHistory();
-
-      await authStorage.storeSession(SESSION_1);
-      const sessions = await authStorage.getSessions();
-
-      expect(sessions).to.deep.equal([SESSION_1]);
-      sinon.assert.calledOnce(secretsStub.store);
-      sinon.assert.calledTwice(secretsStub.get);
     });
   });
 

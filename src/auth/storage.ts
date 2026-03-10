@@ -45,8 +45,9 @@ export class AuthStorage {
   /**
    * Retrieves a session that matches the requested scopes exactly.
    *
-   * @param scopes - An array of scopes. The returned session will have all of
-   * these scopes included in its permissions.
+   * @param scopes - An array of scopes. The returned session will have these  
+   * exact scopes.  
+
    * @returns The refreshable authentication session, if it exists. Otherwise,
    * `undefined`.
    */
@@ -63,7 +64,7 @@ export class AuthStorage {
 
   /**
    * Stores a session, replacing the session with a matching ID
-   * if it has already been stored
+   * if it has already been stored.
    *
    * @param session - The session to store.
    * @returns A promise that resolves when the session has been stored.
@@ -101,7 +102,7 @@ export class AuthStorage {
   }
 
   /**
-   * Internal helper to commit the current cache to the secret store.
+   * Internal helper to commit the provided list to the secret store.
    */
   private async save(
     sessions: RefreshableAuthenticationSession[],
