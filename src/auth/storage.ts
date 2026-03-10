@@ -38,7 +38,7 @@ export class AuthStorage {
     } catch (err: unknown) {
       // e.g. if storage is corrupted
       log.error(`Failed to parse stored authentication sessions:`, err);
-      throw new Error(`Failed to parse stored authentication sessions`);
+      throw err;
     }
   }
 
@@ -56,23 +56,9 @@ export class AuthStorage {
     const sessions = await this.getSessions();
     return sessions.find(
       (session) =>
-        scopes.every((scope) => session.scopes.includes(scope)) &&
-        scopes.length === session.scopes.length,
+        scopes.length === session.scopes.length &&
+        scopes.every((scope) => session.scopes.includes(scope)),
     );
-  }
-
-  /**
-   * Retrieves a specific session by its unique ID.
-   *
-   * @param sessionId - The session ID.
-   * @returns The refreshable authentication session, if it exists. Otherwise,
-   * `undefined`.
-   */
-  async getSessionById(
-    sessionId: string,
-  ): Promise<RefreshableAuthenticationSession | undefined> {
-    const sessions = await this.getSessions();
-    return sessions.find((session) => session.id === sessionId);
   }
 
   /**
@@ -99,13 +85,18 @@ export class AuthStorage {
     sessionId: string,
   ): Promise<RefreshableAuthenticationSession | undefined> {
     const sessions = await this.getSessions();
-    const sessionToRemove = await this.getSessionById(sessionId);
-    if (!sessionToRemove) {
-      return undefined;
+    let sessionToRemove: RefreshableAuthenticationSession | undefined;
+    const sessionsToKeep: RefreshableAuthenticationSession[] = [];
+    for (const s of sessions) {
+      if (s.id === sessionId) {
+        sessionToRemove = s;
+      } else {
+        sessionsToKeep.push(s);
+      }
     }
-
-    const updatedSessions = sessions.filter((s) => s.id !== sessionId);
-    await this.save(updatedSessions);
+    if (sessionToRemove) {
+      await this.save(sessionsToKeep);
+    }
     return sessionToRemove;
   }
 
