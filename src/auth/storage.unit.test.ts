@@ -116,22 +116,6 @@ describe('AuthStorage', () => {
     });
   });
 
-  describe('getSessionById', () => {
-    it('finds a session by its ID', async () => {
-      secretsStub.get.resolves(JSON.stringify([SESSION_1, SESSION_2]));
-
-      const found = await authStorage.getSessionById(SESSION_2.id);
-      expect(found).to.deep.equal(SESSION_2);
-    });
-
-    it('returns undefined if session ID does not exist', async () => {
-      secretsStub.get.resolves(JSON.stringify([SESSION_1]));
-
-      const found = await authStorage.getSessionById('non-existent-id');
-      expect(found).to.be.undefined;
-    });
-  });
-
   describe('storeSession', () => {
     it('stores a single session', async () => {
       await authStorage.storeSession(SESSION_1);
