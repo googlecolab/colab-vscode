@@ -34,7 +34,6 @@ tpus
 unassigning
 unassignment
 unassigns
-unregisters
 veryhighmem
 vscode
 vsdiag

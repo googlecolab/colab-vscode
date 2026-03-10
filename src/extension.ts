@@ -268,7 +268,7 @@ function registerCommands(
  *
  * @param command - The unique identifier for the command.
  * @param handler - A command handler function.
- * @returns Disposable which unregisters this command on disposal.
+ * @returns Disposable which deregisters this command on disposal.
  */
 function registerCommand<T extends (...args: Parameters<T>) => ReturnType<T>>(
   command: string,
