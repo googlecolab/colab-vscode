@@ -85,9 +85,7 @@ describe('AuthStorage', () => {
     it('finds a session that satisfies requested scopes', async () => {
       secretsStub.get.resolves(JSON.stringify([SESSION_1, SESSION_2]));
 
-      const found = await authStorage.getSession([
-        'https://www.googleapis.com/auth/drive.readonly',
-      ]);
+      const found = await authStorage.getSession(['corgi']);
 
       expect(found?.id).to.equal(SESSION_2.id);
     });
