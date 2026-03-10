@@ -197,12 +197,12 @@ function registerCommands(
   fs: ContentsFileSystemProvider,
 ): Disposable[] {
   return [
-    vscode.commands.registerCommand(SIGN_OUT.id, async () => {
+    registerCommand(SIGN_OUT.id, async () => {
       await authProvider.signOut();
     }),
     // TODO: Register the rename server alias command once rename is reflected
     // in the recent kernels list. See https://github.com/microsoft/vscode-jupyter/issues/17107.
-    vscode.commands.registerCommand(
+    registerCommand(
       MOUNT_SERVER.id,
       async (source?: CommandSource, withBackButton?: boolean) => {
         await mountServer(
@@ -214,75 +214,67 @@ function registerCommands(
         );
       },
     ),
-    vscode.commands.registerCommand(
-      MOUNT_DRIVE.id,
-      async (source?: CommandSource) => {
-        telemetry.logMountDriveSnippet(
-          source ?? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
-        );
-        await appendCodeCell(
-          vscode,
-          `from google.colab import drive
-drive.mount('/content/drive')`,
-          'python',
-        );
-      },
-    ),
-    vscode.commands.registerCommand(
+    registerCommand(MOUNT_DRIVE.id, async (source?: CommandSource) => {
+      telemetry.logMountDriveSnippet(
+        source ?? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
+      );
+      await appendCodeCell(
+        vscode,
+        [
+          'from google.colab import drive',
+          `drive.mount('/content/drive')`,
+        ].join('\n'),
+        'python',
+      );
+    }),
+    registerCommand(
       REMOVE_SERVER.id,
       async (source?: CommandSource, withBackButton?: boolean) => {
         await removeServer(vscode, assignmentManager, withBackButton, source);
       },
     ),
-    vscode.commands.registerCommand(
-      UPLOAD.id,
-      async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
-        await upload(vscode, assignmentManager, uri, uris);
-      },
-    ),
-    vscode.commands.registerCommand(COLAB_TOOLBAR.id, async () => {
+    registerCommand(UPLOAD.id, async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
+      await upload(vscode, assignmentManager, uri, uris);
+    }),
+    registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
     }),
-    vscode.commands.registerCommand('colab.refreshServersView', () => {
+    registerCommand('colab.refreshServersView', () => {
       serverTreeProvider.refresh();
     }),
-    vscode.commands.registerCommand(
-      'colab.newFile',
-      (contextItem: ServerItem) => {
-        void newFile(vscode, contextItem);
-      },
-    ),
-    vscode.commands.registerCommand(
-      'colab.newFolder',
-      (contextItem: ServerItem) => {
-        void newFolder(vscode, contextItem);
-      },
-    ),
-    vscode.commands.registerCommand(
-      'colab.download',
-      (contextItem: ServerItem) => {
-        void download(vscode, contextItem);
-      },
-    ),
-    vscode.commands.registerCommand(
-      'colab.renameFile',
-      (contextItem: ServerItem) => {
-        void renameFile(vscode, contextItem);
-      },
-    ),
-    vscode.commands.registerCommand(
-      'colab.deleteFile',
-      (contextItem: ServerItem) => {
-        void deleteFile(vscode, contextItem);
-      },
-    ),
-    vscode.commands.registerCommand(
-      OPEN_TERMINAL.id,
-      async (withBackButton?: boolean) => {
-        await openTerminal(vscode, assignmentManager, withBackButton);
-      },
-    ),
+    registerCommand('colab.newFile', (contextItem: ServerItem) => {
+      void newFile(vscode, contextItem);
+    }),
+    registerCommand('colab.newFolder', (contextItem: ServerItem) => {
+      void newFolder(vscode, contextItem);
+    }),
+    registerCommand('colab.download', (contextItem: ServerItem) => {
+      void download(vscode, contextItem);
+    }),
+    registerCommand('colab.renameFile', (contextItem: ServerItem) => {
+      void renameFile(vscode, contextItem);
+    }),
+    registerCommand('colab.deleteFile', (contextItem: ServerItem) => {
+      void deleteFile(vscode, contextItem);
+    }),
+    registerCommand(OPEN_TERMINAL.id, async (withBackButton?: boolean) => {
+      await openTerminal(vscode, assignmentManager, withBackButton);
+    }),
   ];
+}
+
+/**
+ * Registers a command with the given identifier and handler.
+ *
+ * @param command - The unique identifier for the command.
+ * @param handler - A command handler function.
+ * @returns Disposable which unregisters this command on disposal.
+ */
+function registerCommand<T extends (...args: Parameters<T>) => ReturnType<T>>(
+  command: string,
+  handler: T,
+): Disposable {
+  return vscode.commands.registerCommand(command, withErrorTracking(handler));
 }
 
 /**
