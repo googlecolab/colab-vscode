@@ -766,7 +766,7 @@ describe('GoogleAuthProvider', () => {
 
       it('upgrades an existing session', async () => {
         storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
-        
+
         const session = await authProvider.createSession(ADDITIONAL_SCOPES);
 
         expect(session).to.deep.equal({
