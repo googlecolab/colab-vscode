@@ -61,12 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 async function activateInternal(context: vscode.ExtensionContext) {
-  process.on('uncaughtException', (err: unknown) => {
-    telemetry.logError(err);
-  });
-  process.on('unhandledRejection', (reason: unknown) => {
-    telemetry.logError(reason);
-  });
+  process.on('uncaughtException', telemetry.logError);
+  process.on('unhandledRejection', telemetry.logError);
   const logging = initializeLogger(vscode, context.extensionMode);
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
