@@ -86,8 +86,8 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const colabClient = new ColabClient(
     new URL(CONFIG.ColabApiDomain),
     new URL(CONFIG.ColabGapiDomain),
-    () =>
-      GoogleAuthProvider.getOrCreateSession(vscode).then(
+    (scopes: readonly string[]) =>
+      GoogleAuthProvider.getOrCreateSession(vscode, scopes).then(
         (session) => session.accessToken,
       ),
     () => authProvider.signOut(),

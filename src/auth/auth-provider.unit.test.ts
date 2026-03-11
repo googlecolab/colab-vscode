@@ -18,12 +18,9 @@ import {
 import { Toggleable } from '../common/toggleable';
 import { PROVIDER_ID } from '../config/constants';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import {
-  AuthChangeEvent,
-  GoogleAuthProvider,
-  REQUIRED_SCOPES,
-} from './auth-provider';
+import { AuthChangeEvent, GoogleAuthProvider } from './auth-provider';
 import { Credentials } from './login';
+import { DRIVE_SCOPES, REQUIRED_SCOPES } from './scopes';
 import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
 const CLIENT_ID = 'testClientId';
@@ -52,6 +49,31 @@ const DEFAULT_AUTH_SESSION: vscode.AuthenticationSession = {
   accessToken: DEFAULT_ACCESS_TOKEN,
   account: DEFAULT_REFRESH_SESSION.account,
   scopes: DEFAULT_REFRESH_SESSION.scopes.sort(),
+};
+const ADDITIONAL_SCOPES = Array.from(DRIVE_SCOPES);
+const UPGRADED_SCOPES = [...SCOPES, ...ADDITIONAL_SCOPES];
+const UPGRADED_ACCESS_TOKEN = '43';
+const UPGRADED_REFRESH_SESSION: RefreshableAuthenticationSession = {
+  id: '2',
+  refreshToken: '1//24',
+  account: {
+    label: 'Foo Bar',
+    id: 'foo@example.com',
+  },
+  scopes: UPGRADED_SCOPES,
+};
+const UPGRADED_CREDENTIALS = {
+  refresh_token: UPGRADED_REFRESH_SESSION.refreshToken,
+  access_token: UPGRADED_ACCESS_TOKEN,
+  expiry_date: NOW + HOUR_MS,
+  id_token: 'aw',
+  scope: UPGRADED_SCOPES.join(' '),
+};
+const UPGRADED_AUTH_SESSION: vscode.AuthenticationSession = {
+  id: UPGRADED_REFRESH_SESSION.id,
+  accessToken: UPGRADED_ACCESS_TOKEN,
+  account: UPGRADED_REFRESH_SESSION.account,
+  scopes: UPGRADED_REFRESH_SESSION.scopes.sort(),
 };
 const DEFAULT_USER_INFO = {
   id: '1337',
@@ -125,6 +147,9 @@ describe('GoogleAuthProvider', () => {
       loginStub,
     );
     authProvider.onDidChangeSessions(onDidChangeSessionsStub);
+
+    // By default there are no stored sessions
+    storageStub.getSessions.resolves([]);
   });
 
   afterEach(() => {
@@ -179,7 +204,7 @@ describe('GoogleAuthProvider', () => {
       });
 
       it('does not doubly initialize', async () => {
-        storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+        storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
         const setCredentialsSpy = sinon.spy(oauth2Client, 'setCredentials');
         const refreshStub = sinon
           .stub(oauth2Client, 'refreshAccessToken')
@@ -204,7 +229,7 @@ describe('GoogleAuthProvider', () => {
 
       describe('with a stored session', () => {
         beforeEach(() => {
-          storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+          storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
         });
 
         it('rejects when unable to refresh the OAuth token', async () => {
@@ -225,6 +250,7 @@ describe('GoogleAuthProvider', () => {
 
           const session = await GoogleAuthProvider.getOrCreateSession(
             vsCodeStub.asVsCode(),
+            REQUIRED_SCOPES,
           );
           expect(session.accessToken).to.equal(DEFAULT_ACCESS_TOKEN);
         });
@@ -248,7 +274,7 @@ describe('GoogleAuthProvider', () => {
           sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
             oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
           });
-          storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+          storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
 
           await authProvider.initialize();
 
@@ -272,7 +298,7 @@ describe('GoogleAuthProvider', () => {
               },
             );
             sinon.stub(oauth2Client, 'refreshAccessToken').throws(gaxiosError);
-            storageStub.getSession.onSecondCall().resolves(undefined);
+            storageStub.getSessions.onSecondCall().resolves([]);
 
             await expect(authProvider.initialize()).to.eventually.be.fulfilled;
 
@@ -304,6 +330,21 @@ describe('GoogleAuthProvider', () => {
 
           await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
             /🤮/,
+          );
+        });
+      });
+
+      describe('with multiple stored sessions', () => {
+        beforeEach(() => {
+          storageStub.getSessions.resolves([
+            DEFAULT_REFRESH_SESSION,
+            DEFAULT_REFRESH_SESSION,
+          ]);
+        });
+
+        it('rejects', async () => {
+          await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
+            /at most 1 session/,
           );
         });
       });
@@ -345,7 +386,7 @@ describe('GoogleAuthProvider', () => {
       sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
         oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
       });
-      storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+      storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
       await authProvider.initialize();
 
       authProvider.whileAuthorized(...toggles);
@@ -402,7 +443,7 @@ describe('GoogleAuthProvider', () => {
       sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
         oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
       });
-      storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+      storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
       await authProvider.initialize();
       sinon.stub(oauth2Client, 'revokeToken').resolves();
       authProvider.whileAuthorized(...toggles);
@@ -452,31 +493,28 @@ describe('GoogleAuthProvider', () => {
         await authProvider.initialize();
       });
 
-      it('returns an empty array when scopes deviate from the supported set', async () => {
-        await expect(
-          authProvider.getSessions(['foo', 'bar'], {}),
-        ).to.eventually.deep.equal([]);
-      });
-
       it('returns an empty array', async () => {
-        storageStub.getSession.resolves(undefined);
-
         const sessions = authProvider.getSessions(undefined, {});
 
         await expect(sessions).to.eventually.deep.equal([]);
-        sinon.assert.calledOnce(storageStub.getSession);
       });
     });
 
     describe('when a session is stored', () => {
       beforeEach(async () => {
-        storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+        storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
         await authProvider.initialize();
       });
 
       it("returns an empty array when the specified scopes aren't supported", async () => {
         await expect(
           authProvider.getSessions(['foo', 'bar'], {}),
+        ).to.eventually.deep.equal([]);
+      });
+
+      it('returns an empty array when the specified scopes are allowed but do not match the stored session', async () => {
+        await expect(
+          authProvider.getSessions(ADDITIONAL_SCOPES, {}),
         ).to.eventually.deep.equal([]);
       });
 
@@ -575,6 +613,23 @@ describe('GoogleAuthProvider', () => {
         await expect(sessions).to.eventually.deep.equal([DEFAULT_AUTH_SESSION]);
       });
     });
+
+    describe('when an upgraded session is stored', () => {
+      beforeEach(async () => {
+        storageStub.getSessions.resolves([UPGRADED_REFRESH_SESSION]);
+        await authProvider.initialize();
+      });
+
+      for (const scopes of [SCOPES, ADDITIONAL_SCOPES, UPGRADED_SCOPES]) {
+        it('returns the session when the specified scopes match', async () => {
+          const sessions = authProvider.getSessions(scopes, {});
+
+          await expect(sessions).to.eventually.deep.equal([
+            { ...UPGRADED_AUTH_SESSION, accessToken: DEFAULT_ACCESS_TOKEN },
+          ]);
+        });
+      }
+    });
   });
 
   describe('createSession', () => {
@@ -624,21 +679,27 @@ describe('GoogleAuthProvider', () => {
     describe('with a successful login', () => {
       beforeEach(async () => {
         await authProvider.initialize();
-        loginStub.withArgs(SCOPES).resolves(DEFAULT_CREDENTIALS);
-        fetchStub
-          .withArgs('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: {
-              [AUTHORIZATION_HEADER.key]: `Bearer ${DEFAULT_ACCESS_TOKEN}`,
-            },
-          })
-          .resolves(
-            new Response(JSON.stringify(DEFAULT_USER_INFO), {
-              status: 200,
+        for (const { scopes, credentials } of [
+          { scopes: SCOPES, credentials: DEFAULT_CREDENTIALS },
+          { scopes: ADDITIONAL_SCOPES, credentials: UPGRADED_CREDENTIALS },
+        ]) {
+          loginStub.withArgs(scopes).resolves(credentials);
+          fetchStub
+            .withArgs('https://www.googleapis.com/oauth2/v2/userinfo', {
               headers: {
-                [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+                [AUTHORIZATION_HEADER.key]: `Bearer ${credentials.access_token}`,
               },
-            }),
-          );
+            })
+            .resolves(
+              new Response(JSON.stringify(DEFAULT_USER_INFO), {
+                status: 200,
+                headers: {
+                  [CONTENT_TYPE_JSON_HEADER.key]:
+                    CONTENT_TYPE_JSON_HEADER.value,
+                },
+              }),
+            );
+        }
       });
 
       it('creates a new session', async () => {
@@ -664,7 +725,8 @@ describe('GoogleAuthProvider', () => {
       });
 
       it('replaces an existing session', async () => {
-        storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+        storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
+
         const session = await authProvider.createSession(SCOPES);
 
         expect(session).to.deep.equal(DEFAULT_AUTH_SESSION);
@@ -678,6 +740,60 @@ describe('GoogleAuthProvider', () => {
           changed: [session],
           hasValidSession: true,
         });
+      });
+
+      it('creates a upgraded session', async () => {
+        const signedInContext = signedInContextCalledWith();
+        const session = await authProvider.createSession(ADDITIONAL_SCOPES);
+
+        const newSession = {
+          ...UPGRADED_AUTH_SESSION,
+          id: session.id,
+        };
+        expect(session).to.deep.equal(newSession);
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/Signed in/),
+        );
+        sinon.assert.calledOnceWithExactly(onDidChangeSessionsStub, {
+          added: [newSession],
+          removed: [],
+          changed: [],
+          hasValidSession: true,
+        });
+        await expect(signedInContext).to.eventually.be.true;
+      });
+
+      it('upgrades an existing session', async () => {
+        storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
+        
+        const session = await authProvider.createSession(ADDITIONAL_SCOPES);
+
+        expect(session).to.deep.equal({
+          ...UPGRADED_AUTH_SESSION,
+          id: session.id,
+        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/Signed in/),
+        );
+        sinon.assert.calledOnceWithExactly(onDidChangeSessionsStub, {
+          added: [],
+          removed: [],
+          changed: [session],
+          hasValidSession: true,
+        });
+      });
+
+      it('rejects if there are multiple stored sessions', async () => {
+        storageStub.getSessions.resolves([
+          DEFAULT_REFRESH_SESSION,
+          DEFAULT_REFRESH_SESSION,
+        ]);
+
+        await expect(
+          authProvider.createSession(SCOPES),
+        ).to.eventually.be.rejectedWith(/at most 1 session/);
       });
     });
   });
@@ -714,7 +830,7 @@ describe('GoogleAuthProvider', () => {
     });
 
     it("does nothing when the managed session's ID does not match", async () => {
-      storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+      storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
       await authProvider.initialize();
       onDidChangeSessionsStub.resetHistory();
 
@@ -726,7 +842,7 @@ describe('GoogleAuthProvider', () => {
 
     describe('when there is a session to remove', () => {
       beforeEach(async () => {
-        storageStub.getSession.resolves(DEFAULT_REFRESH_SESSION);
+        storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
         await authProvider.initialize();
       });
 

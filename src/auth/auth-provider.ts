@@ -23,13 +23,15 @@ import { log } from '../common/logging';
 import { Toggleable } from '../common/toggleable';
 import { telemetry } from '../telemetry';
 import { Credentials } from './login';
+import {
+  areScopesAllowed,
+  hasScopes,
+  ALLOWED_SCOPES,
+  matchesRequiredScopes,
+  upgradeScopes,
+} from './scopes';
 import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
-export const REQUIRED_SCOPES = [
-  'profile',
-  'email',
-  'https://www.googleapis.com/auth/colaboratory',
-] as const;
 const PROVIDER_ID = 'google';
 const PROVIDER_LABEL = 'Google';
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
@@ -69,10 +71,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Initializes the GoogleAuthProvider.
    *
    * @param vs - The VS Code API.
-   * @param context - The extension context used for managing lifecycle.
+   * @param storage - The storage client for persisting sessions
    * @param oAuth2Client - The OAuth2 client for handling Google authentication.
-   * @param codeProvider - The provider responsible for generating authorization
-   * codes.
    * @param login - A function that initiates the login process with the
    * specified scopes.
    */
@@ -94,18 +94,16 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Retrieves the Google OAuth2 authentication session.
    *
    * @param vs - The VS Code API.
+   * @param scopes - The required scopes for the authentication session
    * @returns The authentication session.
    */
   static async getOrCreateSession(
     vs: typeof vscode,
+    scopes: readonly string[],
   ): Promise<AuthenticationSession> {
-    const session = await vs.authentication.getSession(
-      PROVIDER_ID,
-      REQUIRED_SCOPES,
-      {
-        createIfNone: true,
-      },
-    );
+    const session = await vs.authentication.getSession(PROVIDER_ID, scopes, {
+      createIfNone: true,
+    });
     return session;
   }
 
@@ -128,7 +126,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (this.isInitialized) {
       return;
     }
-    const session = await this.storage.getSession(REQUIRED_SCOPES);
+
+    const session = await this.getSession();
     if (!session) {
       this.isInitialized = true;
       this.register();
@@ -216,7 +215,11 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     options: AuthenticationProviderSessionOptions,
   ): Promise<AuthenticationSession[]> {
     this.assertReady();
-    if (scopes && !matchesRequiredScopes(scopes)) {
+    if (
+      !this.session ||
+      !areScopesAllowed(scopes) ||
+      (scopes && !hasScopes(this.session.scopes, scopes))
+    ) {
       return [];
     }
     try {
@@ -226,39 +229,44 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         this.shouldClearSessionOnRefreshError(err);
       if (shouldClearSession) {
         log.warn(`${reason}. Clearing session.`, err);
-        if (this.session?.id) {
+        if (this.session.id) {
           await this.removeSession(this.session.id);
         }
         return [];
       }
       log.error('Unable to refresh access token', err);
     }
-    if (options.account && this.session?.account != options.account) {
+    if (options.account && this.session.account != options.account) {
       return [];
     }
-    return this.session ? [this.session] : [];
+    return [this.session];
   }
 
   /**
    * Creates and stores an authentication session with the given scopes.
    *
-   * @param scopes - Scopes required for the session. These must strictly be the
-   * collection of {@link REQUIRED_SCOPES}.
+   * @param scopes - Scopes required for the session. All values must be
+   * in {@link ALLOWED_SCOPES}
    * @returns The created session.
    * @throws An error if login fails.
    */
   async createSession(scopes: string[]): Promise<AuthenticationSession> {
     this.assertReady();
     try {
-      const sortedScopes = scopes.sort();
-      if (!matchesRequiredScopes(sortedScopes)) {
+      if (!areScopesAllowed(scopes)) {
         throw new Error(
-          `Only supports the following scopes: ${sortedScopes.join(', ')}`,
+          `Only supports the following scopes: ${Array.from(ALLOWED_SCOPES.values()).join(', ')}`,
         );
       }
+
+      let targetScopes = scopes;
+      if (!matchesRequiredScopes(scopes)) {
+        targetScopes = upgradeScopes(scopes);
+      }
+      const sortedScopes = targetScopes.sort();
       const tokenInfo = await this.login(sortedScopes);
       const user = await this.getUserInfo(tokenInfo.access_token);
-      const existingSession = await this.storage.getSession(REQUIRED_SCOPES);
+      const existingSession = await this.getSession();
       const newSession: RefreshableAuthenticationSession = {
         id: existingSession ? existingSession.id : uuid(),
         refreshToken: tokenInfo.refresh_token,
@@ -416,6 +424,16 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     return UserInfoSchema.parse(json);
   }
 
+  private async getSession() {
+    const sessions = await this.storage.getSessions();
+    if (sessions.length > 1) {
+      throw new Error(
+        `Expected at most 1 session, but found ${sessions.length.toString()}`,
+      );
+    }
+    return sessions.length > 0 ? sessions[0] : undefined;
+  }
+
   private assertReady(): void {
     if (!this.isInitialized) {
       throw new Error(`Must call initialize() first.`);
@@ -424,13 +442,6 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       throw this.disposeSignal.reason;
     }
   }
-}
-
-function matchesRequiredScopes(scopes: readonly string[]): boolean {
-  return (
-    scopes.length === REQUIRED_SCOPES.length &&
-    REQUIRED_SCOPES.every((r) => scopes.includes(r))
-  );
 }
 
 function isInvalidGrantError(err: unknown): boolean {
