@@ -18,6 +18,7 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { log } from '../common/logging';
+import { telemetry } from '../telemetry';
 import { withErrorTracking } from '../telemetry/wrappers';
 import { ColabAssignedServer } from './servers';
 
@@ -139,6 +140,7 @@ export function colabProxyWebSocket(
             })
             .catch((err: unknown) => {
               log.error('Failed handling ephemeral auth propagation', err);
+              telemetry.logError(err);
               this.sendInputReply(message.metadata.colab_msg_id, err);
             });
         }
@@ -184,7 +186,7 @@ export function colabProxyWebSocket(
       log.trace('Input reply message sent:', replyMessage);
     }
 
-    private guardDisposed(): void {
+    private guardDisposed() {
       if (this.disposed) {
         throw new Error(
           'ColabWebSocket cannot be used after it has been disposed.',
