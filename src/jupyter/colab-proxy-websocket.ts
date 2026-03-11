@@ -75,7 +75,7 @@ export function colabProxyWebSocket(
       );
     }
 
-    dispose() {
+    dispose(): void {
       if (this.disposed) {
         return;
       }
@@ -87,7 +87,7 @@ export function colabProxyWebSocket(
       data: BufferLike,
       options?: SendOptions | ((err?: Error) => void),
       cb?: (err?: Error) => void,
-    ) {
+    ): void {
       withErrorTracking(this.sendInternal.bind(this))(data, options, cb);
     }
 
@@ -95,7 +95,7 @@ export function colabProxyWebSocket(
       data: BufferLike,
       options?: SendOptions | ((err?: Error) => void),
       cb?: (err?: Error) => void,
-    ) {
+    ): void {
       this.guardDisposed();
 
       if (typeof data === 'string' && !this.clientSessionId) {
@@ -117,7 +117,7 @@ export function colabProxyWebSocket(
       super.send(data, options, cb);
     }
 
-    private handleMessage(data: WebSocket.RawData, isBinary: boolean) {
+    private handleMessage(data: WebSocket.RawData, isBinary: boolean): void {
       if (!isBinary && typeof data === 'string') {
         let message: unknown;
         try {
@@ -147,7 +147,7 @@ export function colabProxyWebSocket(
       }
     }
 
-    private sendInputReply(requestMessageId: number, err?: unknown) {
+    private sendInputReply(requestMessageId: number, err?: unknown): void {
       // Client session ID should be set already at this point.
       assert(this.clientSessionId);
       const replyMessage: ColabInputReplyMessage = {
@@ -186,7 +186,7 @@ export function colabProxyWebSocket(
       log.trace('Input reply message sent:', replyMessage);
     }
 
-    private guardDisposed() {
+    private guardDisposed(): void {
       if (this.disposed) {
         throw new Error(
           'ColabWebSocket cannot be used after it has been disposed.',
