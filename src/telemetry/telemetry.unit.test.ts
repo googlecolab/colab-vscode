@@ -8,6 +8,7 @@ import { expect } from 'chai';
 import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
+import { AuthType } from '../colab/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
@@ -322,6 +323,17 @@ describe('Telemetry Module', () => {
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         upgrade_to_pro_event: { source },
+      });
+    });
+
+    it('logs on handling ephemeral auth', () => {
+      const authType = AuthType.DFS_EPHEMERAL;
+
+      telemetry.logHandleEphemeralAuth(authType);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        handle_ephemeral_auth_event: { auth_type: authType },
       });
     });
   });

@@ -6,6 +6,7 @@
 import assert from 'assert';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
+import { AuthType } from '../colab/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -83,6 +84,9 @@ export const telemetry = {
       const msg = e ? JSON.stringify(e) : String(e);
       log({ error_event: { name: 'Error', msg, stack: '' } });
     }
+  },
+  logHandleEphemeralAuth: (authType: AuthType) => {
+    log({ handle_ephemeral_auth_event: { auth_type: authType } });
   },
   logMountDriveSnippet: (source: CommandSource) => {
     log({ mount_drive_snippet_event: { source } });

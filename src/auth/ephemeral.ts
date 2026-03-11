@@ -9,6 +9,7 @@ import { AuthType } from '../colab/api';
 import { ColabClient } from '../colab/client';
 import { log } from '../common/logging';
 import { ColabAssignedServer } from '../jupyter/servers';
+import { telemetry } from '../telemetry';
 
 /**
  * Handles ephemeral authorization by triggering an OAuth consent flow and
@@ -27,6 +28,8 @@ export async function handleEphemeralAuth(
   server: ColabAssignedServer,
   authType: AuthType,
 ): Promise<void> {
+  telemetry.logHandleEphemeralAuth(authType);
+
   // Dry run to check if authorization is needed.
   const dryRunResult = await apiClient.propagateCredentials(server.endpoint, {
     authType,

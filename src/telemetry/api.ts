@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { AuthType } from '../colab/api';
+
 /**
  * API types for logging telemetry events to Clearcut.
  */
@@ -59,6 +61,10 @@ export type ColabEvent =
   | {
       /** An event representing an error. */
       error_event: ErrorEvent;
+    }
+  | {
+      /** An event representing handling of an ephemeral auth. */
+      handle_ephemeral_auth_event: HandleEphemeralAuthEvent;
     }
   | {
       /** An event representing a click to insert Drive mounting snippet. */
@@ -131,6 +137,11 @@ interface ErrorEvent {
   msg: string;
   /** The stack trace of the error. */
   stack: string;
+}
+
+/** An event representing handling of an ephemeral auth. */
+interface HandleEphemeralAuthEvent {
+  auth_type: AuthType;
 }
 
 /** An event representing a click to insert Drive mounting snippet. */
