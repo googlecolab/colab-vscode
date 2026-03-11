@@ -681,7 +681,7 @@ describe('GoogleAuthProvider', () => {
         await authProvider.initialize();
         for (const { scopes, credentials } of [
           { scopes: SCOPES, credentials: DEFAULT_CREDENTIALS },
-          { scopes: ADDITIONAL_SCOPES, credentials: UPGRADED_CREDENTIALS },
+          { scopes: UPGRADED_SCOPES, credentials: UPGRADED_CREDENTIALS },
         ]) {
           loginStub.withArgs(scopes).resolves(credentials);
           fetchStub
