@@ -63,7 +63,6 @@ export async function activate(context: vscode.ExtensionContext) {
 async function activateInternal(context: vscode.ExtensionContext) {
   process.on('uncaughtException', (err: unknown) => {
     telemetry.logError(err);
-    throw err;
   });
   process.on('unhandledRejection', (reason: unknown) => {
     telemetry.logError(reason);
