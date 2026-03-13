@@ -53,7 +53,7 @@ import { ServerStorage } from './jupyter/storage';
 import { ExtensionUriHandler } from './system/uri';
 import { telemetry } from './telemetry';
 import { CommandSource } from './telemetry/api';
-import { withErrorTracking } from './telemetry/wrappers';
+import { withErrorTracking } from './telemetry/decorators';
 
 // Called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {

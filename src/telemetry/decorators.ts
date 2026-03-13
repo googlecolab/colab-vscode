@@ -8,6 +8,33 @@ import { isPromiseLike } from '../common/async';
 import { telemetry } from '.';
 
 /**
+ * A decorator that wraps a method with error tracking.
+ */
+export function trackErrors<
+  T extends (...args: Parameters<T>) => ReturnType<T>,
+>(
+  _target: object,
+  _propertyKey: string,
+  descriptor: TypedPropertyDescriptor<T>,
+): TypedPropertyDescriptor<T> {
+  const originalMethod = descriptor.value;
+
+  // Ensure the property is a function.
+  if (typeof originalMethod !== 'function') {
+    return descriptor;
+  }
+
+  descriptor.value = function (
+    this: unknown,
+    ...args: Parameters<T>
+  ): ReturnType<T> {
+    return withErrorTracking(originalMethod).apply(this, args);
+  } as T;
+
+  return descriptor;
+}
+
+/**
  * A higher-order function that wraps a target function to log uncaught errors,
  * supporting both sync and async execution.
  *

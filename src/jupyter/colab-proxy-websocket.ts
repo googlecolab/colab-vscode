@@ -19,7 +19,7 @@ import {
 } from '../colab/headers';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
-import { withErrorTracking } from '../telemetry/wrappers';
+import { withErrorTracking } from '../telemetry/decorators';
 import { ColabAssignedServer } from './servers';
 
 /**

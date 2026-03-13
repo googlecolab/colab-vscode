@@ -33,6 +33,7 @@ import { traceMethod } from '../common/logging/decorators';
 import { InputFlowAction } from '../common/multi-step-quickpick';
 import { telemetry } from '../telemetry';
 import { CommandSource } from '../telemetry/api';
+import { trackErrors } from '../telemetry/decorators';
 import { isUUID } from '../utils/uuid';
 import { AssignmentChangeEvent, AssignmentManager } from './assignments';
 
@@ -92,6 +93,7 @@ export class ColabJupyterServerProvider
    * can be used.
    */
   @traceMethod
+  @trackErrors
   provideJupyterServers(
     _token: CancellationToken,
   ): ProviderResult<JupyterServer[]> {
@@ -105,6 +107,7 @@ export class ColabJupyterServerProvider
    * Resolves the connection for the provided Colab {@link JupyterServer}.
    */
   @traceMethod
+  @trackErrors
   resolveJupyterServer(
     server: JupyterServer,
     _token: CancellationToken,
@@ -125,6 +128,7 @@ export class ColabJupyterServerProvider
    */
   // TODO: Integrate rename server alias and remove server commands.
   @traceMethod
+  @trackErrors
   async provideCommands(
     _value: string | undefined,
     _token: CancellationToken,
@@ -165,6 +169,7 @@ export class ColabJupyterServerProvider
    */
   // TODO: Consider popping a notification if the `openExternal` call fails.
   @traceMethod
+  @trackErrors
   async handleCommand(
     command: JupyterServerCommand,
     _token: CancellationToken,
