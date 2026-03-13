@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/** Minimum required scope set for executing a runtime */
+/** Minimum required scope set for assigning and using a Colab server */
 export const REQUIRED_SCOPES = [
   'profile',
   'email',
   'https://www.googleapis.com/auth/colaboratory',
 ] as const;
 
-/** Scopes required to use the drive integration */
+/** Scopes required to use the Drive integration */
 export const DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
 ] as const;
@@ -27,23 +27,4 @@ export function areScopesAllowed(scopes?: readonly string[]): boolean {
   if (!scopes) return true;
 
   return scopes.every((scope) => ALLOWED_SCOPES.has(scope));
-}
-
-/** Function to check if scopesToCheck has AT LEAST every scope in scopes */
-export function hasScopes(
-  scopesToCheck: readonly string[],
-  scopes: readonly string[],
-): boolean {
-  return scopes.every((r) => scopesToCheck.includes(r));
-}
-
-export function matchesRequiredScopes(scopes: readonly string[]): boolean {
-  return (
-    scopes.length === REQUIRED_SCOPES.length &&
-    REQUIRED_SCOPES.every((r) => scopes.includes(r))
-  );
-}
-
-export function upgradeScopes(scopes: readonly string[]): string[] {
-  return Array.from(new Set([...scopes, ...REQUIRED_SCOPES]).values());
 }

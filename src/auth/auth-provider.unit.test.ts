@@ -19,12 +19,12 @@ import { Toggleable } from '../common/toggleable';
 import { PROVIDER_ID } from '../config/constants';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { AuthChangeEvent, GoogleAuthProvider } from './auth-provider';
-import { Credentials } from './login';
+import { Credentials, LoginOptions } from './login';
 import { DRIVE_SCOPES, REQUIRED_SCOPES } from './scopes';
 import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
 const CLIENT_ID = 'testClientId';
-const SCOPES = Array.from(REQUIRED_SCOPES);
+const SCOPES = [...REQUIRED_SCOPES];
 const NOW = Date.now();
 const HOUR_MS = 60 * 60 * 1000;
 const DEFAULT_ACCESS_TOKEN = '42';
@@ -50,7 +50,7 @@ const DEFAULT_AUTH_SESSION: vscode.AuthenticationSession = {
   account: DEFAULT_REFRESH_SESSION.account,
   scopes: DEFAULT_REFRESH_SESSION.scopes.sort(),
 };
-const ADDITIONAL_SCOPES = Array.from(DRIVE_SCOPES);
+const ADDITIONAL_SCOPES = [...DRIVE_SCOPES];
 const UPGRADED_SCOPES = [...SCOPES, ...ADDITIONAL_SCOPES];
 const UPGRADED_ACCESS_TOKEN = '43';
 const UPGRADED_REFRESH_SESSION: RefreshableAuthenticationSession = {
@@ -101,7 +101,10 @@ describe('GoogleAuthProvider', () => {
     Promise<Response>
   >;
   let storageStub: SinonStubbedInstance<AuthStorage>;
-  let loginStub: sinon.SinonStub<[scopes: string[]], Promise<Credentials>>;
+  let loginStub: sinon.SinonStub<
+    [scopes: string[], options?: LoginOptions],
+    Promise<Credentials>
+  >;
 
   /**
    * Writing tests for the {@link GoogleAuthProvider} is a bit tricky because of
@@ -334,19 +337,15 @@ describe('GoogleAuthProvider', () => {
         });
       });
 
-      describe('with multiple stored sessions', () => {
-        beforeEach(() => {
-          storageStub.getSessions.resolves([
-            DEFAULT_REFRESH_SESSION,
-            DEFAULT_REFRESH_SESSION,
-          ]);
-        });
+      it('rejects when there are multiple stored session', async () => {
+        storageStub.getSessions.resolves([
+          DEFAULT_REFRESH_SESSION,
+          DEFAULT_REFRESH_SESSION,
+        ]);
 
-        it('rejects', async () => {
-          await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
-            /at most 1 session/,
-          );
-        });
+        await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
+          /at most 1 session/,
+        );
       });
     });
   });
@@ -679,11 +678,29 @@ describe('GoogleAuthProvider', () => {
     describe('with a successful login', () => {
       beforeEach(async () => {
         await authProvider.initialize();
-        for (const { scopes, credentials } of [
-          { scopes: SCOPES, credentials: DEFAULT_CREDENTIALS },
-          { scopes: UPGRADED_SCOPES, credentials: UPGRADED_CREDENTIALS },
+        for (const { scopes, includeGrantedScopes, loginHint, credentials } of [
+          {
+            scopes: SCOPES,
+            includeGrantedScopes: false,
+            loginHint: undefined,
+            credentials: DEFAULT_CREDENTIALS,
+          },
+          {
+            scopes: UPGRADED_SCOPES,
+            includeGrantedScopes: false,
+            loginHint: undefined,
+            credentials: UPGRADED_CREDENTIALS,
+          },
+          {
+            scopes: ADDITIONAL_SCOPES,
+            includeGrantedScopes: true,
+            loginHint: 'foo@example.com',
+            credentials: UPGRADED_CREDENTIALS,
+          },
         ]) {
-          loginStub.withArgs(scopes).resolves(credentials);
+          loginStub
+            .withArgs(scopes, { includeGrantedScopes, loginHint })
+            .resolves(credentials);
           fetchStub
             .withArgs('https://www.googleapis.com/oauth2/v2/userinfo', {
               headers: {

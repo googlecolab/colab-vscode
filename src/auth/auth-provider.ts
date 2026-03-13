@@ -22,14 +22,8 @@ import { AUTHORIZATION_HEADER } from '../colab/headers';
 import { log } from '../common/logging';
 import { Toggleable } from '../common/toggleable';
 import { telemetry } from '../telemetry';
-import { Credentials } from './login';
-import {
-  areScopesAllowed,
-  hasScopes,
-  ALLOWED_SCOPES,
-  matchesRequiredScopes,
-  upgradeScopes,
-} from './scopes';
+import { Credentials, LoginOptions } from './login';
+import { areScopesAllowed, ALLOWED_SCOPES, REQUIRED_SCOPES } from './scopes';
 import { AuthStorage, RefreshableAuthenticationSession } from './storage';
 
 const PROVIDER_ID = 'google';
@@ -71,7 +65,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Initializes the GoogleAuthProvider.
    *
    * @param vs - The VS Code API.
-   * @param storage - The storage client for persisting sessions
+   * @param storage - The storage client for persisting sessions.
    * @param oAuth2Client - The OAuth2 client for handling Google authentication.
    * @param login - A function that initiates the login process with the
    * specified scopes.
@@ -80,7 +74,10 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     private readonly vs: typeof vscode,
     private readonly storage: AuthStorage,
     private readonly oAuth2Client: OAuth2Client,
-    private readonly login: (scopes: string[]) => Promise<Credentials>,
+    private readonly login: (
+      scopes: string[],
+      options?: LoginOptions,
+    ) => Promise<Credentials>,
   ) {
     this.emitter = new vs.EventEmitter<AuthChangeEvent>();
     this.onDidChangeSessions = this.emitter.event;
@@ -218,7 +215,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (
       !this.session ||
       !areScopesAllowed(scopes) ||
-      (scopes && !hasScopes(this.session.scopes, scopes))
+      (scopes && !scopes.every((r) => this.session?.scopes.includes(r)))
     ) {
       return [];
     }
@@ -259,14 +256,37 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         );
       }
 
+      let includeGrantedScopes = false;
+      let loginHint: string | undefined;
       let targetScopes = scopes;
-      if (!matchesRequiredScopes(scopes)) {
-        targetScopes = upgradeScopes(scopes);
-      }
-      const sortedScopes = targetScopes.sort();
-      const tokenInfo = await this.login(sortedScopes);
-      const user = await this.getUserInfo(tokenInfo.access_token);
+      let finalScopes = scopes;
       const existingSession = await this.getSession();
+      if (
+        scopes.length !== REQUIRED_SCOPES.length ||
+        !REQUIRED_SCOPES.every((r) => scopes.includes(r))
+      ) {
+        if (!existingSession) {
+          // Scope should have provided scopes and required scopes so the user
+          // does not have to login again to perform colab functions
+          targetScopes =  Array.from(
+            new Set([...scopes, ...REQUIRED_SCOPES]).values(),
+          )
+          finalScopes = targetScopes;
+        } else {
+          // Upgrading the session, so we are just adding the provided scopes
+          includeGrantedScopes = true;
+          loginHint = existingSession.account.id;
+          finalScopes = Array.from(
+            new Set([...existingSession.scopes, ...scopes]).values(),
+          );
+        }
+      }
+      
+      const tokenInfo = await this.login(targetScopes, {
+        includeGrantedScopes,
+        loginHint,
+      });
+      const user = await this.getUserInfo(tokenInfo.access_token);
       const newSession: RefreshableAuthenticationSession = {
         id: existingSession ? existingSession.id : uuid(),
         refreshToken: tokenInfo.refresh_token,
@@ -274,7 +294,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
           id: user.email,
           label: user.name,
         },
-        scopes: sortedScopes,
+        scopes: finalScopes.sort(),
       };
       await this.storage.storeSession(newSession);
       this.oAuth2Client.setCredentials(tokenInfo);
@@ -282,7 +302,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         id: newSession.id,
         accessToken: tokenInfo.access_token,
         account: newSession.account,
-        scopes: sortedScopes,
+        scopes: finalScopes,
       };
 
       if (existingSession) {

@@ -23,8 +23,14 @@ export interface OAuth2TriggerOptions {
   readonly nonce: string;
   /** The scopes the flow should authorize for. */
   readonly scopes: string[];
+  /** Whether to include granted scopes in the new token. */
+  readonly includeGrantedScopes?: boolean;
+  /** The login hint if we are doing incremental authorization to pre-fill the email */
+  readonly loginHint?: string;
   /** The PKCE challenge string which if specific should be included with the auth request. */
   readonly pkceChallenge?: string;
+  /** Should always be consent unless includeGrantedScopes is true to allow for incremental auth*/
+  readonly prompt?: 'consent';
 }
 
 export interface FlowResult {
@@ -47,7 +53,6 @@ export interface OAuth2Flow {
 export const DEFAULT_AUTH_URL_OPTS: GenerateAuthUrlOpts = {
   access_type: 'offline',
   response_type: 'code',
-  prompt: 'consent',
   code_challenge_method: CodeChallengeMethod.S256,
 };
 

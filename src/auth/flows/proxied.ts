@@ -55,6 +55,9 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
         state: externalProxiedRedirectUri.toString(),
         scope: options.scopes,
         code_challenge: options.pkceChallenge,
+        include_granted_scopes: options.includeGrantedScopes,
+        login_hint: options.loginHint,
+                ...(options.prompt ? { prompt: options.prompt } : {})
       });
 
       await this.vs.env.openExternal(this.vs.Uri.parse(authUrl));

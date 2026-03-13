@@ -18,6 +18,14 @@ import { LocalServerFlow } from './flows/loopback';
 import { ProxiedRedirectFlow } from './flows/proxied';
 
 /**
+ * Options for logging in.
+ */
+export interface LoginOptions {
+  includeGrantedScopes?: boolean;
+  loginHint?: string;
+}
+
+/**
  * A complete set of credentials produced from completing OAuth2 authentication.
  */
 export type Credentials = OAuth2Credentials & {
@@ -40,6 +48,7 @@ export async function login(
   flows: OAuth2Flow[],
   client: OAuth2Client,
   scopes: string[],
+  options?: LoginOptions,
 ): Promise<Credentials> {
   if (flows.length === 0) {
     throw new Error('No authentication flows available.');
@@ -64,7 +73,11 @@ export async function login(
             cancel,
             nonce,
             scopes,
+            includeGrantedScopes: options?.includeGrantedScopes,
+            loginHint: options?.loginHint,
             pkceChallenge: pkce.codeChallenge,
+            prompt: 'consent'
+          //  ...(!options?.includeGrantedScopes ? { prompt: 'consent' } : {}),
           };
           const flowResult = await flow.trigger(triggerOptions);
           const res = await exchangeCodeForCredentials(
