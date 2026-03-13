@@ -51,6 +51,7 @@ describe('LocalServerFlow', () => {
       nonce: NONCE,
       scopes: SCOPES,
       pkceChallenge: '1 + 1 = ?',
+      prompt: 'consent',
     };
     resStub = sinon.createStubInstance(http.ServerResponse);
     flow = new LocalServerFlow(

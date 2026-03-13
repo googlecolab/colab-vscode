@@ -25,11 +25,11 @@ export interface OAuth2TriggerOptions {
   readonly scopes: string[];
   /** Whether to include granted scopes in the new token. */
   readonly includeGrantedScopes?: boolean;
-  /** The login hint if we are doing incremental authorization to pre-fill the email */
+  /** The login hint if we are doing incremental authorization to pre-fill the email. */
   readonly loginHint?: string;
   /** The PKCE challenge string which if specific should be included with the auth request. */
   readonly pkceChallenge?: string;
-  /** Should always be consent unless includeGrantedScopes is true to allow for incremental auth*/
+  /** Should always be consent unless includeGrantedScopes is true to allow for incremental auth. */
   readonly prompt?: 'consent';
 }
 

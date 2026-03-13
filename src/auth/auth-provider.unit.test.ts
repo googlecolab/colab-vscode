@@ -692,7 +692,7 @@ describe('GoogleAuthProvider', () => {
             credentials: UPGRADED_CREDENTIALS,
           },
           {
-            scopes: ADDITIONAL_SCOPES,
+            scopes: UPGRADED_SCOPES,
             includeGrantedScopes: true,
             loginHint: 'foo@example.com',
             credentials: UPGRADED_CREDENTIALS,

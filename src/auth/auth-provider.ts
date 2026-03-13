@@ -258,7 +258,6 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
 
       let includeGrantedScopes = false;
       let loginHint: string | undefined;
-      let targetScopes = scopes;
       let finalScopes = scopes;
       const existingSession = await this.getSession();
       if (
@@ -268,10 +267,9 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         if (!existingSession) {
           // Scope should have provided scopes and required scopes so the user
           // does not have to login again to perform colab functions
-          targetScopes =  Array.from(
+          finalScopes =  Array.from(
             new Set([...scopes, ...REQUIRED_SCOPES]).values(),
           )
-          finalScopes = targetScopes;
         } else {
           // Upgrading the session, so we are just adding the provided scopes
           includeGrantedScopes = true;
@@ -281,8 +279,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
           );
         }
       }
-      
-      const tokenInfo = await this.login(targetScopes, {
+      const sortedScopes = finalScopes.sort();
+      const tokenInfo = await this.login(sortedScopes, {
         includeGrantedScopes,
         loginHint,
       });
@@ -302,7 +300,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         id: newSession.id,
         accessToken: tokenInfo.access_token,
         account: newSession.account,
-        scopes: finalScopes,
+        scopes: sortedScopes,
       };
 
       if (existingSession) {
