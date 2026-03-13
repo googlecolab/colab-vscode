@@ -34,7 +34,7 @@ class TestClass {
   }
 }
 
-describe('trackError', () => {
+describe('trackErrors', () => {
   let logErrorStub: SinonStub;
   let test: TestClass;
 
