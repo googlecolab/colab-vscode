@@ -151,7 +151,7 @@ describe('GoogleAuthProvider', () => {
     );
     authProvider.onDidChangeSessions(onDidChangeSessionsStub);
 
-    // By default there are no stored sessions
+    // By default, there should be no stored sessions
     storageStub.getSessions.resolves([]);
   });
 
@@ -739,6 +739,10 @@ describe('GoogleAuthProvider', () => {
           hasValidSession: true,
         });
         await expect(signedInContext).to.eventually.be.true;
+        sinon.assert.calledOnceWithExactly(loginStub, SCOPES, {
+          includeGrantedScopes: false,
+          loginHint: undefined,
+        });
       });
 
       it('replaces an existing session', async () => {
@@ -756,6 +760,10 @@ describe('GoogleAuthProvider', () => {
           removed: [],
           changed: [session],
           hasValidSession: true,
+        });
+        sinon.assert.calledOnceWithExactly(loginStub, SCOPES, {
+          includeGrantedScopes: false,
+          loginHint: undefined,
         });
       });
 
@@ -779,6 +787,10 @@ describe('GoogleAuthProvider', () => {
           hasValidSession: true,
         });
         await expect(signedInContext).to.eventually.be.true;
+        sinon.assert.calledOnceWithExactly(loginStub, UPGRADED_SCOPES, {
+          includeGrantedScopes: false,
+          loginHint: undefined,
+        });
       });
 
       it('upgrades an existing session', async () => {
@@ -799,6 +811,10 @@ describe('GoogleAuthProvider', () => {
           removed: [],
           changed: [session],
           hasValidSession: true,
+        });
+        sinon.assert.calledOnceWithExactly(loginStub, UPGRADED_SCOPES, {
+          includeGrantedScopes: true,
+          loginHint: UPGRADED_AUTH_SESSION.account.id,
         });
       });
 

@@ -215,6 +215,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (
       !this.session ||
       !areScopesAllowed(scopes) ||
+      // Checks if provided scopes are a subset of the current session's scopes
       (scopes && !scopes.every((r) => this.session?.scopes.includes(r)))
     ) {
       return [];
@@ -256,10 +257,11 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         );
       }
 
-      let includeGrantedScopes = false;
+      let shouldRequestIncrementalAuth = false;
       let loginHint: string | undefined;
       let finalScopes = scopes;
       const existingSession = await this.getSession();
+      // If provided scopes, don't match REQUIRED_SCOPES
       if (
         scopes.length !== REQUIRED_SCOPES.length ||
         !REQUIRED_SCOPES.every((r) => scopes.includes(r))
@@ -271,8 +273,9 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
             new Set([...scopes, ...REQUIRED_SCOPES]).values(),
           );
         } else {
-          // Upgrading the session, so we are just adding the provided scopes
-          includeGrantedScopes = true;
+          // Incremental authorization, so we are just adding the provided
+          // scopes to the existing scopes
+          shouldRequestIncrementalAuth = true;
           loginHint = existingSession.account.id;
           finalScopes = Array.from(
             new Set([...existingSession.scopes, ...scopes]).values(),
@@ -281,7 +284,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       }
       const sortedScopes = finalScopes.sort();
       const tokenInfo = await this.login(sortedScopes, {
-        includeGrantedScopes,
+        includeGrantedScopes: shouldRequestIncrementalAuth,
         loginHint,
       });
       const user = await this.getUserInfo(tokenInfo.access_token);

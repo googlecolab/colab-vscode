@@ -73,10 +73,10 @@ export async function login(
             cancel,
             nonce,
             scopes,
+            pkceChallenge: pkce.codeChallenge,
             includeGrantedScopes: options?.includeGrantedScopes,
             loginHint: options?.loginHint,
-            pkceChallenge: pkce.codeChallenge,
-            ...(!options?.includeGrantedScopes ? { prompt: 'consent' } : {}),
+            prompt: !options?.includeGrantedScopes ? 'consent' : undefined,
           };
           const flowResult = await flow.trigger(triggerOptions);
           const res = await exchangeCodeForCredentials(

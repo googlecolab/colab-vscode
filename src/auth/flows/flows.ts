@@ -23,13 +23,22 @@ export interface OAuth2TriggerOptions {
   readonly nonce: string;
   /** The scopes the flow should authorize for. */
   readonly scopes: string[];
-  /** Whether to include granted scopes in the new token. */
-  readonly includeGrantedScopes?: boolean;
-  /** The login hint if we are doing incremental authorization to pre-fill the email. */
-  readonly loginHint?: string;
   /** The PKCE challenge string which if specific should be included with the auth request. */
   readonly pkceChallenge?: string;
-  /** Should always be consent unless includeGrantedScopes is true to allow for incremental auth. */
+  /** Whether to include granted scopes in the new request. */
+  readonly includeGrantedScopes?: boolean;
+  /** The login hint to pre-fill the email (for incremental authorization). */
+  readonly loginHint?: string;
+  /** Influences how the user is presented with the consent dialog.
+   *
+   * If the value is "consent" - the consent dialog is forced to be displayed
+   * every time,even if the user has previously granted access.
+   * If the value is not specified - the consent dialog defaults to it's default
+   * i.e. it only shows for the scopes the user did not already consent to.
+   *
+   * This should always be "consent" unless `includeGrantedScopes` is `true`
+   * to allow for incremental auth.
+   * */
   readonly prompt?: 'consent';
 }
 
