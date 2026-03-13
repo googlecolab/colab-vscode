@@ -24,13 +24,7 @@ export function trackErrors<
     return descriptor;
   }
 
-  descriptor.value = function (
-    this: unknown,
-    ...args: Parameters<T>
-  ): ReturnType<T> {
-    return withErrorTracking(originalMethod).apply(this, args);
-  } as T;
-
+  descriptor.value = withErrorTracking(originalMethod);
   return descriptor;
 }
 
