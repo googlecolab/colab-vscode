@@ -267,9 +267,9 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         if (!existingSession) {
           // Scope should have provided scopes and required scopes so the user
           // does not have to login again to perform colab functions
-          finalScopes =  Array.from(
+          finalScopes = Array.from(
             new Set([...scopes, ...REQUIRED_SCOPES]).values(),
-          )
+          );
         } else {
           // Upgrading the session, so we are just adding the provided scopes
           includeGrantedScopes = true;
