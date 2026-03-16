@@ -38,12 +38,16 @@ import {
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_TUNNEL_HEADER,
+  COLAB_VS_CODE_APP_NAME,
+  COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
 
 const COLAB_HOST = 'colab.example.com';
 const GOOGLE_APIS_HOST = 'colab.example.googleapis.com';
 const BEARER_TOKEN = 'access-token';
+const APP_NAME = 'mock-app';
+const EXTENSION_VERSION = '1.2.3';
 const NOTEBOOK_HASH = randomUUID();
 const DEFAULT_ASSIGNMENT_RESPONSE = {
   accelerator: 'A100',
@@ -74,13 +78,16 @@ describe('ColabClient', () => {
   let onAuthErrorStub: SinonStub<[], Promise<void>>;
 
   beforeEach(() => {
-    fetchStub = sinon.stub(fetch, 'default');
+    fetchStub = sinon.stub(fetch, 'default').callsFake(() => {
+      throw new Error('fetch was called with non-matching call');
+    });
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
-    onAuthErrorStub = sinon.stub<[], Promise<void>>().resolves();
+    onAuthErrorStub = sinon.stub();
     client = new ColabClient(
       new URL(`https://${COLAB_HOST}`),
       new URL(`https://${GOOGLE_APIS_HOST}`),
       sessionStub,
+      { appName: APP_NAME, extensionVersion: EXTENSION_VERSION },
       onAuthErrorStub,
     );
   });
@@ -879,6 +886,7 @@ describe('ColabClient', () => {
       new URL(`https://${COLAB_HOST}`),
       new URL(`https://${GOOGLE_APIS_HOST}`),
       sessionStub,
+      { appName: APP_NAME, extensionVersion: EXTENSION_VERSION },
     );
 
     fetchStub
@@ -1156,7 +1164,6 @@ export interface URLMatchOptions {
   path: string | RegExp;
   queryParams?: Record<string, string | RegExp>;
   otherHeaders?: Record<string, string>;
-  formBody?: Record<string, string | RegExp>;
   /** Whether the authuser query parameter should be included. Defaults to true. */
   withAuthUser?: boolean;
   /** Whether the Authorization header should be included. Defaults to true. */
@@ -1171,162 +1178,78 @@ export interface URLMatchOptions {
  * headers.
  */
 export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
-  let reason = '';
-  return sinon.match((request: Request) => {
-    const reasons: string[] = [];
-    reason = '';
-
-    // Check method
-    const actualMethod = request.method.toUpperCase();
-    const expectedMethod = expected.method.toUpperCase();
-    if (actualMethod !== expectedMethod) {
-      reasons.push(`method "${actualMethod}" !== expected "${expectedMethod}"`);
-    }
-
-    const url = new URL(request.url);
-
-    // Check host
-    const actualHost = url.host;
-    const expectedHost = expected.host;
-    if (actualHost !== expectedHost) {
-      reasons.push(`host "${expectedHost}" !== expected "${expectedHost}"`);
-    }
-
-    // Check path
-    const actualPath = url.pathname;
-    const expectedPath = expected.path;
-    if (expectedPath instanceof RegExp) {
-      if (!expectedPath.test(actualPath)) {
-        reasons.push(
-          `path "${actualPath}" does not match ${expectedPath.source}`,
-        );
+  return sinon.match(
+    (request: Request) => {
+      // Check method
+      if (request.method.toUpperCase() !== expected.method.toUpperCase()) {
+        return false;
       }
-    } else {
-      if (actualPath !== expectedPath) {
-        reasons.push(`path "${actualPath}" !== expected "${expectedPath}"`);
-      }
-    }
 
-    // Check query params
-    const params = url.searchParams;
-    if (expected.withAuthUser !== false) {
-      const actualAuthuser = params.get('authuser');
-      if (actualAuthuser !== '0') {
-        reasons.push(
-          `authuser param is "${actualAuthuser ?? ''}", expected "0"`,
-        );
+      const url = new URL(request.url);
+
+      // Check host
+      if (url.host !== expected.host) {
+        return false;
       }
-    }
-    if (expected.queryParams) {
-      for (const [key, value] of Object.entries(expected.queryParams)) {
-        const actual = params.get(key);
-        if (actual === null) {
-          reasons.push(`missing query param "${key}"`);
-        } else if (value instanceof RegExp) {
-          if (!value.test(actual)) {
-            reasons.push(
-              `query param "${key}" = "${actual}" does not match ${value.source}`,
-            );
+
+      // Check path
+      const actualPath = url.pathname;
+      if (expected.path instanceof RegExp) {
+        if (!expected.path.test(actualPath)) {
+          return false;
+        }
+      } else if (actualPath !== expected.path) {
+        return false;
+      }
+
+      // Check query params
+      const params = url.searchParams;
+      if (expected.withAuthUser !== false && params.get('authuser') !== '0') {
+        return false;
+      }
+
+      if (expected.queryParams) {
+        for (const [key, value] of Object.entries(expected.queryParams)) {
+          const actual = params.get(key);
+          if (actual === null) {
+            return false;
           }
-        } else {
-          if (actual !== value) {
-            reasons.push(
-              `query param "${key}" = "${actual}" !== expected "${value}"`,
-            );
+          if (value instanceof RegExp) {
+            if (!value.test(actual)) {
+              return false;
+            }
+          } else if (actual !== value) {
+            return false;
           }
         }
       }
-    }
 
-    // Check headers
-    const headers = request.headers;
-    if (expected.withAuthorization !== false) {
-      const actualAuth = headers.get(AUTHORIZATION_HEADER.key);
-      const expectedAuth = `Bearer ${BEARER_TOKEN}`;
-      if (actualAuth !== expectedAuth) {
-        reasons.push(
-          `Authorization header is "${actualAuth ?? ''}", expected "${expectedAuth}"`,
-        );
-      }
-    }
-    const actualAccept = headers.get(ACCEPT_JSON_HEADER.key);
-    if (actualAccept !== ACCEPT_JSON_HEADER.value) {
-      reasons.push(
-        `Accept header is "${actualAccept ?? ''}", expected "${ACCEPT_JSON_HEADER.value}"`,
-      );
-    }
-    const actualClientAgent = headers.get(COLAB_CLIENT_AGENT_HEADER.key);
-    if (actualClientAgent !== COLAB_CLIENT_AGENT_HEADER.value) {
-      reasons.push(
-        `Client-Agent header is "${actualClientAgent ?? ''}", expected "${COLAB_CLIENT_AGENT_HEADER.value}"`,
-      );
-    }
-    if (expected.otherHeaders) {
-      for (const [key, expectedVal] of Object.entries(expected.otherHeaders)) {
-        const actualVal = headers.get(key);
-        if (actualVal !== expectedVal) {
-          reasons.push(
-            `header "${key}" = "${actualVal ?? ''}", expected "${expectedVal}"`,
-          );
+      // Check headers
+      const headers = request.headers;
+      if (expected.withAuthorization !== false) {
+        if (
+          headers.get(AUTHORIZATION_HEADER.key) !== `Bearer ${BEARER_TOKEN}`
+        ) {
+          return false;
         }
       }
-    }
 
-    // Check form body
-    if (expected.formBody) {
-      // Though `request` has a `formData()` method in its type definition, it's
-      // unimplemented in tests, hence parsing `request.body` manually.
-      const parsedBody = parseRequestBody(request.body);
-      for (const [key, expectedVal] of Object.entries(expected.formBody)) {
-        if (!(key in parsedBody)) {
-          reasons.push(`missing "${key}" in form body`);
-          continue;
-        }
+      const requiredHeaders: Record<string, string> = {
+        [ACCEPT_JSON_HEADER.key]: ACCEPT_JSON_HEADER.value,
+        [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+        [COLAB_VS_CODE_APP_NAME.key]: APP_NAME,
+        [COLAB_VS_CODE_EXTENSION_VERSION.key]: EXTENSION_VERSION,
+        ...expected.otherHeaders,
+      };
 
-        const actualVal = parsedBody[key];
-        if (expectedVal instanceof RegExp) {
-          if (!expectedVal.test(actualVal)) {
-            reasons.push(
-              `form body "${key}" = "${actualVal}" does not match "${expectedVal.source}"`,
-            );
-          }
-        } else if (actualVal !== expectedVal) {
-          reasons.push(
-            `form body "${key}" = "${actualVal}" !== expected "${expectedVal}"`,
-          );
+      for (const [key, expectedVal] of Object.entries(requiredHeaders)) {
+        if (headers.get(key) !== expectedVal) {
+          return false;
         }
       }
-    }
 
-    if (reasons.length > 0) {
-      reason = reasons.join('; ');
-      return false;
-    }
-
-    return true;
-  }, reason || 'URL did not match expected pattern');
-}
-
-const formDataKeyPattern = /Content-Disposition: form-data; name="(.+)"/;
-
-function parseRequestBody(
-  body: ReadableStream<Uint8Array<ArrayBuffer>> | null,
-): Record<string, string> {
-  const results: Record<string, string> = {};
-  if (!body) return results;
-
-  // Though `request.body` is typed as a `ReadableStream`, it's not a real
-  // ReadableStream in tests. Doing a hacky cast to access its internal
-  // `_streams` property.
-  const bodyStreams = (body as unknown as { _streams: string[] })._streams;
-  for (let i = 0; i < bodyStreams.length; i++) {
-    const chunk = bodyStreams[i];
-    const keyMatch = formDataKeyPattern.exec(chunk);
-    if (keyMatch) {
-      const key = keyMatch[1];
-      const value = bodyStreams[i + 1];
-      results[key] = value;
-    }
-  }
-  return results;
+      return true;
+    },
+    `Request matching ${JSON.stringify(expected)}`,
+  );
 }

@@ -50,6 +50,21 @@ export const COLAB_CLIENT_AGENT_HEADER: StaticHeader = {
 };
 
 /**
+ * The HTTP header for the VS Code app name, used to identify requests
+ * originating from VS Code, or one of its forks (e.g. Antigravity).
+ */
+export const COLAB_VS_CODE_APP_NAME: Header = {
+  key: 'X-Colab-VS-Code-App-Name',
+};
+
+/**
+ * The HTTP header for the VS Code extension version.
+ */
+export const COLAB_VS_CODE_EXTENSION_VERSION: Header = {
+  key: 'X-Colab-VS-Code-Extension-Version',
+};
+
+/**
  * The HTTP header for requests that are resolved through the Colab tunnel.
  */
 export const COLAB_TUNNEL_HEADER: StaticHeader = {

@@ -43,6 +43,8 @@ import {
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_TUNNEL_HEADER,
+  COLAB_VS_CODE_APP_NAME,
+  COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
 
@@ -82,6 +84,10 @@ export class ColabClient {
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
     private getAccessToken: () => Promise<string>,
+    private readonly callerInfo: {
+      appName: string;
+      extensionVersion: string;
+    },
     private readonly onAuthError?: () => Promise<void>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
@@ -473,6 +479,11 @@ export class ColabClient {
     requestHeaders.set(
       COLAB_CLIENT_AGENT_HEADER.key,
       COLAB_CLIENT_AGENT_HEADER.value,
+    );
+    requestHeaders.set(COLAB_VS_CODE_APP_NAME.key, this.callerInfo.appName);
+    requestHeaders.set(
+      COLAB_VS_CODE_EXTENSION_VERSION.key,
+      this.callerInfo.extensionVersion,
     );
 
     // Make up to 2 attempts to issue the request in case of an

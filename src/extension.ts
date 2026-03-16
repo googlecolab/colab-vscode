@@ -72,11 +72,8 @@ async function activateInternal(context: vscode.ExtensionContext) {
     CONFIG.ClientId,
     CONFIG.ClientNotSoSecret,
   );
-  const authFlows = getOAuth2Flows(
-    vscode,
-    getPackageInfo(context.extension),
-    authClient,
-  );
+  const packageInfo = getPackageInfo(context.extension);
+  const authFlows = getOAuth2Flows(vscode, packageInfo, authClient);
   const authProvider = new GoogleAuthProvider(
     vscode,
     new AuthStorage(context.secrets),
@@ -90,6 +87,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
       GoogleAuthProvider.getOrCreateSession(vscode).then(
         (session) => session.accessToken,
       ),
+    { appName: vscode.env.appName, extensionVersion: packageInfo.version },
     () => authProvider.signOut(),
   );
   const serverStorage = new ServerStorage(vscode, context.secrets);
