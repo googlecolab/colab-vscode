@@ -504,24 +504,34 @@ export class ColabClient {
         break;
       }
 
-      if (response.status === 401 && this.onAuthError) {
+      // If it's a 401 and we have an auth error handler, try to recover.
+      // But don't retry if this is already our last attempt.
+      if (response.status === 401 && this.onAuthError && attempt < 1) {
         await this.onAuthError();
       } else {
-        let errorBody;
-        try {
-          errorBody = await response.text();
-        } catch {
-          // Ignore errors reading the body
-        }
-        throw new ColabRequestError({
-          request,
-          response,
-          responseBody: errorBody,
-        });
+        break;
       }
     }
 
-    if (!schema || !response) {
+    if (!response || !request) {
+      return;
+    }
+
+    if (!response.ok) {
+      let errorBody;
+      try {
+        errorBody = await response.text();
+      } catch {
+        // Ignore errors reading the body
+      }
+      throw new ColabRequestError({
+        request,
+        response,
+        responseBody: errorBody,
+      });
+    }
+
+    if (!schema) {
       return;
     }
 

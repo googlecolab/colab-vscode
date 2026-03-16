@@ -878,7 +878,8 @@ describe('ColabClient', () => {
     );
 
     sinon.assert.calledTwice(fetchStub);
-    sinon.assert.calledTwice(onAuthErrorStub);
+    // There's only one attempt to fix the auth error.
+    sinon.assert.calledOnce(onAuthErrorStub);
   });
 
   it('throws on 401 if onAuthError is not provided', async () => {
