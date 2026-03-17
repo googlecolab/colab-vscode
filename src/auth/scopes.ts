@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@ export const DRIVE_SCOPES = [
 ] as const;
 
 /** Set of all scopes that are permitted to be used by this extension */
-export const ALLOWED_SCOPES = new Set<string>([
+export const ALLOWED_SCOPES: ReadonlySet<string> = new Set<string>([
   ...REQUIRED_SCOPES,
   ...DRIVE_SCOPES,
 ]);

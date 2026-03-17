@@ -32,7 +32,7 @@ export interface OAuth2TriggerOptions {
   /** Influences how the user is presented with the consent dialog.
    *
    * If the value is "consent" - the consent dialog is forced to be displayed
-   * every time,even if the user has previously granted access.
+   * every time, even if the user has previously granted access.
    * If the value is not specified - the consent dialog defaults to it's default
    * i.e. it only shows for the scopes the user did not already consent to.
    *
