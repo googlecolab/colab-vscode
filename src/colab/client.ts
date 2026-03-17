@@ -44,6 +44,8 @@ import {
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_TUNNEL_HEADER,
+  COLAB_VS_CODE_APP_NAME,
+  COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
 
@@ -84,6 +86,10 @@ export class ColabClient {
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
     private getAccessToken: (scopes: readonly string[]) => Promise<string>,
+    private readonly callerInfo: {
+      appName: string;
+      extensionVersion: string;
+    },
     private readonly onAuthError?: () => Promise<void>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
@@ -479,6 +485,11 @@ export class ColabClient {
       COLAB_CLIENT_AGENT_HEADER.key,
       COLAB_CLIENT_AGENT_HEADER.value,
     );
+    requestHeaders.set(COLAB_VS_CODE_APP_NAME.key, this.callerInfo.appName);
+    requestHeaders.set(
+      COLAB_VS_CODE_EXTENSION_VERSION.key,
+      this.callerInfo.extensionVersion,
+    );
 
     // Make up to 2 attempts to issue the request in case of an
     // authentication error i.e. if the first attempt fails with a 401,
@@ -498,24 +509,34 @@ export class ColabClient {
         break;
       }
 
-      if (response.status === 401 && this.onAuthError) {
+      // If it's a 401 and we have an auth error handler, try to recover.
+      // But don't retry if this is already our last attempt.
+      if (response.status === 401 && this.onAuthError && attempt < 1) {
         await this.onAuthError();
       } else {
-        let errorBody;
-        try {
-          errorBody = await response.text();
-        } catch {
-          // Ignore errors reading the body
-        }
-        throw new ColabRequestError({
-          request,
-          response,
-          responseBody: errorBody,
-        });
+        break;
       }
     }
 
-    if (!schema || !response) {
+    if (!response || !request) {
+      return;
+    }
+
+    if (!response.ok) {
+      let errorBody;
+      try {
+        errorBody = await response.text();
+      } catch {
+        // Ignore errors reading the body
+      }
+      throw new ColabRequestError({
+        request,
+        response,
+        responseBody: errorBody,
+      });
+    }
+
+    if (!schema) {
       return;
     }
 
