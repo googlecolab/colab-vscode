@@ -21,7 +21,15 @@ import { ProxiedRedirectFlow } from './flows/proxied';
  * Options for logging in.
  */
 export interface LoginOptions {
+  /**
+   * Whether to include previously granted scopes in the authentication
+   * request. Used to support incremental authorization.
+   */
   includeGrantedScopes?: boolean;
+  /**
+   * A hint to identify the user to be authenticated. Used to pre-fill the
+   * email field in the authentication UI for incremental authorization.
+   */
   loginHint?: string;
 }
 
@@ -42,6 +50,14 @@ export type Credentials = OAuth2Credentials & {
  * the extension from launching the loopback server. Due to all this "flake", we
  * attempt several flows depending on the environment capabilities (e.g. it's
  * not possible to launch a loopback server in a remote extension host).
+ *
+ * @param vs - The VS Code API instance.
+ * @param flows - The authentication flows manager.
+ * @param client - The API client instance.
+ * @param scopes - The requested OAuth scopes.
+ * @param options - Optional login options.
+ * @returns The obtained credentials upon successful authentication.
+ * @throws Error if all authentication attempts fail or are cancelled.
  */
 export async function login(
   vs: typeof vscode,

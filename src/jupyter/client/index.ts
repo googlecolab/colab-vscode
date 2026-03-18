@@ -30,13 +30,21 @@ import {
  * The Jupyter Server API Client.
  */
 export interface JupyterClient {
+  /** The Jupyter config API. */
   readonly config: ConfigApi;
+  /** The Jupyter contents API. */
   readonly contents: ContentsApi;
+  /** The Jupyter identity API. */
   readonly identity: IdentityApi;
+  /** The Jupyter kernels API. */
   readonly kernels: KernelsApi;
+  /** The Jupyter kernelspecs API. */
   readonly kernelspecs: KernelspecsApi;
+  /** The Jupyter sessions API. */
   readonly sessions: SessionsApi;
+  /** The Jupyter status API. */
   readonly status: StatusApi;
+  /** The Jupyter terminals API. */
   readonly terminals: TerminalsApi;
 }
 
@@ -128,6 +136,7 @@ export class ProxiedJupyterClient implements JupyterClient {
    * calls will likely error (404).
    *
    * @param server - The Colab server to connect to.
+   * @param changes - The event emitter for server assignment changes.
    * @returns a {@link ProxiedJupyterClient} to the specified server.
    */
   static withRefreshingConnection(

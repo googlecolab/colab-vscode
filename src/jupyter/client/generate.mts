@@ -197,8 +197,12 @@ function postProcessGeneratedFiles(
 }
 
 /**
- * Type Guard to ensure the parsed YAML has the basic structure needed for our
+ * Type guard to ensure the parsed YAML has the basic structure needed for our
  * post-processing.
+ *
+ * @param doc - The document object.
+ * @returns A type guard assertion that the document is an
+ * {@link OpenAPIDocument}.
  */
 function isOpenAPIDocument(doc: unknown): doc is OpenAPIDocument {
   return (

@@ -23,6 +23,7 @@ if (isTestBuild) {
 
 /**
  * Logs metadata about the built output files (e.g., size).
+ *
  * @param name - The name of the build process (e.g., "Extension", "Unit
  * Tests").
  * @param outputs - An object containing information about the build outputs.
@@ -42,6 +43,7 @@ function logBuildMetadata(
 
 /**
  * Creates an esbuild plugin to report build success/failure and metadata.
+ *
  * @param name - The name of the build process for logging.
  * @returns An esbuild plugin object.
  */
@@ -107,6 +109,7 @@ function ensureConfigExists(): void {
 
 /**
  * Generates esbuild options for test bundles.
+ *
  * @param name - The name of the test suite (e.g., "Unit Tests").
  * @param entrypointGlobPattern - A glob pattern for the entry point files.
  * @returns Esbuild build options for the test suite.
@@ -130,6 +133,7 @@ function testOptions(
 
 /**
  * Generates esbuild options for test setup files (not bundled).
+ *
  * @param name - The name of the test setup file.
  * @param entrypoint - The path to the entry point file.
  * @param outfile - The output file name relative to `out/test`.

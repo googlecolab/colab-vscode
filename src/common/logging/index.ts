@@ -13,10 +13,44 @@ import { OutputChannelLogger } from './output-channel';
  * Supports logging a message at varying severity levels.
  */
 export interface Logger {
+  /**
+   * Emits an error log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   error(msg: string, ...args: unknown[]): void;
+
+  /**
+   * Emits a warning log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   warn(msg: string, ...args: unknown[]): void;
+
+  /**
+   * Emits an info log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   info(msg: string, ...args: unknown[]): void;
+
+  /**
+   * Emits a debug log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   debug(msg: string, ...args: unknown[]): void;
+
+  /**
+   * Emits a trace log.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments to include.
+   */
   trace(msg: string, ...args: unknown[]): void;
 }
 
@@ -48,6 +82,15 @@ let level: LogLevel = LogLevel.Info;
 
 const loggers: Logger[] = [];
 
+/**
+ * Initializes the global logger with the appropriate loggers based on the
+ * extension mode.
+ *
+ * @param vs - The VS Code API instance.
+ * @param mode - The operation mode.
+ * @returns A disposable to clean up resources when the logger is no longer
+ * needed.
+ */
 export function initializeLogger(
   vs: typeof vscode,
   mode: ExtensionMode,
@@ -83,6 +126,8 @@ export function initializeLogger(
 
 /**
  * Gets the current configured log level.
+ *
+ * @returns The current {@link LogLevel}.
  */
 export function getLevel(): LogLevel {
   return level;

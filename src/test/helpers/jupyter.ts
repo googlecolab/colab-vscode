@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import sinon from 'sinon';
 import { JupyterClient } from '../../jupyter/client';
 import {
@@ -18,7 +20,7 @@ import {
 } from '../../jupyter/client/generated';
 
 /**
- * A stub of a JupyterClient.
+ * A stub of a {@link JupyterClient}.
  */
 export interface JupyterClientStub extends JupyterClient {
   readonly config: sinon.SinonStubbedInstance<JupyterClient['config']>;
@@ -33,9 +35,6 @@ export interface JupyterClientStub extends JupyterClient {
   readonly terminals: sinon.SinonStubbedInstance<JupyterClient['terminals']>;
 }
 
-/**
- * Creates a stub of a JupyterClient.
- */
 export function createJupyterClientStub(): JupyterClientStub {
   return {
     config: sinon.createStubInstance(ConfigApi),

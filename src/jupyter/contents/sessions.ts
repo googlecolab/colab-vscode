@@ -20,7 +20,16 @@ interface ServerConnection {
   dispose: () => void;
 }
 
+/**
+ * Error thrown when a server corresponding to a provided endpoint is not found.
+ */
 export class ServerNotFound extends Error {
+  /**
+   * Initializes the error with a message indicating the missing server
+   * endpoint.
+   *
+   * @param endpoint - The server endpoint URL.
+   */
   constructor(endpoint: string) {
     super(`Server corresponding to "${endpoint}" does not exist`);
   }
@@ -46,6 +55,13 @@ export class JupyterConnectionManager implements Disposable {
    */
   readonly onDidRevokeConnections: Event<string[]>;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param authEvent - The authentication event emitter.
+   * @param assignments - The assignment manager instance.
+   */
   constructor(
     private readonly vs: typeof vscode,
     authEvent: Event<AuthChangeEvent>,
@@ -63,6 +79,9 @@ export class JupyterConnectionManager implements Disposable {
     this.disposables.push(configListener, authChanges, assignmentChanges);
   }
 
+  /**
+   * Disposes the manager, revoking all connections and preventing future use.
+   */
   dispose() {
     if (this.isDisposed) {
       return;
@@ -83,7 +102,7 @@ export class JupyterConnectionManager implements Disposable {
    * if it has not been created.
    *
    * @param endpoint - The endpoint of the server to get the client for.
-   * @returns {@link ContentsApi} client for the provided endpoint
+   * @returns the {@link ContentsApi} client for the provided endpoint.
    */
   async get(endpoint: string): Promise<ContentsApi | undefined> {
     this.guardDisposed();

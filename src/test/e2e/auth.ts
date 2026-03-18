@@ -12,6 +12,10 @@ const ELEMENT_WAIT_MS = 10000;
 
 /**
  * Performs the OAuth sign-in flow for the Colab extension.
+ *
+ * @param chromeDriver - The Chrome driver.
+ * @param oAuthUrl - The OAuth url.
+ * @param expectedRedirectUrl - The expected redirect url.
  */
 export async function doOAuthSignIn(
   chromeDriver: WebDriver,
@@ -70,6 +74,8 @@ export async function doOAuthSignIn(
 
 /**
  * Creates a new Chrome WebDriver instance for the OAuth flow.
+ *
+ * @returns The Chrome WebDriver instance.
  */
 export function getOAuthDriver(): Promise<WebDriver> {
   const authDriverArgsPrefix = '--auth-driver:';

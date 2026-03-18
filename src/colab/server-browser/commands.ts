@@ -13,6 +13,9 @@ import type { ServerItem } from './server-item';
  * Prompts the user for a name, validates it, and creates an empty file.
  * If the name ends with a forward slash, a directory is created instead.
  * Automatically opens the new file after creation.
+ *
+ * @param vs - The VS Code API instance.
+ * @param contextItem - The tree view context item.
  */
 export async function newFile(vs: typeof vscode, contextItem: ServerItem) {
   const destination = folderOrParent(vs, contextItem);
@@ -46,6 +49,9 @@ export async function newFile(vs: typeof vscode, contextItem: ServerItem) {
  * Creates a new folder on the Colab server.
  *
  * Prompts the user for a name, validates it, and creates a directory.
+ *
+ * @param vs - The VS Code API instance.
+ * @param contextItem - The tree view context item.
  */
 export async function newFolder(vs: typeof vscode, contextItem: ServerItem) {
   const destination = folderOrParent(vs, contextItem);
@@ -70,6 +76,9 @@ export async function newFolder(vs: typeof vscode, contextItem: ServerItem) {
 
 /**
  * Downloads a file from the Colab server to the local filesystem.
+ *
+ * @param vs - The VS Code API instance.
+ * @param contextItem - The tree view context item.
  */
 export async function download(vs: typeof vscode, contextItem: ServerItem) {
   if (contextItem.type !== vs.FileType.File) {
@@ -108,6 +117,9 @@ export async function download(vs: typeof vscode, contextItem: ServerItem) {
 
 /**
  * Renames a file or folder on the Colab server.
+ *
+ * @param vs - The VS Code API instance.
+ * @param contextItem - The tree view context item.
  */
 // TODO: Look into preserving expanded state of renamed folders.
 export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
@@ -143,6 +155,9 @@ export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
 
 /**
  * Deletes a file or folder on the Colab server.
+ *
+ * @param vs - The VS Code API instance.
+ * @param contextItem - The tree view context item.
  */
 export async function deleteFile(vs: typeof vscode, contextItem: ServerItem) {
   const name = contextItem.uri.path.split('/').pop() ?? '';

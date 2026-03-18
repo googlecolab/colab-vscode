@@ -60,6 +60,16 @@ export class ColabJupyterServerProvider
     this.setHasAssignedServerContext.bind(this),
   );
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param authEvent - The authentication event emitter.
+   * @param assignmentManager - The assignment manager instance.
+   * @param client - The API client instance.
+   * @param serverPicker - The Server picker.
+   * @param jupyter - The Jupyter API provider.
+   */
   constructor(
     private readonly vs: typeof vscode,
     authEvent: Event<AuthChangeEvent>,
@@ -83,6 +93,10 @@ export class ColabJupyterServerProvider
     // TODO: Set `this.serverCollection.documentation` once docs exist.
   }
 
+  /**
+   * Disposes of the provider, including its event listeners and server
+   * collection.
+   */
   dispose() {
     this.authorizedListener.dispose();
     this.serverCollection.dispose();
@@ -91,6 +105,10 @@ export class ColabJupyterServerProvider
   /**
    * Provides the list of Colab {@link JupyterServer | Jupyter Servers} which
    * can be used.
+   *
+   * @param _token - The cancellation token.
+   * @returns The list of assigned Jupyter servers if the user is authorized,
+   * otherwise empty.
    */
   @traceMethod
   @trackErrors
@@ -105,6 +123,16 @@ export class ColabJupyterServerProvider
 
   /**
    * Resolves the connection for the provided Colab {@link JupyterServer}.
+   *
+   * Per the Jupyter extension contract/interface, this method should never be
+   * invoked since we always resolve {@link JupyterServer.connectionInformation}
+   * in {@link provideJupyterServers}. However, we implement it to adhere to the
+   * interface and defensively in case the understanding of that contract
+   * changes.
+   *
+   * @param server - The Colab server instance.
+   * @param _token - The cancellation token.
+   * @returns The resolved Jupyter server with a refreshed connection.
    */
   @traceMethod
   @trackErrors
@@ -125,6 +153,10 @@ export class ColabJupyterServerProvider
    * This gets invoked every time the value (what the user has typed into the
    * quick pick) changes. But we just return a static list which will be
    * filtered down by the quick pick automatically.
+   *
+   * @param _value - The input value.
+   * @param _token - The cancellation token.
+   * @returns The list of available commands.
    */
   // TODO: Integrate rename server alias and remove server commands.
   @traceMethod
@@ -164,6 +196,8 @@ export class ColabJupyterServerProvider
   /**
    * Invoked when a command has been selected.
    *
+   * @param command - The command identifier.
+   * @param _token - The cancellation token.
    * @returns The newly assigned server or undefined if the command does not
    * create a new server.
    */
@@ -234,6 +268,8 @@ export class ColabJupyterServerProvider
    * Sets a context key indicating whether or not the user has at least one
    * assigned server originating from VS Code. Set to false when not authorized
    * since we can't determine if servers exist or not.
+   *
+   * @param signal - The cancellation signal.
    */
   private async setHasAssignedServerContext(
     signal?: AbortSignal,

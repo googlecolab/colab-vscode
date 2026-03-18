@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import { NotebookCellData, NotebookEdit, NotebookRange } from 'vscode';
 
 export enum NotebookCellKind {
@@ -11,6 +13,9 @@ export enum NotebookCellKind {
   Code = 2,
 }
 
+/**
+ * A test fake for {@link NotebookCellData}.
+ */
 export class TestNotebookCellData implements NotebookCellData {
   kind: NotebookCellKind;
   value: string;
@@ -23,6 +28,9 @@ export class TestNotebookCellData implements NotebookCellData {
   }
 }
 
+/**
+ * A test fake for {@link NotebookEdit}.
+ */
 export class TestNotebookEdit implements NotebookEdit {
   range: TestNotebookRange;
   newCells: TestNotebookCellData[];
@@ -33,6 +41,9 @@ export class TestNotebookEdit implements NotebookEdit {
   }
 }
 
+/**
+ * A test fake for {@link NotebookRange}.
+ */
 export class TestNotebookRange implements NotebookRange {
   start: number;
   end: number;

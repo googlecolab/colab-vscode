@@ -10,7 +10,6 @@ import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 import { REQUIRED_SCOPES } from '../auth/scopes';
 import { traceMethod } from '../common/logging/decorators';
-import { JupyterClient } from '../jupyter/client';
 import { Session } from '../jupyter/client/generated';
 import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
@@ -82,6 +81,15 @@ interface IssueRequestOptions {
 export class ColabClient {
   private readonly httpsAgent?: https.Agent;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param colabDomain - The Colab domain URL.
+   * @param colabGapiDomain - The Colab GAPI domain URL.
+   * @param getAccessToken - Function to retrieve the access token.
+   * @param callerInfo - Information about the caller.
+   * @param onAuthError - Callback invoked on authentication error.
+   */
   constructor(
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
@@ -103,6 +111,7 @@ export class ColabClient {
    * Gets the current user information.
    *
    * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns The current user information.
    */
   async getUserInfo(signal?: AbortSignal): Promise<UserInfo> {
     return await this.issueRequest(
@@ -116,6 +125,7 @@ export class ColabClient {
    * Gets the current user with Colab Compute Units (CCU) information.
    *
    * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns The current user information with CCU info included.
    */
   async getConsumptionUserInfo(
     signal?: AbortSignal,
@@ -294,7 +304,7 @@ export class ColabClient {
    * @param params - Parameters for credentials propagation API.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns Whether propagation is successful. If not, an OAuth redirect URL
-   *   is returned to obtain the credentials.
+   * is returned to obtain the credentials.
    */
   async propagateCredentials(
     endpoint: string,
@@ -546,8 +556,6 @@ export class ColabClient {
   }
 }
 
-export interface PersistentJupyterClient extends JupyterClient, Disposable {}
-
 /** Error thrown when the user has too many assignments. */
 export class TooManyAssignmentsError extends Error {}
 
@@ -561,13 +569,17 @@ export class InsufficientQuotaError extends Error {}
 export class NotFoundError extends Error {}
 
 /**
- * If present, strip the XSSI busting prefix from v.
+ * Strips the XSSI prefix from the provided string.
+ *
+ * @param s - A string that may or may not start with the XSSI prefix.
+ * @returns The input string with the XSSI prefix removed, if it was present.
+ * Otherwise, returns the input string unchanged.
  */
-function stripXssiPrefix(v: string): string {
-  if (!v.startsWith(XSSI_PREFIX)) {
-    return v;
+function stripXssiPrefix(s: string): string {
+  if (!s.startsWith(XSSI_PREFIX)) {
+    return s;
   }
-  return v.slice(XSSI_PREFIX.length);
+  return s.slice(XSSI_PREFIX.length);
 }
 
 class ColabRequestError extends Error {

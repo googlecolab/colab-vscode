@@ -51,6 +51,12 @@ export class LoopbackServer implements vscode.Disposable {
   private readonly server: http.Server;
   private isDisposed = false;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param handler - The handler for processing incoming requests and server
+   * events.
+   */
   constructor(private readonly handler: LoopbackHandler) {
     this.server = http.createServer();
     this.server.on('request', (req, res) => {
@@ -68,6 +74,10 @@ export class LoopbackServer implements vscode.Disposable {
     });
   }
 
+  /**
+   * Disposes of the server, closing any active connections and preventing new
+   * ones.
+   */
   dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;

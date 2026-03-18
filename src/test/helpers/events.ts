@@ -4,8 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import vscode from 'vscode';
 
+/**
+ * A test fake for {@link vscode.EventEmitter}.
+ */
 export class TestEventEmitter<T> implements vscode.EventEmitter<T> {
   private listeners = new Set<(data: T) => void>();
   private disposed = false;

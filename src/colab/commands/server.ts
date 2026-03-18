@@ -18,6 +18,10 @@ import { MOUNT_SERVER, REMOVE_SERVER, RENAME_SERVER_ALIAS } from './constants';
 /**
  * Prompt the user to select and rename the local alias used to identify an
  * assigned Colab server.
+ *
+ * @param vs - The VS Code API instance.
+ * @param serverStorage - The server storage instance.
+ * @param withBackButton - Whether to show a back button in the UI.
  */
 // TODO: Consider adding a notification that the rename was successful.
 export async function renameServerAlias(
@@ -67,6 +71,12 @@ export async function renameServerAlias(
  * - With no servers: no-ops.
  * - With one server: mounts it directly.
  * - With multiple servers: prompts the user to select one.
+ *
+ * @param vs - The VS Code API instance.
+ * @param assignmentManager - The assignment manager instance.
+ * @param fs - The file system provider.
+ * @param source - The source of the command invocation.
+ * @param withBackButton - Whether to show a back button in the UI.
  */
 // TODO: Consider making this multi-select.
 export async function mountServer(
@@ -115,6 +125,11 @@ export async function mountServer(
 
 /**
  * Prompts the user to select an assigned Colab server to remove.
+ *
+ * @param vs - The VS Code API instance.
+ * @param assignmentManager - The assignment manager instance.
+ * @param withBackButton - Whether to show a back button in the UI.
+ * @param source - The source of the command invocation.
  */
 // TODO: Consider making this multi-select.
 // TODO: Update MultiStepInput to handle a single-step case.

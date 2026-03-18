@@ -36,10 +36,19 @@ export class ConnectionRefreshController
 {
   private refresher?: ConnectionRefresher;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param assignments - The assignment manager to use for refreshing
+   * connections.
+   */
   constructor(private readonly assignments: AssignmentManager) {
     super();
   }
 
+  /**
+   * Stops all refreshing activities.
+   */
   dispose() {
     // Called not only to reduce duplicate logic, but more importantly to avoid
     // a memory leak if `dispose()` is called while `turnOn` is in progress. In
@@ -102,6 +111,12 @@ export class ConnectionRefresher implements Disposable {
     });
   }
 
+  /**
+   * Disposes of the refresher, cleaning up any resources.
+   *
+   * This includes aborting any in-flight operations and clearing all scheduled
+   * refreshes.
+   */
   dispose() {
     this.abortController.abort(
       new Error(`${this.constructor.name} is being disposed`),
@@ -118,6 +133,8 @@ export class ConnectionRefresher implements Disposable {
    * @param assignments - The {@link AssignmentManager} to query and refresh
    * assignments with.
    * @param cancel - The signal used to abort initialization.
+   * @returns A promise that resolves with the initialized
+   * {@link ConnectionRefresher}.
    */
   static async initialize(
     assignments: AssignmentManager,
@@ -161,6 +178,8 @@ export class ConnectionRefresher implements Disposable {
   /**
    * It's in handling the assignment change where we pickup servers that have
    * had their token refreshed. This enables scheduling of the next refresh.
+   *
+   * @param e - The assignment change event to handle.
    */
   private handleAssignmentChange(e: AssignmentChangeEvent) {
     // New servers.

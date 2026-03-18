@@ -43,6 +43,12 @@ const AssignedServers = z.array(
 export class ServerStorage {
   private cache?: ColabAssignedServer[];
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param secrets - The secret storage instance.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly secrets: vscode.SecretStorage,
@@ -50,6 +56,7 @@ export class ServerStorage {
 
   /**
    * List the assigned servers that have been stored.
+   *
    * @returns The assigned servers that have been stored.
    */
   async list(): Promise<ColabAssignedServer[]> {
@@ -96,6 +103,7 @@ export class ServerStorage {
    * stored, it will be replaced.
    *
    * @param servers - The servers to store.
+   * @returns A promise that resolves when the servers have been stored.
    */
   async store(servers: ColabAssignedServer[]): Promise<void> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);

@@ -26,6 +26,13 @@ import { ColabAssignedServer } from './servers';
  * Returns a class which extends {@link WebSocket}, adds Colab's custom headers,
  * and intercepts {@link WebSocket.send} to warn users when on `drive.mount`
  * execution.
+ *
+ * @param vs - The VS Code API instance.
+ * @param apiClient - The Colab API client.
+ * @param server - The Colab server instance.
+ * @param BaseWebSocket - The base WebSocket class constructor.
+ * @param handleEphemeralAuthFn - Function to handle ephemeral auth.
+ * @returns A WebSocket class with Colab proxy headers and auth handling.
  */
 export function colabProxyWebSocket(
   vs: typeof vscode,
@@ -203,6 +210,7 @@ export function colabProxyWebSocket(
  */
 export interface ColabInputReplyMessage
   extends Omit<KernelMessage.IInputReplyMsg, 'content' | 'parent_header'> {
+  /** The custom Colab reply. */
   content: {
     value: {
       type: 'colab_reply';
@@ -210,6 +218,7 @@ export interface ColabInputReplyMessage
       error?: string;
     };
   };
+  /** The parent header. */
   parent_header: object;
 }
 

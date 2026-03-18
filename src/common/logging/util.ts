@@ -11,7 +11,7 @@ import { ActionableLogLevel, LogLevel } from '.';
  *
  * @param level - The log level to include in the prefix.
  * @returns The formatted prefix string, e.g.
- *          "[2025-10-22T19:22:35.375Z] [Warning]".
+ * "[2025-10-22T19:22:35.375Z] [Warning]".
  */
 export function buildTimestampLevelPrefix(level: ActionableLogLevel): string {
   const timestamp = new Date().toISOString();
@@ -29,6 +29,9 @@ const LOG_LEVEL_STRING_MAP: Record<ActionableLogLevel, string> = {
 
 /**
  * Gets the string representation for a {@link LogLevel}.
+ *
+ * @param level - The logging level.
+ * @returns The string representation of the log level, e.g. "Warning".
  */
 function getLogLevelString(level: ActionableLogLevel): string {
   return LOG_LEVEL_STRING_MAP[level];

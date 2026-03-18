@@ -21,19 +21,43 @@ import {
 
 const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
 
+/**
+ * An OAuth2 flow that uses a proxied redirect URI to handle the authorization
+ * code.
+ */
 export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
   private readonly codeManager = new CodeManager();
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param oAuth2Client - The OAuth2 client instance.
+   * @param extensionUri - The URI of the extension.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly oAuth2Client: OAuth2Client,
     private readonly extensionUri: string,
   ) {}
 
+  /**
+   * Disposes of the flow.
+   */
   dispose() {
     this.codeManager.dispose();
   }
 
+  /**
+   * Triggers the OAuth2 flow, opening the authorization URL in the user's
+   * browser and prompting them to enter the authorization code. The flow uses a
+   * proxied redirect URI, so the extension must prompt the user to paste the
+   * code after authorization.
+   *
+   * @param options - Configuration options for the operation.
+   * @returns The result of the flow, including the authorization code and
+   * redirect URI.
+   */
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
     const cancelTokenSource = new this.vs.CancellationTokenSource();
     options.cancel.onCancellationRequested(() => {

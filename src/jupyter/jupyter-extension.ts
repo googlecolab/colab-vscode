@@ -16,6 +16,11 @@ export const JUPYTER_EXT_IDENTIFIER = 'ms-toolsai.jupyter';
 
 /**
  * Get the exported API from the Jupyter extension.
+ *
+ * @param vs - The VS Code API instance.
+ * @returns The Jupyter extension API.
+ * @throws If the Jupyter extension is not installed or does not meet version
+ * requirements.
  */
 export async function getJupyterApi(
   vs: typeof vscode,

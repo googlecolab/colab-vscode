@@ -55,7 +55,12 @@ import { telemetry } from './telemetry';
 import { CommandSource } from './telemetry/api';
 import { withErrorTracking } from './telemetry/decorators';
 
-// Called when the extension is activated.
+/**
+ * Called when the extension is activated.
+ *
+ * @param context - The extension context for utilities private to the
+ * extension.
+ */
 export async function activate(context: vscode.ExtensionContext) {
   await withErrorTracking(activateInternal)(context);
 }
@@ -177,6 +182,10 @@ function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
  *
  * If the user has already signed in, starts immediately. Otherwise, waits until
  * the user signs in.
+ *
+ * @param colab - The colab client used to poll consumption.
+ * @returns An object containing a {@link Toggleable} to control the polling and
+ * any disposables created for the monitoring.
  */
 function watchConsumption(colab: ColabClient): {
   toggle: Toggleable;
@@ -278,10 +287,6 @@ function registerCommand<T extends (...args: Parameters<T>) => ReturnType<T>>(
   return vscode.commands.registerCommand(command, withErrorTracking(handler));
 }
 
-/**
- * Returns a Disposable that calls dispose on all items in the array which are
- * disposable.
- */
 function disposeAll(items: { dispose?: () => void }[]): Disposable {
   return {
     dispose: () => {

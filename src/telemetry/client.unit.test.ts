@@ -626,9 +626,6 @@ describe('ClearcutClient', () => {
   });
 });
 
-/**
- * Helper to batch create a number of unique log events
- */
 function createLogEvents(numEvents: number): ColabLogEvent[] {
   const events = [];
   for (let i = 0; i < numEvents; i++) {
@@ -637,9 +634,6 @@ function createLogEvents(numEvents: number): ColabLogEvent[] {
   return events;
 }
 
-/**
- * Helper to match the expected Clearcut log request structure
- */
 function logRequest(events: ColabLogEvent[]): Request {
   const logEvents = events.map((event) => ({
     source_extension_json: JSON.stringify(event),

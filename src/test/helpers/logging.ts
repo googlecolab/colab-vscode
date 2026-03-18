@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import { Disposable, WorkspaceConfiguration } from 'vscode';
 import { initializeLogger, LogLevel } from '../../common/logging';
 import { FakeLogOutputChannel } from './output-channel';

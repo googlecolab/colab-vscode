@@ -22,6 +22,9 @@ export class FakeAuthenticationProviderManager {
    * There can only be one provider per ID and an error is being thrown when an
    * ID has already been used by another provider. IDs are case-sensitive.
    *
+   * @param id - The unique identifier.
+   * @param _label - The display label. Unused.
+   * @param provider - The provider implementation.
    * @returns A {@link Disposable} that un-registers this provider when being
    * disposed.
    */
@@ -51,13 +54,19 @@ export class FakeAuthenticationProviderManager {
    *
    * This fake implementation differs from the real one in a couple ways:
    *
-   * - It does not check if the user has consented to sharing authentication
-   *   information with the extension.
-   * - It throws if there are multiple sessions with the same scopes, instead of
-   *   letting the user select from a quickpick which account they would like to
-   *   use.
+   * It does not check if the user has consented to sharing authentication
+   * information with the extension.
+   * It throws if there are multiple sessions with the same scopes, instead of
+   * letting the user select from a quickpick which account they would like to
+   * use.
    *
    * Otherwise, it works the same as the real implementation.
+   *
+   * @param providerId - The ID of the authentication provider.
+   * @param scopes - The scopes requested for the session.
+   * @param options - Options for getting the session.
+   * @returns A promise that resolves to the authentication session or
+   * undefined.
    */
   async getSession(
     providerId: string,
@@ -105,6 +114,11 @@ export class FakeAuthenticationProviderManager {
 /**
  * A custom Sinon matcher object that verifies a vscode.Uri against the
  * expected structure of a Google OAuth2 authentication URL.
+ *
+ * @param redirectUri - The Redirect uri.
+ * @param stateParam - The State param.
+ * @param scopes - The requested OAuth scopes.
+ * @returns an auth URI matcher.
  */
 export function authUriMatch(
   redirectUri: string,

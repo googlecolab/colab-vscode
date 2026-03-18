@@ -13,6 +13,12 @@ import { log } from './logging';
 export class LatestCancelable<T extends unknown[]> {
   private curAbort?: AbortController;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param name - The entity name.
+   * @param worker - The worker function or process.
+   */
   constructor(
     private readonly name: string,
     private readonly worker: (...args: [...T, AbortSignal]) => Promise<void>,
@@ -20,6 +26,8 @@ export class LatestCancelable<T extends unknown[]> {
 
   /**
    * Fire the worker, aborting the previous if running.
+   *
+   * @param args - The arguments provided to the worker.
    */
   async run(...args: T): Promise<void> {
     // Abort previous.
@@ -51,6 +59,9 @@ export class LatestCancelable<T extends unknown[]> {
 
   /**
    * True when there's an active worker task running.
+   *
+   * @returns True if a worker task is currently running and has not been
+   * aborted.
    */
   isRunning(): boolean {
     return !!this.curAbort && !this.curAbort.signal.aborted;
@@ -66,6 +77,9 @@ export class LatestCancelable<T extends unknown[]> {
 
 /**
  * Checks if an unknown value is {@link PromiseLike}.
+ *
+ * @param value - The input value.
+ * @returns True if the value is {@link PromiseLike}, false otherwise.
  */
 export function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   return (

@@ -9,6 +9,11 @@ import { getLevel, log, LogLevel } from '.';
 
 /**
  * A decorator that traces the entry and exit (or error) of a method.
+ *
+ * @param target - The target object.
+ * @param propertyKey - The property key.
+ * @param descriptor - The property descriptor.
+ * @returns The modified property descriptor with tracing.
  */
 export function traceMethod(
   target: object,

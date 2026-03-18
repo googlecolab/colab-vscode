@@ -47,6 +47,15 @@ export class ServerTreeProvider
   private isAuthorized = false;
   private isDisposed = false;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param assignments - The assignment manager instance.
+   * @param authChange - The Auth change event.
+   * @param assignmentChange - The Assignment change event.
+   * @param fileChange - The File change event.
+   * @param scheme - The URI scheme to use for the tree items.
+   */
   constructor(
     private readonly assignments: AssignmentManager,
     authChange: Event<AuthChangeEvent>,
@@ -59,6 +68,9 @@ export class ServerTreeProvider
     this.fileListener = fileChange(this.handleFileChange.bind(this));
   }
 
+  /**
+   * Disposes of the provider, cleaning up any resources.
+   */
   dispose() {
     if (this.isDisposed) {
       return;
@@ -70,17 +82,32 @@ export class ServerTreeProvider
     this.isDisposed = true;
   }
 
+  /**
+   * Refreshes the tree view, optionally for specific items.
+   */
   refresh(): void {
     this.guardDisposed();
     this.serverItemsByUri.clear();
     this.changeEmitter.fire(undefined);
   }
 
+  /**
+   * Gets the TreeItem representation of a ServerItem for the tree view.
+   *
+   * @param element - The ServerItem element.
+   * @returns The TreeItem representation of the ServerItem.
+   */
   getTreeItem(element: ServerItem): TreeItem {
     this.guardDisposed();
     return element;
   }
 
+  /**
+   * Gets the children of a ServerItem for the tree view.
+   *
+   * @param element - The ServerItem element.
+   * @returns A promise that resolves to an array of ServerItem children.
+   */
   async getChildren(element?: ServerItem): Promise<ServerItem[]> {
     this.guardDisposed();
     if (!this.isAuthorized) {

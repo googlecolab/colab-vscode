@@ -4,9 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import { join } from 'path';
 import * as sinon from 'sinon';
-import vscode from 'vscode';
+import { Uri } from 'vscode';
 
 interface UriOptions {
   scheme: string;
@@ -17,9 +19,9 @@ interface UriOptions {
 }
 
 /**
- * An approximate test double for vscode.Uri.
+ * A test fake for {@link Uri}.
  */
-export class TestUri implements vscode.Uri {
+export class TestUri implements Uri {
   static parse(stringUri: string): TestUri {
     const url = new URL(stringUri);
     return new TestUri(
@@ -52,7 +54,7 @@ export class TestUri implements vscode.Uri {
     );
   }
 
-  static from(components: UriOptions): vscode.Uri {
+  static from(components: UriOptions): Uri {
     return new TestUri(
       components.scheme,
       components.authority ?? '',
@@ -86,7 +88,7 @@ export class TestUri implements vscode.Uri {
     this.fragment = fragment;
   }
 
-  with(change: Partial<UriOptions>): vscode.Uri {
+  with(change: Partial<UriOptions>): Uri {
     return new TestUri(
       change.scheme ?? this.scheme,
       change.authority ?? this.authority,
@@ -116,7 +118,7 @@ export class TestUri implements vscode.Uri {
 }
 
 /**
- * Creates a Sinon matcher for a {@link vscode.Uri} that matches the provided
+ * Creates a Sinon matcher for a {@link Uri} that matches the provided
  * regular expression.
  *
  * @param regExp - A regular expression to match against the stringified URI.
@@ -126,5 +128,5 @@ export function matchUri(regExp: RegExp | string): sinon.SinonMatcher {
   if (typeof regExp === 'string') {
     regExp = new RegExp(regExp);
   }
-  return sinon.match((uri: vscode.Uri) => regExp.test(uri.toString()));
+  return sinon.match((uri: Uri) => regExp.test(uri.toString()));
 }

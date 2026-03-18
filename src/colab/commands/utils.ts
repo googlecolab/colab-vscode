@@ -13,8 +13,7 @@ import { Command } from './constants';
  * This is needed in cases where we want the same styling as a Quick Pick, but
  * can only provide a simple label (as a string).
  *
- * @param icon - The VS Code icon to prepend the label with.
- * @param label - The label to follow the icon.
+ * @param command - The command to build the icon label for.
  * @returns A string combining the icon and label in the same way Quick Picks
  * do.
  */
