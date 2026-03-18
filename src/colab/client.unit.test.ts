@@ -9,6 +9,7 @@ import { expect } from 'chai';
 import fetch, { Response } from 'node-fetch';
 import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
+import { REQUIRED_SCOPES } from '../auth/scopes';
 import { Session } from '../jupyter/client/generated';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { TestUri } from '../test/helpers/uri';
@@ -73,7 +74,7 @@ const DEFAULT_ASSIGNMENT: Assignment = {
 
 describe('ColabClient', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
-  let sessionStub: SinonStub<[], Promise<string>>;
+  let sessionStub: SinonStub<[readonly string[]], Promise<string>>;
   let client: ColabClient;
   let onAuthErrorStub: SinonStub<[], Promise<void>>;
 
@@ -81,7 +82,12 @@ describe('ColabClient', () => {
     fetchStub = sinon.stub(fetch, 'default').callsFake(() => {
       throw new Error('fetch was called with non-matching call');
     });
-    sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
+    sessionStub = sinon
+      .stub<[readonly string[]], Promise<string>>()
+      .callsFake(() => {
+        throw new Error('sessionStub was called with non-matching call');
+      });
+    sessionStub.withArgs(REQUIRED_SCOPES).resolves(BEARER_TOKEN);
     onAuthErrorStub = sinon.stub();
     client = new ColabClient(
       new URL(`https://${COLAB_HOST}`),

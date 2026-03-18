@@ -251,40 +251,27 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   async createSession(scopes: string[]): Promise<AuthenticationSession> {
     this.assertReady();
     try {
-      if (!areScopesAllowed(scopes)) {
+      const sortedScopes = Array.from(new Set(scopes).values());
+      if (!areScopesAllowed(sortedScopes)) {
         throw new Error(
           `Only supports the following scopes: ${Array.from(ALLOWED_SCOPES.values()).join(', ')}`,
         );
       }
 
-      let shouldRequestIncrementalAuth = false;
-      let loginHint: string | undefined;
-      let finalScopes = scopes;
-      const existingSession = await this.getSession();
-      // If provided scopes, don't match REQUIRED_SCOPES
       if (
-        scopes.length !== REQUIRED_SCOPES.length ||
-        !REQUIRED_SCOPES.every((r) => scopes.includes(r))
+        sortedScopes.length < REQUIRED_SCOPES.length ||
+        !REQUIRED_SCOPES.every((r) => sortedScopes.includes(r))
       ) {
-        if (!existingSession) {
-          // Scope should have provided scopes and required scopes so the user
-          // does not have to login again to perform colab functions
-          finalScopes = Array.from(
-            new Set([...scopes, ...REQUIRED_SCOPES]).values(),
-          );
-        } else {
-          // Incremental authorization, so we are just adding the provided
-          // scopes to the existing scopes
-          shouldRequestIncrementalAuth = true;
-          loginHint = existingSession.account.id;
-          finalScopes = Array.from(
-            new Set([...existingSession.scopes, ...scopes]).values(),
-          );
-        }
+        throw new Error(
+          `Sessions must request at least the required scopes: ${Array.from(REQUIRED_SCOPES.values()).join(', ')}`,
+        );
       }
-      const sortedScopes = finalScopes.sort();
+      const existingSession = await this.getSession();
+      const loginHint = existingSession
+        ? existingSession.account.id
+        : undefined;
       const tokenInfo = await this.login(sortedScopes, {
-        includeGrantedScopes: shouldRequestIncrementalAuth,
+        includeGrantedScopes: !!existingSession,
         loginHint,
       });
       const user = await this.getUserInfo(tokenInfo.access_token);
@@ -295,7 +282,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
           id: user.email,
           label: user.name,
         },
-        scopes: finalScopes.sort(),
+        scopes: sortedScopes,
       };
       await this.storage.storeSession(newSession);
       this.oAuth2Client.setCredentials(tokenInfo);

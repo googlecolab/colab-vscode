@@ -686,6 +686,12 @@ describe('GoogleAuthProvider', () => {
             credentials: DEFAULT_CREDENTIALS,
           },
           {
+            scopes: SCOPES,
+            includeGrantedScopes: true,
+            loginHint: 'foo@example.com',
+            credentials: DEFAULT_CREDENTIALS,
+          },
+          {
             scopes: UPGRADED_SCOPES,
             includeGrantedScopes: false,
             loginHint: undefined,
@@ -762,14 +768,14 @@ describe('GoogleAuthProvider', () => {
           hasValidSession: true,
         });
         sinon.assert.calledOnceWithExactly(loginStub, SCOPES, {
-          includeGrantedScopes: false,
-          loginHint: undefined,
+          includeGrantedScopes: true,
+          loginHint: DEFAULT_REFRESH_SESSION.account.id,
         });
       });
 
       it('creates a upgraded session', async () => {
         const signedInContext = signedInContextCalledWith();
-        const session = await authProvider.createSession(ADDITIONAL_SCOPES);
+        const session = await authProvider.createSession(UPGRADED_SCOPES);
 
         const newSession = {
           ...UPGRADED_AUTH_SESSION,
@@ -796,7 +802,7 @@ describe('GoogleAuthProvider', () => {
       it('upgrades an existing session', async () => {
         storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION]);
 
-        const session = await authProvider.createSession(ADDITIONAL_SCOPES);
+        const session = await authProvider.createSession(UPGRADED_SCOPES);
 
         expect(session).to.deep.equal({
           ...UPGRADED_AUTH_SESSION,
