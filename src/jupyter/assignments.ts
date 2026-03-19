@@ -75,6 +75,9 @@ export interface AssignmentChangeEvent {
   readonly changed: readonly ColabAssignedServer[];
 }
 
+/**
+ * Manages Colab server assignments for the extension.
+ */
 export class AssignmentManager implements vscode.Disposable {
   /**
    * Event that fires when the server assignments change.
@@ -82,15 +85,20 @@ export class AssignmentManager implements vscode.Disposable {
   readonly onDidAssignmentsChange: vscode.Event<AssignmentChangeEvent>;
 
   private readonly assignmentChange: vscode.EventEmitter<AssignmentChangeEvent>;
-  private readonly disposables: vscode.Disposable[] = [];
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param client - The API client instance.
+   * @param storage - The storage instance for persistence.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
     private readonly storage: ServerStorage,
   ) {
     this.assignmentChange = new vs.EventEmitter<AssignmentChangeEvent>();
-    this.disposables.push(this.assignmentChange);
     this.onDidAssignmentsChange = this.assignmentChange.event;
     // TODO: Remove once https://github.com/microsoft/vscode-jupyter/issues/17094 is fixed.
     this.onDidAssignmentsChange((e) => {
@@ -98,10 +106,11 @@ export class AssignmentManager implements vscode.Disposable {
     });
   }
 
+  /**
+   * Disposes the manager.
+   */
   dispose() {
-    for (const disposable of this.disposables) {
-      disposable.dispose();
-    }
+    this.assignmentChange.dispose();
   }
 
   /**
@@ -149,6 +158,8 @@ export class AssignmentManager implements vscode.Disposable {
    * VS Code. Naturally, those cannot be "reconciled". They are not added to the
    * managed list of assigned servers. In other words, assignments originating
    * from Colab-web will not show in VS Code.
+   *
+   * @param signal - The cancellation signal.
    */
   async reconcileAssignedServers(signal?: AbortSignal): Promise<void> {
     const stored = await this.storage.list();
@@ -161,6 +172,10 @@ export class AssignmentManager implements vscode.Disposable {
 
   /**
    * Returns whether or not the user has at least one assigned server.
+   *
+   * @param signal - The cancellation signal.
+   * @returns True if the user has at least one assigned server, false
+   * otherwise.
    */
   async hasAssignedServer(signal?: AbortSignal): Promise<boolean> {
     await this.reconcileAssignedServers(signal);
@@ -194,6 +209,14 @@ export class AssignmentManager implements vscode.Disposable {
    */
   async getServers(from: 'all', signal?: AbortSignal): Promise<AllServers>;
 
+  /**
+   * Retrieves the list of servers that have been assigned, based on the
+   * provided origin.
+   *
+   * @param from - The origin URI.
+   * @param signal - The cancellation signal.
+   * @returns the collection of relevant servers based on the provided origin.
+   */
   async getServers(
     from: 'extension' | 'external' | 'all',
     signal?: AbortSignal,
@@ -283,6 +306,7 @@ export class AssignmentManager implements vscode.Disposable {
    *
    * @param descriptor - The server descriptor used as a template for the server
    * being assigned.
+   * @param signal - The cancellation signal.
    * @returns The assigned server.
    */
   async assignServer(
@@ -340,8 +364,12 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
-   * @returns the latest currently assigned server. If there are none currently
-   * assigned, a new one is created and returned.
+   * Gets the latest assigned server, or assigns a new one with the default
+   * config (standard CPU).
+   *
+   * @param signal - The cancellation signal.
+   * @returns the latest currently assigned server, or a new default server if
+   * none are currently assigned.
    */
   async latestOrAutoAssignServer(
     signal?: AbortSignal,
@@ -362,6 +390,9 @@ export class AssignmentManager implements vscode.Disposable {
   }
 
   /**
+   * Gets the latest server that was assigned.
+   *
+   * @param signal - The cancellation signal.
    * @returns The latest currently assigned server, or undefined if there are
    * currently none assigned.
    */
@@ -382,6 +413,7 @@ export class AssignmentManager implements vscode.Disposable {
    * Refreshes the connection information for a server.
    *
    * @param id - The ID of the assigned server to refresh.
+   * @param signal - The cancellation signal.
    * @returns The server with updated connection information: its token and
    * fetch implementation.
    * @throws {@link NotFoundError} if there is no assigned server with the given
@@ -426,6 +458,7 @@ export class AssignmentManager implements vscode.Disposable {
    * to delete those sessions and it's not mandatory to do so.
    *
    * @param server - The server to remove.
+   * @param signal - The cancellation signal.
    */
   async unassignServer(
     server: ColabAssignedServer | UnownedServer,
@@ -453,6 +486,15 @@ export class AssignmentManager implements vscode.Disposable {
     await this.client.unassign(server.endpoint, signal);
   }
 
+  /**
+   * Gets the default label for the provided variant/accelerator pair.
+   *
+   * @param variant - The model variant.
+   * @param accelerator - The requested accelerator type.
+   * @param signal - The cancellation signal.
+   * @returns The next auto-incrementing default label. E.g. "Colab CPU" for the
+   * first CPU, "Colab CPU (1)" for the second, and so on.
+   */
   async getDefaultLabel(
     variant: Variant,
     accelerator?: string,
@@ -639,6 +681,10 @@ const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
  *
  * To work around this, we create a new `Request` instance to ensure
  * compatibility.
+ *
+ * @param token - The cancellation token.
+ * @returns A fetch function that adds the Colab runtime proxy token as a
+ * header.
  */
 function colabProxyFetch(
   token: string,

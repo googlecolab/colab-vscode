@@ -30,6 +30,13 @@ export class ConsumptionNotifier implements Disposable {
   private errorTimeout?: NodeJS.Timeout;
   private warnTimeout?: NodeJS.Timeout;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param onDidChangeCcuInfo - Event fired when CCU info changes.
+   * @param snoozeMinutes - The number of minutes to snooze notifications.
+   */
   constructor(
     private readonly vs: typeof vscode,
     onDidChangeCcuInfo: Event<ConsumptionUserInfo>,
@@ -38,6 +45,9 @@ export class ConsumptionNotifier implements Disposable {
     this.ccuListener = onDidChangeCcuInfo((e) => this.notifyCcuConsumption(e));
   }
 
+  /**
+   * Disposes of the notifier, cleaning up any resources.
+   */
   dispose() {
     this.ccuListener.dispose();
     clearTimeout(this.errorTimeout);
@@ -49,15 +59,19 @@ export class ConsumptionNotifier implements Disposable {
    *
    * Gives the user an action to sign up, upgrade or purchase more CCU-s (link
    * to the signup page).
+   *
+   * @param info - The updated consumption user info.
    */
-  protected async notifyCcuConsumption(e: ConsumptionUserInfo): Promise<void> {
+  protected async notifyCcuConsumption(
+    info: ConsumptionUserInfo,
+  ): Promise<void> {
     // When the user is not consuming any CCU-s, no need to notify.
-    if (e.consumptionRateHourly <= 0) {
+    if (info.consumptionRateHourly <= 0) {
       return;
     }
     const paidMinutesLeft =
-      (e.paidComputeUnitsBalance / e.consumptionRateHourly) * 60;
-    const freeMinutesLeft = calculateRoughMinutesLeft(e);
+      (info.paidComputeUnitsBalance / info.consumptionRateHourly) * 60;
+    const freeMinutesLeft = calculateRoughMinutesLeft(info);
     // Quantize to 10 minutes.
     const totalMinutesLeft = ((paidMinutesLeft + freeMinutesLeft) / 10) * 10;
     if (totalMinutesLeft > WARN_WHEN_LESS_THAN_MINUTES) {
@@ -71,7 +85,7 @@ export class ConsumptionNotifier implements Disposable {
 
     const action = notification.notify(
       notification.message,
-      this.getTierRelevantAction(e.subscriptionTier, paidMinutesLeft > 0),
+      this.getTierRelevantAction(info.subscriptionTier, paidMinutesLeft > 0),
     );
     this.setSnoozeTimeout(notification.notify);
     if (await action) {

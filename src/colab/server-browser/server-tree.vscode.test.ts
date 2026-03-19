@@ -72,6 +72,8 @@ describe('ServerTreeProvider', () => {
   /**
    * Fires the auth change event emitter, simply toggling whether there's an
    * active session or not.
+   *
+   * @param s - The AuthState to toggle to.
    */
   function toggleAuth(s: AuthState): void {
     authChangeEmitter.fire({

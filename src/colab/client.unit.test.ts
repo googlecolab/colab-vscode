@@ -1165,15 +1165,19 @@ function withXSSI(response: string): string {
   return `)]}'\n${response}`;
 }
 
-export interface URLMatchOptions {
+/**
+ * Options for matching a request URL, method, query parameters, and headers in
+ * Sinon.
+ */
+interface URLMatchOptions {
   method: 'GET' | 'POST' | 'DELETE';
   host: string;
   path: string | RegExp;
   queryParams?: Record<string, string | RegExp>;
   otherHeaders?: Record<string, string>;
-  /** Whether the authuser query parameter should be included. Defaults to true. */
+  /** Whether the authuser query parameter should be included. */
   withAuthUser?: boolean;
-  /** Whether the Authorization header should be included. Defaults to true. */
+  /** Whether the Authorization header should be included. */
   withAuthorization?: boolean;
 }
 
@@ -1181,10 +1185,12 @@ export interface URLMatchOptions {
  * Creates a Sinon matcher that matches a request's URL, method, query
  * parameters, and headers.
  *
- * All requests are assumed to be with the correct authorization and accept
- * headers.
+ * @param expected - The expected URL matching criteria.
+ * @returns A Sinon matcher that matches requests with the specified URL,
+ * method, query parameters, and headers. All requests are assumed to be with
+ * the correct static headers that are attached to each request.
  */
-export function urlMatcher(expected: URLMatchOptions): SinonMatcher {
+function urlMatcher(expected: URLMatchOptions): SinonMatcher {
   return sinon.match(
     (request: Request) => {
       // Check method

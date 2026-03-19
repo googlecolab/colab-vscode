@@ -13,18 +13,48 @@ import { ActionableLogLevel, Logger, LogLevel } from '.';
  * Leans on the console's built-in rich formatting in the debug console.
  */
 export class ConsoleLogger implements Logger {
+  /**
+   * Emits an error message to the console.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments provided.
+   */
   error(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Error, msg, ...args);
   }
+  /**
+   * Emits a warning message to the console.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments to include.
+   */
   warn(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Warning, msg, ...args);
   }
+  /**
+   * Emits an informational message to the console.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments to include.
+   */
   info(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Info, msg, ...args);
   }
+  /**
+   * Emits a debug message to the console.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments to include.
+   */
   debug(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Debug, msg, ...args);
   }
+  /**
+   * Emits a trace message to the console.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments to include.
+   */
   trace(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Trace, msg, ...args);
   }

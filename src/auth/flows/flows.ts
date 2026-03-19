@@ -29,7 +29,8 @@ export interface OAuth2TriggerOptions {
   readonly includeGrantedScopes?: boolean;
   /** The login hint to pre-fill the email (for incremental authorization). */
   readonly loginHint?: string;
-  /** Influences how the user is presented with the consent dialog.
+  /**
+   * Influences how the user is presented with the consent dialog.
    *
    * If the value is "consent" - the consent dialog is forced to be displayed
    * every time, even if the user has previously granted access.
@@ -38,10 +39,13 @@ export interface OAuth2TriggerOptions {
    *
    * This should always be "consent" unless `includeGrantedScopes` is `true`
    * to allow for incremental auth.
-   * */
+   */
   readonly prompt?: 'consent';
 }
 
+/**
+ * The result of an OAuth2 flow.
+ */
 export interface FlowResult {
   /** The authorization code obtained from the OAuth2 flow. */
   code: string;
@@ -68,6 +72,11 @@ export const DEFAULT_AUTH_URL_OPTS: GenerateAuthUrlOpts = {
 /**
  * Returns the supported OAuth2 flows based on the environment in which the
  * extension is running.
+ *
+ * @param vs - The VS Code API instance.
+ * @param packageInfo - Information about the extension package.
+ * @param oAuth2Client - The OAuth2 client instance.
+ * @returns The supported OAuth2 flows.
  */
 export function getOAuth2Flows(
   vs: typeof vscode,

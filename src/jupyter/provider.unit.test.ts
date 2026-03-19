@@ -96,6 +96,8 @@ describe('ColabJupyterServerProvider', () => {
   /**
    * Fires the auth change event emitter, simply toggling whether there's an
    * active session or not.
+   *
+   * @param s - The AuthState to toggle to.
    */
   function toggleAuth(s: AuthState): void {
     authChangeEmitter.fire({
@@ -110,6 +112,8 @@ describe('ColabJupyterServerProvider', () => {
    * Fires the auth change event emitter, both toggling whether there's an
    * active session or not and waiting for the assigned server context to be
    * set. This hangs if it doesn't result in a context change.
+   *
+   * @param s - The AuthState to toggle to.
    */
   async function toggleAuthCtxSettled(s: AuthState): Promise<void> {
     const setContext = stubHasAssignedServerSet();

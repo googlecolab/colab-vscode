@@ -10,8 +10,15 @@ import { PackageInfo } from '../config/package-info';
 /**
  * Builds the extension URI that can be used to redirect users back to VS Code,
  * to the extension's registered URI handler.
+ *
+ * @param vs - The VS Code API instance.
+ * @param packageInfo - Information about the extension package.
+ * @returns The extension URI as a string.
  */
-export function buildExtensionUri(vs: typeof vscode, packageInfo: PackageInfo) {
+export function buildExtensionUri(
+  vs: typeof vscode,
+  packageInfo: PackageInfo,
+): string {
   {
     const scheme = vs.env.uriScheme;
     const pub = packageInfo.publisher;
@@ -33,16 +40,26 @@ export function buildExtensionUri(vs: typeof vscode, packageInfo: PackageInfo) {
 export class ExtensionUriHandler
   implements vscode.UriHandler, vscode.Disposable
 {
-  /** An event that subscribes the listener to {@link vscode.Uri} invocations to
-   * the extension. */
+  /**
+   * An event that subscribes the listener to {@link vscode.Uri} invocations to
+   * the extension.
+   */
   readonly onReceivedUri: vscode.Event<vscode.Uri>;
   private readonly uriEmitter: vscode.EventEmitter<vscode.Uri>;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   */
   constructor(vs: typeof vscode) {
     this.uriEmitter = new vs.EventEmitter<vscode.Uri>();
     this.onReceivedUri = this.uriEmitter.event;
   }
 
+  /**
+   * Disposes the handler.
+   */
   dispose() {
     this.uriEmitter.dispose();
   }
@@ -51,6 +68,8 @@ export class ExtensionUriHandler
    * Emits a {@link vscode.Uri} event when a URI is handled.
    *
    * Callers can call {@link onReceivedUri} to listen for these events.
+   *
+   * @param uri - The URI of the resource.
    */
   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
     this.uriEmitter.fire(uri);

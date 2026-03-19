@@ -70,9 +70,11 @@ export interface InputBoxOptions extends QuickInputOptions {
   value: string;
   /** The prompt text providing some ask or explanation to the user. */
   prompt: string;
-  /** A function that validates the input value. If a string is returned, it is
+  /**
+   * A function that validates the input value. If a string is returned, it is
    * set as the validation message indicating a problem with the current input
-   * value. If undefined is returned, the validation message is cleared. */
+   * value. If undefined is returned, the validation message is cleared.
+   */
   validate: (value: string) => string | undefined;
   /** If the input value should be hidden. */
   password?: boolean;
@@ -250,6 +252,10 @@ export class MultiStepInput {
    * This enables callers waiting on the provided input to handle it navigating
    * back by throwing a {@link InputFlowAction.back} or hiding by throwing a
    * {@link InputFlowAction.cancel}.
+   *
+   * @param input - The input parameter.
+   * @param reject - The rejection callback.
+   * @returns The disposables for the configured events.
    */
   private configureNavigation(
     input: QuickInput & { onDidTriggerButton: Event<QuickInputButton> },

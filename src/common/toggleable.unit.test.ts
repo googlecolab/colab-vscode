@@ -27,6 +27,10 @@ class TestToggle extends AsyncToggle {
    * Gate the completion of the asynchronous `turnOn` or `turnOff` method.
    *
    * @param turning - the direction to gate.
+   * @param call - The call identifier.
+   * @returns an object with a `resolve` which allows the gated method to
+   * complete and an `aborted` promise that resolves if the gated method is
+   * aborted.
    */
   gate(
     turning: 'turnOn' | 'turnOff',

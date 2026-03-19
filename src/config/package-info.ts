@@ -23,6 +23,12 @@ const PackageInfoSchema = z.object({
 });
 export type PackageInfo = z.infer<typeof PackageInfoSchema>;
 
+/**
+ * Retrieves the package information for the given extension.
+ *
+ * @param ext - The extension for which to retrieve the package information.
+ * @returns The package information for the given extension.
+ */
 export function getPackageInfo(ext: Extension<unknown>): PackageInfo {
   return PackageInfoSchema.parse(ext.packageJSON);
 }

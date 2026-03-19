@@ -15,6 +15,14 @@ import { Transform } from 'stream';
  * header, which the spec requires and the LanguageClient expects.
  */
 export class ContentLengthTransformer extends Transform {
+  /**
+   * Transforms incoming LSP messages by adding a Content-Length header prefix
+   * if not already present.
+   *
+   * @param chunk - The data chunk.
+   * @param _encoding - The character encoding.
+   * @param callback - The callback function.
+   */
   override _transform(
     chunk: string | Buffer | Uint8Array | DataView,
     _encoding: BufferEncoding,

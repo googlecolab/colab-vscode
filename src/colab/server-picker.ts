@@ -21,7 +21,12 @@ import { getFlag } from './experiment-state';
 export const PROMPT_SERVER_ALIAS =
   'Provide a local convenience alias to the server.';
 
-/** Validates the server alias. */
+/**
+ * Validates the server alias.
+ *
+ * @param value - The input value.
+ * @returns An error message if invalid, empty otherwise.
+ */
 export const validateServerAlias = (value: string) =>
   value.length > 10 ? 'Name must be less than 10 characters.' : '';
 
@@ -29,6 +34,12 @@ export const validateServerAlias = (value: string) =>
  * Supports prompting the user to pick a Colab server to be created.
  */
 export class ServerPicker {
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param assignments - The assignment manager instance.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly assignments: AssignmentManager,

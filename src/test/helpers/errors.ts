@@ -4,8 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import { Uri } from 'vscode';
 
+/**
+ * A test fake for {@link vscode.FileSystemError}.
+ */
 export class TestFileSystemError extends Error {
   static FileExists(messageOrUri?: string | Uri): TestFileSystemError {
     return new TestFileSystemError('FileExists', messageOrUri);

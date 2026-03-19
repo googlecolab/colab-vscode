@@ -86,12 +86,23 @@ export class SequentialTaskRunner implements Disposable {
   // A lock used to ensure execution is sequential.
   private isRunning = false;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param config - The configuration object.
+   * @param task - The task to execute.
+   * @param overrun - The overrun handling strategy.
+   */
   constructor(
     private readonly config: Config,
     private readonly task: Task,
     private readonly overrun: OverrunPolicy,
   ) {}
 
+  /**
+   * Disposes of the runner, stopping any scheduled intervals and aborting any
+   * in-flight task.
+   */
   dispose(): void {
     this.stop();
   }
@@ -231,17 +242,25 @@ export class SequentialTaskRunner implements Disposable {
    * This function uses `Promise.race` to compete the `task` against an
    * `abortHandler`.
    *
-   * - If `task` completes first, the race is settled, and the `finally` block
-   *   on `task` removes the `abort` event listener to prevent leaks.
-   * - If the `abort` signal is fired, the `onAbort` listener is triggered. It
-   *   starts a `graceTimeout`. The `task` is given `graceMs` milliseconds to
-   *   complete its cleanup.
-   * - If `task` finishes within the grace period, its `finally` block clears
-   *   the `graceTimeout`, preventing the `abortHandler` from rejecting.
-   * - If `task` does not finish within the grace period, the `graceTimeout`
-   *   fires, causing the `abortHandler` to reject with a
-   *   `NonGracefulAbandonError`. This settles the race, signaling that the task
-   *   did not shut down cleanly.
+   * If `task` completes first, the race is settled, and the `finally` block
+   * on `task` removes the `abort` event listener to prevent leaks.
+   * If the `abort` signal is fired, the `onAbort` listener is triggered. It
+   * starts a `graceTimeout`. The `task` is given `graceMs` milliseconds to
+   * complete its cleanup.
+   * If `task` finishes within the grace period, its `finally` block clears
+   * the `graceTimeout`, preventing the `abortHandler` from rejecting.
+   * If `task` does not finish within the grace period, the `graceTimeout`
+   * fires, causing the `abortHandler` to reject with a
+   * `NonGracefulAbandonError`. This settles the race, signaling that the task
+   * did not shut down cleanly.
+   *
+   * @param task - The task promise to wrap.
+   * @param signal - The abort signal to compete against.
+   * @param graceMs - The grace period in milliseconds to allow the task to
+   * finish.
+   * @param taskName - The name of the task for error reporting.
+   * @returns A promise that resolves when the task completes or rejects when
+   * the grace period is exceeded after an abort signal.
    */
   private withGracefulAbort(
     task: Promise<void>,

@@ -10,13 +10,24 @@ import { log } from '../../common/logging';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../headers';
 
+/**
+ * A simplified WebSocket-like interface for communicating with Colab's TTY
+ * endpoint.
+ */
 export interface ColabTerminalWebSocketLike extends Disposable {
+  /** Fires when data is received from the remote terminal. */
   readonly onData: Event<string>;
+  /** Fires when the WebSocket connection is established. */
   readonly onOpen: Event<void>;
+  /** Fires when the WebSocket connection is closed. */
   readonly onClose: Event<void>;
+  /** Fires when an error occurs. */
   readonly onError: Event<Error>;
+  /** Establishes the WebSocket connection to the Colab TTY endpoint. */
   connect: () => void;
+  /** Sends data to the remote terminal. */
   send: (data: string) => void;
+  /** Sends a resize event to the remote terminal. */
   sendResize: (cols: number, rows: number) => void;
 }
 
@@ -73,6 +84,13 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
    */
   readonly onError: Event<Error>;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param server - The Colab server instance.
+   * @param WebSocketClass - The WebSocket class constructor.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly server: ColabAssignedServer,
@@ -186,7 +204,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
   /**
    * Builds the WebSocket URL for the Colab TTY endpoint.
    *
-   * Authentication is provided via HTTP header (X-Colab-Runtime-Proxy-Token)
+   * @returns The WebSocket URL for the server as a string.
    */
   private buildWebSocketUrl(): string {
     const baseUrl = this.server.connectionInformation.baseUrl;
@@ -198,7 +216,10 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
   }
 
   /**
-   * Builds the WebSocket client options including headers.
+   * Builds the WebSocket client options needed to make the authenticated
+   * connection.
+   *
+   * @returns The WebSocket client options.
    */
   private buildWebSocketOptions(): WebSocket.ClientOptions {
     const token = this.server.connectionInformation.token;
@@ -308,6 +329,8 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
    * Handles incoming messages from the WebSocket.
    *
    * Expected format: `{"data": string}` for terminal output
+   *
+   * @param rawMessage - The raw message payload.
    */
   private handleMessage(rawMessage: string): void {
     let message: unknown;
@@ -327,6 +350,10 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
 
   /**
    * Type guard for data messages.
+   *
+   * @param message - The parsed message object.
+   * @returns True if the message is a {@link ColabTerminalDataMessage}, false
+   * otherwise.
    */
   private isDataMessage(message: unknown): message is ColabTerminalDataMessage {
     return (
@@ -339,6 +366,8 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
 
   /**
    * Sends a message through the WebSocket.
+   *
+   * @param message - The parsed message object.
    */
   private sendMessage(message: ColabTerminalMessage): void {
     try {

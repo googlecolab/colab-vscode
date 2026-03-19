@@ -59,7 +59,7 @@ export class ContentsFileSystemProvider
 
   private isDisposed = false;
   /**
-   * *Note:* It is important that the metadata of the file that changed provides
+   * Note:* It is important that the metadata of the file that changed provides
    * an updated `mtime` that advanced from the previous value in the
    * {@link FileStat | stat} and a correct `size` value. Otherwise there may be
    * optimizations in place that will not show the change in an editor for
@@ -69,6 +69,12 @@ export class ContentsFileSystemProvider
   private readonly workspaceListener: Disposable;
   private readonly connectionListener: Disposable;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param jupyterConnections - The Jupyter connections manager.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly jupyterConnections: JupyterConnectionManager,
@@ -83,6 +89,9 @@ export class ContentsFileSystemProvider
     );
   }
 
+  /**
+   * Dispose the provider, removing all listeners and references.
+   */
   dispose() {
     this.workspaceListener.dispose();
     this.connectionListener.dispose();
@@ -93,8 +102,6 @@ export class ContentsFileSystemProvider
    * Mounts the provided {@link ColabAssignedServer | server} to the workspace.
    *
    * @param server - The server to mount as a workspace folder.
-   * @returns True if the server was mounted, false otherwise (if the server is
-   * already mounted).
    */
   // TODO: Only add the workspace folder if it's a new server (this.servers).
   // Otherwise, need to verify if you can "close" workspace folders and what
@@ -124,14 +131,17 @@ export class ContentsFileSystemProvider
   }
 
   /**
-   * All calls are no-op'd with an empty {@link Disposable} returned. Calls for
-   * `.vscode` files always throw the relevant not-found error.
+   * All calls are no-ops.
    *
    * The Jupyter Server REST API does not support watching and Colab has no
    * socket-based implementation that can easily be used.
    *
    * In the future we may consider adding time-based polling to fire events for
    * files/directories that have been `watch`-ed.
+   *
+   * @param uri - The URI of the resource.
+   * @param _options - Configuration options for the operation.
+   * @returns A no-op disposable.
    */
   @traceMethod
   watch(
@@ -529,6 +539,8 @@ export class ContentsFileSystemProvider
    * Throw a {@link FileSystemError.FileNotFound} error for VS Code files we
    * know the server doesn't have, but VS Code looks for. Avoids the unnecessary
    * round-trip.
+   *
+   * @param uri - The URI of the resource.
    */
   private throwForVsCodeFile(uri: Uri) {
     if (uri.path === '/.vscode' || uri.path.startsWith('/.vscode/')) {

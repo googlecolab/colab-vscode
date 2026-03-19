@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import * as sinon from 'sinon';
 import { Disposable, InputBox, QuickPick, QuickPickItem } from 'vscode';
 

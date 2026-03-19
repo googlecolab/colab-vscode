@@ -134,10 +134,10 @@ function normalizeVariant(variant: ColabGapiVariant): Variant {
 }
 
 /**
- * Normalize the similar but different GAPI representation for the variant.
+ * Normalize the similar but different GAPI representation for the shape.
  *
- * @param variant - the Colab Google API variant.
- * @returns the normalized shape.
+ * @param shape - the machine shape as represented by the Colab Google API.
+ * @returns the normalized machine shape.
  */
 function normalizeShape(shape: ColabGapiShape): Shape {
   switch (shape) {

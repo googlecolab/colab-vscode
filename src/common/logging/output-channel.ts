@@ -12,23 +12,55 @@ import { ActionableLogLevel, Logger, LogLevel } from '.';
  * A logger that appends to the provided VS Code {@link OutputChannel}.
  */
 export class OutputChannelLogger implements Logger {
+  /**
+   * Initializes a new instance.
+   *
+   * @param channel - The output channel.
+   */
   constructor(private readonly channel: OutputChannel) {}
 
+  /**
+   * Log an error to the output channel.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments provided.
+   */
   error(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Error, msg, ...args);
   }
+  /**
+   * Log a warning to the output channel.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments provided.
+   */
   warn(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Warning, msg, ...args);
   }
+  /**
+   * Log info to the output channel.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments provided.
+   */
   info(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Info, msg, ...args);
   }
+  /**
+   * Log debugging info to the output channel.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments provided.
+   */
   debug(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Debug, msg, ...args);
   }
-  // TODO: Consider implementing a trace decorator which logs the decorated
-  // function call, its args, the return value and optionally the execution
-  // time.
+  /**
+   * Log a trace message to the output channel.
+   *
+   * @param msg - The message text.
+   * @param args - The arguments provided.
+   */
   trace(msg: string, ...args: unknown[]): void {
     this.log(LogLevel.Trace, msg, ...args);
   }

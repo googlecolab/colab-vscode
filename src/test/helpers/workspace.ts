@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import {
   NotebookEdit,
   Position,
@@ -17,6 +19,9 @@ import {
 import { TestNotebookEdit } from './notebook';
 import { TestUri } from './uri';
 
+/**
+ * A test fake for {@link WorkspaceEdit}.
+ */
 export class TestWorkspaceEdit implements WorkspaceEdit {
   uri: TestUri;
   edits: readonly TestNotebookEdit[] = [];

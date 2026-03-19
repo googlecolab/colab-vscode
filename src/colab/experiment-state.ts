@@ -14,7 +14,8 @@ import {
 } from './api';
 import { ColabClient } from './client';
 
-/** Gets the value of an experiment flag.
+/**
+ * Gets the value of an experiment flag.
  *
  * @param flag - The experiment flag to get.
  * @returns The value of the experiment flag.
@@ -33,6 +34,11 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
   private refreshInterval?: NodeJS.Timeout;
   private isDisposed = false;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param client - The API client instance.
+   */
   constructor(private readonly client: ColabClient) {
     super();
     // Reset experiment flags.
@@ -40,6 +46,9 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
     this.getExperimentState = this.getExperimentState.bind(this);
   }
 
+  /**
+   * Disposes of the provider, cleaning up any resources.
+   */
   dispose() {
     if (this.isDisposed) {
       return;
@@ -52,14 +61,22 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
     }
   }
 
-  /** Called when user is authorized */
+  /**
+   * Starts polling for experiment state.
+   *
+   * @param signal - The cancellation signal.
+   */
   protected override async turnOn(signal: AbortSignal): Promise<void> {
     this.isAuthorized = true;
     await this.getExperimentState(this.isAuthorized, signal);
     this.ensurePolling();
   }
 
-  /** Called when user is un-authorized */
+  /**
+   * Stops polling for experiment state.
+   *
+   * @param signal - The cancellation signal.
+   */
   protected override async turnOff(signal: AbortSignal): Promise<void> {
     this.isAuthorized = false;
     await this.getExperimentState(this.isAuthorized, signal);
@@ -100,7 +117,12 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
   }
 }
 
-/** Sets the value of an experiment flag for testing. */
+/**
+ * Sets the value of an experiment flag for testing.
+ *
+ * @param flag - The experiment flag name.
+ * @param value - The input value.
+ */
 function setFlagForTest(
   flag: ExperimentFlag,
   value: ExperimentFlagValue,

@@ -62,6 +62,14 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
   private readonly runner: SequentialTaskRunner;
   private isDisposed = false;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param colabClient - The Colab client.
+   * @param assignmentManager - The assignment manager instance.
+   * @param config - The configuration object.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly colabClient: ColabClient,
@@ -86,6 +94,9 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
     );
   }
 
+  /**
+   * Disposes of the controller, cleaning up any resources.
+   */
   dispose(): void {
     this.runner.dispose();
     this.isDisposed = true;
@@ -137,6 +148,15 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
   /**
    * Determines if a server should be kept alive.
    *
+   * If a server was previously not kept alive but there was recent activity on
+   * it, it will be kept alive again according the rules mentioned below in the
+   * `@returns` note.
+   *
+   * @param assignment - The assignment instance.
+   * @param kernels - The active kernels list.
+   * @returns A promise that resolves to a boolean indicating whether the server
+   * should be kept alive.
+   *
    * Returns true if:
    *
    * - the server is active (used within the configured inactivity threshold)
@@ -144,9 +164,6 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
    * - the server is inactive but within the aforementioned extension period
    *
    * Otherwise, the server will not be kept alive.
-   *
-   * If a server was previously not kept alive but there was recent activity on
-   * it, it will be kept alive again according to the aforementioned rules.
    */
   @traceMethod
   private async shouldKeepAlive(

@@ -18,8 +18,10 @@ import { telemetry } from '../telemetry';
  * If the Colab server is already authorized, this function will skip the
  * consent flow and directly propagate the existing credentials.
  *
+ * @param vs - The VS Code API instance.
  * @param apiClient - Colab API client to invoke the credentials propagation
  * @param server - Colab server information used for credentials propagation
+ * @param authType - The type of authentication flow.
  * @throws Error if authorization is cancelled or credentials propagation fails
  */
 export async function handleEphemeralAuth(

@@ -108,8 +108,12 @@ function isFullReport(
 }
 
 /**
- * Returns whether the diagnostic is applicable to IPython and should be
- * kept.
+ * Returns whether the diagnostic is applicable to IPython and should be kept.
+ *
+ * @param diagnostic - The diagnostic information.
+ * @param document - The text document.
+ * @returns True if the diagnostic should be kept, false if it should be
+ * filtered out.
  */
 function shouldKeepDiagnostic(
   diagnostic: vscode.Diagnostic,

@@ -16,10 +16,15 @@ import { Variant, Shape } from '../colab/api';
  * designations.
  */
 export interface ColabServerDescriptor {
+  /** The server label (alias). */
   readonly label: string;
+  /** The server variant. */
   readonly variant: Variant;
+  /** The server accelerator. */
   readonly accelerator?: string;
+  /** The server shape. */
   readonly shape?: Shape;
+  /** The server version. */
   readonly version?: string;
 }
 
@@ -30,6 +35,7 @@ export interface ColabServerDescriptor {
 export interface ColabJupyterServer
   extends ColabServerDescriptor,
     JupyterServer {
+  /** The server's unique identifier. */
   readonly id: UUID;
 }
 
@@ -46,6 +52,15 @@ export type ColabAssignedServer = ColabJupyterServer & {
   readonly dateAssigned: Date;
 };
 
+/**
+ * Type guard to determine if a server is a {@link ColabAssignedServer}, which
+ * includes the required connection information, as opposed to an
+ * {@link UnownedServer} which is assigned outside and not owned by VS Code.
+ *
+ * @param s - The server to check.
+ * @returns True if the server is a {@link ColabAssignedServer}, false if it is
+ * an {@link UnownedServer}.
+ */
 export function isColabAssignedServer(
   s: ColabAssignedServer | UnownedServer,
 ): s is ColabAssignedServer {
@@ -59,6 +74,7 @@ export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
 
 /** A Colab server assigned outside and not owned by VS Code. */
 export interface UnownedServer extends ColabServerDescriptor {
+  /** The server endpoint. */
   readonly endpoint: string;
 }
 

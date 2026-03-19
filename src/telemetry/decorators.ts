@@ -9,6 +9,12 @@ import { telemetry } from '.';
 
 /**
  * A decorator that wraps a method with error tracking.
+ *
+ * @param _target - The target object.
+ * @param _propertyKey - The property key.
+ * @param descriptor - The property descriptor.
+ * @returns The modified property descriptor with error tracking applied to the
+ * method.
  */
 export function trackErrors<
   T extends (...args: Parameters<T>) => ReturnType<T>,

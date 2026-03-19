@@ -8,13 +8,23 @@ import vscode from 'vscode';
 import { telemetry } from '../../telemetry';
 import { CommandSource } from '../../telemetry/api';
 
-/** Opens Colab in the browser. */
+/**
+ * Opens Colab in the browser.
+ *
+ * @param vs - The VS Code API instance.
+ * @param source - The source of the command invocation.
+ */
 export function openColabWeb(vs: typeof vscode, source: CommandSource) {
   telemetry.logOpenColabWeb(source);
   vs.env.openExternal(vs.Uri.parse('https://colab.research.google.com'));
 }
 
-/** Opens the Colab signup page in the browser. */
+/**
+ * Opens the Colab signup page in the browser.
+ *
+ * @param vs - The VS Code API instance.
+ * @param source - The source of the command invocation.
+ */
 export function openColabSignup(vs: typeof vscode, source: CommandSource) {
   telemetry.logUpgradeToPro(source);
   vs.env.openExternal(vs.Uri.parse('https://colab.research.google.com/signup'));

@@ -19,6 +19,11 @@ const SESSIONS_KEY = `${PROVIDER_ID}.sessions`;
  * and string parsing.
  */
 export class AuthStorage {
+  /**
+   * Initializes a new instance.
+   *
+   * @param secrets - The secret storage instance.
+   */
   constructor(private readonly secrets: vscode.SecretStorage) {}
 
   /**
@@ -45,9 +50,8 @@ export class AuthStorage {
   /**
    * Retrieves a session that matches the requested scopes exactly.
    *
-   * @param scopes - An array of scopes. The returned session will have these  
-   * exact scopes.  
-
+   * @param scopes - An array of scopes. The returned session will have these
+   * exact scopes.
    * @returns The refreshable authentication session, if it exists. Otherwise,
    * `undefined`.
    */
@@ -103,6 +107,10 @@ export class AuthStorage {
 
   /**
    * Internal helper to commit the provided list to the secret store.
+   *
+   * @param sessions - The sessions to persist. If the array is empty, all
+   * sessions will be removed from storage.
+   * @returns A promise that resolves when the sessions have been persisted.
    */
   private async save(
     sessions: RefreshableAuthenticationSession[],

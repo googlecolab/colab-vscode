@@ -60,6 +60,12 @@ export class ClearcutClient implements Disposable {
   /** Queue of events to be flushed to Clearcut. */
   private pendingEvents: LogEvent[] = [];
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param config - The configuration object.
+   */
   constructor(
     private readonly vs: typeof vscode,
     config: ClearcutConfig = DEFAULT_CONFIG,
@@ -69,6 +75,11 @@ export class ClearcutClient implements Disposable {
     this.minFlushWaitMs = config.minFlushWaitMs ?? DEFAULT_MIN_FLUSH_WAIT_MS;
   }
 
+  /**
+   * Disposes the client, preventing any further events from being logged and
+   * flushing any remaining queued events to Clearcut before disposal. After
+   * disposal, the client will reject any attempts to log events.
+   */
   dispose() {
     if (this.isDisposed) {
       return;
@@ -80,7 +91,11 @@ export class ClearcutClient implements Disposable {
     });
   }
 
-  /** Queues a Colab log event for sending to Clearcut. */
+  /**
+   * Queues a Colab log event for sending to Clearcut.
+   *
+   * @param event - The Colab log event to be sent.
+   */
   log(event: ColabLogEvent) {
     if (this.isDisposed) {
       throw new Error(
@@ -109,9 +124,9 @@ export class ClearcutClient implements Disposable {
    * Flushes queued events to Clearcut.
    *
    * @param force - Flushes to Clearcut regardless of whether a flush is in
-   *   progress or if the flush interval's been met. Note that the VS Code
-   *   telemetry setting must still be enabled along with Colab's telemetry
-   *   experiment flag.
+   * progress or if the flush interval's been met. Note that the VS Code
+   * telemetry setting must still be enabled along with Colab's telemetry
+   * experiment flag.
    */
   private async flush(force = false) {
     // Must be enabled by Colab and the user before flushing to Clearcut.
@@ -186,7 +201,11 @@ export class ClearcutClient implements Disposable {
     return next_flush_millis;
   }
 
-  /** Requeues events by placing them at the front of the queue. */
+  /**
+   * Requeues events by placing them at the front of the queue.
+   *
+   * @param events - The log events to be requeued.
+   */
   private requeue(events: LogEvent[]) {
     const capacity = this.maxPendingEvents - this.pendingEvents.length;
 

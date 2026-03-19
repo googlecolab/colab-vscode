@@ -95,6 +95,10 @@ export class CodeManager implements vscode.Disposable {
 /**
  * Creates a promise that rejects when the cancellation token is triggered.
  * Returns a disposable to remove the event listener.
+ *
+ * @param token - The cancellation token.
+ * @returns A disposable promise that rejects when the cancellation token is
+ * triggered.
  */
 function waitForCancellation(
   token: vscode.CancellationToken,
@@ -116,6 +120,9 @@ function waitForCancellation(
 /**
  * Creates a promise that rejects after a specified timeout.
  * Returns a disposable to clear the timer.
+ *
+ * @param ms - The delay duration in milliseconds.
+ * @returns A disposable promise that rejects after the specified timeout.
  */
 function waitForTimeout(ms: number): DisposablePromise<never> {
   let timeoutId: NodeJS.Timeout;

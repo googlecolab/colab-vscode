@@ -18,6 +18,10 @@ import { OPEN_TERMINAL } from './constants';
  * - With no servers: Shows an info message.
  * - With one server: Opens terminal directly.
  * - With multiple servers: Prompts the user to select one.
+ *
+ * @param vs - The VS Code API instance.
+ * @param assignmentManager - The assignment manager instance.
+ * @param withBackButton - Whether to show a back button in the UI.
  */
 export async function openTerminal(
   vs: typeof vscode,
@@ -59,6 +63,9 @@ export async function openTerminal(
 
 /**
  * Creates and shows a Colab terminal for the specified server.
+ *
+ * @param vs - The VS Code API instance.
+ * @param server - The Colab server to connect the terminal to.
  */
 function createColabTerminal(vs: typeof vscode, server: ColabAssignedServer) {
   // Create the WebSocket connection

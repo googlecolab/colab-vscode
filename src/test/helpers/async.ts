@@ -8,12 +8,18 @@ import { AsyncToggle } from '../../common/toggleable';
 
 /**
  * A simple Deferred promise helper.
+ *
+ * This is useful for testing async code, allowing you to create a promise and
+ * control when it resolves or rejects
  */
 export class Deferred<T> {
   readonly promise: Promise<T>;
   resolve: (value: T | PromiseLike<T>) => void;
   reject: (reason?: unknown) => void;
 
+  /**
+   * Initializes a new instance.
+   */
   constructor() {
     this.promise = new Promise<T>((resolve, reject) => {
       this.resolve = resolve;
@@ -67,6 +73,11 @@ export class ControllableAsyncToggle {
   private _turnOff: ControllableMethod;
   private openInstance: PublicToggle;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param instance - The Instance.
+   */
   constructor(instance: AsyncToggle) {
     // Cast to be able to wrap protected member so the async toggles are
     // controllable.
@@ -75,10 +86,20 @@ export class ControllableAsyncToggle {
     this._turnOff = this.wrap('turnOff');
   }
 
+  /**
+   * Get the handle to turn on to controllable.
+   *
+   * @returns The controllable method for the turn on operation.
+   */
   get turnOn(): ControllableMethod {
     return this._turnOn;
   }
 
+  /**
+   * Get the handle to turn off to controllable.
+   *
+   * @returns The controllable method for the turn off operation.
+   */
   get turnOff(): ControllableMethod {
     return this._turnOff;
   }
@@ -125,6 +146,8 @@ class CallHandleImpl implements ControllableCall {
 
   /**
    * Wait for the method to start.
+   *
+   * @returns A promise that resolves when the method starts.
    */
   async waitForStart() {
     return this.started.promise;
@@ -132,6 +155,8 @@ class CallHandleImpl implements ControllableCall {
 
   /**
    * Wait for the method to complete.
+   *
+   * @returns A promise that resolves when the method completes.
    */
   async waitForCompletion() {
     return this.completed.promise;

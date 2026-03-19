@@ -21,7 +21,7 @@ let isTelemetryEnabled: () => boolean;
 
 /**
  * Initializes the telemetry module
- * @param context - The VS Code extension context
+ *
  * @param vs - The vscode module.
  * @returns A {@link Disposable} that can be used to clean up the client.
  */

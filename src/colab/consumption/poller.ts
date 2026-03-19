@@ -30,6 +30,12 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   private runner: SequentialTaskRunner;
   private isDisposed = false;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param client - The API client instance.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
@@ -51,6 +57,9 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     );
   }
 
+  /**
+   * Disposes of the notifier, cleaning up any resources.
+   */
   dispose(): void {
     this.runner.dispose();
     this.isDisposed = true;
@@ -74,6 +83,8 @@ export class ConsumptionPoller implements Toggleable, Disposable {
 
   /**
    * Checks the latests CCU info and emits an event when there is a change.
+   *
+   * @param signal - The cancellation signal.
    */
   private async poll(signal?: AbortSignal): Promise<void> {
     const consumptionUserInfo =

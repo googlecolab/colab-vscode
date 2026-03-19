@@ -32,6 +32,12 @@ export class ColabPseudoterminal implements Pseudoterminal {
   private isConnected = false;
   private initialDimensions?: TerminalDimensions;
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param terminalWebSocket - The terminal WebSocket instance.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly terminalWebSocket: ColabTerminalWebSocketLike,

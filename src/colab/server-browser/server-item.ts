@@ -18,6 +18,14 @@ import { FileType, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 export class ServerItem extends TreeItem {
   override contextValue: 'server' | 'folder' | 'file';
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param endpoint - The server endpoint URL.
+   * @param label - The display label.
+   * @param type - The item type.
+   * @param uri - The URI of the resource.
+   */
   constructor(
     readonly endpoint: string,
     label: string,

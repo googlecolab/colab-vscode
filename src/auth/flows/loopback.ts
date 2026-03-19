@@ -38,6 +38,14 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
   private readonly handler: Handler;
   private readonly activeServers = new Set<vscode.Disposable>();
 
+  /**
+   * Initializes a new instance.
+   *
+   * @param vs - The VS Code API instance.
+   * @param serveRoot - The root URI for serving files.
+   * @param oAuth2Client - The OAuth2 client instance.
+   * @param extensionUri - The URI of the extension.
+   */
   constructor(
     private readonly vs: typeof vscode,
     private readonly serveRoot: string,
@@ -52,6 +60,9 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
     );
   }
 
+  /**
+   * Disposes of the flow, cleaning up any active servers.
+   */
   dispose() {
     this.codeManager.dispose();
     for (const disposable of this.activeServers) {
@@ -65,6 +76,11 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
    * redirect URI. Callers are expected to dispose the returned disposable when
    * the full flow is complete. It is their responsibility since this flow is
    * expected to serve assets until fully completed (for e.g., the favicon).
+   *
+   * @param options - Options for triggering the flow, including scopes and
+   * cancellation token.
+   * @returns The result of the flow, including the authorization code and
+   * redirect URI.
    */
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
     const server = new LoopbackServer(this.handler);

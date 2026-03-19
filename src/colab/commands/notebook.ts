@@ -25,6 +25,9 @@ import { commandThemeIcon } from './utils';
  *
  * The server-specific commands are only shown if there is at least one
  * assigned Colab server.
+ *
+ * @param vs - The VS Code API instance.
+ * @param assignments - The assignment manager instance.
  */
 export async function notebookToolbar(
   vs: typeof vscode,
@@ -54,6 +57,7 @@ export async function notebookToolbar(
 /**
  * Appends a new code cell to the bottom of the active notebook.
  *
+ * @param vs - The VS Code API instance.
  * @param cellContent - Code content to add in the new cell.
  * @param languageId - Language of the code.
  * @returns `true` if cell is inserted successfully; `false` otherwise.

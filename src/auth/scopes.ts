@@ -22,7 +22,12 @@ export const ALLOWED_SCOPES: ReadonlySet<string> = new Set<string>([
   ...DRIVE_SCOPES,
 ]);
 
-/** Returns true if the provided scopes are all supported */
+/**
+ * Returns true if the provided scopes are all supported.
+ *
+ * @param scopes - The scopes to check, or undefined if no scopes are provided.
+ * @returns True if all provided scopes are allowed, false otherwise.
+ */
 export function areScopesAllowed(scopes?: readonly string[]): boolean {
   if (!scopes) return true;
 

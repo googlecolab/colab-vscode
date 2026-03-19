@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import * as sinon from 'sinon';
 import vscode, { FileSystemError, ThemeIcon } from 'vscode';
 import { FakeAuthenticationProviderManager } from './authentication';
@@ -71,6 +73,9 @@ export enum DiagnosticSeverity {
   Hint = 3,
 }
 
+/**
+ * The stubs for the vscode module.
+ */
 export interface VsCodeStub {
   /**
    * Returns a stub of the vscode module typed as vscode.
@@ -200,6 +205,8 @@ export interface VsCodeStub {
  *
  * In most cases, tests should avoid re-using instances of this so the stubs
  * don't interfere with each other.
+ *
+ * @returns A new instance of a {@link VsCodeStub}.
  */
 export function newVsCodeStub(): VsCodeStub {
   const fakeAuthentication = new FakeAuthenticationProviderManager();

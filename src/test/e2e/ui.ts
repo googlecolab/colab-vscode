@@ -19,6 +19,8 @@ const CELL_EXECUTION_WAIT_MS = 30000;
 
 /**
  * Creates a new Jupyter notebook and waits for it to be fully loaded.
+ *
+ * @param workbench - The workbench instance.
  */
 export async function createNotebook(workbench: Workbench): Promise<void> {
   await workbench.executeCommand('Create: New Jupyter Notebook');
@@ -27,6 +29,10 @@ export async function createNotebook(workbench: Workbench): Promise<void> {
 
 /**
  * Selects the QuickPick option.
+ *
+ * @param driver - The driver instance.
+ * @param item - The UI item.
+ * @returns A promise that resolves when the QuickPick item is selected.
  */
 export function selectQuickPickItem(driver: WebDriver, item: string) {
   return driver.wait(
@@ -56,6 +62,11 @@ export function selectQuickPickItem(driver: WebDriver, item: string) {
 
 /**
  * Checks whether a QuickPick item is present in the current QuickPick options.
+ *
+ * @param driver - The driver instance.
+ * @param item - The UI item.
+ * @returns A promise that resolves to true if the item is found, and false
+ * otherwise.
  */
 export async function hasQuickPickItem(
   driver: WebDriver,
@@ -100,6 +111,9 @@ export async function hasQuickPickItem(
  * Selects the QuickPick options in order.
  *
  * Useful for selecting through multiple QuickPick prompts in a row.
+ *
+ * @param driver - The driver instance.
+ * @param items - The UI items collection.
  */
 export async function selectQuickPicksInOrder(
   driver: WebDriver,
@@ -112,6 +126,10 @@ export async function selectQuickPicksInOrder(
 
 /**
  * Pushes a button in a modal dialog and waits for the action to complete.
+ *
+ * @param driver - The driver instance.
+ * @param button - The button element.
+ * @returns A promise that resolves when the button is successfully pushed.
  */
 export function pushDialogButton(driver: WebDriver, button: string) {
   // ModalDialog.pushButton will throw if the dialog is not found; to reduce
@@ -134,6 +152,11 @@ export function pushDialogButton(driver: WebDriver, button: string) {
 
 /**
  * Waits for an element to be displayed and enabled, then clicks it.
+ *
+ * @param driver - The driver instance.
+ * @param locator - The UI locator string.
+ * @param errorMsg - The error message.
+ * @returns A promise that resolves when the element is successfully clicked.
  */
 export async function safeClick(
   driver: WebDriver,
@@ -165,6 +188,10 @@ export async function safeClick(
  * Asserts that all cells in the active notebook have executed successfully.
  *
  * This is done by checking for the success indicator in the cell status bar.
+ *
+ * @param driver - The driver instance.
+ * @param workbench - The workbench instance.
+ * @param waitMs - The wait duration in milliseconds.
  */
 export async function assertAllCellsExecutedSuccessfully(
   driver: WebDriver,

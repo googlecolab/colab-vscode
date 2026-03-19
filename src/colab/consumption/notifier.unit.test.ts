@@ -78,6 +78,10 @@ describe('ConsumptionNotifier', () => {
    *
    * @param severity - The severity of the notification to capture ("warn" or
    * "error").
+   * @returns A promise that resolves with the notification message, actions and
+   * a click handler which simulates clicking on an action. The promise resolves
+   * on the first notification of the specified severity, and does not resolve
+   * for subsequent notifications.
    */
   async function nextNotification(severity: NotificationSeverity): Promise<{
     message: string;

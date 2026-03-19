@@ -173,6 +173,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   /**
    * Sets the state of the toggles based on the authentication session.
    *
+   * @param toggles - The toggles to manage based on authorization status.
    * @returns A {@link Disposable} that can be used to stop toggling the
    * provided toggles when there are changes to the authorization status.
    */
@@ -324,6 +325,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * remove the session from storage.
    *
    * @param sessionId - The session ID.
+   * @returns A promise that resolves when the session is removed.
    */
   async removeSession(sessionId: string): Promise<void> {
     this.assertReady();
@@ -348,6 +350,9 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     });
   }
 
+  /**
+   * Signs out of the current Google authentication session.
+   */
   async signOut() {
     if (!this.session) {
       return;

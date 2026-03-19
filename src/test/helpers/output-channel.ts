@@ -4,9 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* eslint-disable jsdoc/require-jsdoc */
+
 import * as sinon from 'sinon';
 import { OutputChannel } from 'vscode';
 
+/**
+ * A test fake for {@link OutputChannel}.
+ */
 export class FakeLogOutputChannel implements OutputChannel {
   readonly name = 'fake';
   readonly append = sinon.stub();
