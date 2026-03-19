@@ -10,6 +10,7 @@ import vscode, { Disposable } from 'vscode';
 import { GoogleAuthProvider } from './auth/auth-provider';
 import { getOAuth2Flows } from './auth/flows/flows';
 import { login, LoginOptions } from './auth/login';
+import { REQUIRED_SCOPES } from './auth/scopes';
 import { AuthStorage } from './auth/storage';
 import { ColabClient } from './colab/client';
 import {
@@ -86,14 +87,14 @@ async function activateInternal(context: vscode.ExtensionContext) {
     (scopes: string[], options?: LoginOptions) =>
       login(vscode, authFlows, authClient, scopes, options),
   );
-  const colabClient = new ColabClient(
+  const colabClient = ColabClient.create(
     new URL(CONFIG.ColabApiDomain),
     new URL(CONFIG.ColabGapiDomain),
-    (scopes: readonly string[]) =>
-      GoogleAuthProvider.getOrCreateSession(vscode, scopes).then(
+    { appName: vscode.env.appName, extensionVersion: packageInfo.version },
+    () =>
+      GoogleAuthProvider.getOrCreateSession(vscode, [...REQUIRED_SCOPES]).then(
         (session) => session.accessToken,
       ),
-    { appName: vscode.env.appName, extensionVersion: packageInfo.version },
     () => authProvider.signOut(),
   );
   const serverStorage = new ServerStorage(vscode, context.secrets);

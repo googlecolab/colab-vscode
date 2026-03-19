@@ -90,11 +90,11 @@ describe('ColabClient', () => {
       });
     sessionStub.withArgs(REQUIRED_SCOPES).resolves(BEARER_TOKEN);
     onAuthErrorStub = sinon.stub();
-    client = new ColabClient(
+    client = ColabClient.create(
       new URL(`https://${COLAB_HOST}`),
       new URL(`https://${GOOGLE_APIS_HOST}`),
-      sessionStub,
       { appName: APP_NAME, extensionVersion: EXTENSION_VERSION },
+      () => sessionStub(REQUIRED_SCOPES),
       onAuthErrorStub,
     );
   });
@@ -956,24 +956,6 @@ describe('ColabClient', () => {
     sinon.assert.calledTwice(fetchStub);
     // There's only one attempt to fix the auth error.
     sinon.assert.calledOnce(onAuthErrorStub);
-  });
-
-  it('throws on 401 if onAuthError is not provided', async () => {
-    client = new ColabClient(
-      new URL(`https://${COLAB_HOST}`),
-      new URL(`https://${GOOGLE_APIS_HOST}`),
-      sessionStub,
-      { appName: APP_NAME, extensionVersion: EXTENSION_VERSION },
-    );
-
-    fetchStub
-      .withArgs(sinon.match.any)
-      .resolves(new Response('Unauthorized', { status: 401 }));
-
-    await expect(client.getUserInfo()).to.eventually.be.rejectedWith(
-      /Unauthorized/,
-    );
-    sinon.assert.notCalled(onAuthErrorStub);
   });
 
   it('rejects when error responses are returned', async () => {

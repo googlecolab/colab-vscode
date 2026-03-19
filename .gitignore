@@ -6,3 +6,4 @@ openapitools.json
 out/
 src/colab-config.ts
 src/jupyter/client/post-processed-api.yaml
+.worktrees/
