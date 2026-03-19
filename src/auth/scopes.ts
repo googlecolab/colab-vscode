@@ -13,7 +13,8 @@ export const REQUIRED_SCOPES = [
 
 /** Scopes required to use the Drive integration */
 export const DRIVE_SCOPES = [
-  'https://www.googleapis.com/auth/drive.readonly',
+  ...REQUIRED_SCOPES,
+  'https://www.googleapis.com/auth/drive.file',
 ] as const;
 
 /** Set of all scopes that are permitted to be used by this extension */

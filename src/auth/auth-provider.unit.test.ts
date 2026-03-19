@@ -50,8 +50,7 @@ const DEFAULT_AUTH_SESSION: vscode.AuthenticationSession = {
   account: DEFAULT_REFRESH_SESSION.account,
   scopes: DEFAULT_REFRESH_SESSION.scopes.sort(),
 };
-const ADDITIONAL_SCOPES = [...DRIVE_SCOPES];
-const UPGRADED_SCOPES = [...SCOPES, ...ADDITIONAL_SCOPES];
+const UPGRADED_SCOPES = [...DRIVE_SCOPES];
 const UPGRADED_ACCESS_TOKEN = '43';
 const UPGRADED_REFRESH_SESSION: RefreshableAuthenticationSession = {
   id: '2',
@@ -513,7 +512,7 @@ describe('GoogleAuthProvider', () => {
 
       it('returns an empty array when the specified scopes are allowed but do not match the stored session', async () => {
         await expect(
-          authProvider.getSessions(ADDITIONAL_SCOPES, {}),
+          authProvider.getSessions(UPGRADED_SCOPES, {}),
         ).to.eventually.deep.equal([]);
       });
 
@@ -619,7 +618,7 @@ describe('GoogleAuthProvider', () => {
         await authProvider.initialize();
       });
 
-      for (const scopes of [SCOPES, ADDITIONAL_SCOPES, UPGRADED_SCOPES]) {
+      for (const scopes of [SCOPES, UPGRADED_SCOPES]) {
         it('returns the session when the specified scopes match', async () => {
           const sessions = authProvider.getSessions(scopes, {});
 
