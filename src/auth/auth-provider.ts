@@ -327,7 +327,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    */
   async removeSession(sessionId: string): Promise<void> {
     this.assertReady();
-    if (!this.session || this.session.id !== sessionId) {
+    if (this.session?.id !== sessionId) {
       return;
     }
     const removedSession = this.session;

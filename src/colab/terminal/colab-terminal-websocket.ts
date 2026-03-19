@@ -365,7 +365,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
   }
 
   private flushPendingMessages(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
       return;
     }
     if (!this.pendingMessages.length) {
