@@ -43,6 +43,7 @@ import {
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
+import { Transport } from './transport';
 
 const COLAB_HOST = 'colab.example.com';
 const GOOGLE_APIS_HOST = 'colab.example.googleapis.com';
@@ -75,6 +76,7 @@ const DEFAULT_ASSIGNMENT: Assignment = {
 describe('ColabClient', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
   let sessionStub: SinonStub<[readonly string[]], Promise<string>>;
+  let transport: Transport;
   let client: ColabClient;
   let onAuthErrorStub: SinonStub<[], Promise<void>>;
 
@@ -89,12 +91,12 @@ describe('ColabClient', () => {
       });
     sessionStub.withArgs(REQUIRED_SCOPES).resolves(BEARER_TOKEN);
     onAuthErrorStub = sinon.stub();
+    transport = new Transport(sessionStub, onAuthErrorStub);
     client = new ColabClient(
       new URL(`https://${COLAB_HOST}`),
       new URL(`https://${GOOGLE_APIS_HOST}`),
-      sessionStub,
+      transport,
       { appName: APP_NAME, extensionVersion: EXTENSION_VERSION },
-      onAuthErrorStub,
     );
   });
 

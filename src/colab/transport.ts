@@ -6,14 +6,19 @@
 import * as https from 'https';
 import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
+import { REQUIRED_SCOPES } from '../auth/scopes';
 import { ACCEPT_JSON_HEADER, AUTHORIZATION_HEADER } from './headers';
 
 /**
  * Options for the issueRequest methods
  */
 export interface IssueRequestOptions {
+  /** The set of scopes to request the access token for. Defaults to {@link REQUIRED_SCOPES} */
+  scopes?: readonly string[];
   /** Whether or not to include the access token in the request. Defaults to true. */
   requireAccessToken?: boolean;
+  /** HttpAgent to make the request. */
+  httpsAgent?: https.Agent;
 }
 
 const XSSI_PREFIX = ")]}'\n";
@@ -28,12 +33,12 @@ export class Transport {
    *
    * @param getAccessToken - Function to retrieve the access token.
    * @param onAuthError - Callback invoked on authentication error.
-   * @param httpsAgent - HttpAgent to make the request.
    */
   constructor(
-    private readonly getAccessToken: () => Promise<string>,
+    private readonly getAccessToken: (
+      scopes: readonly string[],
+    ) => Promise<string>,
     private readonly onAuthError?: () => Promise<void>,
-    private readonly httpsAgent?: https.Agent,
   ) {}
 
   /**
@@ -78,7 +83,11 @@ export class Transport {
   private async performFetch(
     endpoint: URL,
     init: RequestInit,
-    { requireAccessToken = true }: IssueRequestOptions = {},
+    {
+      scopes = REQUIRED_SCOPES,
+      requireAccessToken = true,
+      httpsAgent,
+    }: IssueRequestOptions = {},
   ): Promise<Response> {
     let response: Response | undefined;
     let request: Request | undefined;
@@ -89,14 +98,14 @@ export class Transport {
     // authentication error i.e. if the first attempt fails with a 401,
     for (let attempt = 0; attempt < 2; attempt++) {
       if (requireAccessToken) {
-        const token = await this.getAccessToken();
+        const token = await this.getAccessToken(scopes);
         requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
       }
 
       request = new Request(endpoint, {
         ...init,
         headers: requestHeaders,
-        agent: this.httpsAgent,
+        agent: httpsAgent,
       });
       response = await fetch(request);
       if (response.ok) {

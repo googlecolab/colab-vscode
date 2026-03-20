@@ -40,6 +40,7 @@ import {
 import { ServerItem } from './colab/server-browser/server-item';
 import { ServerTreeProvider } from './colab/server-browser/server-tree';
 import { ServerPicker } from './colab/server-picker';
+import { Transport } from './colab/transport';
 import { CONFIG } from './colab-config';
 import { initializeLogger, log } from './common/logging';
 import { Toggleable } from './common/toggleable';
@@ -86,15 +87,18 @@ async function activateInternal(context: vscode.ExtensionContext) {
     (scopes: string[], options?: LoginOptions) =>
       login(vscode, authFlows, authClient, scopes, options),
   );
-  const colabClient = new ColabClient(
-    new URL(CONFIG.ColabApiDomain),
-    new URL(CONFIG.ColabGapiDomain),
+  const transport = new Transport(
     (scopes: readonly string[]) =>
       GoogleAuthProvider.getOrCreateSession(vscode, scopes).then(
         (session) => session.accessToken,
       ),
-    { appName: vscode.env.appName, extensionVersion: packageInfo.version },
     () => authProvider.signOut(),
+  );
+  const colabClient = new ColabClient(
+    new URL(CONFIG.ColabApiDomain),
+    new URL(CONFIG.ColabGapiDomain),
+    transport,
+    { appName: vscode.env.appName, extensionVersion: packageInfo.version },
   );
   const serverStorage = new ServerStorage(vscode, context.secrets);
   const assignmentManager = new AssignmentManager(

@@ -73,7 +73,6 @@ interface AssignParams {
  * A client for interacting with the Colab APIs.
  */
 export class ColabClient {
-  private readonly requester: Transport;
   private readonly httpsAgent?: https.Agent;
 
   /**
@@ -81,31 +80,23 @@ export class ColabClient {
    *
    * @param colabDomain - The Colab domain URL.
    * @param colabGapiDomain - The Colab GAPI domain URL.
-   * @param getAccessToken - Function to retrieve the access token.
+   * @param transport - The transport layer used to issue network requests.
    * @param callerInfo - Information about the caller.
-   * @param onAuthError - Callback invoked on authentication error.
    */
   constructor(
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
-    getAccessToken: (scopes: readonly string[]) => Promise<string>,
+    private readonly transport: Transport,
     private readonly callerInfo: {
       appName: string;
       extensionVersion: string;
     },
-    readonly onAuthError?: () => Promise<void>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
     if (colabDomain.hostname === 'localhost') {
       this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
     }
-
-    this.requester = new Transport(
-      () => getAccessToken(REQUIRED_SCOPES),
-      onAuthError,
-      this.httpsAgent,
-    );
   }
 
   /**
@@ -528,15 +519,24 @@ export class ColabClient {
       ...init,
       headers: requestHeaders,
     };
+    const optionsWithOverrides = {
+      ...options,
+      scopes: REQUIRED_SCOPES,
+      agent: this.httpsAgent,
+    };
 
     return schema
-      ? this.requester.issueRequestAndParse(
+      ? this.transport.issueRequestAndParse(
           endpoint,
           requestInit,
           schema,
-          options,
+          optionsWithOverrides,
         )
-      : this.requester.issueRequest(endpoint, requestInit, options);
+      : this.transport.issueRequest(
+          endpoint,
+          requestInit,
+          optionsWithOverrides,
+        );
   }
 }
 

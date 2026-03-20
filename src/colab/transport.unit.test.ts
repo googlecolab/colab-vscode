@@ -4,11 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import * as https from 'https';
 import { expect } from 'chai';
 import fetch, { Response } from 'node-fetch';
 import { SinonStub } from 'sinon';
 import * as sinon from 'sinon';
 import { z } from 'zod';
+import { REQUIRED_SCOPES } from '../auth/scopes';
 import { ACCEPT_JSON_HEADER, AUTHORIZATION_HEADER } from './headers';
 import { Transport, ColabRequestError } from './transport';
 
@@ -17,7 +19,7 @@ const BEARER_TOKEN = 'access-token';
 
 describe('Transport', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
-  let getAccessTokenStub: SinonStub<[], Promise<string>>;
+  let getAccessTokenStub: SinonStub<[readonly string[]], Promise<string>>;
   let onAuthErrorStub: SinonStub<[], Promise<void>>;
   let transport: Transport;
 
@@ -26,7 +28,7 @@ describe('Transport', () => {
       throw new Error('fetch was called with non-matching call');
     });
     getAccessTokenStub = sinon
-      .stub<[], Promise<string>>()
+      .stub<[readonly string[]], Promise<string>>()
       .resolves(BEARER_TOKEN);
     onAuthErrorStub = sinon.stub<[], Promise<void>>().resolves();
     transport = new Transport(getAccessTokenStub, onAuthErrorStub);
@@ -51,21 +53,21 @@ describe('Transport', () => {
     const schema = z.object({ foo: z.string() });
 
     await transport.issueRequestAndParse(new URL(DOMAIN), {}, schema);
-    
+
     sinon.assert.calledOnce(fetchStub);
     sinon.assert.calledWith(
       fetchStub,
       sinon.match({
         headers: sinon.match((headers: Headers) => {
           return (
-            headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}` &&
+            headers.get(AUTHORIZATION_HEADER.key) ===
+              `Bearer ${BEARER_TOKEN}` &&
             headers.get(ACCEPT_JSON_HEADER.key) === ACCEPT_JSON_HEADER.value
           );
         }),
       }),
     );
   });
-
 
   it('does not set authorization header if requireAccessToken is false', async () => {
     fetchStub.resolves(
@@ -74,15 +76,48 @@ describe('Transport', () => {
     const schema = z.object({ foo: z.string() });
 
     await transport.issueRequestAndParse(new URL(DOMAIN), {}, schema, {
-        requireAccessToken: false,
+      requireAccessToken: false,
     });
 
     sinon.assert.calledOnce(fetchStub);
     sinon.assert.calledWith(
-        fetchStub,
-        sinon.match((req: Request) => req.headers.get(AUTHORIZATION_HEADER.key) === null),
+      fetchStub,
+      sinon.match(
+        (req: Request) => req.headers.get(AUTHORIZATION_HEADER.key) === null,
+      ),
     );
     sinon.assert.notCalled(getAccessTokenStub);
+  });
+
+  it('uses provided scopes to retrieve access token', async () => {
+    const customScopes = ['scope1', 'scope2'];
+    fetchStub.resolves(new Response(undefined, { status: 200 }));
+
+    await transport.issueRequest(new URL(DOMAIN), {}, { scopes: customScopes });
+
+    sinon.assert.calledWith(getAccessTokenStub, customScopes);
+  });
+
+  it('uses REQUIRED_SCOPES as default scopes', async () => {
+    fetchStub.resolves(new Response(undefined, { status: 200 }));
+
+    await transport.issueRequest(new URL(DOMAIN), {});
+
+    sinon.assert.calledWith(getAccessTokenStub, REQUIRED_SCOPES);
+  });
+
+  it('uses provided https agent', async () => {
+    const agent = new https.Agent();
+    fetchStub.resolves(new Response(undefined, { status: 200 }));
+
+    await transport.issueRequest(new URL(DOMAIN), {}, { httpsAgent: agent });
+
+    sinon.assert.calledWith(
+      fetchStub,
+      sinon.match({
+        agent,
+      }),
+    );
   });
 
   it('strips XSSI prefix if present', async () => {
