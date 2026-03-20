@@ -38,6 +38,7 @@ import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
@@ -788,7 +789,7 @@ describe('ColabClient', () => {
       sinon.assert.calledOnce(fetchStub);
     });
 
-    it('successfully gets resources by assignment endpoint', async () => {
+    it('successfully gets resources by server', async () => {
       const mockResources = {
         memory: { totalBytes: 13605834752, freeBytes: 12475244544 },
         disks: [
@@ -799,17 +800,35 @@ describe('ColabClient', () => {
               usedBytes: 22869635072,
             },
           },
+          {
+            filesystem: {
+              // Intentionally empty to test zod transform logic
+            },
+          },
         ],
-        gpus: [],
+        gpus: [
+          {
+            name: 'Tesla T4',
+            memoryUsedBytes: 2869635072,
+            memoryTotalBytes: 13605834752,
+            gpuUtilization: 0.15,
+            memoryUtilization: 0.21,
+            everUsed: true,
+          },
+          {
+            // Intentionally empty to test zod transform logic
+          },
+        ],
       };
       fetchStub
         .withArgs(
           urlMatcher({
             method: 'GET',
-            host: COLAB_HOST,
-            path: `/tun/m/${assignedServer.endpoint}/api/colab/resources`,
+            host: assignedServerUrl.host,
+            path: '/api/colab/resources',
             otherHeaders: {
-              [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                assignedServer.connectionInformation.token,
             },
             withAuthUser: false,
           }),
@@ -820,26 +839,20 @@ describe('ColabClient', () => {
           }),
         );
 
-      const response = await client.getResources(assignedServer.endpoint);
+      const response = await client.getResources(assignedServer);
 
       const expectedResources = {
         memory: mockResources.memory,
         disks: [
+          mockResources.disks[0],
           {
-            name: '',
-            sizeBytes: mockResources.disks[0].filesystem.totalBytes,
-            filesystems: [
-              {
-                name: mockResources.disks[0].filesystem.label,
-                totalBytes: mockResources.disks[0].filesystem.totalBytes,
-                freeBytes:
-                  mockResources.disks[0].filesystem.totalBytes -
-                  mockResources.disks[0].filesystem.usedBytes,
-              },
-            ],
+            filesystem: { totalBytes: 0, usedBytes: 0 },
           },
         ],
-        gpus: [],
+        gpus: [
+          mockResources.gpus[0],
+          { memoryUsedBytes: 0, memoryTotalBytes: 0 },
+        ],
       };
       expect(response).to.deep.equal(expectedResources);
       sinon.assert.calledOnce(fetchStub);

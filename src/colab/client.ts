@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { REQUIRED_SCOPES } from '../auth/scopes';
 import { traceMethod } from '../common/logging/decorators';
 import { Session } from '../jupyter/client/generated';
+import { ColabAssignedServer } from '../jupyter/servers';
 import { uuidToWebSafeBase64 } from '../utils/uuid';
 import {
   Assignment,
@@ -44,6 +45,7 @@ import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
@@ -302,19 +304,22 @@ export class ColabClient {
   /**
    * Gets the resources (RAM and disk usage) for a given server by its endpoint.
    *
-   * @param endpoint - The assignment endpoint to get resources for.
+   * @param server - The assigned server to get resources for.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The resources information.
    */
   async getResources(
-    endpoint: string,
+    server: ColabAssignedServer,
     signal?: AbortSignal,
   ): Promise<Resources> {
     const url = new URL(
-      `${TUN_ENDPOINT}/${endpoint}/api/colab/resources`,
-      this.colabDomain,
+      'api/colab/resources',
+      server.connectionInformation.baseUrl.toString(),
     );
-    const headers = { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value };
+    const headers = {
+      [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+        server.connectionInformation.token,
+    };
 
     return await this.issueRequest(
       url,
