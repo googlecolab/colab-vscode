@@ -153,15 +153,11 @@ async function activateInternal(context: vscode.ExtensionContext) {
   });
   const disposeContentTreeView = vscode.window.createTreeView(
     'colab-server-content-view',
-    {
-      treeDataProvider: serverContentTreeView,
-    },
+    { treeDataProvider: serverContentTreeView },
   );
   const disposeResourceTreeView = vscode.window.createTreeView(
     'colab-server-resource-view',
-    {
-      treeDataProvider: serverResourceTreeView,
-    },
+    { treeDataProvider: serverResourceTreeView },
   );
 
   context.subscriptions.push(
