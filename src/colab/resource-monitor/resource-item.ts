@@ -77,7 +77,10 @@ export class ResourceItem extends TreeItem {
   }
 
   /**
-   * Creates a new instance of {@link ResourceItem} representing memory usage.
+   * Creates a new instance of {@link ResourceItem} representing GPU usage.
+   *
+   * If multiple GPUs are present, their memory usage is aggregated into a
+   * single item.
    *
    * @param endpoint - The server endpoint URL.
    * @param gpus - An array of GPU usage information.
