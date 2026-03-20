@@ -6,7 +6,7 @@
 
 import { UUID } from 'crypto';
 import * as https from 'https';
-import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
+import { Headers, RequestInit } from 'node-fetch';
 import { z } from 'zod';
 import { REQUIRED_SCOPES } from '../auth/scopes';
 import { traceMethod } from '../common/logging/decorators';
@@ -41,16 +41,14 @@ import {
   ResourcesSchema,
 } from './api';
 import {
-  ACCEPT_JSON_HEADER,
-  AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
+import { Transport, ColabRequestError, IssueRequestOptions } from './transport';
 
-const XSSI_PREFIX = ")]}'\n";
 const TUN_ENDPOINT = '/tun/m';
 
 // To discriminate the type of GET assignment responses.
@@ -71,12 +69,6 @@ interface AssignParams {
   version?: string;
 }
 
-// Options for issueRequest method.
-interface IssueRequestOptions {
-  requireAccessToken?: boolean;
-  scopes?: readonly string[];
-}
-
 /**
  * A client for interacting with the Colab APIs.
  */
@@ -88,19 +80,17 @@ export class ColabClient {
    *
    * @param colabDomain - The Colab domain URL.
    * @param colabGapiDomain - The Colab GAPI domain URL.
-   * @param getAccessToken - Function to retrieve the access token.
+   * @param transport - The transport layer used to issue network requests.
    * @param callerInfo - Information about the caller.
-   * @param onAuthError - Callback invoked on authentication error.
    */
   constructor(
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
-    private getAccessToken: (scopes: readonly string[]) => Promise<string>,
+    private readonly transport: Transport,
     private readonly callerInfo: {
       appName: string;
       extensionVersion: string;
     },
-    private readonly onAuthError?: () => Promise<void>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
@@ -507,20 +497,14 @@ export class ColabClient {
     endpoint: URL,
     init: RequestInit,
     schema?: z.ZodType,
-    {
-      requireAccessToken = true,
-      scopes = REQUIRED_SCOPES,
-    }: IssueRequestOptions = {},
+    options: IssueRequestOptions = {},
   ): Promise<unknown> {
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
       endpoint.searchParams.set('authuser', '0');
     }
 
-    let response: Response | undefined;
-    let request: Request | undefined;
     const requestHeaders = new Headers(init.headers);
-    requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
     requestHeaders.set(
       COLAB_CLIENT_AGENT_HEADER.key,
       COLAB_CLIENT_AGENT_HEADER.value,
@@ -531,58 +515,28 @@ export class ColabClient {
       this.callerInfo.extensionVersion,
     );
 
-    // Make up to 2 attempts to issue the request in case of an
-    // authentication error i.e. if the first attempt fails with a 401,
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (requireAccessToken) {
-        const token = await this.getAccessToken(scopes);
-        requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
-      }
+    const requestInit: RequestInit = {
+      ...init,
+      headers: requestHeaders,
+    };
+    const optionsWithOverrides = {
+      ...options,
+      scopes: REQUIRED_SCOPES,
+      agent: this.httpsAgent,
+    };
 
-      request = new Request(endpoint, {
-        ...init,
-        headers: requestHeaders,
-        agent: this.httpsAgent,
-      });
-      response = await fetch(request);
-      if (response.ok) {
-        break;
-      }
-
-      // If it's a 401 and we have an auth error handler, try to recover.
-      // But don't retry if this is already our last attempt.
-      if (response.status === 401 && this.onAuthError && attempt < 1) {
-        await this.onAuthError();
-      } else {
-        break;
-      }
-    }
-
-    if (!response || !request) {
-      return;
-    }
-
-    if (!response.ok) {
-      let errorBody;
-      try {
-        errorBody = await response.text();
-      } catch {
-        // Ignore errors reading the body
-      }
-      throw new ColabRequestError({
-        request,
-        response,
-        responseBody: errorBody,
-      });
-    }
-
-    if (!schema) {
-      return;
-    }
-
-    const body = await response.text();
-
-    return schema.parse(JSON.parse(stripXssiPrefix(body)));
+    return schema
+      ? this.transport.issueRequestAndParse(
+          endpoint,
+          requestInit,
+          schema,
+          optionsWithOverrides,
+        )
+      : this.transport.issueRequest(
+          endpoint,
+          requestInit,
+          optionsWithOverrides,
+        );
   }
 }
 
@@ -597,44 +551,6 @@ export class InsufficientQuotaError extends Error {}
 
 /** Error thrown when the request resource cannot be found. */
 export class NotFoundError extends Error {}
-
-/**
- * Strips the XSSI prefix from the provided string.
- *
- * @param s - A string that may or may not start with the XSSI prefix.
- * @returns The input string with the XSSI prefix removed, if it was present.
- * Otherwise, returns the input string unchanged.
- */
-function stripXssiPrefix(s: string): string {
-  if (!s.startsWith(XSSI_PREFIX)) {
-    return s;
-  }
-  return s.slice(XSSI_PREFIX.length);
-}
-
-class ColabRequestError extends Error {
-  readonly request: fetch.Request;
-  readonly response: fetch.Response;
-  readonly responseBody?: string;
-
-  constructor({
-    request,
-    response,
-    responseBody,
-  }: {
-    request: fetch.Request;
-    response: fetch.Response;
-    responseBody?: string;
-  }) {
-    super(
-      `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ${responseBody}` : ''),
-    );
-    this.request = request;
-    this.response = response;
-    this.responseBody = responseBody;
-  }
-}
 
 function mapShapeToURLParam(shape: Shape): string | undefined {
   switch (shape) {
