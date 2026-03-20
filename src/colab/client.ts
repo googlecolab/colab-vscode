@@ -8,7 +8,6 @@ import { UUID } from 'crypto';
 import * as https from 'https';
 import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
-import { REQUIRED_SCOPES } from '../auth/scopes';
 import { traceMethod } from '../common/logging/decorators';
 import { Session } from '../jupyter/client/generated';
 import { ColabAssignedServer } from '../jupyter/servers';
@@ -41,9 +40,9 @@ import {
   Resources,
   ResourcesSchema,
 } from './api';
+import { ColabRequestError } from './errors';
+import { fetchAndParseZod } from './fetch-utils';
 import {
-  ACCEPT_JSON_HEADER,
-  AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
@@ -51,8 +50,14 @@ import {
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from './headers';
+import {
+  buildFetchChain,
+  createAcceptJsonMiddleware,
+  createAuthMiddleware,
+  createErrorMiddleware,
+  createXSSIMiddleware,
+} from './middleware';
 
-const XSSI_PREFIX = ")]}'\n";
 const TUN_ENDPOINT = '/tun/m';
 
 // To discriminate the type of GET assignment responses.
@@ -73,12 +78,6 @@ interface AssignParams {
   version?: string;
 }
 
-// Options for issueRequest method.
-interface IssueRequestOptions {
-  requireAccessToken?: boolean;
-  scopes?: readonly string[];
-}
-
 /**
  * A client for interacting with the Colab APIs.
  */
@@ -86,23 +85,66 @@ export class ColabClient {
   private readonly httpsAgent?: https.Agent;
 
   /**
+   * Creates a new instance of ColabClient with the standard middleware chains.
+   *
+   * @param colabDomain - The Colab domain URL.
+   * @param colabGapiDomain - The Colab GAPI domain URL.
+   * @param callerInfo - Information about the caller.
+   * @param getAccessToken - Function to retrieve the access token.
+   * @param onAuthError - Callback when an auth error occurs.
+   * @returns A new ColabClient instance.
+   */
+  static create(
+    colabDomain: URL,
+    colabGapiDomain: URL,
+    callerInfo: { appName: string; extensionVersion: string },
+    getAccessToken: () => Promise<string>,
+    onAuthError: (() => Promise<void>) | undefined,
+  ): ColabClient {
+    const baseMiddleware = [
+      createAcceptJsonMiddleware(),
+      createXSSIMiddleware(),
+      createErrorMiddleware(),
+    ];
+    const authenticatedFetch = buildFetchChain(
+      [...baseMiddleware, createAuthMiddleware(getAccessToken, onAuthError)],
+      fetch,
+    );
+    const unauthenticatedFetch = buildFetchChain(baseMiddleware, fetch);
+
+    return new ColabClient(
+      colabDomain,
+      colabGapiDomain,
+      authenticatedFetch,
+      unauthenticatedFetch,
+      callerInfo,
+    );
+  }
+
+  /**
    * Initializes a new instance.
    *
    * @param colabDomain - The Colab domain URL.
    * @param colabGapiDomain - The Colab GAPI domain URL.
-   * @param getAccessToken - Function to retrieve the access token.
+   * @param fetch - The fetch implementation to use for network requests.
+   * @param unauthenticatedFetch - The fetch implementation without auth.
    * @param callerInfo - Information about the caller.
-   * @param onAuthError - Callback invoked on authentication error.
    */
-  constructor(
+  private constructor(
     private readonly colabDomain: URL,
     private readonly colabGapiDomain: URL,
-    private getAccessToken: (scopes: readonly string[]) => Promise<string>,
+    private readonly fetch: (
+      url: string | Request,
+      init?: RequestInit,
+    ) => Promise<Response>,
+    private readonly unauthenticatedFetch: (
+      url: string | Request,
+      init?: RequestInit,
+    ) => Promise<Response>,
     private readonly callerInfo: {
       appName: string;
       extensionVersion: string;
     },
-    private readonly onAuthError?: () => Promise<void>,
   ) {
     // TODO: Temporary workaround to allow self-signed certificates
     // in local development.
@@ -413,7 +455,7 @@ export class ColabClient {
       url,
       { method: 'GET', signal },
       ExperimentStateSchema,
-      { requireAccessToken },
+      requireAccessToken,
     );
     return expState;
   }
@@ -488,6 +530,7 @@ export class ColabClient {
    * @param endpoint - The endpoint to issue the request to.
    * @param init - The request init to use for the fetch.
    * @param schema - The schema to validate the response against.
+   * @param withAuth - Whether to use the authenticated fetch.
    * @returns A promise that resolves the parsed response when the request is
    * complete.
    */
@@ -495,7 +538,7 @@ export class ColabClient {
     endpoint: URL,
     init: RequestInit,
     schema: T,
-    options?: IssueRequestOptions,
+    withAuth?: boolean,
   ): Promise<z.infer<T>>;
 
   /**
@@ -504,28 +547,29 @@ export class ColabClient {
    *
    * @param endpoint - The endpoint to issue the request to.
    * @param init - The request init to use for the fetch.
+   * @param schema - Unused.
+   * @param withAuth - Whether to use the authenticated fetch.
    * @returns A promise that resolves when the request is complete.
    */
-  private async issueRequest(endpoint: URL, init: RequestInit): Promise<void>;
+  private async issueRequest(
+    endpoint: URL,
+    init: RequestInit,
+    schema?: undefined,
+    withAuth?: boolean,
+  ): Promise<void>;
 
   private async issueRequest(
     endpoint: URL,
     init: RequestInit,
     schema?: z.ZodType,
-    {
-      requireAccessToken = true,
-      scopes = REQUIRED_SCOPES,
-    }: IssueRequestOptions = {},
+    withAuth = true,
   ): Promise<unknown> {
     // The Colab API requires the authuser parameter to be set.
     if (endpoint.hostname === this.colabDomain.hostname) {
       endpoint.searchParams.set('authuser', '0');
     }
 
-    let response: Response | undefined;
-    let request: Request | undefined;
     const requestHeaders = new Headers(init.headers);
-    requestHeaders.set(ACCEPT_JSON_HEADER.key, ACCEPT_JSON_HEADER.value);
     requestHeaders.set(
       COLAB_CLIENT_AGENT_HEADER.key,
       COLAB_CLIENT_AGENT_HEADER.value,
@@ -536,58 +580,19 @@ export class ColabClient {
       this.callerInfo.extensionVersion,
     );
 
-    // Make up to 2 attempts to issue the request in case of an
-    // authentication error i.e. if the first attempt fails with a 401,
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (requireAccessToken) {
-        const token = await this.getAccessToken(scopes);
-        requestHeaders.set(AUTHORIZATION_HEADER.key, `Bearer ${token}`);
-      }
+    const requestInit: RequestInit = {
+      ...init,
+      headers: requestHeaders,
+      agent: this.httpsAgent,
+    };
 
-      request = new Request(endpoint, {
-        ...init,
-        headers: requestHeaders,
-        agent: this.httpsAgent,
-      });
-      response = await fetch(request);
-      if (response.ok) {
-        break;
-      }
+    const fetchImpl = withAuth
+      ? this.fetch
+      : this.unauthenticatedFetch;
 
-      // If it's a 401 and we have an auth error handler, try to recover.
-      // But don't retry if this is already our last attempt.
-      if (response.status === 401 && this.onAuthError && attempt < 1) {
-        await this.onAuthError();
-      } else {
-        break;
-      }
-    }
-
-    if (!response || !request) {
-      return;
-    }
-
-    if (!response.ok) {
-      let errorBody;
-      try {
-        errorBody = await response.text();
-      } catch {
-        // Ignore errors reading the body
-      }
-      throw new ColabRequestError({
-        request,
-        response,
-        responseBody: errorBody,
-      });
-    }
-
-    if (!schema) {
-      return;
-    }
-
-    const body = await response.text();
-
-    return schema.parse(JSON.parse(stripXssiPrefix(body)));
+    return schema
+      ? fetchAndParseZod(fetchImpl, endpoint.toString(), schema, requestInit)
+      : fetchImpl(endpoint.toString(), requestInit).then(() => undefined);
   }
 }
 
@@ -602,44 +607,6 @@ export class InsufficientQuotaError extends Error {}
 
 /** Error thrown when the request resource cannot be found. */
 export class NotFoundError extends Error {}
-
-/**
- * Strips the XSSI prefix from the provided string.
- *
- * @param s - A string that may or may not start with the XSSI prefix.
- * @returns The input string with the XSSI prefix removed, if it was present.
- * Otherwise, returns the input string unchanged.
- */
-function stripXssiPrefix(s: string): string {
-  if (!s.startsWith(XSSI_PREFIX)) {
-    return s;
-  }
-  return s.slice(XSSI_PREFIX.length);
-}
-
-class ColabRequestError extends Error {
-  readonly request: fetch.Request;
-  readonly response: fetch.Response;
-  readonly responseBody?: string;
-
-  constructor({
-    request,
-    response,
-    responseBody,
-  }: {
-    request: fetch.Request;
-    response: fetch.Response;
-    responseBody?: string;
-  }) {
-    super(
-      `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ${responseBody}` : ''),
-    );
-    this.request = request;
-    this.response = response;
-    this.responseBody = responseBody;
-  }
-}
 
 function mapShapeToURLParam(shape: Shape): string | undefined {
   switch (shape) {
