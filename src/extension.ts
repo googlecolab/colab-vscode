@@ -30,6 +30,7 @@ import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
 import { ExperimentStateProvider } from './colab/experiment-state';
 import { ServerKeepAliveController } from './colab/keep-alive';
+import { ResourceTreeProvider } from './colab/resource-monitor/resource-tree';
 import {
   deleteFile,
   download,
@@ -116,11 +117,17 @@ async function activateInternal(context: vscode.ExtensionContext) {
     assignmentManager,
   );
   const fs = new ContentsFileSystemProvider(vscode, jupyterConnections);
-  const serverTreeView = new ServerTreeProvider(
+  const serverContentTreeView = new ServerTreeProvider(
     assignmentManager,
     authProvider.onDidChangeSessions,
     assignmentManager.onDidAssignmentsChange,
     fs.onDidChangeFile,
+  );
+  const serverResourceTreeView = new ResourceTreeProvider(
+    assignmentManager,
+    assignmentManager.onDidAssignmentsChange,
+    authProvider.onDidChangeSessions,
+    colabClient,
   );
   const connections = new ConnectionRefreshController(assignmentManager);
   const keepServersAlive = new ServerKeepAliveController(
@@ -144,9 +151,18 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const disposeFs = vscode.workspace.registerFileSystemProvider('colab', fs, {
     isCaseSensitive: true,
   });
-  const disposeTreeView = vscode.window.createTreeView('colab-servers-view', {
-    treeDataProvider: serverTreeView,
-  });
+  const disposeContentTreeView = vscode.window.createTreeView(
+    'colab-server-content-view',
+    {
+      treeDataProvider: serverContentTreeView,
+    },
+  );
+  const disposeResourceTreeView = vscode.window.createTreeView(
+    'colab-server-resource-view',
+    {
+      treeDataProvider: serverResourceTreeView,
+    },
+  );
 
   context.subscriptions.push(
     logging,
@@ -159,12 +175,19 @@ async function activateInternal(context: vscode.ExtensionContext) {
     serverProvider,
     jupyterConnections,
     disposeFs,
-    disposeTreeView,
+    disposeContentTreeView,
+    disposeResourceTreeView,
     connections,
     keepServersAlive,
     ...consumptionMonitor.disposables,
     whileAuthorizedToggle,
-    ...registerCommands(authProvider, assignmentManager, serverTreeView, fs),
+    ...registerCommands(
+      authProvider,
+      assignmentManager,
+      serverContentTreeView,
+      serverResourceTreeView,
+      fs,
+    ),
   );
   telemetry.logActivation();
 }
@@ -203,7 +226,8 @@ function watchConsumption(colab: ColabClient): {
 function registerCommands(
   authProvider: GoogleAuthProvider,
   assignmentManager: AssignmentManager,
-  serverTreeProvider: ServerTreeProvider,
+  contentTreeProvider: ServerTreeProvider,
+  resourceTreeProvider: ResourceTreeProvider,
   fs: ContentsFileSystemProvider,
 ): Disposable[] {
   return [
@@ -249,8 +273,11 @@ function registerCommands(
     registerCommand(COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vscode, assignmentManager);
     }),
-    registerCommand('colab.refreshServersView', () => {
-      serverTreeProvider.refresh();
+    registerCommand('colab.refreshServerContentView', () => {
+      contentTreeProvider.refresh();
+    }),
+    registerCommand('colab.refreshServerResourceView', () => {
+      resourceTreeProvider.refresh();
     }),
     registerCommand('colab.newFile', (contextItem: ServerItem) => {
       void newFile(vscode, contextItem);
