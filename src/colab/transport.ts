@@ -8,8 +8,11 @@ import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 import { ACCEPT_JSON_HEADER, AUTHORIZATION_HEADER } from './headers';
 
-// Options for issueRequest method.
+/**
+ * Options for the issueRequest methods
+ */
 export interface IssueRequestOptions {
+  /** Whether or not to include the access token in the request. Defaults to true. */
   requireAccessToken?: boolean;
 }
 
@@ -17,7 +20,7 @@ const XSSI_PREFIX = ")]}'\n";
 
 /**
  * A reusable request transporter that handles authentication, common headers,
- *  retries, and schema validation.
+ * retries, and schema validation.
  */
 export class Transport {
   /**
@@ -120,11 +123,7 @@ export class Transport {
       } catch {
         // Ignore errors reading the body
       }
-      throw new ColabRequestError({
-        request,
-        response,
-        responseBody: errorBody,
-      });
+      throw new ColabRequestError(request, response, errorBody);
     }
 
     return response;
@@ -145,26 +144,25 @@ function stripXssiPrefix(s: string): string {
   return s.slice(XSSI_PREFIX.length);
 }
 
+/**
+ * Wrapper for errors thrown from issuing requests.
+ */
 export class ColabRequestError extends Error {
-  readonly request: fetch.Request;
-  readonly response: fetch.Response;
-  readonly responseBody?: string;
-
-  constructor({
-    request,
-    response,
-    responseBody,
-  }: {
-    request: fetch.Request;
-    response: fetch.Response;
-    responseBody?: string;
-  }) {
+  /**
+   * Initializes a new instance
+   *
+   * @param request - The request that triggered the error
+   * @param response - The response that contains the error
+   * @param responseBody - The text from the body of the response, if available.
+   */
+  constructor(
+    readonly request: fetch.Request,
+    readonly response: fetch.Response,
+    readonly responseBody?: string,
+  ) {
     super(
       `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
         (responseBody ? `\nResponse body: ${responseBody}` : ''),
     );
-    this.request = request;
-    this.response = response;
-    this.responseBody = responseBody;
   }
 }

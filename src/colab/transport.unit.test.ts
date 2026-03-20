@@ -9,8 +9,10 @@ import fetch, { Response } from 'node-fetch';
 import { SinonStub } from 'sinon';
 import * as sinon from 'sinon';
 import { z } from 'zod';
+import { ACCEPT_JSON_HEADER, AUTHORIZATION_HEADER } from './headers';
 import { Transport, ColabRequestError } from './transport';
 
+const DOMAIN = 'https://example.com';
 const BEARER_TOKEN = 'access-token';
 
 describe('Transport', () => {
@@ -37,46 +39,49 @@ describe('Transport', () => {
   it('issues request successfully without parsing', async () => {
     fetchStub.resolves(new Response(undefined, { status: 200 }));
 
-    await expect(transport.issueRequest(new URL('https://example.com'), {})).to
-      .eventually.be.fulfilled;
-
+    await expect(transport.issueRequest(new URL(DOMAIN), {})).to.eventually.be
+      .fulfilled;
     sinon.assert.calledOnce(fetchStub);
   });
 
   it('sets authorization and accept headers', async () => {
-    fetchStub.callsFake(async (urlOrRequest) => {
-      const request = urlOrRequest as unknown as fetch.Request;
-      expect(request.headers.get('Authorization')).to.equal(
-        'Bearer access-token',
-      );
-      expect(request.headers.get('Accept')).to.equal('application/json');
-      return new Response(JSON.stringify({ foo: 'bar' }), { status: 200 });
-    });
-
-    const schema = z.object({ foo: z.string() });
-    await transport.issueRequestAndParse(
-      new URL('https://example.com'),
-      {},
-      schema,
+    fetchStub.resolves(
+      new Response(JSON.stringify({ foo: 'bar' }), { status: 200 }),
     );
+    const schema = z.object({ foo: z.string() });
+
+    await transport.issueRequestAndParse(new URL(DOMAIN), {}, schema);
+    
     sinon.assert.calledOnce(fetchStub);
+    sinon.assert.calledWith(
+      fetchStub,
+      sinon.match({
+        headers: sinon.match((headers: Headers) => {
+          return (
+            headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}` &&
+            headers.get(ACCEPT_JSON_HEADER.key) === ACCEPT_JSON_HEADER.value
+          );
+        }),
+      }),
+    );
   });
 
+
   it('does not set authorization header if requireAccessToken is false', async () => {
-    fetchStub.callsFake(async (urlOrRequest) => {
-      const request = urlOrRequest as unknown as fetch.Request;
-      expect(request.headers.get('Authorization')).to.be.null;
-      return new Response(JSON.stringify({ foo: 'bar' }), { status: 200 });
+    fetchStub.resolves(
+      new Response(JSON.stringify({ foo: 'bar' }), { status: 200 }),
+    );
+    const schema = z.object({ foo: z.string() });
+
+    await transport.issueRequestAndParse(new URL(DOMAIN), {}, schema, {
+        requireAccessToken: false,
     });
 
-    const schema = z.object({ foo: z.string() });
-    await transport.issueRequestAndParse(
-      new URL('https://example.com'),
-      {},
-      schema,
-      { requireAccessToken: false },
-    );
     sinon.assert.calledOnce(fetchStub);
+    sinon.assert.calledWith(
+        fetchStub,
+        sinon.match((req: Request) => req.headers.get(AUTHORIZATION_HEADER.key) === null),
+    );
     sinon.assert.notCalled(getAccessTokenStub);
   });
 
@@ -86,11 +91,7 @@ describe('Transport', () => {
     );
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.deep.equal({ foo: 'bar' });
   });
 
@@ -100,11 +101,7 @@ describe('Transport', () => {
     );
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.deep.equal({ foo: 'bar' });
   });
 
@@ -117,11 +114,7 @@ describe('Transport', () => {
 
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.deep.equal({ foo: 'bar' });
 
     sinon.assert.calledTwice(fetchStub);
@@ -133,11 +126,7 @@ describe('Transport', () => {
 
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.be.rejectedWith(ColabRequestError, /Unauthorized/);
 
     sinon.assert.calledTwice(fetchStub);
@@ -151,11 +140,7 @@ describe('Transport', () => {
 
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.be.rejectedWith(ColabRequestError, /Unauthorized/);
 
     sinon.assert.notCalled(onAuthErrorStub);
@@ -169,11 +154,7 @@ describe('Transport', () => {
 
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.be.rejectedWith(ColabRequestError, /Foo error/);
   });
 
@@ -182,26 +163,18 @@ describe('Transport', () => {
 
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
     ).to.eventually.be.rejectedWith(Error);
   });
 
   it('rejects response schema mismatches', async () => {
     fetchStub.resolves(
-      new Response(JSON.stringify({ bar: 'baz' }), { status: 200 }),
+      new Response(JSON.stringify({ foo: 4 }), { status: 200 }),
     );
 
     const schema = z.object({ foo: z.string() });
     await expect(
-      transport.issueRequestAndParse(
-        new URL('https://example.com'),
-        {},
-        schema,
-      ),
-    ).to.eventually.be.rejectedWith(z.ZodError);
+      transport.issueRequestAndParse(new URL(DOMAIN), {}, schema),
+    ).to.eventually.be.rejectedWith(/foo.+received number/s);
   });
 });
