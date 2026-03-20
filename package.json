@@ -169,6 +169,12 @@
         "enablement": "colab.hasAssignedServer",
         "title": "Open Terminal",
         "icon": "$(terminal)"
+      },
+      {
+        "category": "Colab",
+        "command": "colab.importNotebookFromUrl",
+        "title": "Import notebook file from URL",
+        "icon": "${arrow-down}"
       }
     ],
     "icons": {
