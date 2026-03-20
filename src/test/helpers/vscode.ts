@@ -142,6 +142,9 @@ export interface VsCodeStub {
       };
       selection: sinon.SinonStubbedMember<TestNotebookRange>;
     };
+    showNotebookDocument: sinon.SinonStubbedMember<
+      typeof vscode.window.showNotebookDocument
+    >;
   };
   workspace: {
     getConfiguration: sinon.SinonStubbedMember<
@@ -180,6 +183,15 @@ export interface VsCodeStub {
       isWritableFileSystem: sinon.SinonStubbedMember<
         typeof vscode.workspace.fs.isWritableFileSystem
       >;
+    };
+    // Manually defining overloads because SinonStubbedMember cannot
+    // automatically resolve VS Code's multiple function signatures.
+    openNotebookDocument: sinon.SinonStub & {
+      (uri: vscode.Uri): Promise<vscode.NotebookDocument>;
+      (
+        notebookType: string,
+        content?: vscode.NotebookData,
+      ): Promise<vscode.NotebookDocument>;
     };
   };
   ExtensionMode: typeof vscode.ExtensionMode;
@@ -293,6 +305,7 @@ export function newVsCodeStub(): VsCodeStub {
       createTerminal: sinon.stub(),
       createInputBox: sinon.stub(),
       createQuickPick: sinon.stub(),
+      showNotebookDocument: sinon.stub(),
     },
     workspace: {
       getConfiguration: sinon.stub(),
@@ -314,6 +327,7 @@ export function newVsCodeStub(): VsCodeStub {
         copy: sinon.stub(),
         isWritableFileSystem: sinon.stub(),
       },
+      openNotebookDocument: sinon.stub(),
     },
     ExtensionMode: ExtensionMode,
     FileType: FileType,

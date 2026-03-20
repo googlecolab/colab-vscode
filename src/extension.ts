@@ -21,14 +21,17 @@ import {
   REMOVE_SERVER,
   SIGN_OUT,
   OPEN_TERMINAL,
+  IMPORT_NOTEBOOK_FROM_URL,
 } from './colab/commands/constants';
 import { upload } from './colab/commands/files';
+import { importNotebookFromUrl } from './colab/commands/import';
 import { notebookToolbar, appendCodeCell } from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
 import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
+import { DriveClient } from './colab/drive-client';
 import {
   deleteFile,
   download,
@@ -160,6 +163,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
     'colab-server-resource-view',
     { treeDataProvider: serverResourceTreeView },
   );
+  const driveClient = DriveClient.create();
 
   context.subscriptions.push(
     logging,
@@ -184,6 +188,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
       serverContentTreeView,
       serverResourceTreeView,
       fs,
+      driveClient,
     ),
   );
   telemetry.logActivation();
@@ -226,6 +231,7 @@ function registerCommands(
   contentTreeProvider: ContentTreeProvider,
   resourceTreeProvider: ResourceTreeProvider,
   fs: ContentsFileSystemProvider,
+  driveClient: DriveClient,
 ): Disposable[] {
   return [
     registerCommand(SIGN_OUT.id, async () => {
@@ -293,6 +299,9 @@ function registerCommands(
     }),
     registerCommand(OPEN_TERMINAL.id, async (withBackButton?: boolean) => {
       await openTerminal(vscode, assignmentManager, withBackButton);
+    }),
+    registerCommand(IMPORT_NOTEBOOK_FROM_URL.id, async (url?: string) => {
+      await importNotebookFromUrl(vscode, driveClient, url);
     }),
   ];
 }
