@@ -197,6 +197,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
       fs,
       driveClient,
     ),
+    handleUriEvents(uriHandler.onReceivedUri),
   );
   telemetry.logActivation();
 }
@@ -325,6 +326,25 @@ function registerCommand<T extends (...args: Parameters<T>) => ReturnType<T>>(
   handler: T,
 ): Disposable {
   return vscode.commands.registerCommand(command, withErrorTracking(handler));
+}
+
+/**
+ * Handles incoming URI events to the extension.
+ *
+ * @param onReceivedUri - Event listener for Uri events
+ * @returns Disposable which stops listening to URI events on disposal.
+ */
+function handleUriEvents(onReceivedUri: vscode.Event<vscode.Uri>): Disposable {
+  return onReceivedUri((uri) => {
+    // For import, URI format: vscode://<publisher>.<extension-id>/import?url=...
+    if (uri.path === '/import') {
+      const queryParams = new URLSearchParams(uri.query);
+      const colabUrl = queryParams.get('url');
+      if (colabUrl) {
+        vscode.commands.executeCommand(IMPORT_NOTEBOOK_FROM_URL.id, colabUrl);
+      }
+    }
+  });
 }
 
 function disposeAll(items: { dispose?: () => void }[]): Disposable {
