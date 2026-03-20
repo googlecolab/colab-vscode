@@ -40,7 +40,8 @@
   ],
   "activationEvents": [
     "onNotebook:jupyter-notebook",
-    "onNotebook:interactive"
+    "onNotebook:interactive",
+    "onUri"
   ],
   "contributes": {
     "configuration": {
