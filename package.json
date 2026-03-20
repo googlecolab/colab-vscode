@@ -72,10 +72,18 @@
           "default": true,
           "markdownDescription": "Enables the ability to upload files and folders to Colab servers from the explorer context menu (e.g. right-click a local file > _Upload to Colab_)."
         },
-        "colab.activityBar": {
+        "colab.activityBarContentView": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Enables the Colab activity bar where you can view servers and interact with their `/content` directories."
+        },
+        "colab.activityBarResourceView": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables the Colab activity bar where you can monitor server resources.",
+          "tags": [
+            "experimental"
+          ]
         },
         "colab.serverMounting": {
           "type": "boolean",
@@ -159,7 +167,12 @@
         "title": "Delete"
       },
       {
-        "command": "colab.refreshServersView",
+        "command": "colab.refreshServerContentView",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "colab.refreshServerResourceView",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
@@ -192,16 +205,26 @@
     "views": {
       "colab-extension": [
         {
-          "id": "colab-servers-view",
+          "id": "colab-server-content-view",
           "icon": "$(remote-explorer)",
-          "name": "Colab",
-          "when": "config.colab.activityBar"
+          "name": "Contents",
+          "when": "config.colab.activityBarContentView"
+        },
+        {
+          "id": "colab-server-resource-view",
+          "icon": "$(pulse)",
+          "name": "Resources",
+          "when": "config.colab.activityBarResourceView"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "colab-servers-view",
+        "view": "colab-server-content-view",
+        "contents": "No assigned Colab servers."
+      },
+      {
+        "view": "colab-server-resource-view",
         "contents": "No assigned Colab servers."
       }
     ],
@@ -242,7 +265,11 @@
           "when": "false"
         },
         {
-          "command": "colab.refreshServersView",
+          "command": "colab.refreshServerContentView",
+          "when": "false"
+        },
+        {
+          "command": "colab.refreshServerResourceView",
           "when": "false"
         },
         {
@@ -267,40 +294,45 @@
       ],
       "view/title": [
         {
-          "command": "colab.refreshServersView",
-          "when": "view == colab-servers-view",
+          "command": "colab.refreshServerContentView",
+          "when": "view == colab-server-content-view",
+          "group": "navigation"
+        },
+        {
+          "command": "colab.refreshServerResourceView",
+          "when": "view == colab-server-resource-view",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "colab.openTerminal",
-          "when": "view == colab-servers-view && viewItem == server && config.colab.terminal",
+          "when": "view == colab-server-content-view && viewItem == server && config.colab.terminal",
           "group": "inline"
         },
         {
           "command": "colab.newFile",
-          "when": "view == colab-servers-view",
+          "when": "view == colab-server-content-view",
           "group": "navigation"
         },
         {
           "command": "colab.newFolder",
-          "when": "view == colab-servers-view",
+          "when": "view == colab-server-content-view",
           "group": "navigation"
         },
         {
           "command": "colab.download",
-          "when": "view == colab-servers-view && viewItem == file",
+          "when": "view == colab-server-content-view && viewItem == file",
           "group": "5b_importexport"
         },
         {
           "command": "colab.renameFile",
-          "when": "view == colab-servers-view && viewItem != server",
+          "when": "view == colab-server-content-view && viewItem != server",
           "group": "7_modification"
         },
         {
           "command": "colab.deleteFile",
-          "when": "view == colab-servers-view && viewItem != server",
+          "when": "view == colab-server-content-view && viewItem != server",
           "group": "7_modification"
         }
       ]
