@@ -165,7 +165,6 @@ export class ResourceTreeProvider
       return;
     }
     this.refreshInterval = setInterval(() => {
-      log.debug('Polling for resource updates');
       this.refresh();
     }, refreshIntervalMs);
   }
