@@ -106,14 +106,14 @@ export class ResourceTreeProvider
       return [];
     }
 
-    // If the item is a 'server', return corresponding cached resources.
-    if (element?.type === ResourceType.SERVER) {
-      return this.resourceItemsByEndpoint.get(element.endpoint) ?? [];
-    }
-
-    // All resource items other than 'server' have no children.
+    // If a resource element is passed in.
     if (element) {
-      return [];
+      // All resource items other than 'server' have no children.
+      if (element.type !== ResourceType.SERVER) {
+        return [];
+      }
+      // Otherwise, return corresponding cached resources.
+      return this.resourceItemsByEndpoint.get(element.endpoint) ?? [];
     }
 
     // If no element is passed (requested at root level), fetch and cache all
