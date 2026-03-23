@@ -578,6 +578,7 @@ export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
 export enum ExperimentFlag {
   EnableTelemetry = 'enable_vscode_telemetry',
   RuntimeVersionNames = 'runtime_version_names',
+  ResourcePollIntervalMs = 'resource_poll_interval_ms',
 }
 
 /** The default values for each experiment flag. */
@@ -587,6 +588,7 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
 > = {
   [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.RuntimeVersionNames]: [],
+  [ExperimentFlag.ResourcePollIntervalMs]: 10000,
 };
 
 // Define the basic types allowed

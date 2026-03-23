@@ -12,11 +12,14 @@ import {
   TreeItem,
 } from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
+import { log } from '../../common/logging';
 import {
   AssignmentChangeEvent,
   AssignmentManager,
 } from '../../jupyter/assignments';
+import { ExperimentFlag } from '../api';
 import { ColabClient } from '../client';
+import { getFlag } from '../experiment-state';
 import { ResourceItem, ResourceType } from './resource-item';
 
 /**
@@ -35,6 +38,7 @@ export class ResourceTreeProvider
 
   private readonly assignmentListener: Disposable;
   private readonly authListener: Disposable;
+  private refreshInterval?: NodeJS.Timeout;
   // Cache of resource items by server endpoint to avoid invoking resource API
   // too frequently.
   private resourceItemsByEndpoint = new Map<string, ResourceItem[]>();
@@ -57,6 +61,7 @@ export class ResourceTreeProvider
   ) {
     this.assignmentListener = assignmentChange(this.refresh.bind(this));
     this.authListener = authChange(this.handleAuthChange.bind(this));
+    this.ensureRefreshPolling();
   }
 
   /**
@@ -66,6 +71,7 @@ export class ResourceTreeProvider
     if (this.isDisposed) {
       return;
     }
+    this.clearRefreshPolling();
     this.authListener.dispose();
     this.assignmentListener.dispose();
     this.resourceItemsByEndpoint.clear();
@@ -142,6 +148,33 @@ export class ResourceTreeProvider
     }
     this.isAuthorized = e.hasValidSession;
     this.refresh();
+    if (this.isAuthorized) {
+      this.ensureRefreshPolling();
+    } else {
+      this.clearRefreshPolling();
+    }
+  }
+
+  private ensureRefreshPolling() {
+    if (this.isDisposed || !this.isAuthorized || this.refreshInterval) {
+      return;
+    }
+
+    const refreshIntervalMs = getFlag(ExperimentFlag.ResourcePollIntervalMs);
+    if (typeof refreshIntervalMs !== 'number') {
+      return;
+    }
+    this.refreshInterval = setInterval(() => {
+      log.debug('Polling for resource updates');
+      this.refresh();
+    }, refreshIntervalMs);
+  }
+
+  private clearRefreshPolling() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = undefined;
+    }
   }
 
   private guardDisposed() {
