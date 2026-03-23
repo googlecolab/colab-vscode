@@ -12,7 +12,6 @@ import {
   TreeItem,
 } from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
-import { log } from '../../common/logging';
 import {
   AssignmentChangeEvent,
   AssignmentManager,
