@@ -92,10 +92,11 @@ export class ContentTreeProvider
   }
 
   /**
-   * Gets the TreeItem representation of a ServerItem for the tree view.
+   * Gets the {@link TreeItem} representation of a {@link ContentItem} for the
+   * tree view.
    *
-   * @param element - The ServerItem element.
-   * @returns The TreeItem representation of the ServerItem.
+   * @param element - The {@link ContentItem} element.
+   * @returns The {@link TreeItem} representation of the {@link ContentItem}.
    */
   getTreeItem(element: ContentItem): TreeItem {
     this.guardDisposed();
@@ -103,10 +104,11 @@ export class ContentTreeProvider
   }
 
   /**
-   * Gets the children of a ServerItem for the tree view.
+   * Gets the children of a {@link ContentItem} for the tree view.
    *
-   * @param element - The ServerItem element.
-   * @returns A promise that resolves to an array of ServerItem children.
+   * @param element - The {@link ContentItem} element.
+   * @returns A promise that resolves to an array of {@link ContentItem}
+   * children.
    */
   async getChildren(element?: ContentItem): Promise<ContentItem[]> {
     this.guardDisposed();
@@ -217,7 +219,7 @@ export class ContentTreeProvider
   private guardDisposed() {
     if (this.isDisposed) {
       throw new Error(
-        'ServerTreeProvider cannot be used after it has been disposed.',
+        'ContentTreeProvider cannot be used after it has been disposed.',
       );
     }
   }
