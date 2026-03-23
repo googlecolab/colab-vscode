@@ -22,19 +22,19 @@ import {
   AssignmentChangeEvent,
   AssignmentManager,
 } from '../../jupyter/assignments';
-import { ServerItem } from './server-item';
+import { ContentItem } from './content-item';
 
 /**
- * A TreeDataProvider for the server browser view.
+ * A {@link TreeDataProvider} for the server content browser view.
  *
  * Handles displaying servers and their file/folder structure. Reacts to
  * authorization state, assignment and file changes.
  */
-export class ServerTreeProvider
-  implements TreeDataProvider<ServerItem>, Disposable
+export class ContentTreeProvider
+  implements TreeDataProvider<ContentItem>, Disposable
 {
   private changeEmitter = new EventEmitter<
-    ServerItem | ServerItem[] | undefined
+    ContentItem | ContentItem[] | undefined
   >();
   readonly onDidChangeTreeData = this.changeEmitter.event;
   private readonly authListener: Disposable;
@@ -43,7 +43,7 @@ export class ServerTreeProvider
   // VS Code uses referential equality to identify TreeItems, so we need to
   // cache them to ensure we event with the same instance as returned by
   // `getChildren`.
-  private serverItemsByUri = new Map<string, ServerItem>();
+  private contentItemsByUri = new Map<string, ContentItem>();
   private isAuthorized = false;
   private isDisposed = false;
 
@@ -78,7 +78,7 @@ export class ServerTreeProvider
     this.authListener.dispose();
     this.assignmentListener.dispose();
     this.fileListener.dispose();
-    this.serverItemsByUri.clear();
+    this.contentItemsByUri.clear();
     this.isDisposed = true;
   }
 
@@ -87,7 +87,7 @@ export class ServerTreeProvider
    */
   refresh(): void {
     this.guardDisposed();
-    this.serverItemsByUri.clear();
+    this.contentItemsByUri.clear();
     this.changeEmitter.fire(undefined);
   }
 
@@ -97,7 +97,7 @@ export class ServerTreeProvider
    * @param element - The ServerItem element.
    * @returns The TreeItem representation of the ServerItem.
    */
-  getTreeItem(element: ServerItem): TreeItem {
+  getTreeItem(element: ContentItem): TreeItem {
     this.guardDisposed();
     return element;
   }
@@ -108,33 +108,33 @@ export class ServerTreeProvider
    * @param element - The ServerItem element.
    * @returns A promise that resolves to an array of ServerItem children.
    */
-  async getChildren(element?: ServerItem): Promise<ServerItem[]> {
+  async getChildren(element?: ContentItem): Promise<ContentItem[]> {
     this.guardDisposed();
     if (!this.isAuthorized) {
       return [];
     }
     if (element?.uri) {
-      return this.getServerItems(element.uri);
+      return this.getContentItems(element.uri);
     }
     const servers = await this.assignments.getServers('extension');
-    const items: ServerItem[] = [];
+    const items: ContentItem[] = [];
     for (const s of servers) {
       const rootUri = Uri.parse(`${this.scheme}://${s.endpoint}/content`);
       const uriString = rootUri.toString();
-      const existing = this.serverItemsByUri.get(uriString);
+      const existing = this.contentItemsByUri.get(uriString);
       if (existing) {
         items.push(existing);
         continue;
       }
 
-      const root = new ServerItem(
+      const root = new ContentItem(
         s.endpoint,
         s.label,
         FileType.Directory,
         rootUri,
       );
       items.push(root);
-      this.serverItemsByUri.set(uriString, root);
+      this.contentItemsByUri.set(uriString, root);
     }
     return items;
   }
@@ -148,7 +148,7 @@ export class ServerTreeProvider
   }
 
   private handleFileChange(events: FileChangeEvent[]) {
-    const items = new Set<ServerItem>();
+    const items = new Set<ContentItem>();
     for (const event of events) {
       if (event.type === FileChangeType.Changed) {
         // File mutations don't affect the tree structure.
@@ -162,7 +162,7 @@ export class ServerTreeProvider
         this.refresh();
         return;
       }
-      const item = this.serverItemsByUri.get(parentUri.toString());
+      const item = this.contentItemsByUri.get(parentUri.toString());
       if (item) {
         items.add(item);
       }
@@ -172,7 +172,7 @@ export class ServerTreeProvider
     }
   }
 
-  private async getServerItems(uri: Uri): Promise<ServerItem[]> {
+  private async getContentItems(uri: Uri): Promise<ContentItem[]> {
     try {
       const entries = await workspace.fs.readDirectory(uri);
 
@@ -189,13 +189,13 @@ export class ServerTreeProvider
       return entries.map(([name, type]) => {
         const itemUri = Uri.joinPath(uri, name);
         const uriString = itemUri.toString();
-        const existing = this.serverItemsByUri.get(uriString);
+        const existing = this.contentItemsByUri.get(uriString);
         if (existing?.type === type) {
           return existing;
         }
 
-        const item = new ServerItem(uri.authority, name, type, itemUri);
-        this.serverItemsByUri.set(uriString, item);
+        const item = new ContentItem(uri.authority, name, type, itemUri);
+        this.contentItemsByUri.set(uriString, item);
         return item;
       });
     } catch (error) {
@@ -205,11 +205,11 @@ export class ServerTreeProvider
   }
 
   private removeItemsRecursively(uriString: string) {
-    this.serverItemsByUri.delete(uriString);
+    this.contentItemsByUri.delete(uriString);
     // Also remove any children that might be in the cache.
-    for (const key of this.serverItemsByUri.keys()) {
+    for (const key of this.contentItemsByUri.keys()) {
       if (key.startsWith(uriString + '/')) {
-        this.serverItemsByUri.delete(key);
+        this.contentItemsByUri.delete(key);
       }
     }
   }

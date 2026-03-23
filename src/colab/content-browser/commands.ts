@@ -5,7 +5,7 @@
  */
 
 import vscode, { Uri } from 'vscode';
-import type { ServerItem } from './server-item';
+import type { ContentItem } from './content-item';
 
 /**
  * Creates a new file on the Colab server.
@@ -17,7 +17,7 @@ import type { ServerItem } from './server-item';
  * @param vs - The VS Code API instance.
  * @param contextItem - The tree view context item.
  */
-export async function newFile(vs: typeof vscode, contextItem: ServerItem) {
+export async function newFile(vs: typeof vscode, contextItem: ContentItem) {
   const destination = folderOrParent(vs, contextItem);
   const name = await vs.window.showInputBox({
     title: 'New File',
@@ -53,7 +53,7 @@ export async function newFile(vs: typeof vscode, contextItem: ServerItem) {
  * @param vs - The VS Code API instance.
  * @param contextItem - The tree view context item.
  */
-export async function newFolder(vs: typeof vscode, contextItem: ServerItem) {
+export async function newFolder(vs: typeof vscode, contextItem: ContentItem) {
   const destination = folderOrParent(vs, contextItem);
   const name = await vs.window.showInputBox({
     title: 'New Folder',
@@ -80,7 +80,7 @@ export async function newFolder(vs: typeof vscode, contextItem: ServerItem) {
  * @param vs - The VS Code API instance.
  * @param contextItem - The tree view context item.
  */
-export async function download(vs: typeof vscode, contextItem: ServerItem) {
+export async function download(vs: typeof vscode, contextItem: ContentItem) {
   if (contextItem.type !== vs.FileType.File) {
     return;
   }
@@ -122,7 +122,7 @@ export async function download(vs: typeof vscode, contextItem: ServerItem) {
  * @param contextItem - The tree view context item.
  */
 // TODO: Look into preserving expanded state of renamed folders.
-export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
+export async function renameFile(vs: typeof vscode, contextItem: ContentItem) {
   const oldName = contextItem.uri.path.split('/').pop() ?? '';
   const destination = vs.Uri.joinPath(contextItem.uri, '..');
 
@@ -159,7 +159,7 @@ export async function renameFile(vs: typeof vscode, contextItem: ServerItem) {
  * @param vs - The VS Code API instance.
  * @param contextItem - The tree view context item.
  */
-export async function deleteFile(vs: typeof vscode, contextItem: ServerItem) {
+export async function deleteFile(vs: typeof vscode, contextItem: ContentItem) {
   const name = contextItem.uri.path.split('/').pop() ?? '';
   const confirmation = await vs.window.showWarningMessage(
     `Are you sure you want to delete "${name}"?`,
@@ -207,7 +207,7 @@ function validateName(value: string): string | undefined {
   return undefined;
 }
 
-function folderOrParent(vs: typeof vscode, item: ServerItem): Uri {
+function folderOrParent(vs: typeof vscode, item: ContentItem): Uri {
   return item.contextValue === 'file'
     ? vs.Uri.joinPath(item.uri, '..')
     : item.uri;

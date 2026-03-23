@@ -28,18 +28,18 @@ import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
-import { ExperimentStateProvider } from './colab/experiment-state';
-import { ServerKeepAliveController } from './colab/keep-alive';
-import { ResourceTreeProvider } from './colab/resource-monitor/resource-tree';
 import {
   deleteFile,
   download,
   newFile,
   newFolder,
   renameFile,
-} from './colab/server-browser/commands';
-import { ServerItem } from './colab/server-browser/server-item';
-import { ServerTreeProvider } from './colab/server-browser/server-tree';
+} from './colab/content-browser/commands';
+import { ContentItem } from './colab/content-browser/content-item';
+import { ContentTreeProvider } from './colab/content-browser/content-tree';
+import { ExperimentStateProvider } from './colab/experiment-state';
+import { ServerKeepAliveController } from './colab/keep-alive';
+import { ResourceTreeProvider } from './colab/resource-monitor/resource-tree';
 import { ServerPicker } from './colab/server-picker';
 import { CONFIG } from './colab-config';
 import { initializeLogger, log } from './common/logging';
@@ -117,7 +117,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
     assignmentManager,
   );
   const fs = new ContentsFileSystemProvider(vscode, jupyterConnections);
-  const serverContentTreeView = new ServerTreeProvider(
+  const serverContentTreeView = new ContentTreeProvider(
     assignmentManager,
     authProvider.onDidChangeSessions,
     assignmentManager.onDidAssignmentsChange,
@@ -222,7 +222,7 @@ function watchConsumption(colab: ColabClient): {
 function registerCommands(
   authProvider: GoogleAuthProvider,
   assignmentManager: AssignmentManager,
-  contentTreeProvider: ServerTreeProvider,
+  contentTreeProvider: ContentTreeProvider,
   resourceTreeProvider: ResourceTreeProvider,
   fs: ContentsFileSystemProvider,
 ): Disposable[] {
@@ -275,19 +275,19 @@ function registerCommands(
     registerCommand('colab.refreshServerResourceView', () => {
       resourceTreeProvider.refresh();
     }),
-    registerCommand('colab.newFile', (contextItem: ServerItem) => {
+    registerCommand('colab.newFile', (contextItem: ContentItem) => {
       void newFile(vscode, contextItem);
     }),
-    registerCommand('colab.newFolder', (contextItem: ServerItem) => {
+    registerCommand('colab.newFolder', (contextItem: ContentItem) => {
       void newFolder(vscode, contextItem);
     }),
-    registerCommand('colab.download', (contextItem: ServerItem) => {
+    registerCommand('colab.download', (contextItem: ContentItem) => {
       void download(vscode, contextItem);
     }),
-    registerCommand('colab.renameFile', (contextItem: ServerItem) => {
+    registerCommand('colab.renameFile', (contextItem: ContentItem) => {
       void renameFile(vscode, contextItem);
     }),
-    registerCommand('colab.deleteFile', (contextItem: ServerItem) => {
+    registerCommand('colab.deleteFile', (contextItem: ContentItem) => {
       void deleteFile(vscode, contextItem);
     }),
     registerCommand(OPEN_TERMINAL.id, async (withBackButton?: boolean) => {
