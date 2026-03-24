@@ -93,7 +93,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
     new URL(CONFIG.ColabGapiDomain),
     { appName: vscode.env.appName, extensionVersion: packageInfo.version },
     () =>
-      GoogleAuthProvider.getOrCreateSession(vscode, [...REQUIRED_SCOPES]).then(
+      GoogleAuthProvider.getOrCreateSession(vscode, REQUIRED_SCOPES).then(
         (session) => session.accessToken,
       ),
     () => authProvider.signOut(),
