@@ -80,7 +80,7 @@
         "colab.activityBarResourceView": {
           "type": "boolean",
           "default": false,
-          "description": "Enables the Colab activity bar where you can monitor server resources.",
+          "description": "Enables the Colab activity bar where you can monitor server resources (RAM and disk usage).",
           "tags": [
             "experimental"
           ]
