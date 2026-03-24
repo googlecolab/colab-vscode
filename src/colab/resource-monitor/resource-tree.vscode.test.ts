@@ -48,6 +48,8 @@ const DEFAULT_GPU: GpuInfo = {
   memoryUsedBytes: 10 * 1024 * 1024 * 1024,
 };
 
+const TEST_RESOURCE_POLL_INTERVAL_MS = 5000;
+
 describe('ResourceTreeProvider', () => {
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
@@ -81,6 +83,10 @@ describe('ResourceTreeProvider', () => {
     authChangeEmitter = new TestEventEmitter<AuthChangeEvent>();
     assignmentChangeEmitter = new TestEventEmitter<AssignmentChangeEvent>();
 
+    FLAGS_TEST_ONLY.setFlagForTest(
+      ExperimentFlag.ResourcePollIntervalMs,
+      TEST_RESOURCE_POLL_INTERVAL_MS,
+    );
     tree = new ResourceTreeProvider(
       assignmentStub,
       assignmentChangeEmitter.event,
@@ -90,6 +96,8 @@ describe('ResourceTreeProvider', () => {
   });
 
   afterEach(() => {
+    FLAGS_TEST_ONLY.resetFlagsForTest();
+    tree.dispose();
     sinon.restore();
   });
 
@@ -214,22 +222,15 @@ describe('ResourceTreeProvider', () => {
   });
 
   describe('refresh polling', () => {
-    const TEST_RESOURCE_POLL_INTERVAL_MS = 5000;
-
     let clock: SinonFakeTimers;
     let refreshSpy: sinon.SinonSpy;
 
     beforeEach(() => {
-      FLAGS_TEST_ONLY.setFlagForTest(
-        ExperimentFlag.ResourcePollIntervalMs,
-        TEST_RESOURCE_POLL_INTERVAL_MS,
-      );
       clock = sinon.useFakeTimers();
       refreshSpy = sinon.spy(tree, 'refresh');
     });
 
     afterEach(() => {
-      FLAGS_TEST_ONLY.resetFlagsForTest();
       clock.restore();
     });
 

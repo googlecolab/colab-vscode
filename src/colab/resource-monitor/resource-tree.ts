@@ -12,6 +12,7 @@ import {
   TreeItem,
 } from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
+import { OverrunPolicy, SequentialTaskRunner } from '../../common/task-runner';
 import {
   AssignmentChangeEvent,
   AssignmentManager,
@@ -37,7 +38,7 @@ export class ResourceTreeProvider
 
   private readonly assignmentListener: Disposable;
   private readonly authListener: Disposable;
-  private refreshInterval?: NodeJS.Timeout;
+  private readonly refreshRunner?: SequentialTaskRunner;
   // Cache of resource items by server endpoint to avoid invoking resource API
   // too frequently.
   private resourceItemsByEndpoint = new Map<string, ResourceItem[]>();
@@ -59,9 +60,30 @@ export class ResourceTreeProvider
     private readonly client: ColabClient,
   ) {
     // TODO: Handle rapid assignment changes and race conditions
-    this.assignmentListener = assignmentChange(this.refresh.bind(this));
+    this.assignmentListener = assignmentChange(
+      this.refresh.bind(this, undefined),
+    );
     this.authListener = authChange(this.handleAuthChange.bind(this));
-    this.ensureRefreshPolling();
+
+    // Read poll interval from experiment config once at runner initialization.
+    const refreshIntervalMs = getFlag(ExperimentFlag.ResourcePollIntervalMs);
+    if (typeof refreshIntervalMs === 'number') {
+      this.refreshRunner = new SequentialTaskRunner(
+        {
+          intervalTimeoutMs: refreshIntervalMs,
+          taskTimeoutMs: REFRESH_TIMEOUT_MS,
+          abandonGraceMs: 0, // Nothing to cleanup, abandon immediately.
+        },
+        {
+          name: ResourceTreeProvider.name,
+          run: (signal: AbortSignal) => {
+            this.refresh.call(this, signal);
+            return Promise.resolve();
+          },
+        },
+        OverrunPolicy.AllowToComplete,
+      );
+    }
   }
 
   /**
@@ -71,7 +93,7 @@ export class ResourceTreeProvider
     if (this.isDisposed) {
       return;
     }
-    this.clearRefreshPolling();
+    this.refreshRunner?.dispose();
     this.authListener.dispose();
     this.assignmentListener.dispose();
     this.resourceItemsByEndpoint.clear();
@@ -80,8 +102,13 @@ export class ResourceTreeProvider
 
   /**
    * Refreshes the tree view, optionally for specific items.
+   *
+   * @param signal - Optional signal to abort the refresh if set.
    */
-  refresh(): void {
+  refresh(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      return;
+    }
     this.guardDisposed();
     this.resourceItemsByEndpoint.clear();
     this.changeEmitter.fire(undefined);
@@ -150,30 +177,9 @@ export class ResourceTreeProvider
     this.isAuthorized = e.hasValidSession;
     this.refresh();
     if (this.isAuthorized) {
-      this.ensureRefreshPolling();
+      this.refreshRunner?.start();
     } else {
-      this.clearRefreshPolling();
-    }
-  }
-
-  private ensureRefreshPolling() {
-    if (this.isDisposed || !this.isAuthorized || this.refreshInterval) {
-      return;
-    }
-
-    const refreshIntervalMs = getFlag(ExperimentFlag.ResourcePollIntervalMs);
-    if (typeof refreshIntervalMs !== 'number') {
-      return;
-    }
-    this.refreshInterval = setInterval(() => {
-      this.refresh();
-    }, refreshIntervalMs);
-  }
-
-  private clearRefreshPolling() {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = undefined;
+      this.refreshRunner?.stop();
     }
   }
 
@@ -185,3 +191,6 @@ export class ResourceTreeProvider
     }
   }
 }
+
+// The refresh() call should be instant, but giving it a 2s timeout to be safe.
+const REFRESH_TIMEOUT_MS = 2 * 1000; // 2 seconds.
