@@ -55,6 +55,7 @@ export class ResourceTreeProvider
     authChange: Event<AuthChangeEvent>,
     private readonly client: ColabClient,
   ) {
+    // TODO: Handle rapid assignment changes and race conditions
     this.assignmentListener = assignmentChange(this.refresh.bind(this));
     this.authListener = authChange(this.handleAuthChange.bind(this));
   }
@@ -118,6 +119,7 @@ export class ResourceTreeProvider
 
     // If no element is passed (requested at root level), fetch and cache all
     // servers and their resources.
+    // TODO: Handle resources fetch error for single server gracefully
     const servers = await this.assignments.getServers('extension');
     const serverItems: ResourceItem[] = [];
     for (const s of servers) {

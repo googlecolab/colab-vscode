@@ -37,7 +37,7 @@ describe('ResourceItem', () => {
         new ResourceItem(
           SERVER_ENDPOINT,
           /* label= */ 'System RAM: 20.00 / 100.00 GB',
-          ResourceType.RAM,
+          ResourceType.MEMORY,
           /* tooltip= */ '20.00%',
         ),
       );
@@ -53,7 +53,7 @@ describe('ResourceItem', () => {
         new ResourceItem(
           SERVER_ENDPOINT,
           /* label= */ 'System RAM: 0.00 / 0.00 GB',
-          ResourceType.RAM,
+          ResourceType.MEMORY,
         ),
       );
     });
@@ -73,6 +73,11 @@ describe('ResourceItem', () => {
         name: 'with path label',
         label: '/dev/sda',
         expectedLabel: 'Disk [ sda ]:',
+      },
+      {
+        name: 'with root path label',
+        label: '/',
+        expectedLabel: 'Disk [  ]:',
       },
     ];
     tests.forEach(({ name, label, expectedLabel }) => {
