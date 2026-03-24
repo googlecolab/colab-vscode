@@ -7,13 +7,13 @@
 import { expect } from 'chai';
 import { TreeItemCollapsibleState, Uri } from 'vscode';
 import { FileType } from '../../test/helpers/vscode';
-import { ServerItem } from './server-item';
+import { ContentItem } from './content-item';
 
-describe('ServerItem', () => {
+describe('ContentItem', () => {
   it('constructs servers', () => {
     const serverUri = Uri.parse('colab://m-s-foo/content');
 
-    const item = new ServerItem(
+    const item = new ContentItem(
       'm-s-foo',
       'Foo Server',
       FileType.Directory,
@@ -35,7 +35,7 @@ describe('ServerItem', () => {
   it('constructs files', () => {
     const serverUri = Uri.parse('colab://m-s-foo/bar.txt');
 
-    const item = new ServerItem(
+    const item = new ContentItem(
       'm-s-foo',
       'Foo Server',
       FileType.File,
@@ -62,7 +62,7 @@ describe('ServerItem', () => {
   it('constructs folders', () => {
     const serverUri = Uri.parse('colab://m-s-foo/bar');
 
-    const item = new ServerItem(
+    const item = new ContentItem(
       'm-s-foo',
       'Foo Server',
       FileType.Directory,

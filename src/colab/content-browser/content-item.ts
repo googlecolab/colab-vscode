@@ -7,7 +7,7 @@
 import { FileType, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 
 /**
- * A TreeItem representing a file, folder or the server itself.
+ * A {@link TreeItem} representing a file, folder, or the server itself.
  *
  * {@link TreeItem.contextValue} is set as follows:
  *
@@ -15,7 +15,7 @@ import { FileType, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
  * - 'folder' for directories
  * - 'file' for files
  */
-export class ServerItem extends TreeItem {
+export class ContentItem extends TreeItem {
   override contextValue: 'server' | 'folder' | 'file';
 
   /**
