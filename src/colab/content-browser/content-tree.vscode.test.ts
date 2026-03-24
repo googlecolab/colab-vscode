@@ -26,8 +26,8 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../headers';
-import { ServerItem } from './server-item';
-import { ServerTreeProvider } from './server-tree';
+import { ContentItem } from './content-item';
+import { ContentTreeProvider } from './content-tree';
 
 const TEST_SCHEME = 'colab-test';
 
@@ -55,13 +55,13 @@ function buildTestUri(filePath: string): Uri {
 
 const DEFAULT_SERVER_URI = buildTestUri('content');
 
-describe('ServerTreeProvider', () => {
+describe('ContentTreeProvider', () => {
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
   let authChangeEmitter: TestEventEmitter<AuthChangeEvent>;
   let assignmentChangeEmitter: TestEventEmitter<AssignmentChangeEvent>;
   let fileChangeEmitter: TestEventEmitter<FileChangeEvent[]>;
   let fsStub: SinonStubbedInstance<ContentsFileSystemProvider>;
-  let tree: ServerTreeProvider;
+  let tree: ContentTreeProvider;
   let fsDisposable: vscode.Disposable;
 
   enum AuthState {
@@ -100,7 +100,7 @@ describe('ServerTreeProvider', () => {
       { isCaseSensitive: true },
     );
 
-    tree = new ServerTreeProvider(
+    tree = new ContentTreeProvider(
       assignmentStub,
       authChangeEmitter.event,
       assignmentChangeEmitter.event,
@@ -340,7 +340,7 @@ describe('ServerTreeProvider', () => {
 
   describe('file changes', () => {
     let onDidChangeTreeData: sinon.SinonStub<
-      [ServerItem | ServerItem[] | undefined]
+      [ContentItem | ContentItem[] | undefined]
     >;
 
     beforeEach(async () => {

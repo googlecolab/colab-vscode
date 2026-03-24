@@ -18,10 +18,10 @@ import {
   newFolder,
   renameFile,
 } from './commands';
-import type { ServerItem } from './server-item';
+import type { ContentItem } from './content-item';
 
-const CONTENT_ROOT = buildServerItem('folder', 'colab://m-s-foo/content');
-const FILE_ITEM = buildServerItem('file', 'colab://m-s-foo/content/foo.txt');
+const CONTENT_ROOT = buildContentItem('folder', 'colab://m-s-foo/content');
+const FILE_ITEM = buildContentItem('file', 'colab://m-s-foo/content/foo.txt');
 const SOME_FILE: FileStat = {
   type: FileType.File,
   ctime: 1,
@@ -29,7 +29,7 @@ const SOME_FILE: FileStat = {
   size: 3,
 };
 
-function buildServerItem(type: 'file' | 'folder', uri: string): ServerItem {
+function buildContentItem(type: 'file' | 'folder', uri: string): ContentItem {
   const u = TestUri.parse(uri);
   return {
     endpoint: u.authority,
