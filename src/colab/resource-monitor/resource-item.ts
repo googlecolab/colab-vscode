@@ -12,13 +12,13 @@ import { Disk, GpuInfo, Memory } from '../api';
  * Types of resources that can be displayed in resource monitor tree view.
  */
 export enum ResourceType {
-  // The server itself, shown as the root of the tree.
+  /** The server itself, shown as the root of the tree. */
   SERVER = 'server',
-  // System RAM resource.
-  RAM = 'ram',
-  // Disk resource.
+  /** System RAM resource. */
+  MEMORY = 'memory',
+  /** Disk resource. */
   DISK = 'disk',
-  // GPU RAM resource, applicable for GPU accelerators only.
+  /** GPU RAM resource, applicable for GPU accelerators only. */
   GPU = 'gpu',
 }
 
@@ -47,9 +47,11 @@ export class ResourceItem extends TreeItem {
    */
   static fromMemory(endpoint: string, memory: Memory): ResourceItem {
     const usedBytes = memory.totalBytes - memory.freeBytes;
-    const tooltip = percentUsedString(usedBytes, memory.totalBytes);
-    const label = `System RAM: ${bytesToGbString(usedBytes)} / ${bytesToGbString(memory.totalBytes)} GB`;
-    return new ResourceItem(endpoint, label, ResourceType.RAM, tooltip);
+    const used = bytesToGbString(usedBytes);
+    const total = bytesToGbString(memory.totalBytes);
+    const label = `System RAM: ${used} / ${total} GB`;
+    const tooltip = asPercentUsed(usedBytes, memory.totalBytes);
+    return new ResourceItem(endpoint, label, ResourceType.MEMORY, tooltip);
   }
 
   /**
@@ -64,15 +66,14 @@ export class ResourceItem extends TreeItem {
     let diskSubLabel = '';
     if (filesystem.label?.length && filesystem.label !== 'kernel') {
       const diskName = filesystem.label.split('/').pop();
-      if (diskName) {
+      if (diskName !== undefined) {
         diskSubLabel = ` [ ${diskName} ]`;
       }
     }
-    const tooltip = percentUsedString(
-      filesystem.usedBytes,
-      filesystem.totalBytes,
-    );
-    const label = `Disk${diskSubLabel}: ${bytesToGbString(filesystem.usedBytes)} / ${bytesToGbString(filesystem.totalBytes)} GB`;
+    const used = bytesToGbString(filesystem.usedBytes);
+    const total = bytesToGbString(filesystem.totalBytes);
+    const label = `Disk${diskSubLabel}: ${used} / ${total} GB`;
+    const tooltip = asPercentUsed(filesystem.usedBytes, filesystem.totalBytes);
     return new ResourceItem(endpoint, label, ResourceType.DISK, tooltip);
   }
 
@@ -94,11 +95,13 @@ export class ResourceItem extends TreeItem {
       }),
       { memoryUsedBytes: 0, memoryTotalBytes: 0 },
     );
-    const tooltip = percentUsedString(
+    const used = bytesToGbString(gpuUsage.memoryUsedBytes);
+    const total = bytesToGbString(gpuUsage.memoryTotalBytes);
+    const label = `GPU RAM: ${used} / ${total} GB`;
+    const tooltip = asPercentUsed(
       gpuUsage.memoryUsedBytes,
       gpuUsage.memoryTotalBytes,
     );
-    const label = `GPU RAM: ${bytesToGbString(gpuUsage.memoryUsedBytes)} / ${bytesToGbString(gpuUsage.memoryTotalBytes)} GB`;
     return new ResourceItem(endpoint, label, ResourceType.GPU, tooltip);
   }
 
@@ -129,7 +132,7 @@ function bytesToGbString(bytes: number, precision = 2): string {
   return (bytes / (1024 * 1024 * 1024)).toFixed(precision);
 }
 
-function percentUsedString(
+function asPercentUsed(
   usedBytes: number,
   totalBytes: number,
   precision = 2,
