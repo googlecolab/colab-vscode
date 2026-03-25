@@ -5,14 +5,14 @@
  */
 import fetch, { Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
-import { DriveFileMetadata, DriveFileMetadataSchema } from './api';
-import { fetchAndParse } from './fetch-utils';
+import { fetchAndParse } from '../common/fetch-utils';
 import {
   buildFetchChain,
   createAcceptJsonMiddleware,
   createAuthMiddleware,
   createErrorMiddleware,
-} from './middleware';
+} from '../common/middleware';
+import { DriveFileMetadata, DriveFileMetadataSchema } from './api';
 
 const FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
 

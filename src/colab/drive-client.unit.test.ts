@@ -55,7 +55,8 @@ describe('DriveClient', () => {
           return (
             req.method === 'GET' &&
             req.url === `${FILES_ENDPOINT}/${fileId}?alt=media` &&
-            req.headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            req.headers.get(AUTHORIZATION_HEADER.key) ===
+              `Bearer ${BEARER_TOKEN}`
           );
         }),
       );
@@ -90,7 +91,8 @@ describe('DriveClient', () => {
           return (
             req.method === 'GET' &&
             req.url === `${FILES_ENDPOINT}/${fileId}?fields=name` &&
-            req.headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            req.headers.get(AUTHORIZATION_HEADER.key) ===
+              `Bearer ${BEARER_TOKEN}`
           );
         }),
       );
@@ -126,7 +128,8 @@ describe('DriveClient', () => {
           return (
             req.method === 'GET' &&
             req.url === `${FILES_ENDPOINT}/${fileId}?fields=name` &&
-            req.headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            req.headers.get(AUTHORIZATION_HEADER.key) ===
+              `Bearer ${BEARER_TOKEN}`
           );
         }),
       );
