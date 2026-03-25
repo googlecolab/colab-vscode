@@ -28,6 +28,7 @@ import {
   ListedAssignment,
 } from './api';
 import {
+  AcceleratorUnavailableError,
   ColabClient,
   DenylistedError,
   InsufficientQuotaError,
@@ -442,6 +443,29 @@ describe('ColabClient', () => {
         await expect(
           client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
         ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
+      });
+
+      it('rejects when accelerator is unavailable', async () => {
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'POST',
+              host: COLAB_HOST,
+              path: ASSIGN_PATH,
+              queryParams,
+              otherHeaders: {
+                'X-Goog-Colab-Token': 'mock-xsrf-token',
+              },
+            }),
+          )
+          .resolves(new Response(undefined, { status: 503 }));
+
+        await expect(
+          client.assign(NOTEBOOK_HASH, {
+            variant: Variant.GPU,
+            accelerator: 'H100',
+          }),
+        ).to.eventually.be.rejectedWith(AcceleratorUnavailableError, /H100/);
       });
 
       for (const quotaTest of [

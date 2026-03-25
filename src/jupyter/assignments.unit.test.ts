@@ -24,6 +24,7 @@ import {
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
+  AcceleratorUnavailableError,
 } from '../colab/client';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
@@ -1011,6 +1012,101 @@ describe('AssignmentManager', () => {
         sinon.assert.calledOnceWithMatch(
           vsCodeStub.window.showErrorMessage as sinon.SinonStub,
           /Unable to assign .* 👨‍⚖️/,
+        );
+      });
+    });
+
+    describe('with an accelerator that is unavailable', () => {
+      beforeEach(() => {
+        colabClientStub.getUserInfo.resolves({
+          subscriptionTier: SubscriptionTier.PRO,
+          paidComputeUnitsBalance: 1,
+          eligibleAccelerators: [
+            { variant: Variant.GPU, models: ['T4', 'V100', 'A100', 'H100'] },
+          ],
+          ineligibleAccelerators: [],
+        });
+
+        colabClientStub.assign
+          .withArgs(sinon.match(isUUID), {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: undefined,
+            version: undefined,
+          })
+          .rejects(new AcceleratorUnavailableError('A100'));
+      });
+
+      it('falls back to the next available accelerator', async () => {
+        colabClientStub.assign
+          .withArgs(sinon.match(isUUID), {
+            variant: Variant.GPU,
+            accelerator: 'T4',
+            shape: undefined,
+            version: undefined,
+          })
+          .resolves({
+            assignment: { ...defaultAssignment, accelerator: 'T4' },
+            isNew: false,
+          });
+
+        const result = await assignmentManager.assignServer({
+          label: 'Colab GPU A100',
+          variant: Variant.GPU,
+          accelerator: 'A100',
+        });
+
+        expect(result.accelerator).to.equal('T4');
+        sinon.assert.calledWithMatch(
+          vsCodeStub.window.showInformationMessage as sinon.SinonStub,
+          /Requested accelerator "A100" is unavailable, assigned "T4"/,
+        );
+      });
+
+      it('falls back multiple times to the next available accelerator', async () => {
+        colabClientStub.assign
+          .withArgs(
+            sinon.match(isUUID),
+            sinon.match({
+              accelerator: sinon.match.in(['A100', 'T4', 'V100']),
+            }),
+          )
+          .rejects(new AcceleratorUnavailableError('A100'))
+          .withArgs(sinon.match(isUUID), sinon.match({ accelerator: 'H100' }))
+          .resolves({
+            assignment: { ...defaultAssignment, accelerator: 'H100' },
+            isNew: false,
+          });
+
+        const result = await assignmentManager.assignServer({
+          label: 'Colab GPU A100',
+          variant: Variant.GPU,
+          accelerator: 'A100',
+        });
+
+        expect(result.accelerator).to.equal('H100');
+        sinon.assert.calledWithMatch(
+          vsCodeStub.window.showInformationMessage as sinon.SinonStub,
+          /Requested accelerator "A100" is unavailable, assigned "H100"/,
+        );
+      });
+
+      it('throws an error if all fallbacks fail', async () => {
+        colabClientStub.assign.rejects(new AcceleratorUnavailableError('any'));
+
+        await expect(
+          assignmentManager.assignServer({
+            label: 'Colab GPU A100',
+            variant: Variant.GPU,
+            accelerator: 'A100',
+          }),
+        ).to.be.rejectedWith(
+          /All GPU accelerators are unavailable: A100, T4, V100/,
+        );
+
+        sinon.assert.calledWithMatch(
+          vsCodeStub.window.showErrorMessage as sinon.SinonStub,
+          /Unable to assign server. All GPU accelerators are unavailable: A100, T4, V100/,
         );
       });
     });
