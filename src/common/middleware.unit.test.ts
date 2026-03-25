@@ -3,6 +3,7 @@
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
+
 import { expect } from 'chai';
 import { Request, Response } from 'node-fetch';
 import * as sinon from 'sinon';
