@@ -5,7 +5,7 @@
  */
 
 /**
- * API types for interacting with Google Drive's backends.
+ * API types for interacting with Google Drive's APIs.
  */
 
 import { z } from 'zod';
