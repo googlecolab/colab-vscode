@@ -12,11 +12,13 @@ import {
   TreeItem,
 } from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
+import { log } from '../../common/logging';
 import { OverrunPolicy, SequentialTaskRunner } from '../../common/task-runner';
 import {
   AssignmentChangeEvent,
   AssignmentManager,
 } from '../../jupyter/assignments';
+import { ColabAssignedServer } from '../../jupyter/servers';
 import { ExperimentFlag } from '../api';
 import { ColabClient } from '../client';
 import { getFlag } from '../experiment-state';
@@ -147,23 +149,38 @@ export class ResourceTreeProvider
 
     // If no element is passed (requested at root level), fetch and cache all
     // servers and their resources.
-    // TODO: Handle resources fetch error for single server gracefully
     const servers = await this.assignments.getServers('extension');
-    const serverItems: ResourceItem[] = [];
-    for (const s of servers) {
-      const resources = await this.client.getResources(s);
-      const resourceItems: ResourceItem[] = [];
-      resourceItems.push(ResourceItem.fromMemory(s.endpoint, resources.memory));
-      if (resources.gpus.length > 0) {
-        resourceItems.push(ResourceItem.fromGpus(s.endpoint, resources.gpus));
-      }
-      for (const disk of resources.disks) {
-        resourceItems.push(ResourceItem.fromDisk(s.endpoint, disk));
-      }
-      this.resourceItemsByEndpoint.set(s.endpoint, resourceItems);
-      serverItems.push(ResourceItem.fromServer(s));
+    return Promise.all(
+      servers.map(async (s) => {
+        try {
+          await this.fetchAndCacheResourceItems(s);
+        } catch (e: unknown) {
+          const errLabel = 'Failed to fetch resources';
+          log.error(`${errLabel}:`, e);
+          // Add an error item when fetch failed
+          this.resourceItemsByEndpoint.set(s.endpoint, [
+            new ResourceItem(s.endpoint, errLabel, ResourceType.ERROR),
+          ]);
+        }
+        return ResourceItem.fromServer(s);
+      }),
+    );
+  }
+
+  private async fetchAndCacheResourceItems(
+    server: ColabAssignedServer,
+  ): Promise<void> {
+    const endpoint = server.endpoint;
+    const resources = await this.client.getResources(server);
+    const resourceItems: ResourceItem[] = [];
+    resourceItems.push(ResourceItem.fromMemory(endpoint, resources.memory));
+    if (resources.gpus.length > 0) {
+      resourceItems.push(ResourceItem.fromGpus(endpoint, resources.gpus));
     }
-    return serverItems;
+    for (const disk of resources.disks) {
+      resourceItems.push(ResourceItem.fromDisk(endpoint, disk));
+    }
+    this.resourceItemsByEndpoint.set(endpoint, resourceItems);
   }
 
   private handleAuthChange(e: AuthChangeEvent) {

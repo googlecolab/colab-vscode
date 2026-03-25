@@ -17,7 +17,7 @@ import { TestEventEmitter } from '../../test/helpers/events';
 import { ExperimentFlag, Disk, GpuInfo, Memory } from '../api';
 import { ColabClient } from '../client';
 import { TEST_ONLY as FLAGS_TEST_ONLY } from '../experiment-state';
-import { ResourceItem } from './resource-item';
+import { ResourceItem, ResourceType } from './resource-item';
 import { ResourceTreeProvider } from './resource-tree';
 
 const DEFAULT_SERVER = {
@@ -215,6 +215,28 @@ describe('ResourceTreeProvider', () => {
           await expect(tree.getChildren(undefined)).to.eventually.deep.equal([
             ResourceItem.fromServer(DEFAULT_SERVER),
             ResourceItem.fromServer(secondServer),
+          ]);
+        });
+
+        it('returns an error item for server that fails resource fetch', async () => {
+          colabClientStub.getResources.withArgs(DEFAULT_SERVER).rejects();
+          const rootServerItems = await tree.getChildren(undefined);
+          assert(rootServerItems.length === 2);
+
+          const result1 = await tree.getChildren(rootServerItems[0]);
+          const result2 = await tree.getChildren(rootServerItems[1]);
+
+          // First server failed fetching resources
+          expect(result1).to.deep.equal([
+            new ResourceItem(
+              DEFAULT_SERVER.endpoint,
+              'Failed to fetch resources',
+              ResourceType.ERROR,
+            ),
+          ]);
+          // Second server succeeded fetching resources
+          expect(result2).to.deep.equal([
+            ResourceItem.fromMemory(secondServer.endpoint, DEFAULT_MEMORY),
           ]);
         });
       });
