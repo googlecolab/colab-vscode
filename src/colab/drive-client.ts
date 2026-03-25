@@ -3,10 +3,16 @@
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
+import fetch, { Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
-import { DRIVE_SCOPES } from '../auth/scopes';
 import { DriveFileMetadata, DriveFileMetadataSchema } from './api';
-import { Transport } from './transport';
+import { fetchAndParse } from './fetch-utils';
+import {
+  buildFetchChain,
+  createAcceptJsonMiddleware,
+  createAuthMiddleware,
+  createErrorMiddleware,
+} from './middleware';
 
 const FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
 
@@ -15,11 +21,34 @@ const FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
  */
 export class DriveClient {
   /**
-   * Initializes a new instance.
+   * Creates a new instance of DriveClient.
    *
-   * @param transport - The transport layer used to issue network requests.
+   * @param getAccessToken - Function to retrieve the access token.
+   * @param onAuthError - Callback when an auth error occurs.
+   * @returns A new ColabClient instance.
    */
-  constructor(private readonly transport: Transport) {}
+  static create(
+    getAccessToken: () => Promise<string>,
+    onAuthError: (() => Promise<void>) | undefined,
+  ): DriveClient {
+    return new DriveClient(
+      buildFetchChain(
+        [
+          createAcceptJsonMiddleware(),
+          createErrorMiddleware(),
+          createAuthMiddleware(getAccessToken, onAuthError),
+        ],
+        fetch,
+      ),
+    );
+  }
+
+  private constructor(
+    private readonly fetch: (
+      url: string | Request,
+      init?: RequestInit,
+    ) => Promise<Response>,
+  ) {}
 
   /**
    * Retrieves the content of a file from Google Drive.
@@ -32,13 +61,15 @@ export class DriveClient {
     fileId: string,
     signal?: AbortSignal,
   ): Promise<Uint8Array> {
-    const response = await this.transport.issueRequestAndParse(
-      new URL(`${FILES_ENDPOINT}/${fileId}?alt=media`),
-      { method: 'GET', signal },
-      z.unknown(),
-      { scopes: DRIVE_SCOPES },
-    );
     const encoder = new TextEncoder();
+    const url = new URL(`${FILES_ENDPOINT}/${fileId}?alt=media`);
+    const response = await fetchAndParse(
+      this.fetch,
+      url.toString(),
+      z.unknown(),
+      { method: 'GET', signal },
+    );
+
     return encoder.encode(JSON.stringify(response));
   }
 
@@ -56,13 +87,10 @@ export class DriveClient {
     const url = new URL(`${FILES_ENDPOINT}/${id}`);
     url.searchParams.append('fields', 'name');
 
-    const response = await this.transport.issueRequestAndParse(
-      url,
-      { method: 'GET', signal },
-      DriveFileMetadataSchema,
-      { scopes: DRIVE_SCOPES },
-    );
-    return response;
+    return fetchAndParse(this.fetch, url.toString(), DriveFileMetadataSchema, {
+      method: 'GET',
+      signal,
+    });
   }
 
   /**
