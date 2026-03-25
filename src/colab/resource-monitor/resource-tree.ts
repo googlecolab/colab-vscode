@@ -60,9 +60,7 @@ export class ResourceTreeProvider
     private readonly client: ColabClient,
   ) {
     // TODO: Handle rapid assignment changes and race conditions
-    this.assignmentListener = assignmentChange(
-      this.refresh.bind(this, undefined),
-    );
+    this.assignmentListener = assignmentChange(this.refresh.bind(this));
     this.authListener = authChange(this.handleAuthChange.bind(this));
 
     // Read poll interval from experiment config once at runner initialization.
@@ -70,14 +68,17 @@ export class ResourceTreeProvider
     if (typeof refreshIntervalMs === 'number') {
       this.refreshRunner = new SequentialTaskRunner(
         {
-          intervalTimeoutMs: refreshIntervalMs,
+          intervalTimeoutMs: Math.max(
+            refreshIntervalMs,
+            MIN_REFRESH_INTERVAL_MS,
+          ),
           taskTimeoutMs: REFRESH_TIMEOUT_MS,
           abandonGraceMs: 0, // Nothing to cleanup, abandon immediately.
         },
         {
           name: ResourceTreeProvider.name,
-          run: (signal: AbortSignal) => {
-            this.refresh.call(this, signal);
+          run: () => {
+            this.refresh.call(this);
             return Promise.resolve();
           },
         },
@@ -102,13 +103,8 @@ export class ResourceTreeProvider
 
   /**
    * Refreshes the tree view, optionally for specific items.
-   *
-   * @param signal - Optional signal to abort the refresh if set.
    */
-  refresh(signal?: AbortSignal): void {
-    if (signal?.aborted) {
-      return;
-    }
+  refresh(): void {
     this.guardDisposed();
     this.resourceItemsByEndpoint.clear();
     this.changeEmitter.fire(undefined);
@@ -193,4 +189,5 @@ export class ResourceTreeProvider
 }
 
 // The refresh() call should be instant, but giving it a 2s timeout to be safe.
-const REFRESH_TIMEOUT_MS = 2 * 1000; // 2 seconds.
+const REFRESH_TIMEOUT_MS = 2000; // 2 seconds.
+const MIN_REFRESH_INTERVAL_MS = 5000; // 5 seconds.

@@ -221,6 +221,17 @@ describe('ResourceTreeProvider', () => {
     });
   });
 
+  describe('refresh', () => {
+    it('fires an undefined change event', () => {
+      const changeSpy = sinon.spy();
+      tree.onDidChangeTreeData(changeSpy);
+
+      tree.refresh();
+
+      sinon.assert.calledOnceWithExactly(changeSpy, undefined);
+    });
+  });
+
   describe('refresh polling', () => {
     let clock: SinonFakeTimers;
     let refreshSpy: sinon.SinonSpy;
