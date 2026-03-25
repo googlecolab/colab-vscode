@@ -10,7 +10,7 @@ import vscode, { Disposable } from 'vscode';
 import { GoogleAuthProvider } from './auth/auth-provider';
 import { getOAuth2Flows } from './auth/flows/flows';
 import { login, LoginOptions } from './auth/login';
-import { REQUIRED_SCOPES } from './auth/scopes';
+import { DRIVE_SCOPES, REQUIRED_SCOPES } from './auth/scopes';
 import { AuthStorage } from './auth/storage';
 import { ColabClient } from './colab/client';
 import {
@@ -31,7 +31,6 @@ import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
-import { DriveClient } from './colab/drive-client';
 import {
   deleteFile,
   download,
@@ -49,6 +48,7 @@ import { CONFIG } from './colab-config';
 import { initializeLogger, log } from './common/logging';
 import { Toggleable } from './common/toggleable';
 import { getPackageInfo } from './config/package-info';
+import { DriveClient } from './drive/client';
 import { AssignmentManager } from './jupyter/assignments';
 import { ContentsFileSystemProvider } from './jupyter/contents/file-system';
 import { JupyterConnectionManager } from './jupyter/contents/sessions';
@@ -163,7 +163,14 @@ async function activateInternal(context: vscode.ExtensionContext) {
     'colab-server-resource-view',
     { treeDataProvider: serverResourceTreeView },
   );
-  const driveClient = DriveClient.create();
+
+  const driveClient = DriveClient.create(
+    () =>
+      GoogleAuthProvider.getOrCreateSession(vscode, DRIVE_SCOPES).then(
+        (session) => session.accessToken,
+      ),
+    () => authProvider.signOut(),
+  );
 
   context.subscriptions.push(
     logging,
