@@ -21,6 +21,7 @@ interface DisposablePromise<T> extends vscode.Disposable {
  * class is disposable and will reject any pending operations when disposed.
  */
 export class CodeManager implements vscode.Disposable {
+  private isDisposed = false;
   private readonly inFlightPromises = new Map<
     string,
     { resolve: (value: string) => void; reject: (reason: Error) => void }
@@ -31,6 +32,7 @@ export class CodeManager implements vscode.Disposable {
    * when the class instance is no longer needed to prevent resource leaks.
    */
   dispose(): void {
+    this.isDisposed = true;
     const error = new Error('Authentication provider has been disposed.');
     for (const promiseHandlers of this.inFlightPromises.values()) {
       promiseHandlers.reject(error);
@@ -50,6 +52,7 @@ export class CodeManager implements vscode.Disposable {
     nonce: string,
     token: vscode.CancellationToken,
   ): Promise<string> {
+    this.guardDisposed();
     if (this.inFlightPromises.has(nonce)) {
       throw new Error(`Already waiting for nonce: ${nonce}`);
     }
@@ -83,12 +86,19 @@ export class CodeManager implements vscode.Disposable {
    * @param code - The authorization code to resolve for the associated nonce.
    */
   resolveCode(nonce: string, code: string): void {
+    this.guardDisposed();
     const inFlight = this.inFlightPromises.get(nonce);
     if (!inFlight) {
       throw new Error('Unexpected code exchange received');
     }
 
     inFlight.resolve(code);
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error('Cannot use CodeManager after it has been disposed');
+    }
   }
 }
 

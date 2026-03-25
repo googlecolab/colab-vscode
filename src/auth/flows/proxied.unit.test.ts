@@ -62,6 +62,14 @@ describe('ProxiedRedirectFlow', () => {
       .resolves(vs.Uri.parse(EXTERNAL_CALLBACK_URI));
   });
 
+  it('throws when disposed', async () => {
+    flow.dispose();
+
+    await expect(
+      flow.trigger(defaultTriggerOpts),
+    ).to.eventually.be.rejectedWith(/disposed/);
+  });
+
   afterEach(() => {
     flow.dispose();
     sinon.restore();

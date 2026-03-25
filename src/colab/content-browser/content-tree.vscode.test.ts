@@ -114,6 +114,32 @@ describe('ContentTreeProvider', () => {
     sinon.restore();
   });
 
+  describe('lifecycle', () => {
+    it('throws when calling refresh after disposed', () => {
+      tree.dispose();
+
+      expect(tree.refresh).to.throw(/disposed/);
+    });
+
+    it('throws when calling getTreeItem after disposed', () => {
+      tree.dispose();
+
+      const item = new ContentItem(
+        'authority',
+        'name',
+        FileType.File,
+        Uri.parse('colab://authority/name'),
+      );
+      expect(() => tree.getTreeItem(item)).to.throw(/disposed/);
+    });
+
+    it('throws when calling getChildren after disposed', async () => {
+      tree.dispose();
+
+      await expect(tree.getChildren(undefined)).to.be.rejectedWith(/disposed/);
+    });
+  });
+
   describe('getChildren', () => {
     describe('without servers', () => {
       beforeEach(() => {

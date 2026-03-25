@@ -67,6 +67,14 @@ describe('LocalServerFlow', () => {
     sinon.restore();
   });
 
+  it('throws when disposed', async () => {
+    flow.dispose();
+
+    await expect(
+      flow.trigger(defaultTriggerOpts),
+    ).to.eventually.be.rejectedWith(/disposed/);
+  });
+
   // Each call to `trigger` creates a new server. This test validates each of
   // them are disposed when the flow is.
   it('disposes the supporting loopback server when disposed', () => {

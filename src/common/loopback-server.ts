@@ -100,9 +100,7 @@ export class LoopbackServer implements vscode.Disposable {
    * rejects with an error.
    */
   async start(): Promise<number> {
-    if (this.isDisposed) {
-      throw new Error('Local server has already been disposed');
-    }
+    this.guardDisposed();
     if (this.listen) {
       return this.listen;
     }
@@ -120,5 +118,11 @@ export class LoopbackServer implements vscode.Disposable {
       });
     });
     return this.listen;
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error('Cannot use LoopbackServer after it has been disposed');
+    }
   }
 }

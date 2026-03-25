@@ -60,7 +60,7 @@ export function colabProxyWebSocket(
   };
 
   return class ColabWebSocket extends BaseWebSocket implements Disposable {
-    private disposed = false;
+    private isDisposed = false;
     private clientSessionId?: string;
 
     constructor(
@@ -83,10 +83,10 @@ export function colabProxyWebSocket(
     }
 
     dispose(): void {
-      if (this.disposed) {
+      if (this.isDisposed) {
         return;
       }
-      this.disposed = true;
+      this.isDisposed = true;
       this.removeAllListeners('message');
     }
 
@@ -96,6 +96,12 @@ export function colabProxyWebSocket(
       cb?: (err?: Error) => void,
     ): void {
       withErrorTracking(this.sendInternal.bind(this))(data, options, cb);
+    }
+
+    private guardDisposed(): void {
+      if (this.isDisposed) {
+        throw new Error('Cannot use ColabWebSocket after it has been disposed');
+      }
     }
 
     private sendInternal(
@@ -191,14 +197,6 @@ export function colabProxyWebSocket(
 
       this.send(JSON.stringify(replyMessage));
       log.trace('Input reply message sent:', replyMessage);
-    }
-
-    private guardDisposed(): void {
-      if (this.disposed) {
-        throw new Error(
-          'ColabWebSocket cannot be used after it has been disposed.',
-        );
-      }
     }
   };
 }

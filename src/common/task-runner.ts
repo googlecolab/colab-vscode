@@ -85,6 +85,7 @@ export class SequentialTaskRunner implements Disposable {
   private taskInterval?: NodeJS.Timeout;
   // A lock used to ensure execution is sequential.
   private isRunning = false;
+  private isDisposed = false;
 
   /**
    * Initializes a new instance.
@@ -104,7 +105,10 @@ export class SequentialTaskRunner implements Disposable {
    * in-flight task.
    */
   dispose(): void {
-    this.stop();
+    if (!this.isDisposed) {
+      this.stop();
+      this.isDisposed = true;
+    }
   }
 
   /**
@@ -116,6 +120,7 @@ export class SequentialTaskRunner implements Disposable {
    * {@link StartMode.Scheduled}.
    */
   start(mode: StartMode = StartMode.Scheduled): void {
+    this.guardDisposed();
     if (this.taskInterval) {
       return;
     }
@@ -134,10 +139,19 @@ export class SequentialTaskRunner implements Disposable {
    * nothing.
    */
   stop(): void {
+    this.guardDisposed();
     clearInterval(this.taskInterval);
     this.taskInterval = undefined;
     this.isRunning = false;
     this.inFlight?.abortCtrl.abort(new DisposedError(this.task.name));
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use SequentialTaskRunner after it has been disposed',
+      );
+    }
   }
 
   /**

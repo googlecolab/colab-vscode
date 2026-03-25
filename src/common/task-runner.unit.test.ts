@@ -153,6 +153,15 @@ describe('SequentialTaskRunner', () => {
   });
 
   describe('start', () => {
+    it('throws when disposed', () => {
+      const runner = buildRunner();
+      runner.dispose();
+
+      expect(() => {
+        runner.start();
+      }).to.throw(/disposed/);
+    });
+
     it('runs the task immediately when StartMode.Immediately is configured', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
@@ -226,6 +235,15 @@ describe('SequentialTaskRunner', () => {
   });
 
   describe('stop', () => {
+    it('throws when disposed', () => {
+      const runner = buildRunner();
+      runner.dispose();
+
+      expect(() => {
+        runner.stop();
+      }).to.throw(/disposed/);
+    });
+
     it('cancels the next scheduled task run', async () => {
       const runner = buildRunner();
       runner.start(StartMode.Scheduled);

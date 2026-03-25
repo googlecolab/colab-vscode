@@ -184,7 +184,7 @@ describe('ProxiedJupyterClient', () => {
       expect(lastToken()).to.equal('second-change');
     });
 
-    it('uses the last known token when the server is removed', async () => {
+    it('throws an error when accessed after the server is removed', async () => {
       await client.status.get();
       expect(lastToken()).to.equal(TOKEN);
 
@@ -194,8 +194,7 @@ describe('ProxiedJupyterClient', () => {
         removed: [{ server: DEFAULT_SERVER, userInitiated: true }],
       });
 
-      await client.status.get();
-      expect(lastToken()).to.equal(TOKEN);
+      expect(() => client.status).to.throw(/disposed/);
     });
 
     it('disposes the listener when disposed', () => {
@@ -204,6 +203,19 @@ describe('ProxiedJupyterClient', () => {
       client.dispose();
 
       expect(changeEmitter.hasListeners()).to.be.false;
+    });
+
+    it('throws when accessed after disposal', () => {
+      client.dispose();
+
+      expect(() => client.config).to.throw(/disposed/);
+      expect(() => client.contents).to.throw(/disposed/);
+      expect(() => client.identity).to.throw(/disposed/);
+      expect(() => client.kernels).to.throw(/disposed/);
+      expect(() => client.kernelspecs).to.throw(/disposed/);
+      expect(() => client.sessions).to.throw(/disposed/);
+      expect(() => client.status).to.throw(/disposed/);
+      expect(() => client.terminals).to.throw(/disposed/);
     });
   });
 });

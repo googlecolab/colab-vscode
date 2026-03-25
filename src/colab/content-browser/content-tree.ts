@@ -219,7 +219,7 @@ export class ContentTreeProvider
   private guardDisposed() {
     if (this.isDisposed) {
       throw new Error(
-        'ContentTreeProvider cannot be used after it has been disposed.',
+        'Cannot use ContentTreeProvider after it has been disposed',
       );
     }
   }

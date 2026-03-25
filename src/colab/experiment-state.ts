@@ -62,6 +62,22 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
   }
 
   /**
+   * Turns on experiment state polling.
+   */
+  override on(): void {
+    this.guardDisposed();
+    super.on();
+  }
+
+  /**
+   * Turns off experiment state polling.
+   */
+  override off(): void {
+    this.guardDisposed();
+    super.off();
+  }
+
+  /**
    * Starts polling for experiment state.
    *
    * @param signal - The cancellation signal.
@@ -81,6 +97,14 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
     this.isAuthorized = false;
     await this.getExperimentState(this.isAuthorized, signal);
     this.ensurePolling();
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ExperimentStateProvider after it has been disposed',
+      );
+    }
   }
 
   private ensurePolling() {

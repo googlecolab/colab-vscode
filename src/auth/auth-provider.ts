@@ -54,6 +54,7 @@ export interface AuthChangeEvent
  */
 export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   readonly onDidChangeSessions: Event<AuthChangeEvent>;
+  private isDisposed = false;
   private isInitialized = false;
   private authProvider?: Disposable;
   private readonly emitter: EventEmitter<AuthChangeEvent>;
@@ -108,6 +109,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Disposes the provider and cleans up resources.
    */
   dispose() {
+    this.isDisposed = true;
     this.authProvider?.dispose();
     this.disposeController.abort(new Error('GoogleAuthProvider was disposed.'));
   }
@@ -117,6 +119,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * and refreshing the OAuth2 client.
    */
   async initialize() {
+    this.guardDisposed();
     if (this.disposeSignal.aborted) {
       throw this.disposeSignal.reason;
     }
@@ -178,6 +181,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * provided toggles when there are changes to the authorization status.
    */
   whileAuthorized(...toggles: Toggleable[]): Disposable {
+    this.guardDisposed();
     this.assertReady();
     const setToggles = () => {
       if (this.session === undefined) {
@@ -212,6 +216,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     scopes: readonly string[] | undefined,
     options: AuthenticationProviderSessionOptions,
   ): Promise<AuthenticationSession[]> {
+    this.guardDisposed();
     this.assertReady();
     if (
       !this.session ||
@@ -250,6 +255,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * @throws An error if login fails.
    */
   async createSession(scopes: string[]): Promise<AuthenticationSession> {
+    this.guardDisposed();
     this.assertReady();
     try {
       const sortedScopes = Array.from(new Set(scopes).values());
@@ -328,6 +334,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * @returns A promise that resolves when the session is removed.
    */
   async removeSession(sessionId: string): Promise<void> {
+    this.guardDisposed();
     this.assertReady();
     if (this.session?.id !== sessionId) {
       return;
@@ -354,11 +361,20 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
    * Signs out of the current Google authentication session.
    */
   async signOut() {
+    this.guardDisposed();
     if (!this.session) {
       return;
     }
     telemetry.logSignOut();
     await this.removeSession(this.session.id);
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use GoogleAuthProvider after it has been disposed',
+      );
+    }
   }
 
   private register() {

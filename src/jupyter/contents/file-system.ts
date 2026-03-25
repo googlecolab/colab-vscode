@@ -93,9 +93,10 @@ export class ContentsFileSystemProvider
    * Dispose the provider, removing all listeners and references.
    */
   dispose() {
+    if (this.isDisposed) return;
+    this.isDisposed = true;
     this.workspaceListener.dispose();
     this.connectionListener.dispose();
-    this.isDisposed = true;
   }
 
   /**

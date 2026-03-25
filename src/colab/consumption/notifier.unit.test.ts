@@ -122,6 +122,27 @@ describe('ConsumptionNotifier', () => {
     expect(ccuEmitter.hasListeners()).to.be.false;
   });
 
+  it('dispose is idempotent', () => {
+    consumptionNotifier.dispose();
+    expect(ccuEmitter.hasListeners()).to.be.false;
+
+    // Second call should not throw or cause issues.
+    consumptionNotifier.dispose();
+    expect(ccuEmitter.hasListeners()).to.be.false;
+  });
+
+  it('should not notify after being disposed', async () => {
+    const ccuInfo = createCcuInfo({ paidMinutes: 0, freeMinutes: 0 });
+    consumptionNotifier.dispose();
+
+    await expect(
+      consumptionNotifier.notifyCcuConsumption(ccuInfo),
+    ).to.be.rejectedWith(/disposed/);
+
+    sinon.assert.notCalled(vs.window.showErrorMessage);
+    sinon.assert.notCalled(vs.window.showWarningMessage);
+  });
+
   interface ConsumptionByMinutes {
     paidMinutes: number;
     freeMinutes: number;

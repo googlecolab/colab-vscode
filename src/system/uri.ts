@@ -46,6 +46,7 @@ export class ExtensionUriHandler
    */
   readonly onReceivedUri: vscode.Event<vscode.Uri>;
   private readonly uriEmitter: vscode.EventEmitter<vscode.Uri>;
+  private isDisposed = false;
 
   /**
    * Initializes a new instance.
@@ -61,6 +62,10 @@ export class ExtensionUriHandler
    * Disposes the handler.
    */
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
     this.uriEmitter.dispose();
   }
 
@@ -72,6 +77,15 @@ export class ExtensionUriHandler
    * @param uri - The URI of the resource.
    */
   handleUri(uri: vscode.Uri): vscode.ProviderResult<void> {
+    this.guardDisposed();
     this.uriEmitter.fire(uri);
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ExtensionUriHandler after it has been disposed',
+      );
+    }
   }
 }

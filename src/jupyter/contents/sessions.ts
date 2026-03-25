@@ -172,12 +172,11 @@ export class JupyterConnectionManager implements Disposable {
   }
 
   private guardDisposed() {
-    if (!this.isDisposed) {
-      return;
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use JupyterConnectionManager after it has been disposed',
+      );
     }
-    throw new Error(
-      'JupyterConnectionManager cannot be used after it has been disposed.',
-    );
   }
 
   private async createClient(endpoint: string): Promise<ServerConnection> {

@@ -126,7 +126,7 @@ describe('ServerKeepAliveController', () => {
       sinon.assert.notCalled(colabClientStub.sendKeepAlive);
     });
 
-    it('throws when disposed', () => {
+    it('throws when used after being disposed', () => {
       keepAlive.dispose();
 
       expect(() => {
@@ -135,13 +135,6 @@ describe('ServerKeepAliveController', () => {
       expect(() => {
         keepAlive.off();
       }).to.throw(/disposed/);
-    });
-
-    it('throws if used after being disposed', () => {
-      keepAlive.dispose();
-
-      expect(keepAlive.on).to.throw();
-      expect(keepAlive.off).to.throw();
     });
 
     it('skips when a keep-alive is already in flight', async () => {

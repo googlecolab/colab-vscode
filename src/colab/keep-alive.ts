@@ -98,6 +98,9 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
    * Disposes of the controller, cleaning up any resources.
    */
   dispose(): void {
+    if (this.isDisposed) {
+      return;
+    }
     this.runner.dispose();
     this.isDisposed = true;
   }
@@ -106,7 +109,7 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
    * Turn on the keep-alive signals.
    */
   on() {
-    this.assertNotDisposed();
+    this.guardDisposed();
     this.runner.start();
   }
 
@@ -114,8 +117,16 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
    * Turn off the keep-alive signals.
    */
   off() {
-    this.assertNotDisposed();
+    this.guardDisposed();
     this.runner.stop();
+  }
+
+  private guardDisposed(): void {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ServerKeepAliveController after it has been disposed',
+      );
+    }
   }
 
   private async keepServersAlive(signal: AbortSignal): Promise<void> {
@@ -251,11 +262,5 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
         },
       );
     });
-  }
-
-  private assertNotDisposed(): void {
-    if (this.isDisposed) {
-      throw new Error('ServerKeepAliveController is disposed');
-    }
   }
 }

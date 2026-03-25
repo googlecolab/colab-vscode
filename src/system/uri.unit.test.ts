@@ -57,6 +57,13 @@ describe('ExtensionUriHandler', () => {
     sinon.assert.calledOnce(disposeSpy);
   });
 
+  it('throws when handleUri is called after being disposed', () => {
+    handler.dispose();
+    const testUri = TestUri.parse('vscode://google.colab?foo=bar');
+
+    expect(() => handler.handleUri(testUri)).to.throw(/disposed/);
+  });
+
   it('fires a single URI event', () => {
     const onReceivedUriStub: sinon.SinonStub<[Uri], void> = sinon.stub();
     handler.onReceivedUri(onReceivedUriStub);

@@ -61,15 +61,18 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    * Disposes of the notifier, cleaning up any resources.
    */
   dispose(): void {
-    this.runner.dispose();
+    if (this.isDisposed) {
+      return;
+    }
     this.isDisposed = true;
+    this.runner.dispose();
   }
 
   /**
    * Turns on the polling process, immediately.
    */
   on(): void {
-    this.assertNotDisposed();
+    this.guardDisposed();
     this.runner.start(StartMode.Immediately);
   }
 
@@ -77,8 +80,16 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    * Turns off the polling process.
    */
   off(): void {
-    this.assertNotDisposed();
+    this.guardDisposed();
     this.runner.stop();
+  }
+
+  private guardDisposed(): void {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ConsumptionPoller after it has been disposed',
+      );
+    }
   }
 
   /**
@@ -98,11 +109,5 @@ export class ConsumptionPoller implements Toggleable, Disposable {
 
     this.consumptionUserInfo = consumptionUserInfo;
     this.emitter.fire(this.consumptionUserInfo);
-  }
-
-  private assertNotDisposed(): void {
-    if (this.isDisposed) {
-      throw new Error('ConsumptionPoller is disposed');
-    }
   }
 }

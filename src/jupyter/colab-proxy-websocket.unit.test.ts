@@ -304,12 +304,12 @@ describe('colabProxyWebSocket', () => {
       expect(testWebSocket.listenerCount('message')).to.equal(0);
     });
 
-    it('blocks send after disposed', () => {
+    it('throws when send is called after being disposed', () => {
       testWebSocket.dispose();
 
       expect(() => {
         testWebSocket.send('test message');
-      }).to.throw(/ColabWebSocket cannot be used after it has been disposed/);
+      }).to.throw(/disposed/);
     });
   });
 

@@ -152,6 +152,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('getAvailableServerDescriptors', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.getAvailableServerDescriptors(),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     const mockUserInfo: UserInfo = {
       subscriptionTier: SubscriptionTier.NONE,
       paidComputeUnitsBalance: 1,
@@ -228,6 +236,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('reconcileAssignedServers', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.reconcileAssignedServers(),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it('does nothing when there are no stored servers', async () => {
       await assignmentManager.reconcileAssignedServers();
 
@@ -408,6 +424,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('hasAssignedServers', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(assignmentManager.hasAssignedServer()).to.be.rejectedWith(
+        /disposed/,
+      );
+    });
+
     it('returns false when no servers are assigned', async () => {
       colabClientStub.listAssignments.resolves([]);
 
@@ -439,6 +463,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('getServers', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(assignmentManager.getServers('all')).to.be.rejectedWith(
+        /disposed/,
+      );
+    });
+
     describe('from extension', () => {
       it('returns an empty list when no servers are assigned', async () => {
         const servers = await assignmentManager.getServers('extension');
@@ -742,6 +774,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('getLastKnownAssignedServers', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.getLastKnownAssignedServers(),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it('returns an empty list when there are no stored servers', async () => {
       expect(
         await assignmentManager.getLastKnownAssignedServers(),
@@ -779,6 +819,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('assignServer', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.assignServer(defaultAssignmentDescriptor),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it('throws an error when the assignment does not include a URL to connect to', () => {
       colabClientStub.assign
         .withArgs(sinon.match(isUUID), {
@@ -969,6 +1017,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('unassignServer', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.unassignServer(defaultServer),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it('does nothing when the server does not exist', async () => {
       await assignmentManager.unassignServer(defaultServer);
 
@@ -1070,6 +1126,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('latestOrAutoAssignServer', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.latestOrAutoAssignServer(),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it('assigns a new default server when none have been assigned', async () => {
       colabClientStub.listAssignments.resolves([]);
       const defaultCpuAssignment = {
@@ -1122,6 +1186,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('latestServer', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(assignmentManager.latestServer()).to.be.rejectedWith(
+        /disposed/,
+      );
+    });
+
     it('returns undefined when none have been assigned', async () => {
       colabClientStub.listAssignments.resolves([]);
 
@@ -1154,6 +1226,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('refreshConnection', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.refreshConnection(randomUUID()),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it("throws a not found error when refreshing a server that's not tracked", async () => {
       await expect(
         assignmentManager.refreshConnection(defaultServer.id),
@@ -1228,6 +1308,14 @@ describe('AssignmentManager', () => {
   });
 
   describe('getDefaultLabel', () => {
+    it('throws after being disposed', async () => {
+      assignmentManager.dispose();
+
+      await expect(
+        assignmentManager.getDefaultLabel(Variant.DEFAULT),
+      ).to.be.rejectedWith(/disposed/);
+    });
+
     it('returns a simple variant-accelerator pair when there are no assigned servers', async () => {
       await expect(
         assignmentManager.getDefaultLabel(Variant.GPU, 'A100'),

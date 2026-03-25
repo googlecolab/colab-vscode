@@ -44,6 +44,17 @@ describe('ExperimentStateProvider', () => {
     sinon.restore();
   });
 
+  it('throws when used after being disposed', () => {
+    provider.dispose();
+
+    expect(() => {
+      provider.on();
+    }).to.throw(/disposed/);
+    expect(() => {
+      provider.off();
+    }).to.throw(/disposed/);
+  });
+
   it('initializes with default flag values', () => {
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
   });

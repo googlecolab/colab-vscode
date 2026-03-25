@@ -35,6 +35,7 @@ export class ConnectionRefreshController
   implements Disposable
 {
   private refresher?: ConnectionRefresher;
+  private isDisposed = false;
 
   /**
    * Initializes a new instance.
@@ -50,12 +51,32 @@ export class ConnectionRefreshController
    * Stops all refreshing activities.
    */
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
     // Called not only to reduce duplicate logic, but more importantly to avoid
     // a memory leak if `dispose()` is called while `turnOn` is in progress. In
     // that case, the `refresher` would not yet be assigned, `dispose` would do
     // nothing and the `turnOn` operation would complete - leaving an undisposed
     // refresher.
     this.off();
+    this.isDisposed = true;
+  }
+
+  /**
+   * Turns on refreshing of connections.
+   */
+  override on(): void {
+    this.guardDisposed();
+    super.on();
+  }
+
+  /**
+   * Turns off refreshing of connections.
+   */
+  override off(): void {
+    this.guardDisposed();
+    super.off();
   }
 
   protected override async turnOn(signal: AbortSignal): Promise<void> {
@@ -80,6 +101,14 @@ export class ConnectionRefreshController
     this.refresher = undefined;
     return Promise.resolve();
   }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ConnectionRefreshController after it has been disposed',
+      );
+    }
+  }
 }
 
 /**
@@ -95,6 +124,7 @@ export class ConnectionRefresher implements Disposable {
     }
   >();
   private readonly abortController = new AbortController();
+  private isDisposed = false;
 
   private constructor(
     private readonly assignments: AssignmentManager,
@@ -118,6 +148,10 @@ export class ConnectionRefresher implements Disposable {
    * refreshes.
    */
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
     this.abortController.abort(
       new Error(`${this.constructor.name} is being disposed`),
     );

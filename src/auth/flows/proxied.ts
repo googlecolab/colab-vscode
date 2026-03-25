@@ -26,6 +26,7 @@ const PROXIED_REDIRECT_URI = `${CONFIG.ColabApiDomain}/vscode/redirect`;
  * code.
  */
 export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
+  private isDisposed = false;
   private readonly codeManager = new CodeManager();
 
   /**
@@ -45,6 +46,7 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
    * Disposes of the flow.
    */
   dispose() {
+    this.isDisposed = true;
     this.codeManager.dispose();
   }
 
@@ -59,6 +61,7 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
    * redirect URI.
    */
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
+    this.guardDisposed();
     const cancelTokenSource = new this.vs.CancellationTokenSource();
     options.cancel.onCancellationRequested(() => {
       cancelTokenSource.cancel();
@@ -89,6 +92,14 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
       return { code: await code, redirectUri: PROXIED_REDIRECT_URI };
     } finally {
       cancelTokenSource.dispose();
+    }
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ProxiedRedirectFlow after it has been disposed',
+      );
     }
   }
 

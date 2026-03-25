@@ -24,6 +24,7 @@ type Notify =
  * the user when their CCU-s are depleted or running low.
  */
 export class ConsumptionNotifier implements Disposable {
+  private isDisposed = false;
   private ccuListener: Disposable;
   private snoozeError = false;
   private snoozeWarn = false;
@@ -49,6 +50,10 @@ export class ConsumptionNotifier implements Disposable {
    * Disposes of the notifier, cleaning up any resources.
    */
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
     this.ccuListener.dispose();
     clearTimeout(this.errorTimeout);
     clearTimeout(this.warnTimeout);
@@ -65,6 +70,7 @@ export class ConsumptionNotifier implements Disposable {
   protected async notifyCcuConsumption(
     info: ConsumptionUserInfo,
   ): Promise<void> {
+    this.guardDisposed();
     // When the user is not consuming any CCU-s, no need to notify.
     if (info.consumptionRateHourly <= 0) {
       return;
@@ -156,6 +162,14 @@ export class ConsumptionNotifier implements Disposable {
       this.warnTimeout = setTimeout(() => {
         this.snoozeWarn = false;
       }, snoozeMs);
+    }
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ConsumptionNotifier after it has been disposed',
+      );
     }
   }
 }

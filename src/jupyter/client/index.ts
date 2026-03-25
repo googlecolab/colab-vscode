@@ -128,13 +128,6 @@ export class ProxiedJupyterClient implements JupyterClient {
    * client listens to server token changes and uses the latest token on each
    * request.
    *
-   * Callers should call `dispose` when the proxied connection no longer needs
-   * refreshing.
-   *
-   * If the server is removed while the client is still alive, it will be
-   * disposed. In other words, the last known token will be used but subsequent
-   * calls will likely error (404).
-   *
    * @param server - The Colab server to connect to.
    * @param changes - The event emitter for server assignment changes.
    * @returns a {@link ProxiedJupyterClient} to the specified server.
@@ -151,6 +144,7 @@ class RefreshingClient extends ProxiedJupyterClient implements Disposable {
   private changeListener: Disposable;
   private endpoint: string;
   private token: string;
+  private isDisposed = false;
 
   constructor(
     server: ColabAssignedServer,
@@ -175,7 +169,57 @@ class RefreshingClient extends ProxiedJupyterClient implements Disposable {
   }
 
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
     this.changeListener.dispose();
+  }
+
+  override get config() {
+    this.guardDisposed();
+    return super.config;
+  }
+
+  override get contents() {
+    this.guardDisposed();
+    return super.contents;
+  }
+
+  override get identity() {
+    this.guardDisposed();
+    return super.identity;
+  }
+
+  override get kernels() {
+    this.guardDisposed();
+    return super.kernels;
+  }
+
+  override get kernelspecs() {
+    this.guardDisposed();
+    return super.kernelspecs;
+  }
+
+  override get sessions() {
+    this.guardDisposed();
+    return super.sessions;
+  }
+
+  override get status() {
+    this.guardDisposed();
+    return super.status;
+  }
+
+  override get terminals() {
+    this.guardDisposed();
+    return super.terminals;
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error('Cannot use RefreshingClient after it has been disposed');
+    }
   }
 }
 

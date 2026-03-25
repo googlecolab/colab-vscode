@@ -17,6 +17,7 @@ import { VsCodeStub } from './vscode';
 export class ColabLogWatcher implements Disposable {
   private readonly logSink: FakeLogOutputChannel;
   private logging: Disposable | undefined;
+  private isDisposed = false;
 
   constructor(vs: VsCodeStub, level: LogLevel = LogLevel.Info) {
     this.logSink = new FakeLogOutputChannel();
@@ -51,14 +52,20 @@ export class ColabLogWatcher implements Disposable {
   }
 
   dispose() {
+    if (this.isDisposed) return;
+    this.isDisposed = true;
     this.logging?.dispose();
     this.logging = undefined;
   }
 
   get output(): string {
-    if (!this.logging) {
-      throw new Error('Cannot get output after disposal.');
-    }
+    this.guardDisposed();
     return this.logSink.content;
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error('Cannot use ColabLogWatcher after it has been disposed');
+    }
   }
 }

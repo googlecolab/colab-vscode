@@ -100,6 +100,12 @@ describe('LoopbackServer', () => {
       // time.
       sinon.assert.calledOnce(fakeServer.listen);
     });
+
+    it('throws when used after being disposed', async () => {
+      server.dispose();
+
+      await expect(server.start()).to.be.rejectedWith(/disposed/);
+    });
   });
 
   describe('server started', () => {

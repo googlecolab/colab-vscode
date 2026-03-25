@@ -121,12 +121,12 @@ describe('ClearcutClient', () => {
       );
     });
 
-    it('throws an error when cannot be used after it has been disposed', () => {
+    it('throws when disposed', () => {
       client.dispose();
 
       expect(() => {
         client.log(DEFAULT_LOG);
-      }).to.throw('ClearcutClient cannot be used after it has been disposed.');
+      }).to.throw(/disposed/);
     });
 
     it('drops events when Clearcut responds with a non-500 status', async () => {

@@ -97,11 +97,7 @@ export class ClearcutClient implements Disposable {
    * @param event - The Colab log event to be sent.
    */
   log(event: ColabLogEvent) {
-    if (this.isDisposed) {
-      throw new Error(
-        'ClearcutClient cannot be used after it has been disposed.',
-      );
-    }
+    this.guardDisposed();
 
     const numPendingEvents = this.pendingEvents.length;
     // In theory, we shouldn't exceed maxPendingEvents, but for posterity, we
@@ -118,6 +114,12 @@ export class ClearcutClient implements Disposable {
     this.flush().catch((err: unknown) => {
       log.error('Failed to flush telemetry events', err);
     });
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error('Cannot use ClearcutClient after it has been disposed');
+    }
   }
 
   /**

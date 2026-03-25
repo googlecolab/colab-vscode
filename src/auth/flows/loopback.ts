@@ -34,6 +34,7 @@ import {
  * any owned servers from outstanding flows.
  */
 export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
+  private isDisposed = false;
   private readonly codeManager = new CodeManager();
   private readonly handler: Handler;
   private readonly activeServers = new Set<vscode.Disposable>();
@@ -64,6 +65,7 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
    * Disposes of the flow, cleaning up any active servers.
    */
   dispose() {
+    this.isDisposed = true;
     this.codeManager.dispose();
     for (const disposable of this.activeServers) {
       disposable.dispose();
@@ -83,6 +85,7 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
    * redirect URI.
    */
   async trigger(options: OAuth2TriggerOptions): Promise<FlowResult> {
+    this.guardDisposed();
     const server = new LoopbackServer(this.handler);
     this.activeServers.add(server);
     try {
@@ -114,6 +117,12 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
       server.dispose();
       this.activeServers.delete(server);
       throw err;
+    }
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error('Cannot use LocalServerFlow after it has been disposed');
     }
   }
 }

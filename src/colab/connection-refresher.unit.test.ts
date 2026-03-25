@@ -77,6 +77,17 @@ describe('ConnectionRefreshController', () => {
     clock.restore();
   });
 
+  it('throws when used after being disposed', () => {
+    controller.dispose();
+
+    expect(() => {
+      controller.on();
+    }).to.throw(/disposed/);
+    expect(() => {
+      controller.off();
+    }).to.throw(/disposed/);
+  });
+
   describe('turned on', () => {
     beforeEach(async () => {
       // Type assertion needed due to overloading on getServers

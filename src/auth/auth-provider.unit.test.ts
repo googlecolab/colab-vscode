@@ -183,6 +183,12 @@ describe('GoogleAuthProvider', () => {
     });
 
     describe('initialize', () => {
+      it('throws when disposed', async () => {
+        authProvider.dispose();
+
+        await expect(authProvider.initialize()).to.be.rejectedWith(/disposed/);
+      });
+
       it('registers the "Google" authentication provider', async () => {
         await authProvider.initialize();
         // Expect the provider-specific rejection surrounding the scopes not
@@ -350,6 +356,11 @@ describe('GoogleAuthProvider', () => {
   });
 
   describe('whileAuthorized', () => {
+    it('throws when disposed', () => {
+      authProvider.dispose();
+      expect(() => authProvider.whileAuthorized()).to.throw(/disposed/);
+    });
+
     let toggles: sinon.SinonStubbedInstance<Toggleable>[];
 
     beforeEach(() => {
@@ -460,6 +471,13 @@ describe('GoogleAuthProvider', () => {
   });
 
   describe('getSessions', () => {
+    it('throws when disposed', async () => {
+      authProvider.dispose();
+      await expect(authProvider.getSessions(undefined, {})).to.be.rejectedWith(
+        /disposed/,
+      );
+    });
+
     let refreshAccessTokenStub: sinon.SinonStubbedMember<
       OAuth2Client['refreshAccessToken']
     >;
@@ -631,6 +649,13 @@ describe('GoogleAuthProvider', () => {
   });
 
   describe('createSession', () => {
+    it('throws when disposed', async () => {
+      authProvider.dispose();
+      await expect(authProvider.createSession([])).to.be.rejectedWith(
+        /disposed/,
+      );
+    });
+
     beforeEach(() => {
       sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
         oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
@@ -837,6 +862,13 @@ describe('GoogleAuthProvider', () => {
   });
 
   describe('removeSession', () => {
+    it('throws when disposed', async () => {
+      authProvider.dispose();
+      await expect(authProvider.removeSession('test-id')).to.be.rejectedWith(
+        /disposed/,
+      );
+    });
+
     beforeEach(() => {
       sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
         oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
@@ -917,6 +949,13 @@ describe('GoogleAuthProvider', () => {
           hasValidSession: false,
         });
       });
+    });
+  });
+
+  describe('signOut', () => {
+    it('throws when disposed', async () => {
+      authProvider.dispose();
+      await expect(authProvider.signOut()).to.be.rejectedWith(/disposed/);
     });
   });
 });

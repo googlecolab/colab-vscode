@@ -183,6 +183,14 @@ export class ResourceTreeProvider
     this.resourceItemsByEndpoint.set(endpoint, resourceItems);
   }
 
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use ResourceTreeProvider after it has been disposed',
+      );
+    }
+  }
+
   private handleAuthChange(e: AuthChangeEvent) {
     if (this.isAuthorized === e.hasValidSession) {
       return;
@@ -193,14 +201,6 @@ export class ResourceTreeProvider
       this.refreshRunner?.start();
     } else {
       this.refreshRunner?.stop();
-    }
-  }
-
-  private guardDisposed() {
-    if (this.isDisposed) {
-      throw new Error(
-        'ResourceTreeProvider cannot be used after it has been disposed.',
-      );
     }
   }
 }

@@ -12,7 +12,7 @@ import fetch, {
   RequestInit,
   Response,
 } from 'node-fetch';
-import vscode from 'vscode';
+import vscode, { Disposable } from 'vscode';
 import {
   Assignment,
   ListedAssignment,
@@ -78,13 +78,14 @@ export interface AssignmentChangeEvent {
 /**
  * Manages Colab server assignments for the extension.
  */
-export class AssignmentManager implements vscode.Disposable {
+export class AssignmentManager implements Disposable {
   /**
    * Event that fires when the server assignments change.
    */
   readonly onDidAssignmentsChange: vscode.Event<AssignmentChangeEvent>;
 
   private readonly assignmentChange: vscode.EventEmitter<AssignmentChangeEvent>;
+  private isDisposed = false;
 
   /**
    * Initializes a new instance.
@@ -110,6 +111,10 @@ export class AssignmentManager implements vscode.Disposable {
    * Disposes the manager.
    */
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
+    this.isDisposed = true;
     this.assignmentChange.dispose();
   }
 
@@ -124,6 +129,7 @@ export class AssignmentManager implements vscode.Disposable {
   async getAvailableServerDescriptors(
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
+    this.guardDisposed();
     const userInfo = await this.client.getUserInfo(signal);
 
     const eligibleDescriptors: ColabServerDescriptor[] =
@@ -162,6 +168,7 @@ export class AssignmentManager implements vscode.Disposable {
    * @param signal - The cancellation signal.
    */
   async reconcileAssignedServers(signal?: AbortSignal): Promise<void> {
+    this.guardDisposed();
     const stored = await this.storage.list();
     if (stored.length === 0) {
       return;
@@ -178,6 +185,7 @@ export class AssignmentManager implements vscode.Disposable {
    * otherwise.
    */
   async hasAssignedServer(signal?: AbortSignal): Promise<boolean> {
+    this.guardDisposed();
     await this.reconcileAssignedServers(signal);
     return (await this.storage.list()).length > 0;
   }
@@ -221,6 +229,7 @@ export class AssignmentManager implements vscode.Disposable {
     from: 'extension' | 'external' | 'all',
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer[] | UnownedServer[] | AllServers> {
+    this.guardDisposed();
     let storedServers = await this.storage.list();
     if (from === 'extension' && storedServers.length === 0) {
       return storedServers;
@@ -292,6 +301,7 @@ export class AssignmentManager implements vscode.Disposable {
    * information.
    */
   async getLastKnownAssignedServers(): Promise<ColabJupyterServer[]> {
+    this.guardDisposed();
     // Since we can't be sure the servers still exist, we strip the connection
     // info. That forces downstream usage to refresh the connection information,
     // which requires reconciliation.
@@ -313,6 +323,7 @@ export class AssignmentManager implements vscode.Disposable {
     { label, variant, accelerator, shape, version }: ColabServerDescriptor,
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
+    this.guardDisposed();
     const id = randomUUID();
     let assignment: Assignment;
     try {
@@ -374,6 +385,7 @@ export class AssignmentManager implements vscode.Disposable {
   async latestOrAutoAssignServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
+    this.guardDisposed();
     const latest = await this.latestServer(signal);
     if (latest) {
       return latest;
@@ -399,6 +411,7 @@ export class AssignmentManager implements vscode.Disposable {
   async latestServer(
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer | undefined> {
+    this.guardDisposed();
     const assigned = await this.getServers('extension', signal);
     let latest: ColabAssignedServer | undefined;
     for (const server of assigned) {
@@ -423,6 +436,7 @@ export class AssignmentManager implements vscode.Disposable {
     id: UUID,
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
+    this.guardDisposed();
     await this.reconcileAssignedServers(signal);
     const server = await this.storage.get(id);
     if (!server) {
@@ -464,6 +478,7 @@ export class AssignmentManager implements vscode.Disposable {
     server: ColabAssignedServer | UnownedServer,
     signal?: AbortSignal,
   ): Promise<void> {
+    this.guardDisposed();
     if (isColabAssignedServer(server)) {
       const removed = await this.storage.remove(server.id);
       if (!removed) {
@@ -500,6 +515,7 @@ export class AssignmentManager implements vscode.Disposable {
     accelerator?: string,
     signal?: AbortSignal,
   ): Promise<string> {
+    this.guardDisposed();
     const servers = await this.getServers('extension', signal);
     const a = accelerator && accelerator !== 'NONE' ? ` ${accelerator}` : '';
     const v = variantToMachineType(variant);
@@ -529,6 +545,14 @@ export class AssignmentManager implements vscode.Disposable {
       return labelBase;
     }
     return `${labelBase} (${placeholderIdx.toString()})`;
+  }
+
+  private guardDisposed() {
+    if (this.isDisposed) {
+      throw new Error(
+        'Cannot use AssignmentManager after it has been disposed',
+      );
+    }
   }
 
   private async reconcileStoredServers(

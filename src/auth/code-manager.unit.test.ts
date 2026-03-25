@@ -30,6 +30,22 @@ describe('CodeManager', () => {
     sinon.restore();
   });
 
+  it('throws when disposed for waitForCode', async () => {
+    manager.dispose();
+
+    await expect(
+      manager.waitForCode('1', cancellationTokenSource.token),
+    ).to.be.rejectedWith(/disposed/);
+  });
+
+  it('throws when disposed for resolveCode', () => {
+    manager.dispose();
+
+    expect(() => {
+      manager.resolveCode('1', '42');
+    }).to.throw(/disposed/);
+  });
+
   it('rejects outstanding codes when disposed', async () => {
     const code = manager.waitForCode('1', cancellationTokenSource.token);
 
