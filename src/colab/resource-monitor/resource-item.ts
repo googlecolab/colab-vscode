@@ -20,6 +20,8 @@ export enum ResourceType {
   DISK = 'disk',
   /** GPU RAM resource, applicable for GPU accelerators only. */
   GPU = 'gpu',
+  /** Represents a resource fetching error record. */
+  ERROR = 'error',
 }
 
 /**
