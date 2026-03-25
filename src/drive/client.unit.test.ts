@@ -7,8 +7,8 @@
 import { expect } from 'chai';
 import fetch, { Request, Response } from 'node-fetch';
 import sinon, { SinonStub } from 'sinon';
-import { DriveClient } from './drive-client';
-import { AUTHORIZATION_HEADER } from './headers';
+import { AUTHORIZATION_HEADER } from '../colab/headers';
+import { DriveClient } from './client';
 
 const FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
 const BEARER_TOKEN = 'mock-token';

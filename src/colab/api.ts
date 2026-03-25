@@ -624,9 +624,3 @@ export const ExperimentStateSchema = z.object({
 export type ExperimentState = z.infer<typeof ExperimentStateSchema>;
 
 const DEFAULT_TOKEN_TTL_SECONDS = 3600;
-
-export const DriveFileMetadataSchema = z.object({
-  name: z.string(),
-});
-
-export type DriveFileMetadata = z.infer<typeof DriveFileMetadataSchema>;
