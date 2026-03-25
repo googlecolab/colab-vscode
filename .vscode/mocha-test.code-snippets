@@ -14,13 +14,13 @@
   "describe": {
     "scope": "typescript",
     "prefix": ["describe", "d"],
-    "body": ["describe(\"${1:title}\", () => {", "  ${0:// TODO}", "});"],
+    "body": ["describe('${1:title}', () => {", "  ${0:// TODO}", "});"],
     "description": "Mocha describe block",
   },
   "it": {
     "scope": "typescript",
     "prefix": ["it", "i"],
-    "body": ["it(\"${1:title}\", () => {", "  ${0:// TODO}", "});"],
+    "body": ["it('${1:title}', () => {", "  ${0:// TODO}", "});"],
     "description": "Mocha it case",
   },
 }
