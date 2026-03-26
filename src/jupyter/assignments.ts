@@ -24,6 +24,7 @@ import {
   isHighMemOnlyAccelerator,
 } from '../colab/api';
 import {
+  AcceleratorUnavailableError,
   ColabClient,
   DenylistedError,
   InsufficientQuotaError,
@@ -320,25 +321,33 @@ export class AssignmentManager implements Disposable {
    * @returns The assigned server.
    */
   async assignServer(
-    { label, variant, accelerator, shape, version }: ColabServerDescriptor,
+    descriptor: ColabServerDescriptor,
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     this.guardDisposed();
     const id = randomUUID();
+    const { label, variant, accelerator, shape, version } = descriptor;
     let assignment: Assignment;
     try {
-      ({ assignment } = await this.client.assign(
-        id,
-        {
-          variant,
-          accelerator,
-          shape,
-          version,
-        },
-        signal,
-      ));
+      if (isColabServerDescriptorWithAccelerator(descriptor)) {
+        assignment = await this.assignWithFallback(
+          id,
+          descriptor,
+          /* fallbacks= */ undefined,
+          signal,
+        );
+      } else {
+        ({ assignment } = await this.client.assign(
+          id,
+          { variant, accelerator, shape, version },
+          signal,
+        ));
+      }
     } catch (error) {
       log.trace(`Failed assigning server ${id}`, error);
+      if (error instanceof AllAcceleratorsUnavailableError) {
+        void this.notifyAllAcceleratorsUnavailable(error);
+      }
       // TODO: Consider listing assignments to check if there are too many
       // before the user goes through the assignment flow. This handling logic
       // would still be needed for the rare race condition where an assignment
@@ -584,6 +593,80 @@ export class AssignmentManager implements Disposable {
     return reconciled;
   }
 
+  private async assignWithFallback(
+    id: UUID,
+    descriptor: ColabServerDescriptorWithAccelerator,
+    fallback?: {
+      toAttempt: string[];
+      attempted: string[];
+    },
+    signal?: AbortSignal,
+  ): Promise<Assignment> {
+    const { variant, accelerator, shape, version } = descriptor;
+    try {
+      const { assignment } = await this.client.assign(
+        id,
+        { variant, accelerator, shape, version },
+        signal,
+      );
+      const original = fallback?.attempted
+        ? fallback.attempted[0]
+        : accelerator;
+      if (original !== accelerator) {
+        void this.vs.window.showInformationMessage(
+          `Requested accelerator "${original}" is unavailable, assigned "${accelerator}"`,
+        );
+      }
+      return assignment;
+    } catch (error) {
+      if (!(error instanceof AcceleratorUnavailableError)) {
+        throw error;
+      }
+      let newFallback: typeof fallback;
+      // The initial attempt failed, start falling back.
+      if (!fallback) {
+        const all = await this.getAvailableServerDescriptors(signal);
+        const toAttempt = new Set<string>();
+        for (const d of all) {
+          if (
+            d.variant === variant &&
+            d.accelerator &&
+            d.accelerator !== accelerator
+          ) {
+            toAttempt.add(d.accelerator);
+          }
+        }
+        newFallback = {
+          toAttempt: Array.from(toAttempt),
+          attempted: [accelerator],
+        };
+      } else {
+        newFallback = {
+          toAttempt: fallback.toAttempt.slice(1),
+          attempted: [
+            ...fallback.attempted,
+            fallback.toAttempt[0], // The one that just failed.
+          ],
+        };
+      }
+      if (newFallback.toAttempt.length === 0) {
+        throw new AllAcceleratorsUnavailableError(
+          variant,
+          newFallback.attempted,
+        );
+      }
+      log.info(
+        `Assignment failed with unavailable accelerator ${accelerator}, retrying with ${newFallback.toAttempt[0]}`,
+      );
+      return this.assignWithFallback(
+        id,
+        { ...descriptor, accelerator: newFallback.toAttempt[0] },
+        newFallback,
+        signal,
+      );
+    }
+  }
+
   private toAssignedServer(
     server: ColabJupyterServer,
     endpoint: string,
@@ -620,6 +703,14 @@ export class AssignmentManager implements Disposable {
         WebSocket: colabProxyWebSocket(this.vs, this.client, colabServer),
       },
     };
+  }
+
+  private async notifyAllAcceleratorsUnavailable(
+    error: AllAcceleratorsUnavailableError,
+  ) {
+    void (await this.vs.window.showErrorMessage(
+      `Unable to assign server. ${error.message}`,
+    ));
   }
 
   private async notifyMaxAssignmentsExceeded() {
@@ -694,6 +785,17 @@ const LEARN_MORE = 'Learn More';
 
 const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
 
+class AllAcceleratorsUnavailableError extends Error {
+  constructor(
+    variant: string,
+    readonly attempted: string[],
+  ) {
+    const l = attempted.join(', ');
+    const msg = `All ${variant} accelerators are unavailable: ${l}`;
+    super(msg);
+  }
+}
+
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
  *
@@ -734,4 +836,14 @@ function colabProxyFetch(
 
 function isRequest(info: RequestInfo): info is Request {
   return typeof info !== 'string' && !('href' in info);
+}
+
+type ColabServerDescriptorWithAccelerator = ColabServerDescriptor & {
+  accelerator: string;
+};
+
+function isColabServerDescriptorWithAccelerator(
+  descriptor: ColabServerDescriptor,
+): descriptor is ColabServerDescriptorWithAccelerator {
+  return !!descriptor.accelerator;
 }

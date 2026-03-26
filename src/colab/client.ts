@@ -180,11 +180,13 @@ export class ColabClient {
    *
    * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest.
    * This value should always be a string of length 44.
-   * @param params - The assignment parameters {@link AssignParams}
-   * like variant, accelerator, shape and version.
+   * @param params - The assignment parameters {@link AssignParams} like
+   * variant, accelerator, shape and version.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
    * @returns The assignment which is assigned to the user.
    * @throws TooManyAssignmentsError if the user has too many assignments.
+   * @throws AcceleratorUnavailableError if the requested machine accelerator is
+   * unavailable.
    * @throws InsufficientQuotaError if the user lacks the quota to assign.
    * @throws DenylistedError if the user has been banned.
    */
@@ -217,6 +219,15 @@ export class ColabClient {
             error.response.status === 412
           ) {
             throw new TooManyAssignmentsError(error.message);
+          }
+          // Check for no machine availability.
+          if (
+            error instanceof ColabRequestError &&
+            error.response.status === 503
+          ) {
+            throw new AcceleratorUnavailableError(
+              params.accelerator ?? 'default',
+            );
           }
           throw error;
         }
@@ -585,6 +596,18 @@ export class ColabClient {
 
 /** Error thrown when the user has too many assignments. */
 export class TooManyAssignmentsError extends Error {}
+
+/** Error thrown when the requested machine accelerator is unavailable. */
+export class AcceleratorUnavailableError extends Error {
+  /**
+   * Initializes a new instance.
+   *
+   * @param requested - The name of the requested accelerator.
+   */
+  constructor(readonly requested: string) {
+    super(`Requested accelerator "${requested}" is unavailable`);
+  }
+}
 
 /** Error thrown when the user has been denylisted. */
 export class DenylistedError extends Error {}
