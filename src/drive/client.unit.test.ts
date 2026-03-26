@@ -37,13 +37,10 @@ describe('DriveClient', () => {
   describe('getDriveFileContent', () => {
     it('should return the file content', async () => {
       const fileId = 'test-file-id';
-      const fileContent = { cells: [], metadata: {} };
-      const expectedContent = new TextEncoder().encode(
-        JSON.stringify(fileContent),
-      );
-      fetchStub.resolves(
-        new Response(JSON.stringify(fileContent), { status: 200 }),
-      );
+      // .ipynb files are just JSON files
+      const fileContent = JSON.stringify({ cells: [], metadata: {} });
+      const expectedContent = new TextEncoder().encode(fileContent);
+      fetchStub.resolves(new Response(fileContent, { status: 200 }));
 
       const result = await client.getDriveFileContent(fileId);
 

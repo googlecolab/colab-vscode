@@ -25,26 +25,28 @@ export class DriveClient {
    *
    * @param getAccessToken - Function to retrieve the access token.
    * @param onAuthError - Callback when an auth error occurs.
-   * @returns A new ColabClient instance.
+   * @returns A new DriveClient instance.
    */
   static create(
     getAccessToken: () => Promise<string>,
     onAuthError: (() => Promise<void>) | undefined,
   ): DriveClient {
-    return new DriveClient(
-      buildFetchChain(
-        [
-          createAcceptJsonMiddleware(),
-          createErrorMiddleware(),
-          createAuthMiddleware(getAccessToken, onAuthError),
-        ],
-        fetch,
-      ),
-    );
+    const baseMiddleware = [
+      createErrorMiddleware(),
+      createAuthMiddleware(getAccessToken, onAuthError),
+    ];
+    const jsonMiddleware = [...baseMiddleware, createAcceptJsonMiddleware()];
+    const blobFetch = buildFetchChain(baseMiddleware, fetch);
+    const jsonFetch = buildFetchChain(jsonMiddleware, fetch);
+    return new DriveClient(blobFetch, jsonFetch);
   }
 
   private constructor(
-    private readonly authenticatedFetch: (
+    private readonly blobFetch: (
+      url: string | Request,
+      init?: RequestInit,
+    ) => Promise<Response>,
+    private readonly jsonFetch: (
       url: string | Request,
       init?: RequestInit,
     ) => Promise<Response>,
@@ -52,6 +54,10 @@ export class DriveClient {
 
   /**
    * Retrieves the content of a file from Google Drive.
+   *
+   * TODO: Convert to a stream to better support larger files as
+   * response.arrayBuffer() loads the entire file into memory at once.
+   * The tricky part here is that VsCode Web does not accept streams.
    *
    * @param fileId - The ID of the Drive file.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
@@ -62,7 +68,7 @@ export class DriveClient {
     signal?: AbortSignal,
   ): Promise<Uint8Array> {
     const url = new URL(`${FILES_ENDPOINT}/${fileId}?alt=media`);
-    const response = await this.authenticatedFetch(url.toString(), {
+    const response = await this.blobFetch(url.toString(), {
       method: 'GET',
       signal,
     });
@@ -99,7 +105,7 @@ export class DriveClient {
     url.searchParams.append('fields', 'name');
 
     return fetchAndParse(
-      this.authenticatedFetch,
+      this.jsonFetch,
       url.toString(),
       DriveFileMetadataSchema,
       {

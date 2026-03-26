@@ -11,7 +11,7 @@
 import { z } from 'zod';
 
 /**
- * The schema for Drive file metadata.
+ * Drive file metadata.
  *
  * This is a small subset of the full object that is returned.
  */
