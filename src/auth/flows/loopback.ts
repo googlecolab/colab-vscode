@@ -65,6 +65,9 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
    * Disposes of the flow, cleaning up any active servers.
    */
   dispose() {
+    if (this.isDisposed) {
+      return;
+    }
     this.isDisposed = true;
     this.codeManager.dispose();
     for (const disposable of this.activeServers) {

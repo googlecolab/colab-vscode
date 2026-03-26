@@ -118,7 +118,9 @@ describe('ContentTreeProvider', () => {
     it('throws when calling refresh after disposed', () => {
       tree.dispose();
 
-      expect(tree.refresh).to.throw(/disposed/);
+      expect(() => {
+        tree.refresh();
+      }).to.throw(/disposed/);
     });
 
     it('throws when calling getTreeItem after disposed', () => {
