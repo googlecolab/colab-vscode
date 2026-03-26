@@ -622,26 +622,26 @@ export class AssignmentManager implements Disposable {
       if (!(error instanceof AcceleratorUnavailableError)) {
         throw error;
       }
+      let newFallback: typeof fallback;
       // The initial attempt failed, start falling back.
       if (!fallback) {
-        const all = await this.getAvailableServerDescriptors();
-        const toAttemptSet = new Set<string>();
+        const all = await this.getAvailableServerDescriptors(signal);
+        const toAttempt = new Set<string>();
         for (const d of all) {
           if (
             d.variant === variant &&
             d.accelerator &&
             d.accelerator !== accelerator
           ) {
-            toAttemptSet.add(d.accelerator);
+            toAttempt.add(d.accelerator);
           }
         }
-        const toAttempt = Array.from(toAttemptSet);
-        fallback = {
-          toAttempt,
+        newFallback = {
+          toAttempt: Array.from(toAttempt),
           attempted: [accelerator],
         };
       } else {
-        fallback = {
+        newFallback = {
           toAttempt: fallback.toAttempt.slice(1),
           attempted: [
             ...fallback.attempted,
@@ -649,16 +649,19 @@ export class AssignmentManager implements Disposable {
           ],
         };
       }
-      if (fallback.toAttempt.length === 0) {
-        throw new AllAcceleratorsUnavailableError(variant, fallback.attempted);
+      if (newFallback.toAttempt.length === 0) {
+        throw new AllAcceleratorsUnavailableError(
+          variant,
+          newFallback.attempted,
+        );
       }
       log.info(
-        `Assignment failed with unavailable accelerator ${accelerator}, retrying with ${fallback.toAttempt[0]}`,
+        `Assignment failed with unavailable accelerator ${accelerator}, retrying with ${newFallback.toAttempt[0]}`,
       );
       return this.assignWithFallback(
         id,
-        { ...descriptor, accelerator: fallback.toAttempt[0] },
-        fallback,
+        { ...descriptor, accelerator: newFallback.toAttempt[0] },
+        newFallback,
         signal,
       );
     }
