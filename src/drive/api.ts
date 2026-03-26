@@ -10,8 +10,16 @@
 
 import { z } from 'zod';
 
+/**
+ * The schema for Drive file metadata.
+ *
+ * This is a small subset of the full object that is returned.
+ */
 export const DriveFileMetadataSchema = z.object({
   name: z.string(),
 });
 
+/**
+ * The type for Drive file metadata.
+ */
 export type DriveFileMetadata = z.infer<typeof DriveFileMetadataSchema>;

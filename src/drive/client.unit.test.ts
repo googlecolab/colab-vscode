@@ -73,42 +73,6 @@ describe('DriveClient', () => {
     });
   });
 
-  describe('getDriveFileMetadata', () => {
-    it('should return the file metadata', async () => {
-      const fileId = 'test-file-id';
-      const mockMetadata = { name: 'my-notebook.ipynb' };
-      fetchStub.resolves(
-        new Response(JSON.stringify(mockMetadata), { status: 200 }),
-      );
-
-      const result = await client.getDriveFileMetadata(fileId);
-
-      expect(result).to.deep.equal(mockMetadata);
-      sinon.assert.calledOnce(fetchStub);
-      sinon.assert.calledWithMatch(
-        fetchStub,
-        sinon.match((req: Request) => {
-          return (
-            req.method === 'GET' &&
-            req.url === `${FILES_ENDPOINT}/${fileId}?fields=name` &&
-            req.headers.get(AUTHORIZATION_HEADER.key) ===
-              `Bearer ${BEARER_TOKEN}`
-          );
-        }),
-      );
-    });
-
-    it('should propagate errors', async () => {
-      const fileId = 'test-file-id';
-      const error = new Error('Metadata error');
-      fetchStub.rejects(error);
-
-      await expect(client.getDriveFileMetadata(fileId)).to.be.rejectedWith(
-        error,
-      );
-    });
-  });
-
   describe('getDriveFileName', () => {
     it('should return the file name from metadata', async () => {
       const fileId = 'test-file-id';

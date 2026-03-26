@@ -3,8 +3,8 @@
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
+
 import fetch, { Request, RequestInit, Response } from 'node-fetch';
-import { z } from 'zod';
 import { fetchAndParse } from '../common/fetch-utils';
 import {
   buildFetchChain,
@@ -44,7 +44,7 @@ export class DriveClient {
   }
 
   private constructor(
-    private readonly fetch: (
+    private readonly authenticatedFetch: (
       url: string | Request,
       init?: RequestInit,
     ) => Promise<Response>,
@@ -61,36 +61,13 @@ export class DriveClient {
     fileId: string,
     signal?: AbortSignal,
   ): Promise<Uint8Array> {
-    const encoder = new TextEncoder();
     const url = new URL(`${FILES_ENDPOINT}/${fileId}?alt=media`);
-    const response = await fetchAndParse(
-      this.fetch,
-      url.toString(),
-      z.unknown(),
-      { method: 'GET', signal },
-    );
-
-    return encoder.encode(JSON.stringify(response));
-  }
-
-  /**
-   * Retrieves the metadata for a file from Google Drive.
-   *
-   * @param id - The ID of the Drive file.
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns A promise that resolves to the file metadata.
-   */
-  async getDriveFileMetadata(
-    id: string,
-    signal?: AbortSignal,
-  ): Promise<DriveFileMetadata> {
-    const url = new URL(`${FILES_ENDPOINT}/${id}`);
-    url.searchParams.append('fields', 'name');
-
-    return fetchAndParse(this.fetch, url.toString(), DriveFileMetadataSchema, {
+    const response = await this.authenticatedFetch(url.toString(), {
       method: 'GET',
       signal,
     });
+
+    return new Uint8Array(await response.arrayBuffer());
   }
 
   /**
@@ -105,5 +82,30 @@ export class DriveClient {
     signal?: AbortSignal,
   ): Promise<string> {
     return (await this.getDriveFileMetadata(fileId, signal)).name;
+  }
+
+  /**
+   * Retrieves the metadata for a file from Google Drive.
+   *
+   * @param id - The ID of the Drive file.
+   * @param signal - Optional {@link AbortSignal} to cancel the request.
+   * @returns A promise that resolves to the file metadata.
+   */
+  private async getDriveFileMetadata(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<DriveFileMetadata> {
+    const url = new URL(`${FILES_ENDPOINT}/${id}`);
+    url.searchParams.append('fields', 'name');
+
+    return fetchAndParse(
+      this.authenticatedFetch,
+      url.toString(),
+      DriveFileMetadataSchema,
+      {
+        method: 'GET',
+        signal,
+      },
+    );
   }
 }
