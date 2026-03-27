@@ -54,6 +54,14 @@ export interface KernelsStartOperationRequest {
  */
 export interface KernelsApiInterface {
     /**
+     * Creates request options for kernelsGet without sending the request
+     * @param {string} kernelId kernel uuid
+     * @throws {RequiredError}
+     * @memberof KernelsApiInterface
+     */
+    kernelsGetRequestOpts(requestParameters: KernelsGetRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get kernel information
      * @param {string} kernelId kernel uuid
@@ -67,6 +75,14 @@ export interface KernelsApiInterface {
      * Get kernel information
      */
     get(requestParameters: KernelsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Kernel>;
+
+    /**
+     * Creates request options for kernelsInterrupt without sending the request
+     * @param {string} kernelId kernel uuid
+     * @throws {RequiredError}
+     * @memberof KernelsApiInterface
+     */
+    kernelsInterruptRequestOpts(requestParameters: KernelsInterruptRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -84,6 +100,14 @@ export interface KernelsApiInterface {
     interrupt(requestParameters: KernelsInterruptRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
 
     /**
+     * Creates request options for kernelsKill without sending the request
+     * @param {string} kernelId kernel uuid
+     * @throws {RequiredError}
+     * @memberof KernelsApiInterface
+     */
+    kernelsKillRequestOpts(requestParameters: KernelsKillRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Kill a kernel and delete the kernel id
      * @param {string} kernelId kernel uuid
@@ -97,6 +121,13 @@ export interface KernelsApiInterface {
      * Kill a kernel and delete the kernel id
      */
     kill(requestParameters: KernelsKillRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
+
+    /**
+     * Creates request options for kernelsList without sending the request
+     * @throws {RequiredError}
+     * @memberof KernelsApiInterface
+     */
+    kernelsListRequestOpts(): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -113,6 +144,14 @@ export interface KernelsApiInterface {
     list(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Kernel>>;
 
     /**
+     * Creates request options for kernelsRestart without sending the request
+     * @param {string} kernelId kernel uuid
+     * @throws {RequiredError}
+     * @memberof KernelsApiInterface
+     */
+    kernelsRestartRequestOpts(requestParameters: KernelsRestartRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Restart a kernel
      * @param {string} kernelId kernel uuid
@@ -126,6 +165,14 @@ export interface KernelsApiInterface {
      * Restart a kernel
      */
     restart(requestParameters: KernelsRestartRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Kernel>;
+
+    /**
+     * Creates request options for kernelsStart without sending the request
+     * @param {KernelsStartRequest} [options] 
+     * @throws {RequiredError}
+     * @memberof KernelsApiInterface
+     */
+    kernelsStartRequestOpts(requestParameters: KernelsStartOperationRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -150,9 +197,9 @@ export interface KernelsApiInterface {
 export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
     /**
-     * Get kernel information
+     * Creates request options for kernelsGet without sending the request
      */
-    async getRaw(requestParameters: KernelsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Kernel>> {
+    async kernelsGetRequestOpts(requestParameters: KernelsGetRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['kernelId'] == null) {
             throw new runtime.RequiredError(
                 'kernelId',
@@ -168,12 +215,20 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
         let urlPath = `/api/kernels/{kernel_id}`;
         urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get kernel information
+     */
+    async getRaw(requestParameters: KernelsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Kernel>> {
+        const requestOptions = await this.kernelsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => KernelFromJSON(jsonValue));
     }
@@ -187,9 +242,9 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
     }
 
     /**
-     * Interrupt a kernel
+     * Creates request options for kernelsInterrupt without sending the request
      */
-    async interruptRaw(requestParameters: KernelsInterruptRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async kernelsInterruptRequestOpts(requestParameters: KernelsInterruptRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['kernelId'] == null) {
             throw new runtime.RequiredError(
                 'kernelId',
@@ -205,12 +260,20 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
         let urlPath = `/api/kernels/{kernel_id}/interrupt`;
         urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Interrupt a kernel
+     */
+    async interruptRaw(requestParameters: KernelsInterruptRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.kernelsInterruptRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -223,9 +286,9 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
     }
 
     /**
-     * Kill a kernel and delete the kernel id
+     * Creates request options for kernelsKill without sending the request
      */
-    async killRaw(requestParameters: KernelsKillRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async kernelsKillRequestOpts(requestParameters: KernelsKillRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['kernelId'] == null) {
             throw new runtime.RequiredError(
                 'kernelId',
@@ -241,12 +304,20 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
         let urlPath = `/api/kernels/{kernel_id}`;
         urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'DELETE',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Kill a kernel and delete the kernel id
+     */
+    async killRaw(requestParameters: KernelsKillRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.kernelsKillRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -259,9 +330,9 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
     }
 
     /**
-     * List the JSON data for all kernels that are currently running
+     * Creates request options for kernelsList without sending the request
      */
-    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Kernel>>> {
+    async kernelsListRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -269,12 +340,20 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
         let urlPath = `/api/kernels`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * List the JSON data for all kernels that are currently running
+     */
+    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Kernel>>> {
+        const requestOptions = await this.kernelsListRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(KernelFromJSON));
     }
@@ -288,9 +367,9 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
     }
 
     /**
-     * Restart a kernel
+     * Creates request options for kernelsRestart without sending the request
      */
-    async restartRaw(requestParameters: KernelsRestartRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Kernel>> {
+    async kernelsRestartRequestOpts(requestParameters: KernelsRestartRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['kernelId'] == null) {
             throw new runtime.RequiredError(
                 'kernelId',
@@ -306,12 +385,20 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
         let urlPath = `/api/kernels/{kernel_id}/restart`;
         urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Restart a kernel
+     */
+    async restartRaw(requestParameters: KernelsRestartRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Kernel>> {
+        const requestOptions = await this.kernelsRestartRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => KernelFromJSON(jsonValue));
     }
@@ -325,9 +412,9 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
     }
 
     /**
-     * Start a kernel and return the uuid
+     * Creates request options for kernelsStart without sending the request
      */
-    async startRaw(requestParameters: KernelsStartOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Kernel>> {
+    async kernelsStartRequestOpts(requestParameters: KernelsStartOperationRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -337,13 +424,21 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
         let urlPath = `/api/kernels`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
             body: KernelsStartRequestToJSON(requestParameters['options']),
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Start a kernel and return the uuid
+     */
+    async startRaw(requestParameters: KernelsStartOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Kernel>> {
+        const requestOptions = await this.kernelsStartRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => KernelFromJSON(jsonValue));
     }

@@ -31,6 +31,13 @@ import {
  */
 export interface StatusApiInterface {
     /**
+     * Creates request options for statusGet without sending the request
+     * @throws {RequiredError}
+     * @memberof StatusApiInterface
+     */
+    statusGetRequestOpts(): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get the current status/activity of the server.
      * @param {*} [options] Override http request option.
@@ -52,9 +59,9 @@ export interface StatusApiInterface {
 export class StatusApi extends runtime.BaseAPI implements StatusApiInterface {
 
     /**
-     * Get the current status/activity of the server.
+     * Creates request options for statusGet without sending the request
      */
-    async getRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<APIStatus>> {
+    async statusGetRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -62,12 +69,20 @@ export class StatusApi extends runtime.BaseAPI implements StatusApiInterface {
 
         let urlPath = `/api/status`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get the current status/activity of the server.
+     */
+    async getRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<APIStatus>> {
+        const requestOptions = await this.statusGetRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => APIStatusFromJSON(jsonValue));
     }

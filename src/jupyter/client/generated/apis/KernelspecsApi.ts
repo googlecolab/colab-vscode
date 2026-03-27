@@ -31,6 +31,13 @@ import {
  */
 export interface KernelspecsApiInterface {
     /**
+     * Creates request options for kernelspecsList without sending the request
+     * @throws {RequiredError}
+     * @memberof KernelspecsApiInterface
+     */
+    kernelspecsListRequestOpts(): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get kernel specs
      * @param {*} [options] Override http request option.
@@ -52,9 +59,9 @@ export interface KernelspecsApiInterface {
 export class KernelspecsApi extends runtime.BaseAPI implements KernelspecsApiInterface {
 
     /**
-     * Get kernel specs
+     * Creates request options for kernelspecsList without sending the request
      */
-    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<KernelspecsList200Response>> {
+    async kernelspecsListRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -62,12 +69,20 @@ export class KernelspecsApi extends runtime.BaseAPI implements KernelspecsApiInt
 
         let urlPath = `/api/kernelspecs`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get kernel specs
+     */
+    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<KernelspecsList200Response>> {
+        const requestOptions = await this.kernelspecsListRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => KernelspecsList200ResponseFromJSON(jsonValue));
     }
