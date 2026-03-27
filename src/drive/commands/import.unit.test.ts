@@ -8,7 +8,7 @@ import sinon, { SinonStubbedInstance } from 'sinon';
 import { NotebookDocument } from 'vscode';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { DriveClient } from '../drive-client';
+import { DriveClient } from '../client';
 import { importNotebookFromUrl } from './import';
 
 describe('importNotebookFromUrl', () => {

@@ -5,7 +5,7 @@
  */
 import vscode from 'vscode';
 import { log } from '../../common/logging';
-import { DriveClient } from '../drive-client';
+import { DriveClient } from '../client';
 
 /**
  * Prompts the user for a notebook URL and attempts to copy the notebook

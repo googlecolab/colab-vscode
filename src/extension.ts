@@ -21,10 +21,8 @@ import {
   REMOVE_SERVER,
   SIGN_OUT,
   OPEN_TERMINAL,
-  IMPORT_NOTEBOOK_FROM_URL,
 } from './colab/commands/constants';
 import { upload } from './colab/commands/files';
-import { importNotebookFromUrl } from './colab/commands/import';
 import { notebookToolbar, appendCodeCell } from './colab/commands/notebook';
 import { mountServer, removeServer } from './colab/commands/server';
 import { openTerminal } from './colab/commands/terminal';
@@ -49,6 +47,8 @@ import { initializeLogger, log } from './common/logging';
 import { Toggleable } from './common/toggleable';
 import { getPackageInfo } from './config/package-info';
 import { DriveClient } from './drive/client';
+import { IMPORT_NOTEBOOK_FROM_URL } from './drive/commands/constants';
+import { importNotebookFromUrl } from './drive/commands/import';
 import { AssignmentManager } from './jupyter/assignments';
 import { ContentsFileSystemProvider } from './jupyter/contents/file-system';
 import { JupyterConnectionManager } from './jupyter/contents/sessions';
