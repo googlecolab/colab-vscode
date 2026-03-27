@@ -91,6 +91,15 @@ export interface ContentsSaveOperationRequest {
  */
 export interface ContentsApiInterface {
     /**
+     * Creates request options for contentsCreate without sending the request
+     * @param {string} path file path
+     * @param {ContentsCreateRequest} [model] Path of file to copy
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsCreateRequestOpts(requestParameters: ContentsCreateOperationRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * A POST to /api/contents/path creates a New untitled, empty file or directory. A POST to /api/contents/path with body {\'copy_from\': \'/path/to/OtherNotebook.ipynb\'} creates a new copy of OtherNotebook in path.
      * @summary Create a new file in the specified path
      * @param {string} path file path
@@ -106,6 +115,14 @@ export interface ContentsApiInterface {
      * Create a new file in the specified path
      */
     create(requestParameters: ContentsCreateOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Contents>;
+
+    /**
+     * Creates request options for contentsCreateCheckpoint without sending the request
+     * @param {string} path file path
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsCreateCheckpointRequestOpts(requestParameters: ContentsCreateCheckpointRequest): Promise<runtime.RequestOpts>;
 
     /**
      * Create a new checkpoint with the current state of a file. With the default FileContentsManager, only one checkpoint is supported, so creating new checkpoints clobbers existing ones.
@@ -124,6 +141,14 @@ export interface ContentsApiInterface {
     createCheckpoint(requestParameters: ContentsCreateCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Checkpoints>;
 
     /**
+     * Creates request options for contentsDelete without sending the request
+     * @param {string} path file path
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsDeleteRequestOpts(requestParameters: ContentsDeleteRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Delete a file in the given path
      * @param {string} path file path
@@ -137,6 +162,15 @@ export interface ContentsApiInterface {
      * Delete a file in the given path
      */
     delete(requestParameters: ContentsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
+
+    /**
+     * Creates request options for contentsDeleteCheckpoint without sending the request
+     * @param {string} path file path
+     * @param {string} checkpointId Checkpoint id for a file
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsDeleteCheckpointRequestOpts(requestParameters: ContentsDeleteCheckpointRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -153,6 +187,18 @@ export interface ContentsApiInterface {
      * Delete a checkpoint
      */
     deleteCheckpoint(requestParameters: ContentsDeleteCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
+
+    /**
+     * Creates request options for contentsGet without sending the request
+     * @param {string} path file path
+     * @param {'file' | 'directory'} [type] File type (\&#39;file\&#39;, \&#39;directory\&#39;)
+     * @param {'text' | 'base64'} [format] How file content should be returned (\&#39;text\&#39;, \&#39;base64\&#39;)
+     * @param {number} [content] Return content (0 for no content, 1 for return content)
+     * @param {number} [hash] May return hash hexdigest string of content and the hash algorithm (0 for no hash - default, 1 for return hash). It may be ignored by the content manager.
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsGetRequestOpts(requestParameters: ContentsGetRequest): Promise<runtime.RequestOpts>;
 
     /**
      * A client can optionally specify a type and/or format argument via URL parameter. When given, the Contents service shall return a model in the requested type and/or format. If the request cannot be satisfied, e.g. type=text is requested, but the file is binary, then the request shall fail with 400 and have a JSON response containing a \'reason\' field, with the value \'bad format\' or \'bad type\', depending on what was requested.
@@ -175,6 +221,14 @@ export interface ContentsApiInterface {
     get(requestParameters: ContentsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Contents>;
 
     /**
+     * Creates request options for contentsListCheckpoints without sending the request
+     * @param {string} path file path
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsListCheckpointsRequestOpts(requestParameters: ContentsListCheckpointsRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * List checkpoints for a given file. There will typically be zero or one results.
      * @summary Get a list of checkpoints for a file
      * @param {string} path file path
@@ -189,6 +243,15 @@ export interface ContentsApiInterface {
      * Get a list of checkpoints for a file
      */
     listCheckpoints(requestParameters: ContentsListCheckpointsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Checkpoints>>;
+
+    /**
+     * Creates request options for contentsRename without sending the request
+     * @param {string} path file path
+     * @param {ContentsRenameRequest} rename New path for file or directory.
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsRenameRequestOpts(requestParameters: ContentsRenameOperationRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -207,6 +270,15 @@ export interface ContentsApiInterface {
     rename(requestParameters: ContentsRenameOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Contents>;
 
     /**
+     * Creates request options for contentsRestoreCheckpoint without sending the request
+     * @param {string} path file path
+     * @param {string} checkpointId Checkpoint id for a file
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsRestoreCheckpointRequestOpts(requestParameters: ContentsRestoreCheckpointRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Restore a file to a particular checkpointed state
      * @param {string} path file path
@@ -221,6 +293,15 @@ export interface ContentsApiInterface {
      * Restore a file to a particular checkpointed state
      */
     restoreCheckpoint(requestParameters: ContentsRestoreCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
+
+    /**
+     * Creates request options for contentsSave without sending the request
+     * @param {string} path file path
+     * @param {ContentsSaveRequest} [model] New path for file or directory
+     * @throws {RequiredError}
+     * @memberof ContentsApiInterface
+     */
+    contentsSaveRequestOpts(requestParameters: ContentsSaveOperationRequest): Promise<runtime.RequestOpts>;
 
     /**
      * Saves the file in the location specified by name and path.  PUT is very similar to POST, but the requester specifies the name, whereas with POST, the server picks the name.
@@ -247,10 +328,9 @@ export interface ContentsApiInterface {
 export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface {
 
     /**
-     * A POST to /api/contents/path creates a New untitled, empty file or directory. A POST to /api/contents/path with body {\'copy_from\': \'/path/to/OtherNotebook.ipynb\'} creates a new copy of OtherNotebook in path.
-     * Create a new file in the specified path
+     * Creates request options for contentsCreate without sending the request
      */
-    async createRaw(requestParameters: ContentsCreateOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+    async contentsCreateRequestOpts(requestParameters: ContentsCreateOperationRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -268,13 +348,22 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
             body: ContentsCreateRequestToJSON(requestParameters['model']),
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * A POST to /api/contents/path creates a New untitled, empty file or directory. A POST to /api/contents/path with body {\'copy_from\': \'/path/to/OtherNotebook.ipynb\'} creates a new copy of OtherNotebook in path.
+     * Create a new file in the specified path
+     */
+    async createRaw(requestParameters: ContentsCreateOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+        const requestOptions = await this.contentsCreateRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ContentsFromJSON(jsonValue));
     }
@@ -289,10 +378,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * Create a new checkpoint with the current state of a file. With the default FileContentsManager, only one checkpoint is supported, so creating new checkpoints clobbers existing ones.
-     * Create a new checkpoint for a file
+     * Creates request options for contentsCreateCheckpoint without sending the request
      */
-    async createCheckpointRaw(requestParameters: ContentsCreateCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Checkpoints>> {
+    async contentsCreateCheckpointRequestOpts(requestParameters: ContentsCreateCheckpointRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -308,12 +396,21 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}/checkpoints`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Create a new checkpoint with the current state of a file. With the default FileContentsManager, only one checkpoint is supported, so creating new checkpoints clobbers existing ones.
+     * Create a new checkpoint for a file
+     */
+    async createCheckpointRaw(requestParameters: ContentsCreateCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Checkpoints>> {
+        const requestOptions = await this.contentsCreateCheckpointRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => CheckpointsFromJSON(jsonValue));
     }
@@ -328,9 +425,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * Delete a file in the given path
+     * Creates request options for contentsDelete without sending the request
      */
-    async deleteRaw(requestParameters: ContentsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async contentsDeleteRequestOpts(requestParameters: ContentsDeleteRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -346,12 +443,20 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'DELETE',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Delete a file in the given path
+     */
+    async deleteRaw(requestParameters: ContentsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.contentsDeleteRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -364,9 +469,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * Delete a checkpoint
+     * Creates request options for contentsDeleteCheckpoint without sending the request
      */
-    async deleteCheckpointRaw(requestParameters: ContentsDeleteCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async contentsDeleteCheckpointRequestOpts(requestParameters: ContentsDeleteCheckpointRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -390,12 +495,20 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
         urlPath = urlPath.replace(`{${"checkpoint_id"}}`, encodeURIComponent(String(requestParameters['checkpointId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'DELETE',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Delete a checkpoint
+     */
+    async deleteCheckpointRaw(requestParameters: ContentsDeleteCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.contentsDeleteCheckpointRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -408,10 +521,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * A client can optionally specify a type and/or format argument via URL parameter. When given, the Contents service shall return a model in the requested type and/or format. If the request cannot be satisfied, e.g. type=text is requested, but the file is binary, then the request shall fail with 400 and have a JSON response containing a \'reason\' field, with the value \'bad format\' or \'bad type\', depending on what was requested.
-     * Get contents of file or directory
+     * Creates request options for contentsGet without sending the request
      */
-    async getRaw(requestParameters: ContentsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+    async contentsGetRequestOpts(requestParameters: ContentsGetRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -443,12 +555,21 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * A client can optionally specify a type and/or format argument via URL parameter. When given, the Contents service shall return a model in the requested type and/or format. If the request cannot be satisfied, e.g. type=text is requested, but the file is binary, then the request shall fail with 400 and have a JSON response containing a \'reason\' field, with the value \'bad format\' or \'bad type\', depending on what was requested.
+     * Get contents of file or directory
+     */
+    async getRaw(requestParameters: ContentsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+        const requestOptions = await this.contentsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ContentsFromJSON(jsonValue));
     }
@@ -463,10 +584,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * List checkpoints for a given file. There will typically be zero or one results.
-     * Get a list of checkpoints for a file
+     * Creates request options for contentsListCheckpoints without sending the request
      */
-    async listCheckpointsRaw(requestParameters: ContentsListCheckpointsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Checkpoints>>> {
+    async contentsListCheckpointsRequestOpts(requestParameters: ContentsListCheckpointsRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -482,12 +602,21 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}/checkpoints`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * List checkpoints for a given file. There will typically be zero or one results.
+     * Get a list of checkpoints for a file
+     */
+    async listCheckpointsRaw(requestParameters: ContentsListCheckpointsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Checkpoints>>> {
+        const requestOptions = await this.contentsListCheckpointsRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(CheckpointsFromJSON));
     }
@@ -502,9 +631,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * Rename a file or directory without re-uploading content
+     * Creates request options for contentsRename without sending the request
      */
-    async renameRaw(requestParameters: ContentsRenameOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+    async contentsRenameRequestOpts(requestParameters: ContentsRenameOperationRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -529,13 +658,21 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'PATCH',
             headers: headerParameters,
             query: queryParameters,
             body: ContentsRenameRequestToJSON(requestParameters['rename']),
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Rename a file or directory without re-uploading content
+     */
+    async renameRaw(requestParameters: ContentsRenameOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+        const requestOptions = await this.contentsRenameRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ContentsFromJSON(jsonValue));
     }
@@ -549,9 +686,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * Restore a file to a particular checkpointed state
+     * Creates request options for contentsRestoreCheckpoint without sending the request
      */
-    async restoreCheckpointRaw(requestParameters: ContentsRestoreCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async contentsRestoreCheckpointRequestOpts(requestParameters: ContentsRestoreCheckpointRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -575,12 +712,20 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
         urlPath = urlPath.replace(`{${"checkpoint_id"}}`, encodeURIComponent(String(requestParameters['checkpointId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Restore a file to a particular checkpointed state
+     */
+    async restoreCheckpointRaw(requestParameters: ContentsRestoreCheckpointRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.contentsRestoreCheckpointRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -593,10 +738,9 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
     }
 
     /**
-     * Saves the file in the location specified by name and path.  PUT is very similar to POST, but the requester specifies the name, whereas with POST, the server picks the name.
-     * Save or upload file.
+     * Creates request options for contentsSave without sending the request
      */
-    async saveRaw(requestParameters: ContentsSaveOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+    async contentsSaveRequestOpts(requestParameters: ContentsSaveOperationRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['path'] == null) {
             throw new runtime.RequiredError(
                 'path',
@@ -614,13 +758,22 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
         let urlPath = `/api/contents/{path}`;
         urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'PUT',
             headers: headerParameters,
             query: queryParameters,
             body: ContentsSaveRequestToJSON(requestParameters['model']),
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Saves the file in the location specified by name and path.  PUT is very similar to POST, but the requester specifies the name, whereas with POST, the server picks the name.
+     * Save or upload file.
+     */
+    async saveRaw(requestParameters: ContentsSaveOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Contents>> {
+        const requestOptions = await this.contentsSaveRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => ContentsFromJSON(jsonValue));
     }

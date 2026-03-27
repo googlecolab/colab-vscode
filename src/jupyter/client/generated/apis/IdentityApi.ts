@@ -35,6 +35,14 @@ export interface IdentityGetRequest {
  */
 export interface IdentityApiInterface {
     /**
+     * Creates request options for identityGet without sending the request
+     * @param {string} [permissions] JSON-serialized dictionary of &#x60;{\&quot;resource\&quot;: [\&quot;action\&quot;,]}&#x60; (dict of lists of strings) to check. The same dictionary structure will be returned, containing only the actions for which the user is authorized. 
+     * @throws {RequiredError}
+     * @memberof IdentityApiInterface
+     */
+    identityGetRequestOpts(requestParameters: IdentityGetRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get the identity of the currently authenticated user. If present, a `permissions` argument may be specified to check what actions the user currently is authorized to take. 
      * @param {string} [permissions] JSON-serialized dictionary of &#x60;{\&quot;resource\&quot;: [\&quot;action\&quot;,]}&#x60; (dict of lists of strings) to check. The same dictionary structure will be returned, containing only the actions for which the user is authorized. 
@@ -57,9 +65,9 @@ export interface IdentityApiInterface {
 export class IdentityApi extends runtime.BaseAPI implements IdentityApiInterface {
 
     /**
-     * Get the identity of the currently authenticated user. If present, a `permissions` argument may be specified to check what actions the user currently is authorized to take. 
+     * Creates request options for identityGet without sending the request
      */
-    async getRaw(requestParameters: IdentityGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<IdentityGet200Response>> {
+    async identityGetRequestOpts(requestParameters: IdentityGetRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         if (requestParameters['permissions'] != null) {
@@ -71,12 +79,20 @@ export class IdentityApi extends runtime.BaseAPI implements IdentityApiInterface
 
         let urlPath = `/api/me`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get the identity of the currently authenticated user. If present, a `permissions` argument may be specified to check what actions the user currently is authorized to take. 
+     */
+    async getRaw(requestParameters: IdentityGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<IdentityGet200Response>> {
+        const requestOptions = await this.identityGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => IdentityGet200ResponseFromJSON(jsonValue));
     }

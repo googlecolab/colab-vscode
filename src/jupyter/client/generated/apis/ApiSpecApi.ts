@@ -24,6 +24,13 @@ import * as runtime from '../runtime';
  */
 export interface ApiSpecApiInterface {
     /**
+     * Creates request options for apiSpecGet without sending the request
+     * @throws {RequiredError}
+     * @memberof ApiSpecApiInterface
+     */
+    apiSpecGetRequestOpts(): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get the current spec for the notebook server\'s APIs.
      * @param {*} [options] Override http request option.
@@ -45,9 +52,9 @@ export interface ApiSpecApiInterface {
 export class ApiSpecApi extends runtime.BaseAPI implements ApiSpecApiInterface {
 
     /**
-     * Get the current spec for the notebook server\'s APIs.
+     * Creates request options for apiSpecGet without sending the request
      */
-    async getSpecRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
+    async apiSpecGetRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -55,12 +62,20 @@ export class ApiSpecApi extends runtime.BaseAPI implements ApiSpecApiInterface {
 
         let urlPath = `/api/spec.yaml`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get the current spec for the notebook server\'s APIs.
+     */
+    async getSpecRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
+        const requestOptions = await this.apiSpecGetRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         if (this.isJsonMime(response.headers.get('content-type'))) {
             return new runtime.JSONApiResponse<string>(response);
