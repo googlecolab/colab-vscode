@@ -33,6 +33,14 @@ export interface ConfigUpdateRequest {
  */
 export interface ConfigApiInterface {
     /**
+     * Creates request options for configGet without sending the request
+     * @param {string} sectionName Name of config section
+     * @throws {RequiredError}
+     * @memberof ConfigApiInterface
+     */
+    configGetRequestOpts(requestParameters: ConfigGetRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get a configuration section by name
      * @param {string} sectionName Name of config section
@@ -46,6 +54,15 @@ export interface ConfigApiInterface {
      * Get a configuration section by name
      */
     get(requestParameters: ConfigGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object>;
+
+    /**
+     * Creates request options for configUpdate without sending the request
+     * @param {string} sectionName Name of config section
+     * @param {object} [_configuration] 
+     * @throws {RequiredError}
+     * @memberof ConfigApiInterface
+     */
+    configUpdateRequestOpts(requestParameters: ConfigUpdateRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -71,9 +88,9 @@ export interface ConfigApiInterface {
 export class ConfigApi extends runtime.BaseAPI implements ConfigApiInterface {
 
     /**
-     * Get a configuration section by name
+     * Creates request options for configGet without sending the request
      */
-    async getRaw(requestParameters: ConfigGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
+    async configGetRequestOpts(requestParameters: ConfigGetRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['sectionName'] == null) {
             throw new runtime.RequiredError(
                 'sectionName',
@@ -89,12 +106,20 @@ export class ConfigApi extends runtime.BaseAPI implements ConfigApiInterface {
         let urlPath = `/api/config/{section_name}`;
         urlPath = urlPath.replace(`{${"section_name"}}`, encodeURIComponent(String(requestParameters['sectionName'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get a configuration section by name
+     */
+    async getRaw(requestParameters: ConfigGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
+        const requestOptions = await this.configGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse<any>(response);
     }
@@ -108,9 +133,9 @@ export class ConfigApi extends runtime.BaseAPI implements ConfigApiInterface {
     }
 
     /**
-     * Update a configuration section by name
+     * Creates request options for configUpdate without sending the request
      */
-    async updateRaw(requestParameters: ConfigUpdateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
+    async configUpdateRequestOpts(requestParameters: ConfigUpdateRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['sectionName'] == null) {
             throw new runtime.RequiredError(
                 'sectionName',
@@ -128,13 +153,21 @@ export class ConfigApi extends runtime.BaseAPI implements ConfigApiInterface {
         let urlPath = `/api/config/{section_name}`;
         urlPath = urlPath.replace(`{${"section_name"}}`, encodeURIComponent(String(requestParameters['sectionName'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'PATCH',
             headers: headerParameters,
             query: queryParameters,
             body: requestParameters['_configuration'] as any,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Update a configuration section by name
+     */
+    async updateRaw(requestParameters: ConfigUpdateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
+        const requestOptions = await this.configUpdateRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse<any>(response);
     }

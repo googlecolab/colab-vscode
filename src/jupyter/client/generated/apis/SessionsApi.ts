@@ -51,6 +51,14 @@ export interface SessionsUpdateRequest {
  */
 export interface SessionsApiInterface {
     /**
+     * Creates request options for sessionsCreate without sending the request
+     * @param {Session} [session] 
+     * @throws {RequiredError}
+     * @memberof SessionsApiInterface
+     */
+    sessionsCreateRequestOpts(requestParameters: SessionsCreateRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Create a new session, or return an existing session if a session of the same name already exists
      * @param {Session} [session] 
@@ -64,6 +72,14 @@ export interface SessionsApiInterface {
      * Create a new session, or return an existing session if a session of the same name already exists
      */
     create(requestParameters: SessionsCreateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Session>;
+
+    /**
+     * Creates request options for sessionsDelete without sending the request
+     * @param {string} session session uuid
+     * @throws {RequiredError}
+     * @memberof SessionsApiInterface
+     */
+    sessionsDeleteRequestOpts(requestParameters: SessionsDeleteRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -81,6 +97,14 @@ export interface SessionsApiInterface {
     delete(requestParameters: SessionsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
 
     /**
+     * Creates request options for sessionsGet without sending the request
+     * @param {string} session session uuid
+     * @throws {RequiredError}
+     * @memberof SessionsApiInterface
+     */
+    sessionsGetRequestOpts(requestParameters: SessionsGetRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get session
      * @param {string} session session uuid
@@ -96,6 +120,13 @@ export interface SessionsApiInterface {
     get(requestParameters: SessionsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Session>;
 
     /**
+     * Creates request options for sessionsList without sending the request
+     * @throws {RequiredError}
+     * @memberof SessionsApiInterface
+     */
+    sessionsListRequestOpts(): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary List available sessions
      * @param {*} [options] Override http request option.
@@ -108,6 +139,15 @@ export interface SessionsApiInterface {
      * List available sessions
      */
     list(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Session>>;
+
+    /**
+     * Creates request options for sessionsUpdate without sending the request
+     * @param {string} session session uuid
+     * @param {Session} model 
+     * @throws {RequiredError}
+     * @memberof SessionsApiInterface
+     */
+    sessionsUpdateRequestOpts(requestParameters: SessionsUpdateRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -133,9 +173,9 @@ export interface SessionsApiInterface {
 export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface {
 
     /**
-     * Create a new session, or return an existing session if a session of the same name already exists
+     * Creates request options for sessionsCreate without sending the request
      */
-    async createRaw(requestParameters: SessionsCreateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Session>> {
+    async sessionsCreateRequestOpts(requestParameters: SessionsCreateRequest): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -145,13 +185,21 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
 
         let urlPath = `/api/sessions`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
             body: SessionToJSON(requestParameters['session']),
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Create a new session, or return an existing session if a session of the same name already exists
+     */
+    async createRaw(requestParameters: SessionsCreateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Session>> {
+        const requestOptions = await this.sessionsCreateRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => SessionFromJSON(jsonValue));
     }
@@ -165,9 +213,9 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
     }
 
     /**
-     * Delete a session
+     * Creates request options for sessionsDelete without sending the request
      */
-    async deleteRaw(requestParameters: SessionsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async sessionsDeleteRequestOpts(requestParameters: SessionsDeleteRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['session'] == null) {
             throw new runtime.RequiredError(
                 'session',
@@ -183,12 +231,20 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
         let urlPath = `/api/sessions/{session}`;
         urlPath = urlPath.replace(`{${"session"}}`, encodeURIComponent(String(requestParameters['session'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'DELETE',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Delete a session
+     */
+    async deleteRaw(requestParameters: SessionsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.sessionsDeleteRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -201,9 +257,9 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
     }
 
     /**
-     * Get session
+     * Creates request options for sessionsGet without sending the request
      */
-    async getRaw(requestParameters: SessionsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Session>> {
+    async sessionsGetRequestOpts(requestParameters: SessionsGetRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['session'] == null) {
             throw new runtime.RequiredError(
                 'session',
@@ -219,12 +275,20 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
         let urlPath = `/api/sessions/{session}`;
         urlPath = urlPath.replace(`{${"session"}}`, encodeURIComponent(String(requestParameters['session'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get session
+     */
+    async getRaw(requestParameters: SessionsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Session>> {
+        const requestOptions = await this.sessionsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => SessionFromJSON(jsonValue));
     }
@@ -238,9 +302,9 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
     }
 
     /**
-     * List available sessions
+     * Creates request options for sessionsList without sending the request
      */
-    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Session>>> {
+    async sessionsListRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -248,12 +312,20 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
 
         let urlPath = `/api/sessions`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * List available sessions
+     */
+    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Session>>> {
+        const requestOptions = await this.sessionsListRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(SessionFromJSON));
     }
@@ -267,9 +339,9 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
     }
 
     /**
-     * This can be used to rename the session.
+     * Creates request options for sessionsUpdate without sending the request
      */
-    async updateRaw(requestParameters: SessionsUpdateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Session>> {
+    async sessionsUpdateRequestOpts(requestParameters: SessionsUpdateRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['session'] == null) {
             throw new runtime.RequiredError(
                 'session',
@@ -294,13 +366,21 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
         let urlPath = `/api/sessions/{session}`;
         urlPath = urlPath.replace(`{${"session"}}`, encodeURIComponent(String(requestParameters['session'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'PATCH',
             headers: headerParameters,
             query: queryParameters,
             body: SessionToJSON(requestParameters['model']),
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * This can be used to rename the session.
+     */
+    async updateRaw(requestParameters: SessionsUpdateRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Session>> {
+        const requestOptions = await this.sessionsUpdateRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => SessionFromJSON(jsonValue));
     }

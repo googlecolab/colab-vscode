@@ -39,6 +39,13 @@ export interface TerminalsGetRequest {
  */
 export interface TerminalsApiInterface {
     /**
+     * Creates request options for terminalsCreate without sending the request
+     * @throws {RequiredError}
+     * @memberof TerminalsApiInterface
+     */
+    terminalsCreateRequestOpts(): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Create a new terminal
      * @param {*} [options] Override http request option.
@@ -51,6 +58,14 @@ export interface TerminalsApiInterface {
      * Create a new terminal
      */
     create(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Terminal>;
+
+    /**
+     * Creates request options for terminalsDelete without sending the request
+     * @param {string} terminalId ID of terminal session
+     * @throws {RequiredError}
+     * @memberof TerminalsApiInterface
+     */
+    terminalsDeleteRequestOpts(requestParameters: TerminalsDeleteRequest): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -68,6 +83,14 @@ export interface TerminalsApiInterface {
     delete(requestParameters: TerminalsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
 
     /**
+     * Creates request options for terminalsGet without sending the request
+     * @param {string} terminalId ID of terminal session
+     * @throws {RequiredError}
+     * @memberof TerminalsApiInterface
+     */
+    terminalsGetRequestOpts(requestParameters: TerminalsGetRequest): Promise<runtime.RequestOpts>;
+
+    /**
      * 
      * @summary Get a terminal session corresponding to an id.
      * @param {string} terminalId ID of terminal session
@@ -81,6 +104,13 @@ export interface TerminalsApiInterface {
      * Get a terminal session corresponding to an id.
      */
     get(requestParameters: TerminalsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Terminal>;
+
+    /**
+     * Creates request options for terminalsList without sending the request
+     * @throws {RequiredError}
+     * @memberof TerminalsApiInterface
+     */
+    terminalsListRequestOpts(): Promise<runtime.RequestOpts>;
 
     /**
      * 
@@ -104,9 +134,9 @@ export interface TerminalsApiInterface {
 export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterface {
 
     /**
-     * Create a new terminal
+     * Creates request options for terminalsCreate without sending the request
      */
-    async createRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Terminal>> {
+    async terminalsCreateRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -114,12 +144,20 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
 
         let urlPath = `/api/terminals`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Create a new terminal
+     */
+    async createRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Terminal>> {
+        const requestOptions = await this.terminalsCreateRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => TerminalFromJSON(jsonValue));
     }
@@ -133,9 +171,9 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
     }
 
     /**
-     * Delete a terminal session corresponding to an id.
+     * Creates request options for terminalsDelete without sending the request
      */
-    async deleteRaw(requestParameters: TerminalsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async terminalsDeleteRequestOpts(requestParameters: TerminalsDeleteRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['terminalId'] == null) {
             throw new runtime.RequiredError(
                 'terminalId',
@@ -151,12 +189,20 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
         let urlPath = `/api/terminals/{terminal_id}`;
         urlPath = urlPath.replace(`{${"terminal_id"}}`, encodeURIComponent(String(requestParameters['terminalId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'DELETE',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Delete a terminal session corresponding to an id.
+     */
+    async deleteRaw(requestParameters: TerminalsDeleteRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.terminalsDeleteRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.VoidApiResponse(response);
     }
@@ -169,9 +215,9 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
     }
 
     /**
-     * Get a terminal session corresponding to an id.
+     * Creates request options for terminalsGet without sending the request
      */
-    async getRaw(requestParameters: TerminalsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Terminal>> {
+    async terminalsGetRequestOpts(requestParameters: TerminalsGetRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['terminalId'] == null) {
             throw new runtime.RequiredError(
                 'terminalId',
@@ -187,12 +233,20 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
         let urlPath = `/api/terminals/{terminal_id}`;
         urlPath = urlPath.replace(`{${"terminal_id"}}`, encodeURIComponent(String(requestParameters['terminalId'])));
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get a terminal session corresponding to an id.
+     */
+    async getRaw(requestParameters: TerminalsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Terminal>> {
+        const requestOptions = await this.terminalsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => TerminalFromJSON(jsonValue));
     }
@@ -206,9 +260,9 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
     }
 
     /**
-     * Get available terminals
+     * Creates request options for terminalsList without sending the request
      */
-    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Terminal>>> {
+    async terminalsListRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -216,12 +270,20 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
 
         let urlPath = `/api/terminals`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * Get available terminals
+     */
+    async listRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Terminal>>> {
+        const requestOptions = await this.terminalsListRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(TerminalFromJSON));
     }

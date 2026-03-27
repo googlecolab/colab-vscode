@@ -31,6 +31,13 @@ import {
  */
 export interface DefaultApiInterface {
     /**
+     * Creates request options for defaultGetVersion without sending the request
+     * @throws {RequiredError}
+     * @memberof DefaultApiInterface
+     */
+    defaultGetVersionRequestOpts(): Promise<runtime.RequestOpts>;
+
+    /**
      * This endpoint returns only the Jupyter Server version. It does not require any authentication. 
      * @summary Get the Jupyter Server version
      * @param {*} [options] Override http request option.
@@ -53,10 +60,9 @@ export interface DefaultApiInterface {
 export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
     /**
-     * This endpoint returns only the Jupyter Server version. It does not require any authentication. 
-     * Get the Jupyter Server version
+     * Creates request options for defaultGetVersion without sending the request
      */
-    async getVersionRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<DefaultGetVersion200Response>> {
+    async defaultGetVersionRequestOpts(): Promise<runtime.RequestOpts> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -64,12 +70,21 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         let urlPath = `/api/`;
 
-        const response = await this.request({
+        return {
             path: urlPath,
             method: 'GET',
             headers: headerParameters,
             query: queryParameters,
-        }, initOverrides);
+        };
+    }
+
+    /**
+     * This endpoint returns only the Jupyter Server version. It does not require any authentication. 
+     * Get the Jupyter Server version
+     */
+    async getVersionRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<DefaultGetVersion200Response>> {
+        const requestOptions = await this.defaultGetVersionRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
 
         return new runtime.JSONApiResponse(response, (jsonValue) => DefaultGetVersion200ResponseFromJSON(jsonValue));
     }

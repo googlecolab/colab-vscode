@@ -42,7 +42,7 @@ export interface Contents {
     path: string;
     /**
      * Type of content
-     * @type {string}
+     * @type {ContentsTypeEnum}
      * @memberof Contents
      */
     type: ContentsTypeEnum;
