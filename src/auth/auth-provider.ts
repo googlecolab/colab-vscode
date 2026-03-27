@@ -258,7 +258,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     this.guardDisposed();
     this.assertReady();
     try {
-      const sortedScopes = Array.from(new Set(scopes).values());
+      const sortedScopes = Array.from(new Set(scopes).values()).sort();
       if (!areScopesAllowed(sortedScopes)) {
         throw new Error(
           `Only supports the following scopes: ${Array.from(ALLOWED_SCOPES.values()).join(', ')}`,
