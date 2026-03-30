@@ -100,6 +100,14 @@
           "tags": [
             "experimental"
           ]
+        },
+        "colab.importNotebookFromUrl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enables the ability to import a notebook file from a URL.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },
@@ -289,6 +297,10 @@
         {
           "command": "colab.openTerminal",
           "when": "config.colab.terminal"
+        },
+        {
+          "command": "colab.importNotebookFromUrl",
+          "when": "config.colab.importNotebookFromUrl"
         }
       ],
       "explorer/context": [
