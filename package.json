@@ -95,7 +95,7 @@
         },
         "colab.terminal": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Enables the ability to open a terminal connected to Colab runtimes.",
           "tags": [
             "experimental"
