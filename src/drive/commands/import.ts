@@ -25,6 +25,7 @@ export async function importNotebookFromUrl(
   inputUrl ??= await vs.window.showInputBox({
     prompt: 'Link to the Colab Notebook to import',
     placeHolder: 'https://colab.research.google.com/drive/...',
+    validateInput: validateImportUrl,
   });
 
   if (!inputUrl) return;
@@ -42,14 +43,11 @@ export async function importNotebookFromUrl(
 
     const doc = await vs.workspace.openNotebookDocument(targetUri);
     await vs.window.showNotebookDocument(doc);
-
-    vs.window.showInformationMessage(
-      `Successfully saved to ${targetUri.fsPath}`,
-    );
   } catch (e: unknown) {
-    log.error('Failed to import notebook:', e);
+    const msg = 'Failed to import notebook:';
+    log.error(msg, e);
     if (e instanceof Error) {
-      vs.window.showErrorMessage(`Failed to import notebook: ${e.message}`);
+      vs.window.showErrorMessage(`${msg} ${e.message}`);
     } else {
       vs.window.showErrorMessage(
         `An unknown error occurred while importing notebook: ${String(e)}`,
@@ -58,37 +56,73 @@ export async function importNotebookFromUrl(
   }
 }
 
-function resolveRemoteSource(url: string): string {
+function validateImportUrl(url: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    resolveRemoteSource(url);
+    return undefined;
+  } catch (e: unknown) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
+
+function resolveRemoteSource(urlString: string): string {
+  let url: URL;
+  try {
+    //If it doesn't start with http:// or https://, prepend https://
+    let formattedString = urlString.trim();
+    if (!/^https?:\/\//i.test(formattedString)) {
+      formattedString = 'https://' + formattedString;
+    }
+    url = new URL(formattedString);
+  } catch (_e: unknown) {
+    // Instantly reject malformed strings that aren't valid URLs
+    throw new Error('Invalid URL string provided.');
+  }
+
   const supportedFormats = [
     {
       // Format 1: Colab Notebook URL
-      regex: /\/drive\/([a-zA-Z0-9_-]+)/,
+      check: (u: URL) =>
+        u.hostname === 'colab.research.google.com' ||
+        u.hostname === 'colab.sandbox.google.com'
+          ? /^\/drive\/([a-zA-Z0-9_-]+)/.exec(u.pathname)?.[1]
+          : null,
       description: '"https://colab.research.google.com/drive/..."',
     },
     {
       // Format 2: Drive Notebook URL
-      regex: /\/file\/d\/([a-zA-Z0-9_-]+)/,
+      check: (u: URL) =>
+        u.hostname === 'drive.google.com'
+          ? /^\/file\/d\/([a-zA-Z0-9_-]+)/.exec(u.pathname)?.[1]
+          : null,
       description: '"https://drive.google.com/file/d/..."',
+    },
+    {
+      // Format 3: Older Drive URL
+      check: (u: URL) => {
+        if (u.hostname === 'drive.google.com' && u.pathname === '/open') {
+          const id = u.searchParams.get('id');
+          return id && /^[a-zA-Z0-9_-]+$/.test(id) ? id : null;
+        }
+        return null;
+      },
+      description: '"https://drive.google.com/open?id=..."',
     },
   ];
 
   for (const format of supportedFormats) {
-    const match = format.regex.exec(url);
-    if (match?.length === 2) {
-      return match[1];
+    const id = format.check(url);
+    if (id) {
+      return id;
     }
   }
 
   const descriptions = supportedFormats.map((f) => f.description);
-  let formattedDescriptions: string;
-  if (descriptions.length < 3) {
-    formattedDescriptions = descriptions.join(' and ');
-  } else {
-    formattedDescriptions =
-      descriptions.slice(0, -1).join(', ') +
-      ', and ' +
-      descriptions[descriptions.length - 1];
-  }
+  const formattedDescriptions = new Intl.ListFormat('en-US', {
+    style: 'long',
+    type: 'conjunction',
+  }).format(descriptions);
 
   throw new Error(
     `Unsupported Colab link format. Supported formats are ${formattedDescriptions}`,
@@ -100,7 +134,7 @@ async function getSaveLocation(
   defaultName: string,
 ): Promise<vscode.Uri | undefined> {
   const options: vscode.SaveDialogOptions = {
-    defaultUri: vs.workspace.workspaceFolders
+    defaultUri: vs.workspace.workspaceFolders?.length
       ? vs.Uri.joinPath(vs.workspace.workspaceFolders[0].uri, defaultName)
       : vs.Uri.file(defaultName),
     filters: {
@@ -113,3 +147,8 @@ async function getSaveLocation(
 
   return await vs.window.showSaveDialog(options);
 }
+
+// Needed to test the validation on the input box
+export const TEST_ONLY = {
+  validateImportUrl,
+};

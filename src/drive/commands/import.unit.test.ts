@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { NotebookDocument } from 'vscode';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { DriveClient } from '../client';
-import { importNotebookFromUrl } from './import';
+import { importNotebookFromUrl, TEST_ONLY } from './import';
 
 describe('importNotebookFromUrl', () => {
   let vsCodeStub: VsCodeStub;
@@ -64,8 +65,26 @@ describe('importNotebookFromUrl', () => {
       inputUrl: undefined,
     },
     {
+      name: 'imports notebook from sandbox Colab URL',
+      url: 'https://colab.sandbox.google.com/drive/123',
+      fileId: '123',
+      inputUrl: undefined,
+    },
+    {
       name: 'imports notebook from Drive URL',
       url: 'https://drive.google.com/file/d/456/view',
+      fileId: '456',
+      inputUrl: undefined,
+    },
+    {
+      name: 'imports notebook from older Drive URL',
+      url: 'https://drive.google.com/open?id=456',
+      fileId: '456',
+      inputUrl: undefined,
+    },
+    {
+      name: 'imports notebook from older Drive URL with multiple query params',
+      url: 'https://drive.google.com/open?authuser=1&id=456',
       fileId: '456',
       inputUrl: undefined,
     },
@@ -89,9 +108,9 @@ describe('importNotebookFromUrl', () => {
       driveClientStub.getDriveFileContent
         .withArgs(fileId)
         .resolves(fileContent);
-      const doc = { uri: saveUri };
+      const doc: Partial<NotebookDocument> = { uri: saveUri };
       vsCodeStub.workspace.openNotebookDocument.resolves(
-        doc as unknown as NotebookDocument,
+        doc as NotebookDocument,
       );
 
       await importNotebookFromUrl(
@@ -118,10 +137,6 @@ describe('importNotebookFromUrl', () => {
         sinon.match(saveUri),
       );
       sinon.assert.calledWith(vsCodeStub.window.showNotebookDocument, doc);
-      sinon.assert.calledWithMatch(
-        vsCodeStub.window.showInformationMessage,
-        sinon.match(/Successfully saved/),
-      );
     });
   }
 
@@ -141,11 +156,10 @@ describe('importNotebookFromUrl', () => {
   it('handles unknown errors', async () => {
     const url = 'https://colab.research.google.com/drive/123';
     vsCodeStub.window.showInputBox.resolves(url);
-    driveClientStub.getDriveFileName.callsFake(() =>
-      // To simulate a non-error thrown
-      /* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
-      Promise.reject('Unknown error'),
-    );
+    // To simulate an unknown (non-Error) rejection
+    driveClientStub.getDriveFileName.rejects({
+      toString: () => 'Unknown error',
+    });
 
     await importNotebookFromUrl(vsCodeStub.asVsCode(), driveClientStub);
 
@@ -153,5 +167,28 @@ describe('importNotebookFromUrl', () => {
       vsCodeStub.window.showErrorMessage,
       sinon.match(/An unknown error occurred/),
     );
+  });
+
+  describe('validateImportUrl', () => {
+    it('returns undefined for empty input', () => {
+      expect(TEST_ONLY.validateImportUrl('')).to.be.undefined;
+    });
+
+    it('returns undefined for a valid URL', () => {
+      expect(TEST_ONLY.validateImportUrl('colab.research.google.com/drive/123'))
+        .to.be.undefined;
+    });
+
+    it('returns an error message for an unsupported URL format', () => {
+      expect(TEST_ONLY.validateImportUrl('https://invalid-url.com')).to.match(
+        /Unsupported Colab link format/,
+      );
+    });
+
+    it('returns an error message for a malformed string', () => {
+      expect(TEST_ONLY.validateImportUrl('^not-a-url')).to.equal(
+        'Invalid URL string provided.',
+      );
+    });
   });
 });

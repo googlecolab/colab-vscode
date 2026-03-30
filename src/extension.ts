@@ -101,6 +101,13 @@ async function activateInternal(context: vscode.ExtensionContext) {
       ),
     () => authProvider.signOut(),
   );
+  const driveClient = DriveClient.create(
+    () =>
+      GoogleAuthProvider.getOrCreateSession(vscode, DRIVE_SCOPES).then(
+        (session) => session.accessToken,
+      ),
+    () => authProvider.signOut(),
+  );
   const serverStorage = new ServerStorage(vscode, context.secrets);
   const assignmentManager = new AssignmentManager(
     vscode,
@@ -162,14 +169,6 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const disposeResourceTreeView = vscode.window.createTreeView(
     'colab-server-resource-view',
     { treeDataProvider: serverResourceTreeView },
-  );
-
-  const driveClient = DriveClient.create(
-    () =>
-      GoogleAuthProvider.getOrCreateSession(vscode, DRIVE_SCOPES).then(
-        (session) => session.accessToken,
-      ),
-    () => authProvider.signOut(),
   );
 
   context.subscriptions.push(
