@@ -15,7 +15,7 @@ import { LogLevel } from './logging';
 describe('LatestCancelable', () => {
   let logs: ColabLogWatcher;
   let worker: sinon.SinonStub<[...unknown[], AbortSignal], Promise<void>>;
-  let cancelable: LatestCancelable<unknown[]>;
+  let cancelable: LatestCancelable<unknown[], void>;
 
   beforeEach(() => {
     logs = new ColabLogWatcher(newVsCodeStub(), LogLevel.Trace);
@@ -162,5 +162,36 @@ describe('LatestCancelable', () => {
 
     await promise;
     expect(logs.output).to.not.match(/LatestCancelable worker error/);
+  });
+
+  describe('with non-void return type', () => {
+    it('runs the worker and propagates worker return value', async () => {
+      const expectedReturnValue = 'test-result';
+      const worker = sinon.stub();
+      const cancelable = new LatestCancelable<[], string>(
+        'test-worker',
+        worker,
+      );
+      worker.resolves(expectedReturnValue);
+
+      const result = cancelable.run();
+
+      await expect(result).to.eventually.equal(expectedReturnValue);
+      sinon.assert.calledOnce(worker);
+    });
+
+    it('returns undefined when work fails', async () => {
+      const worker = sinon.stub();
+      const cancelable = new LatestCancelable<[], string>(
+        'test-worker',
+        worker,
+      );
+      worker.rejects(new Error('🤮'));
+
+      const result = cancelable.run();
+
+      await expect(result).to.eventually.be.undefined;
+      sinon.assert.calledOnce(worker);
+    });
   });
 });
