@@ -180,7 +180,7 @@ describe('LatestCancelable', () => {
       sinon.assert.calledOnce(worker);
     });
 
-    it('returns undefined when work fails', async () => {
+    it('returns undefined when worker fails', async () => {
       const worker = sinon.stub();
       const cancelable = new LatestCancelable<[], string>(
         'test-worker',
