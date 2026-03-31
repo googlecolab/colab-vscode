@@ -13,3 +13,6 @@ export const IMPORT_NOTEBOOK_FROM_URL: RegisteredCommand = {
   icon: 'arrow-down',
   description: 'Imports a notebook file from the provided URL',
 };
+
+/** The path for the deep-linking URL for importing a notebook from Google Drive. */
+export const IMPORT_DRIVE_FILE_PATH = 'import-drive-file';

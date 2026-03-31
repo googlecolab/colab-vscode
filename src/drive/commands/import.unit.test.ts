@@ -10,7 +10,12 @@ import { NotebookDocument } from 'vscode';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { DriveClient } from '../client';
-import { importNotebookFromUrl, TEST_ONLY } from './import';
+import { IMPORT_DRIVE_FILE_PATH, IMPORT_NOTEBOOK_FROM_URL } from './constants';
+import {
+  handleImportUriEvents,
+  importNotebookFromUrl,
+  TEST_ONLY,
+} from './import';
 
 describe('importNotebookFromUrl', () => {
   let vsCodeStub: VsCodeStub;
@@ -190,5 +195,52 @@ describe('importNotebookFromUrl', () => {
         'Invalid URL string provided.',
       );
     });
+  });
+});
+
+describe('handleImportUriEvents', () => {
+  let vsCodeStub: VsCodeStub;
+
+  beforeEach(() => {
+    vsCodeStub = newVsCodeStub();
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('does nothing if the path does not match', () => {
+    const uri = TestUri.parse(
+      `vscode://google.colab/some-other-path?url=https://colab.research.google.com/drive/123`,
+    );
+
+    handleImportUriEvents(vsCodeStub.asVsCode(), uri);
+
+    sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
+  });
+
+  it('does nothing if the url query parameter is missing', () => {
+    const uri = TestUri.parse(
+      `vscode://google.colab/${IMPORT_DRIVE_FILE_PATH}?foo=bar`,
+    );
+
+    handleImportUriEvents(vsCodeStub.asVsCode(), uri);
+
+    sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
+  });
+
+  it('executes the import command with the provided URL', () => {
+    const notebookUrl = 'https://colab.research.google.com/drive/123';
+    const uri = TestUri.parse(
+      `vscode://google.colab/${IMPORT_DRIVE_FILE_PATH}?url=${encodeURIComponent(notebookUrl)}`,
+    );
+
+    handleImportUriEvents(vsCodeStub.asVsCode(), uri);
+
+    sinon.assert.calledOnceWithExactly(
+      vsCodeStub.commands.executeCommand,
+      IMPORT_NOTEBOOK_FROM_URL.id,
+      notebookUrl,
+    );
   });
 });

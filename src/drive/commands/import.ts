@@ -7,6 +7,7 @@
 import vscode from 'vscode';
 import { log } from '../../common/logging';
 import { DriveClient } from '../client';
+import { IMPORT_DRIVE_FILE_PATH, IMPORT_NOTEBOOK_FROM_URL } from './constants';
 
 /**
  * Prompts the user for a notebook URL and attempts to copy the notebook
@@ -56,6 +57,28 @@ export async function importNotebookFromUrl(
   }
 }
 
+/**
+ * Handles incoming URI events for importing notebooks.
+ * Expects URIs in the format: vscode://<publisher>.<extension-id>/import-drive-file?url=...
+ *
+ * @param vs - The VS Code module.
+ * @param uri - The incoming URI to handle.
+ */
+export function handleImportUriEvents(
+  vs: typeof vscode,
+  uri: vscode.Uri,
+): void {
+  if (uri.path !== `/${IMPORT_DRIVE_FILE_PATH}`) {
+    return;
+  }
+
+  const queryParams = new URLSearchParams(uri.query);
+  const notebookUrl = queryParams.get('url');
+  if (notebookUrl) {
+    vs.commands.executeCommand(IMPORT_NOTEBOOK_FROM_URL.id, notebookUrl);
+  }
+}
+
 function validateImportUrl(url: string): string | undefined {
   if (!url) return undefined;
   try {
@@ -84,8 +107,9 @@ function resolveRemoteSource(urlString: string): string {
     {
       // Format 1: Colab Notebook URL
       check: (u: URL) =>
-        u.hostname === 'colab.research.google.com' ||
-        u.hostname === 'colab.sandbox.google.com'
+        ['colab.research.google.com', 'colab.sandbox.google.com'].includes(
+          u.hostname,
+        )
           ? /^\/drive\/([a-zA-Z0-9_-]+)/.exec(u.pathname)?.[1]
           : null,
       description: '"https://colab.research.google.com/drive/..."',
