@@ -73,8 +73,11 @@ async function authorizeDrive() {
     );
   } catch (err: unknown) {
     const screenshotsDir = VSBrowser.instance.getScreenshotsDir();
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
     fs.writeFileSync(
-      `${screenshotsDir}/import-drive-notebook-chrome.png`,
+      path.join(screenshotsDir, 'import-drive-notebook-chrome.png'),
       await chromeDriver.takeScreenshot(),
       'base64',
     );
