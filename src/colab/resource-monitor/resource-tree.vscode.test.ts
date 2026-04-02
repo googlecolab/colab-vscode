@@ -13,6 +13,7 @@ import {
   AssignmentManager,
 } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
+import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { ExperimentFlag, Disk, GpuInfo, Memory } from '../api';
 import { ColabClient } from '../client';
@@ -55,7 +56,8 @@ describe('ResourceTreeProvider', () => {
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let authChangeEmitter: TestEventEmitter<AuthChangeEvent>;
   let assignmentChangeEmitter: TestEventEmitter<AssignmentChangeEvent>;
-  let tree: ResourceTreeProvider;
+  let getRootChildrenBlocker: sinon.SinonStub;
+  let tree: TestResourceTreeProvider;
 
   enum AuthState {
     SIGNED_OUT,
@@ -82,12 +84,13 @@ describe('ResourceTreeProvider', () => {
     colabClientStub = sinon.createStubInstance(ColabClient);
     authChangeEmitter = new TestEventEmitter<AuthChangeEvent>();
     assignmentChangeEmitter = new TestEventEmitter<AssignmentChangeEvent>();
+    getRootChildrenBlocker = sinon.stub();
 
     FLAGS_TEST_ONLY.setFlagForTest(
       ExperimentFlag.ResourcePollIntervalMs,
       TEST_RESOURCE_POLL_INTERVAL_MS,
     );
-    tree = new ResourceTreeProvider(
+    tree = new TestResourceTreeProvider(
       assignmentStub,
       assignmentChangeEmitter.event,
       authChangeEmitter.event,
@@ -264,6 +267,38 @@ describe('ResourceTreeProvider', () => {
         });
       });
     });
+
+    it('aborts previous in-flight getChildren call', async () => {
+      (assignmentStub.getServers as sinon.SinonStub).callsFake(
+        (_from: string, signal?: AbortSignal) => {
+          if (signal?.aborted) {
+            throw signal.reason;
+          }
+          return [DEFAULT_SERVER];
+        },
+      );
+      toggleAuth(AuthState.SIGNED_IN);
+      const firstRunStarted = new Deferred<void>();
+      const firstRunCompleter = new Deferred<void>();
+      getRootChildrenBlocker.onFirstCall().callsFake(async () => {
+        firstRunStarted.resolve();
+        await firstRunCompleter.promise;
+      });
+
+      // Kicks off first getChildren call and make it hang
+      const firstGetChildrenPromise = tree.getChildren(undefined);
+      await firstRunStarted.promise;
+      // Completes a second getChildren call
+      const secondGetChildrenResult = await tree.getChildren(undefined);
+      expect(secondGetChildrenResult).to.deep.equal([
+        ResourceItem.fromServer(DEFAULT_SERVER),
+      ]);
+      // Unblocks the first getChildren call
+      firstRunCompleter.resolve();
+
+      // First getChildren call should return empty since it was aborted
+      await expect(firstGetChildrenPromise).to.eventually.be.empty;
+    });
   });
 
   describe('refresh', () => {
@@ -317,4 +352,13 @@ describe('ResourceTreeProvider', () => {
       });
     });
   });
+
+  class TestResourceTreeProvider extends ResourceTreeProvider {
+    protected override async getRootChildren(
+      signal?: AbortSignal,
+    ): Promise<ResourceItem[]> {
+      await getRootChildrenBlocker();
+      return super.getRootChildren(signal);
+    }
+  }
 });

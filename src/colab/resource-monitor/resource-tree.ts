@@ -165,7 +165,9 @@ export class ResourceTreeProvider
    * @returns A promise that resolves to an array of {@link ResourceItem}
    * representing servers.
    */
-  private async getRootChildren(signal?: AbortSignal): Promise<ResourceItem[]> {
+  protected async getRootChildren(
+    signal?: AbortSignal,
+  ): Promise<ResourceItem[]> {
     const servers = await this.assignments.getServers('extension', signal);
     return Promise.all(
       servers.map(async (s) => {
