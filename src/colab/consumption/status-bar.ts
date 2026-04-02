@@ -32,6 +32,7 @@ export class ConsumptionStatusBar implements Toggleable, Disposable {
       vs.StatusBarAlignment.Right,
     );
     this.statusBarItem.name = 'Colab Status';
+    this.statusBarItem.text = '$(colab-logo) --/hr';
     this.consumptionListener = onDidChangeCcuInfo((e) => {
       this.updateStatusBarItem(e);
     });
@@ -91,18 +92,12 @@ export class ConsumptionStatusBar implements Toggleable, Disposable {
       tooltip +=
         '\n\nYou currently have zero compute units available. ' +
         'Resources offered free of charge are not guaranteed.';
-      if (
-        info.freeCcuQuotaInfo?.remainingTokens &&
-        info.consumptionRateHourly > 0
-      ) {
-        const approxFreeMinutesRemaining =
-          Math.floor(
-            ((info.freeCcuQuotaInfo.remainingTokens /
-              1000 /
-              info.consumptionRateHourly) *
-              60) /
-              10,
-          ) * 10; // Quantize into 10m.
+      const remainingFreeTokens = info.freeCcuQuotaInfo?.remainingTokens ?? 0;
+      if (remainingFreeTokens > 0 && info.consumptionRateHourly > 0) {
+        const approxFreeMinutesRemaining = approximateFreeMinutesRemaining(
+          remainingFreeTokens,
+          info.consumptionRateHourly,
+        );
         const hours = Math.floor(approxFreeMinutesRemaining / 60);
         const minutes = approxFreeMinutesRemaining % 60;
         tooltip +=
@@ -131,3 +126,21 @@ You have ${sessionCount} active session(s).`;
 }
 
 const CONSUMPTION_STATUS_BAR_ID = 'colab.consumptionStatusBar';
+
+/**
+ * Approximates the remaining free minutes based on the remaining free tokens
+ * and consumption rate, quantized into 10-minute increments.
+ *
+ * @param remainingFreeTokens - The remaining free tokens in milli-CCUs.
+ * @param consumptionRateHourly - The consumption rate in CCUs per hour.
+ * @returns The approximate remaining free minutes, quantized into 10-minute
+ * increments.
+ */
+function approximateFreeMinutesRemaining(
+  remainingFreeTokens: number,
+  consumptionRateHourly: number,
+): number {
+  const freeMinutesRemaining =
+    (remainingFreeTokens / 1000 / consumptionRateHourly) * 60;
+  return Math.floor(freeMinutesRemaining / 10) * 10;
+}

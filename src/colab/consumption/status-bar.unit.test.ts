@@ -53,8 +53,9 @@ describe('ConsumptionStatusBar', () => {
     sinon.restore();
   });
 
-  it('creates status bar item with name', () => {
+  it('creates status bar item with name and default text', () => {
     expect(testStatusBarItem.name).to.equal('Colab Status');
+    expect(testStatusBarItem.text).to.equal('$(colab-logo) --/hr');
   });
 
   describe('on', () => {
@@ -148,7 +149,7 @@ describe('ConsumptionStatusBar', () => {
     ];
     const paidBalanceTests = [
       {
-        name: 'no paid balance or free quota',
+        name: 'zero paid balance and undefined free quota',
         paidComputeUnitsBalance: 0,
         freeCcuQuotaInfo: undefined,
         consumptionRateHourly: 0.07,
@@ -157,7 +158,25 @@ describe('ConsumptionStatusBar', () => {
           'You currently have zero compute units available. Resources offered free of charge are not guaranteed.',
       },
       {
-        name: 'no paid balance or consumption rate',
+        name: 'zero paid balance and negative free quota',
+        paidComputeUnitsBalance: 0,
+        freeCcuQuotaInfo: { remainingTokens: -1, nextRefillTimestampSec: 0 },
+        consumptionRateHourly: 0.07,
+        assignmentsCount: 1,
+        expectedTooltipPart:
+          'You currently have zero compute units available. Resources offered free of charge are not guaranteed.',
+      },
+      {
+        name: 'zero paid balance and zero free quota',
+        paidComputeUnitsBalance: 0,
+        freeCcuQuotaInfo: { remainingTokens: 0, nextRefillTimestampSec: 0 },
+        consumptionRateHourly: 0.07,
+        assignmentsCount: 1,
+        expectedTooltipPart:
+          'You currently have zero compute units available. Resources offered free of charge are not guaranteed.',
+      },
+      {
+        name: 'zero paid balance and zero consumption rate',
         paidComputeUnitsBalance: 0,
         freeCcuQuotaInfo: { remainingTokens: 6000, nextRefillTimestampSec: 0 },
         consumptionRateHourly: 0,
@@ -166,17 +185,17 @@ describe('ConsumptionStatusBar', () => {
           'You currently have zero compute units available. Resources offered free of charge are not guaranteed.',
       },
       {
-        name: 'no paid balance but free quota and consumption rate',
+        name: 'zero paid balance but positive free quota and consumption rate',
         paidComputeUnitsBalance: 0,
-        freeCcuQuotaInfo: { remainingTokens: 6000, nextRefillTimestampSec: 0 },
+        freeCcuQuotaInfo: { remainingTokens: 5960, nextRefillTimestampSec: 0 },
         consumptionRateHourly: 0.07,
-        assignmentsCount: 0,
+        assignmentsCount: 1,
         expectedTooltipPart: `You currently have zero compute units available. Resources offered free of charge are not guaranteed.
 
-At your current usage level, your server(s) may last up to 85h40m.`,
+At your current usage level, your server(s) may last up to 85h0m.`,
       },
       {
-        name: 'paid balance',
+        name: 'positive paid balance',
         paidComputeUnitsBalance: 123.45,
         freeCcuQuotaInfo: undefined,
         consumptionRateHourly: 0.07,
