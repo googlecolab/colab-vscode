@@ -270,7 +270,7 @@ describe('ResourceTreeProvider', () => {
 
     it('aborts previous in-flight getChildren call', async () => {
       (assignmentStub.getServers as sinon.SinonStub).callsFake(
-        (_from: string, signal?: AbortSignal) => {
+        (_, signal?: AbortSignal) => {
           if (signal?.aborted) {
             throw signal.reason;
           }
@@ -285,15 +285,15 @@ describe('ResourceTreeProvider', () => {
         await firstRunCompleter.promise;
       });
 
-      // Kicks off first getChildren call and make it hang
+      // Kick off first getChildren call and let it hang
       const firstGetChildrenPromise = tree.getChildren(undefined);
       await firstRunStarted.promise;
-      // Completes a second getChildren call
+      // Complete a second getChildren call
       const secondGetChildrenResult = await tree.getChildren(undefined);
       expect(secondGetChildrenResult).to.deep.equal([
         ResourceItem.fromServer(DEFAULT_SERVER),
       ]);
-      // Unblocks the first getChildren call
+      // Unblock the first getChildren call
       firstRunCompleter.resolve();
 
       // First getChildren call should return empty since it was aborted
