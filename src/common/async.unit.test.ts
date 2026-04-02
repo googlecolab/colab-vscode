@@ -15,7 +15,7 @@ import { LogLevel } from './logging';
 describe('LatestCancelable', () => {
   let logs: ColabLogWatcher;
   let worker: sinon.SinonStub<[...unknown[], AbortSignal], Promise<void>>;
-  let cancelable: LatestCancelable<unknown[], void>;
+  let cancelable: LatestCancelable<unknown[]>;
 
   beforeEach(() => {
     logs = new ColabLogWatcher(newVsCodeStub(), LogLevel.Trace);

@@ -10,7 +10,7 @@ import { log } from './logging';
  * Run an async worker task, canceling in-flight work with an
  * {@link AbortSignal}.
  */
-export class LatestCancelable<T extends unknown[], R> {
+export class LatestCancelable<T extends unknown[], R = void> {
   private curAbort?: AbortController;
 
   /**

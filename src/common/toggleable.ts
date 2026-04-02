@@ -31,7 +31,7 @@ type ToggleDirection = Lowercase<keyof Toggleable>;
  */
 export abstract class AsyncToggle implements Toggleable {
   private lastToggle?: 'on' | 'off';
-  private runner = new LatestCancelable<[ToggleDirection], void>(
+  private runner = new LatestCancelable<[ToggleDirection]>(
     'AsyncToggle',
     async (to, signal) => {
       if (this.lastToggle === to) {
