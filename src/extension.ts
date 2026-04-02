@@ -29,6 +29,7 @@ import { openTerminal } from './colab/commands/terminal';
 import { ConnectionRefreshController } from './colab/connection-refresher';
 import { ConsumptionNotifier } from './colab/consumption/notifier';
 import { ConsumptionPoller } from './colab/consumption/poller';
+import { ConsumptionStatusBar } from './colab/consumption/status-bar';
 import {
   deleteFile,
   download,
@@ -162,7 +163,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const whileAuthorizedToggle = authProvider.whileAuthorized(
     connections,
     keepServersAlive,
-    consumptionMonitor.toggle,
+    ...consumptionMonitor.toggles,
     experimentStateProvider,
   );
   const disposeFs = vscode.workspace.registerFileSystemProvider('colab', fs, {
@@ -226,16 +227,16 @@ function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
  * any disposables created for the monitoring.
  */
 function watchConsumption(colab: ColabClient): {
-  toggle: Toggleable;
+  toggles: Toggleable[];
   disposables: Disposable[];
 } {
-  const disposables: Disposable[] = [];
   const poller = new ConsumptionPoller(vscode, colab);
-  disposables.push(poller);
   const notifier = new ConsumptionNotifier(vscode, poller.onDidChangeCcuInfo);
-  disposables.push(notifier);
-
-  return { toggle: poller, disposables };
+  const statusBar = new ConsumptionStatusBar(vscode, poller.onDidChangeCcuInfo);
+  return {
+    toggles: [poller, statusBar],
+    disposables: [poller, notifier, statusBar],
+  };
 }
 
 function registerCommands(

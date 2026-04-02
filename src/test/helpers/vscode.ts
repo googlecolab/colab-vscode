@@ -73,6 +73,11 @@ export enum DiagnosticSeverity {
   Hint = 3,
 }
 
+export enum StatusBarAlignment {
+  Left = 1,
+  Right = 2,
+}
+
 /**
  * The stubs for the vscode module.
  */
@@ -93,6 +98,7 @@ export interface VsCodeStub {
   WorkspaceEdit: typeof TestWorkspaceEdit;
   DiagnosticSeverity: typeof DiagnosticSeverity;
   FileSystemError: typeof FileSystemError;
+  StatusBarAlignment: typeof StatusBarAlignment;
   commands: {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
@@ -144,6 +150,9 @@ export interface VsCodeStub {
     };
     showNotebookDocument: sinon.SinonStubbedMember<
       typeof vscode.window.showNotebookDocument
+    >;
+    createStatusBarItem: sinon.SinonStubbedMember<
+      typeof vscode.window.createStatusBarItem
     >;
   };
   workspace: {
@@ -239,6 +248,9 @@ export function newVsCodeStub(): VsCodeStub {
           /* eslint-enable @/max-len */
           showQuickPick: this.window
             .showQuickPick as unknown as typeof vscode.window.showQuickPick,
+          /* eslint-disable @/max-len */
+          createStatusBarItem: this.window
+            .createStatusBarItem as unknown as typeof vscode.window.createStatusBarItem,
         } as Partial<typeof vscode.window> as typeof vscode.window,
         workspace: this.workspace as Partial<
           typeof vscode.workspace
@@ -280,6 +292,7 @@ export function newVsCodeStub(): VsCodeStub {
     WorkspaceEdit: TestWorkspaceEdit,
     DiagnosticSeverity: DiagnosticSeverity,
     FileSystemError: TestFileSystemError,
+    StatusBarAlignment: StatusBarAlignment,
     commands: {
       executeCommand: sinon.stub(),
     },
@@ -305,6 +318,7 @@ export function newVsCodeStub(): VsCodeStub {
       createTerminal: sinon.stub(),
       createInputBox: sinon.stub(),
       createQuickPick: sinon.stub(),
+      createStatusBarItem: sinon.stub(),
       showNotebookDocument: sinon.stub(),
     },
     workspace: {
