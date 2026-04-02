@@ -133,10 +133,10 @@ jobs:
     name: VS Code E2E Tests
     permissions:
       actions: write
-    # This environment is protected and requires approval for PRs from forks.
-    # It provides the necessary variables and secrets to run the end-to-end
-    # tests.
-    environment: E2E Tests
+    # Conditionally use the E2E Tests environment to prevent untrusted code from
+    # requiring approval and accessing secrets. Forks evaluate to an empty string,
+    # bypassing the environment entirely.
+    environment: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'E2E Tests' || '' }}
     strategy:
       matrix:
         # macos-latest and windows-latest can be added as we work towards a release.
@@ -153,36 +153,16 @@ jobs:
       COLAB_EXTENSION_CLIENT_ID: ${{ secrets.COLAB_EXTENSION_CLIENT_ID }}
       COLAB_EXTENSION_CLIENT_NOT_SO_SECRET: ${{ secrets.COLAB_EXTENSION_CLIENT_NOT_SO_SECRET }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-      - run: npm ci
-      - name: Generate production config
-        run: npm run generate:config
-      - name: npm run test:e2e:headless (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run test:e2e:headless
-      - name: npm run test:e2e
-        if: matrix.os != 'ubuntu-latest'
-        run: npm run test:e2e
-      - name: upload screenshots
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: /tmp/test-resources/screenshots/
-      - name: upload exthost.log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: exthost_log
-          path: /tmp/test-resources/settings/logs/*/window1/exthost/exthost.log
-      - name: upload output logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: output_logs
-          path: /tmp/test-resources/settings/logs/*/window1/exthost/output_logging_*/
+      # Must checkout before running the composite action since it relies on the
+      # code being present. Only do this for same-repository PRs invocations.
+      - if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/checkout@v4
+      - name: Run E2E Tests (Same Repository)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: ./.github/actions/run-e2e
+      - name: Skip E2E Tests (Fork)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "E2E tests are skipped for PRs originating from forks."
+          echo "Forks don't have access to repository secrets, they cannot authenticate with the backend."
+          echo "A maintainer should test these changes by pushing the fork's branch to the main repository."

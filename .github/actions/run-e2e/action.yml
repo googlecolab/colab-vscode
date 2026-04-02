@@ -1,0 +1,43 @@
+name: "Run E2E Tests"
+description: "Runs VS Code End-to-End Tests for the Colab extension"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        # Assuming node version is provided via env var in the workflow
+        node-version: ${{ env.NODE_VERSION }}
+        cache: "npm"
+    - run: npm ci
+      shell: bash
+    - name: Generate production config
+      run: npm run generate:config
+      shell: bash
+    - name: npm run test:e2e:headless (Linux)
+      if: runner.os == 'Linux'
+      run: npm run test:e2e:headless
+      shell: bash
+    - name: npm run test:e2e
+      if: runner.os != 'Linux'
+      run: npm run test:e2e
+      shell: bash
+    - name: upload screenshots
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: screenshots
+        path: /tmp/test-resources/screenshots/
+    - name: upload exthost.log
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: exthost_log
+        path: /tmp/test-resources/settings/logs/*/window1/exthost/exthost.log
+    - name: upload output logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: output_logs
+        path: /tmp/test-resources/settings/logs/*/window1/exthost/output_logging_*/
