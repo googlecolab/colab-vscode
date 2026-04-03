@@ -210,15 +210,18 @@ describe('ConsumptionPoller', () => {
         const firstCallStarted = new Deferred<void>();
         const firstCallCompleter = new Deferred<void>();
         const secondCallStarted = new Deferred<void>();
-        clientStub.getConsumptionUserInfo.onFirstCall().callsFake(async () => {
-          firstCallStarted.resolve();
-          await firstCallCompleter.promise;
-          return Promise.reject(new Error('aborted'));
-        });
-        clientStub.getConsumptionUserInfo.onSecondCall().callsFake(() => {
-          secondCallStarted.resolve();
-          return Promise.resolve(newCcuInfo);
-        });
+        clientStub.getConsumptionUserInfo
+          .onFirstCall()
+          .callsFake(async () => {
+            firstCallStarted.resolve();
+            await firstCallCompleter.promise;
+            return Promise.reject(new Error('aborted'));
+          })
+          .onSecondCall()
+          .callsFake(() => {
+            secondCallStarted.resolve();
+            return Promise.resolve(newCcuInfo);
+          });
 
         // Kick off scheduled poll and let it hang
         await fakeClock.tickAsync(POLL_INTERVAL_MS);
