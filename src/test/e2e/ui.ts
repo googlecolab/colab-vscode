@@ -125,13 +125,41 @@ export async function selectQuickPicksInOrder(
 }
 
 /**
+ * Attempts to push a button in a modal dialog, if one is present.
+ *
+ * Polls for up to {@link waitMs} for the dialog to appear. If no dialog is
+ * shown within that window, returns silently. Unlike {@link pushDialogButton},
+ * this does not fail on timeout.
+ *
+ * @param driver - The driver instance.
+ * @param button - The button to push if the dialog is present.
+ * @param waitMs - How long to wait for the dialog to appear.
+ */
+export async function tryPushDialogButton(
+  driver: WebDriver,
+  button: string,
+  waitMs: number = ELEMENT_WAIT_MS,
+): Promise<void> {
+  try {
+    await pushDialogButton(driver, button, waitMs);
+  } catch {
+    // Dialog never appeared within the wait window -- nothing to dismiss.
+  }
+}
+
+/**
  * Pushes a button in a modal dialog and waits for the action to complete.
  *
  * @param driver - The driver instance.
  * @param button - The button element.
+ * @param waitMs - How long to wait for the dialog to appear.
  * @returns A promise that resolves when the button is successfully pushed.
  */
-export function pushDialogButton(driver: WebDriver, button: string) {
+export function pushDialogButton(
+  driver: WebDriver,
+  button: string,
+  waitMs: number = ELEMENT_WAIT_MS,
+) {
   // ModalDialog.pushButton will throw if the dialog is not found; to reduce
   // flakes we attempt this until it succeeds or times out.
   return driver.wait(
@@ -145,7 +173,7 @@ export function pushDialogButton(driver: WebDriver, button: string) {
         return false;
       }
     },
-    ELEMENT_WAIT_MS,
+    waitMs,
     `Could not select "${button}" from dialog`,
   );
 }
