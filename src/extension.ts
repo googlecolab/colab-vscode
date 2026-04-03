@@ -66,6 +66,7 @@ import { ExtensionUriHandler } from './system/uri';
 import { telemetry } from './telemetry';
 import { CommandSource } from './telemetry/api';
 import { withErrorTracking } from './telemetry/decorators';
+import { initializeTelemetryWithNotice } from './telemetry/notice';
 
 /**
  * Called when the extension is activated.
@@ -177,6 +178,11 @@ async function activateInternal(context: vscode.ExtensionContext) {
     'colab-server-resource-view',
     { treeDataProvider: serverResourceTreeView },
   );
+  const disposeTelemetry = initializeTelemetryWithNotice(
+    vscode,
+    context.globalState,
+    context.extensionUri,
+  );
 
   context.subscriptions.push(
     logging,
@@ -204,8 +210,8 @@ async function activateInternal(context: vscode.ExtensionContext) {
       driveClient,
     ),
     handleUriEvents(uriHandler.onReceivedUri),
+    disposeTelemetry,
   );
-  telemetry.logActivation();
 }
 
 function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {

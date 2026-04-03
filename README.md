@@ -46,10 +46,14 @@ guide](./docs/contributing.md) for more info.
 
 ## Data and Telemetry
 
-The extension does not collect any client-side usage data within VS Code. See
-Colab's [Terms of Service](https://research.google.com/colaboratory/tos_v5.html)
-and the [Google Privacy Policy](https://policies.google.com/privacy), which
-apply to usage of this extension.
+This extension collects identifiable usage data and error reports to improve your
+experience. Telemetry collection respects VS Code's built-in telemetry setting.
+To opt out, set `telemetry.telemetryLevel` to `"off"` in your VS Code settings.
+
+See Colab's
+[Terms of Service](https://research.google.com/colaboratory/tos_v5.html) and the
+[Google Privacy Policy](https://policies.google.com/privacy), which apply to
+usage of this extension.
 
 ## Security Disclosures
 
