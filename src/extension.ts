@@ -153,7 +153,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
     colabClient,
     assignmentManager,
   );
-  const consumptionMonitor = watchConsumption(colabClient);
+  const consumptionMonitor = watchConsumption(colabClient, assignmentManager);
   const experimentStateProvider = new ExperimentStateProvider(colabClient);
   await authProvider.initialize();
   // Sending server "keep-alive" pings and monitoring consumption requires
@@ -223,14 +223,22 @@ function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
  * the user signs in.
  *
  * @param colab - The colab client used to poll consumption.
+ * @param assignmentManager - The assignment manager to trigger polls on change.
  * @returns An object containing a {@link Toggleable} to control the polling and
  * any disposables created for the monitoring.
  */
-function watchConsumption(colab: ColabClient): {
+function watchConsumption(
+  colab: ColabClient,
+  assignmentManager: AssignmentManager,
+): {
   toggles: Toggleable[];
   disposables: Disposable[];
 } {
-  const poller = new ConsumptionPoller(vscode, colab);
+  const poller = new ConsumptionPoller(
+    vscode,
+    colab,
+    assignmentManager.onDidAssignmentsChange,
+  );
   const notifier = new ConsumptionNotifier(vscode, poller.onDidChangeCcuInfo);
   const statusBar = new ConsumptionStatusBar(vscode, poller.onDidChangeCcuInfo);
   return {
