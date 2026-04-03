@@ -8,7 +8,7 @@ import vscode, { QuickPickItem } from 'vscode';
 import { log } from '../../common/logging';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
-import { buildColabFileUri } from '../files';
+import { buildColabFileUri, joinUriPath } from '../files';
 import { UPLOAD } from './constants';
 
 /**
@@ -149,8 +149,8 @@ async function buildUploadPlan(
       for (const [name] of entries) {
         try {
           await planUploadsRecursively(
-            vs.Uri.joinPath(source, name),
-            vs.Uri.joinPath(dest, name),
+            joinUriPath(source, name),
+            joinUriPath(dest, name),
             operations,
           );
         } catch (err) {
@@ -169,7 +169,7 @@ async function buildUploadPlan(
       failCount++;
       continue;
     }
-    const destUri = vs.Uri.joinPath(serverRootUri, itemName);
+    const destUri = joinUriPath(serverRootUri, itemName);
     try {
       await planUploadsRecursively(inputUri, destUri, operations);
     } catch (err) {

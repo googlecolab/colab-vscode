@@ -5,6 +5,7 @@
  */
 
 import vscode, { Uri } from 'vscode';
+import { joinUriPath } from '../files';
 import type { ContentItem } from './content-item';
 
 /**
@@ -27,7 +28,7 @@ export async function newFile(vs: typeof vscode, contextItem: ContentItem) {
   if (!name) {
     return;
   }
-  const uri = vs.Uri.joinPath(destination, name);
+  const uri = joinUriPath(destination, name);
   const isFolder = name.endsWith('/');
   try {
     if (isFolder) {
@@ -63,7 +64,7 @@ export async function newFolder(vs: typeof vscode, contextItem: ContentItem) {
   if (!name) {
     return;
   }
-  const uri = vs.Uri.joinPath(destination, name);
+  const uri = joinUriPath(destination, name);
   try {
     await vs.workspace.fs.createDirectory(uri);
   } catch (err: unknown) {
@@ -124,7 +125,7 @@ export async function download(vs: typeof vscode, contextItem: ContentItem) {
 // TODO: Look into preserving expanded state of renamed folders.
 export async function renameFile(vs: typeof vscode, contextItem: ContentItem) {
   const oldName = contextItem.uri.path.split('/').pop() ?? '';
-  const destination = vs.Uri.joinPath(contextItem.uri, '..');
+  const destination = joinUriPath(contextItem.uri, '..');
 
   const newName = await vs.window.showInputBox({
     title: 'Rename',
@@ -142,7 +143,7 @@ export async function renameFile(vs: typeof vscode, contextItem: ContentItem) {
     return;
   }
 
-  const newUri = vs.Uri.joinPath(destination, newName);
+  const newUri = joinUriPath(destination, newName);
   try {
     await vs.workspace.fs.rename(contextItem.uri, newUri, { overwrite: false });
   } catch (err: unknown) {
@@ -189,7 +190,7 @@ async function validateFileOrFolder(
     return error;
   }
   try {
-    await vs.workspace.fs.stat(vs.Uri.joinPath(destination, name));
+    await vs.workspace.fs.stat(joinUriPath(destination, name));
     return 'A file or folder with this name already exists';
   } catch {
     return undefined;
@@ -207,8 +208,8 @@ function validateName(value: string): string | undefined {
   return undefined;
 }
 
-function folderOrParent(vs: typeof vscode, item: ContentItem): Uri {
+function folderOrParent(_vs: typeof vscode, item: ContentItem): Uri {
   return item.contextValue === 'file'
-    ? vs.Uri.joinPath(item.uri, '..')
+    ? joinUriPath(item.uri, '..')
     : item.uri;
 }

@@ -10,7 +10,7 @@ import { describe } from 'mocha';
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { Variant } from './api';
-import { buildColabFileUri } from './files';
+import { buildColabFileUri, joinUriPath } from './files';
 
 const DEFAULT_SERVER = {
   id: randomUUID(),
@@ -55,6 +55,47 @@ describe('files', () => {
           'foo/../bar.txt',
         ).toString(),
       ).to.equal('colab://m-s-foo/bar.txt');
+    });
+  });
+
+  describe('joinUriPath', () => {
+    let vs: VsCodeStub;
+
+    beforeEach(() => {
+      vs = newVsCodeStub();
+    });
+
+    it('joins path segments with forward slashes for colab URIs', () => {
+      const base = vs.Uri.from({
+        scheme: 'colab',
+        authority: 'm-s-foo',
+        path: '/content',
+      });
+      expect(joinUriPath(base, 'a', 'b').toString()).to.equal(
+        'colab://m-s-foo/content/a/b',
+      );
+    });
+
+    it('normalizes backslashes in segments to forward slashes', () => {
+      const base = vs.Uri.from({
+        scheme: 'colab',
+        authority: 'm-s-foo',
+        path: '/content',
+      });
+      expect(joinUriPath(base, 'subdir\\nested\\file.txt').toString()).to.equal(
+        'colab://m-s-foo/content/subdir/nested/file.txt',
+      );
+    });
+
+    it('joins a parent segment consistently with posix paths', () => {
+      const base = vs.Uri.from({
+        scheme: 'colab',
+        authority: 'm-s-foo',
+        path: '/content/item',
+      });
+      expect(joinUriPath(base, '..').toString()).to.equal(
+        'colab://m-s-foo/content',
+      );
     });
   });
 });

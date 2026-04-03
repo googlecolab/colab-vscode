@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import vscode, { Uri } from 'vscode';
+import { posix } from 'path';
+import type vscode from 'vscode';
+import type { Uri } from 'vscode';
 import { ColabAssignedServer } from '../jupyter/servers';
 
 /**
@@ -21,7 +23,7 @@ export function buildColabFileUri(
   server: ColabAssignedServer,
   filePath = '',
 ): Uri {
-  return vs.Uri.joinPath(
+  return joinUriPath(
     vs.Uri.from({
       scheme: 'colab',
       authority: server.endpoint,
@@ -29,4 +31,21 @@ export function buildColabFileUri(
     }),
     filePath,
   );
+}
+
+/**
+ * Joins path segments onto a URI, preserving POSIX-style separators for Colab
+ * URIs across platforms.
+ *
+ * @param uri - The base URI.
+ * @param pathSegments - The path segments to join.
+ * @returns The updated URI.
+ */
+export function joinUriPath(uri: Uri, ...pathSegments: string[]): Uri {
+  const normalizedSegments = pathSegments.map((segment) =>
+    segment.replaceAll('\\', '/'),
+  );
+  return uri.with({
+    path: posix.join(uri.path, ...normalizedSegments),
+  });
 }

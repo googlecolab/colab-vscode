@@ -22,6 +22,7 @@ import {
   AssignmentChangeEvent,
   AssignmentManager,
 } from '../../jupyter/assignments';
+import { joinUriPath } from '../files';
 import { ContentItem } from './content-item';
 
 /**
@@ -189,7 +190,7 @@ export class ContentTreeProvider
       });
 
       return entries.map(([name, type]) => {
-        const itemUri = Uri.joinPath(uri, name);
+        const itemUri = joinUriPath(uri, name);
         const uriString = itemUri.toString();
         const existing = this.contentItemsByUri.get(uriString);
         if (existing?.type === type) {
@@ -229,5 +230,5 @@ function getParent(uri: Uri): Uri | undefined {
   if (uri.path === '/') {
     return undefined;
   }
-  return Uri.joinPath(uri, '..');
+  return joinUriPath(uri, '..');
 }
