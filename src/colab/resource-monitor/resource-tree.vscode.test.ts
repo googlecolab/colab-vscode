@@ -275,8 +275,7 @@ describe('ResourceTreeProvider', () => {
           firstRunStarted.resolve();
           await firstRunCompleter.promise;
           return Promise.reject(new Error('aborted'));
-        });
-      (assignmentStub.getServers as sinon.SinonStub)
+        })
         .onSecondCall()
         .resolves([DEFAULT_SERVER]);
       toggleAuth(AuthState.SIGNED_IN);
@@ -285,8 +284,7 @@ describe('ResourceTreeProvider', () => {
       const firstGetChildrenPromise = tree.getChildren(undefined);
       await firstRunStarted.promise;
       // Complete a second getChildren call
-      const secondGetChildrenResult = await tree.getChildren(undefined);
-      expect(secondGetChildrenResult).to.deep.equal([
+      await expect(tree.getChildren(undefined)).to.eventually.deep.equal([
         ResourceItem.fromServer(DEFAULT_SERVER),
       ]);
       // Unblock the first getChildren call
