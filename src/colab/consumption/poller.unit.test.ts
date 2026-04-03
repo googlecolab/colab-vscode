@@ -12,7 +12,7 @@ import {
   createStubInstance,
 } from 'sinon';
 import { AssignmentChangeEvent } from '../../jupyter/assignments';
-import { Deferred } from '../../test/helpers/async';
+import { Deferred, flush } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { ConsumptionUserInfo, SubscriptionTier, Variant } from '../api';
@@ -204,6 +204,17 @@ describe('ConsumptionPoller', () => {
         await expect(runGetConsumptionUserInfo.promise).to.eventually.be
           .fulfilled;
         sinon.assert.calledOnce(onDidChangeCcuInfo);
+      });
+
+      it('does not trigger a poll while unauthorized', async () => {
+        clientStub.getConsumptionUserInfo.resolves(newCcuInfo);
+        poller.off();
+
+        assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
+        await flush();
+
+        sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+        sinon.assert.notCalled(onDidChangeCcuInfo);
       });
 
       it('aborts an in-flight scheduled poll', async () => {
