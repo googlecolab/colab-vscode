@@ -36,8 +36,6 @@ export class ConsumptionStatusBar implements Toggleable, Disposable {
     this.consumptionListener = onDidChangeCcuInfo((e) => {
       this.updateStatusBarItem(e);
     });
-    // TODO: Triggers a CCU pull on server assignment changes.
-    // Better to be implemented in ConsumptionPoller.
   }
 
   /**

@@ -5,17 +5,13 @@
  */
 
 import vscode, { Disposable, Event, EventEmitter } from 'vscode';
-import {
-  OverrunPolicy,
-  SequentialTaskRunner,
-  StartMode,
-} from '../../common/task-runner';
+import { LatestCancelable } from '../../common/async';
 import { Toggleable } from '../../common/toggleable';
+import { AssignmentChangeEvent } from '../../jupyter/assignments';
 import { ConsumptionUserInfo } from '../api';
 import { ColabClient } from '../client';
 
-const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
-const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
+const POLL_INTERVAL_MS = 1000 * 60; // 1 minute.
 
 /**
  * Periodically polls for CCU info changes and emits an event on updates.
@@ -26,8 +22,10 @@ const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
 export class ConsumptionPoller implements Toggleable, Disposable {
   readonly onDidChangeCcuInfo: Event<ConsumptionUserInfo>;
   private readonly emitter: EventEmitter<ConsumptionUserInfo>;
+  private readonly worker: LatestCancelable<[]>;
+  private assignmentListener?: Disposable;
   private consumptionUserInfo?: ConsumptionUserInfo;
-  private runner: SequentialTaskRunner;
+  private timer?: NodeJS.Timeout;
   private isDisposed = false;
 
   /**
@@ -35,25 +33,18 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    *
    * @param vs - The VS Code API instance.
    * @param client - The API client instance.
+   * @param assignmentChange - The Assignment change event.
    */
   constructor(
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
+    private readonly assignmentChange: Event<AssignmentChangeEvent>,
   ) {
     this.emitter = new this.vs.EventEmitter<ConsumptionUserInfo>();
     this.onDidChangeCcuInfo = this.emitter.event;
-    this.runner = new SequentialTaskRunner(
-      {
-        intervalTimeoutMs: POLL_INTERVAL_MS,
-        taskTimeoutMs: TASK_TIMEOUT_MS,
-        // Nothing to cleanup, abandon immediately.
-        abandonGraceMs: 0,
-      },
-      {
-        name: ConsumptionPoller.name,
-        run: this.poll.bind(this),
-      },
-      OverrunPolicy.AbandonAndRun,
+    this.worker = new LatestCancelable(
+      'ConsumptionPoller.poll',
+      this.poll.bind(this),
     );
   }
 
@@ -64,8 +55,11 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     if (this.isDisposed) {
       return;
     }
+    this.assignmentListener?.dispose();
+    this.clearPolling();
+    this.emitter.dispose();
+    this.worker.cancel();
     this.isDisposed = true;
-    this.runner.dispose();
   }
 
   /**
@@ -73,15 +67,35 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    */
   on(): void {
     this.guardDisposed();
-    this.runner.start(StartMode.Immediately);
+    void this.worker.run();
+    this.ensurePolling();
+    this.assignmentListener ??= this.assignmentChange(
+      () => void this.worker.run(),
+    );
   }
 
   /**
-   * Turns off the polling process.
+   * Turns off the polling process and aborts the running worker.
    */
   off(): void {
     this.guardDisposed();
-    this.runner.stop();
+    this.clearPolling();
+    if (this.assignmentListener) {
+      this.assignmentListener.dispose();
+      this.assignmentListener = undefined;
+    }
+    this.worker.cancel();
+  }
+
+  private ensurePolling(): void {
+    this.timer ??= setInterval(() => void this.worker.run(), POLL_INTERVAL_MS);
+  }
+
+  private clearPolling(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = undefined;
+    }
   }
 
   private guardDisposed(): void {

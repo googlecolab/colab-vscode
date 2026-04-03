@@ -7,6 +7,14 @@
 import { AsyncToggle } from '../../common/toggleable';
 
 /**
+ * Flushes any pending microtasks, allowing any pending async operations to
+ * complete.
+ */
+export async function flush() {
+  await Promise.resolve();
+}
+
+/**
  * A simple Deferred promise helper.
  *
  * This is useful for testing async code, allowing you to create a promise and
