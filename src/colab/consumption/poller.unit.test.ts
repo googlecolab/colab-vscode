@@ -230,17 +230,6 @@ describe('ConsumptionPoller', () => {
         sinon.assert.calledOnce(onDidChangeCcuInfo);
       });
 
-      it('does not trigger a poll while poller is off', async () => {
-        clientStub.getConsumptionUserInfo.resolves(newCcuInfo);
-        poller.off();
-
-        assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
-        await flush();
-
-        sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
-        sinon.assert.notCalled(onDidChangeCcuInfo);
-      });
-
       it('aborts an in-flight scheduled poll', async () => {
         const firstCallStarted = new Deferred<void>();
         const firstCallCompleter = new Deferred<void>();
@@ -282,14 +271,16 @@ describe('ConsumptionPoller', () => {
   });
 
   describe('toggled off', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
       poller.on();
+      // Turning the poller on runs the task immediately. Wait for microtasks to
+      // flush to ensure the immediate invocation runs to completion.
+      await flush();
+      clientStub.getConsumptionUserInfo.resetHistory();
     });
 
     it('clears the poll timer', async () => {
-      clientStub.getConsumptionUserInfo.resetHistory();
-
       poller.off();
 
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
@@ -304,6 +295,15 @@ describe('ConsumptionPoller', () => {
       expect(assignmentChangeEmitter.hasListeners()).to.be.false;
     });
 
+    it('does not trigger a poll on assignment change', async () => {
+      poller.off();
+
+      assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
+      await flush();
+
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+    });
+
     it('aborts the running worker', async () => {
       const workerStarted = new Deferred<void>();
       const workerCompleter = new Deferred<void>();
@@ -312,7 +312,6 @@ describe('ConsumptionPoller', () => {
         await workerCompleter.promise;
         return Promise.resolve(DEFAULT_CCU_INFO);
       });
-      clientStub.getConsumptionUserInfo.resetHistory();
 
       // Wait for worker to start running
       await fakeClock.tickAsync(POLL_INTERVAL_MS);
