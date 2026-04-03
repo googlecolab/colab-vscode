@@ -96,7 +96,7 @@ describe('ConsumptionPoller', () => {
       sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
     });
 
-    it('disposes assignment change listener', () => {
+    it('disposes the assignment change listener', () => {
       expect(assignmentChangeEmitter.hasListeners()).to.be.true;
 
       poller.dispose();
@@ -278,6 +278,54 @@ describe('ConsumptionPoller', () => {
         );
         sinon.assert.calledOnce(onDidChangeCcuInfo);
       });
+    });
+  });
+
+  describe('toggled off', () => {
+    beforeEach(() => {
+      clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
+      poller.on();
+    });
+
+    it('clears the poll timer', async () => {
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      poller.off();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+    });
+
+    it('clears the assignment change listener', () => {
+      expect(assignmentChangeEmitter.hasListeners()).to.be.true;
+
+      poller.off();
+
+      expect(assignmentChangeEmitter.hasListeners()).to.be.false;
+    });
+
+    it('aborts the running worker', async () => {
+      const workerStarted = new Deferred<void>();
+      const workerCompleter = new Deferred<void>();
+      clientStub.getConsumptionUserInfo.callsFake(async () => {
+        workerStarted.resolve();
+        await workerCompleter.promise;
+        return Promise.resolve(DEFAULT_CCU_INFO);
+      });
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      // Wait for worker to start running
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      await workerStarted.promise;
+      // Turn off poller
+      poller.off();
+      workerCompleter.resolve();
+
+      // Underlying call should receive an abort signal
+      sinon.assert.calledOnceWithMatch(
+        clientStub.getConsumptionUserInfo,
+        sinon.match((signal: AbortSignal) => signal.aborted),
+      );
     });
   });
 

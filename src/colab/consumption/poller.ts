@@ -75,13 +75,16 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   }
 
   /**
-   * Turns off the polling process.
+   * Turns off the polling process and aborts the running worker.
    */
   off(): void {
     this.guardDisposed();
     this.clearPolling();
-    this.assignmentListener?.dispose();
-    this.assignmentListener = undefined;
+    if (this.assignmentListener) {
+      this.assignmentListener.dispose();
+      this.assignmentListener = undefined;
+    }
+    this.worker.cancel();
   }
 
   private ensurePolling(): void {
