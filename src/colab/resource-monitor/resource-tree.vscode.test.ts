@@ -56,8 +56,7 @@ describe('ResourceTreeProvider', () => {
   let colabClientStub: SinonStubbedInstance<ColabClient>;
   let authChangeEmitter: TestEventEmitter<AuthChangeEvent>;
   let assignmentChangeEmitter: TestEventEmitter<AssignmentChangeEvent>;
-  let getRootChildrenBlocker: sinon.SinonStub;
-  let tree: TestResourceTreeProvider;
+  let tree: ResourceTreeProvider;
 
   enum AuthState {
     SIGNED_OUT,
@@ -84,13 +83,12 @@ describe('ResourceTreeProvider', () => {
     colabClientStub = sinon.createStubInstance(ColabClient);
     authChangeEmitter = new TestEventEmitter<AuthChangeEvent>();
     assignmentChangeEmitter = new TestEventEmitter<AssignmentChangeEvent>();
-    getRootChildrenBlocker = sinon.stub();
 
     FLAGS_TEST_ONLY.setFlagForTest(
       ExperimentFlag.ResourcePollIntervalMs,
       TEST_RESOURCE_POLL_INTERVAL_MS,
     );
-    tree = new TestResourceTreeProvider(
+    tree = new ResourceTreeProvider(
       assignmentStub,
       assignmentChangeEmitter.event,
       authChangeEmitter.event,
@@ -269,21 +267,19 @@ describe('ResourceTreeProvider', () => {
     });
 
     it('aborts previous in-flight getChildren call', async () => {
-      (assignmentStub.getServers as sinon.SinonStub).callsFake(
-        (_, signal?: AbortSignal) => {
-          if (signal?.aborted) {
-            throw signal.reason;
-          }
-          return [DEFAULT_SERVER];
-        },
-      );
-      toggleAuth(AuthState.SIGNED_IN);
       const firstRunStarted = new Deferred<void>();
       const firstRunCompleter = new Deferred<void>();
-      getRootChildrenBlocker.onFirstCall().callsFake(async () => {
-        firstRunStarted.resolve();
-        await firstRunCompleter.promise;
-      });
+      (assignmentStub.getServers as sinon.SinonStub)
+        .onFirstCall()
+        .callsFake(async () => {
+          firstRunStarted.resolve();
+          await firstRunCompleter.promise;
+          return Promise.reject(new Error('aborted'));
+        });
+      (assignmentStub.getServers as sinon.SinonStub)
+        .onSecondCall()
+        .resolves([DEFAULT_SERVER]);
+      toggleAuth(AuthState.SIGNED_IN);
 
       // Kick off first getChildren call and let it hang
       const firstGetChildrenPromise = tree.getChildren(undefined);
@@ -352,13 +348,4 @@ describe('ResourceTreeProvider', () => {
       });
     });
   });
-
-  class TestResourceTreeProvider extends ResourceTreeProvider {
-    protected override async getRootChildren(
-      signal?: AbortSignal,
-    ): Promise<ResourceItem[]> {
-      await getRootChildrenBlocker();
-      return super.getRootChildren(signal);
-    }
-  }
 });
