@@ -209,7 +209,5 @@ function validateName(value: string): string | undefined {
 }
 
 function folderOrParent(_vs: typeof vscode, item: ContentItem): Uri {
-  return item.contextValue === 'file'
-    ? joinUriPath(item.uri, '..')
-    : item.uri;
+  return item.contextValue === 'file' ? joinUriPath(item.uri, '..') : item.uri;
 }
