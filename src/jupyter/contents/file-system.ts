@@ -16,7 +16,7 @@ import vscode, {
   Uri,
   WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import { buildColabFileUri } from '../../colab/files';
+import { buildColabFileUri, joinUriPath } from '../../colab/files';
 import { log } from '../../common/logging';
 import { traceMethod } from '../../common/logging/decorators';
 import {
@@ -461,7 +461,7 @@ export class ContentsFileSystemProvider
         // If children exist, recursively delete all children first.
         for (const child of children) {
           const childName = child[0];
-          const childUri = this.vs.Uri.joinPath(uri, childName);
+          const childUri = joinUriPath(uri, childName);
           await this.deleteInternal(childUri, options);
         }
       }
