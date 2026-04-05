@@ -13,6 +13,7 @@ import {
   AssignmentManager,
 } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
+import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { ExperimentFlag, Disk, GpuInfo, Memory } from '../api';
 import { ColabClient } from '../client';
@@ -263,6 +264,34 @@ describe('ResourceTreeProvider', () => {
           ]);
         });
       });
+    });
+
+    it('aborts previous in-flight getChildren call', async () => {
+      const firstRunStarted = new Deferred<void>();
+      const firstRunCompleter = new Deferred<void>();
+      (assignmentStub.getServers as sinon.SinonStub)
+        .onFirstCall()
+        .callsFake(async () => {
+          firstRunStarted.resolve();
+          await firstRunCompleter.promise;
+          return Promise.reject(new Error('aborted'));
+        })
+        .onSecondCall()
+        .resolves([DEFAULT_SERVER]);
+      toggleAuth(AuthState.SIGNED_IN);
+
+      // Kick off first getChildren call and let it hang
+      const firstGetChildrenPromise = tree.getChildren(undefined);
+      await firstRunStarted.promise;
+      // Complete a second getChildren call
+      await expect(tree.getChildren(undefined)).to.eventually.deep.equal([
+        ResourceItem.fromServer(DEFAULT_SERVER),
+      ]);
+      // Unblock the first getChildren call
+      firstRunCompleter.resolve();
+
+      // First getChildren call should return empty since it was aborted
+      await expect(firstGetChildrenPromise).to.eventually.be.empty;
     });
   });
 

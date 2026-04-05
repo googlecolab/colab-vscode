@@ -10,7 +10,7 @@ import { log } from './logging';
  * Run an async worker task, canceling in-flight work with an
  * {@link AbortSignal}.
  */
-export class LatestCancelable<T extends unknown[]> {
+export class LatestCancelable<T extends unknown[], R = void> {
   private curAbort?: AbortController;
 
   /**
@@ -21,15 +21,17 @@ export class LatestCancelable<T extends unknown[]> {
    */
   constructor(
     private readonly name: string,
-    private readonly worker: (...args: [...T, AbortSignal]) => Promise<void>,
+    private readonly worker: (...args: [...T, AbortSignal]) => Promise<R>,
   ) {}
 
   /**
    * Fire the worker, aborting the previous if running.
    *
    * @param args - The arguments provided to the worker.
+   * @returns The result of the worker, or undefined if the worker was aborted
+   * or threw an error.
    */
-  async run(...args: T): Promise<void> {
+  async run(...args: T): Promise<R | undefined> {
     // Abort previous.
     if (this.curAbort) {
       this.curAbort.abort();
@@ -39,7 +41,7 @@ export class LatestCancelable<T extends unknown[]> {
     this.curAbort = abort;
 
     try {
-      await this.worker(...args, abort.signal);
+      return await this.worker(...args, abort.signal);
     } catch (err: unknown) {
       if (
         abort.signal.aborted ||
@@ -49,6 +51,7 @@ export class LatestCancelable<T extends unknown[]> {
       } else {
         log.error(`LatestCancelable worker error for "${this.name}"`, err);
       }
+      return undefined;
     } finally {
       // Only clear the controller if it is still the most recent one.
       if (this.curAbort === abort) {
