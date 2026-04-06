@@ -82,6 +82,11 @@ async function activateInternal(context: vscode.ExtensionContext) {
   process.on('uncaughtException', telemetry.logError);
   process.on('unhandledRejection', telemetry.logError);
   const logging = initializeLogger(vscode, context.extensionMode);
+  const disposeTelemetry = initializeTelemetryWithNotice(
+    vscode,
+    context.globalState,
+    context.extensionUri,
+  );
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
   const uriHandler = new ExtensionUriHandler(vscode);
@@ -177,14 +182,10 @@ async function activateInternal(context: vscode.ExtensionContext) {
     'colab-server-resource-view',
     { treeDataProvider: serverResourceTreeView },
   );
-  const disposeTelemetry = initializeTelemetryWithNotice(
-    vscode,
-    context.globalState,
-    context.extensionUri,
-  );
 
   context.subscriptions.push(
     logging,
+    disposeTelemetry,
     uriHandler,
     disposeAll(authFlows),
     authProvider,

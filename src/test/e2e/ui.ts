@@ -135,7 +135,7 @@ export async function selectQuickPicksInOrder(
  * @param button - The button to push if the dialog is present.
  * @param waitMs - How long to wait for the dialog to appear.
  */
-export async function tryPushDialogButton(
+export async function pushDialogButtonIfShown(
   driver: WebDriver,
   button: string,
   waitMs: number = ELEMENT_WAIT_MS,

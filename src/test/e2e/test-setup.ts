@@ -14,7 +14,7 @@ import { CONFIG } from '../../colab-config';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
   createNotebook,
-  tryPushDialogButton,
+  pushDialogButtonIfShown,
   hasQuickPickItem,
   pushDialogButton,
   selectQuickPickItem,
@@ -65,7 +65,11 @@ async function signIn(
   // Dismiss the telemetry notice modal if it appears. The extension activates
   // asynchronously after notebook creation, so we poll for the dialog. This is
   // a no-op when the notice was already acknowledged (e.g. developer machine).
-  await tryPushDialogButton(vsCodeDriver, 'Acknowledge', /* timeoutMs= */ 3000);
+  await pushDialogButtonIfShown(
+    vsCodeDriver,
+    'Acknowledge',
+    /* timeoutMs= */ 3000,
+  );
 
   // Trigger Colab connection which will prompt for sign-in.
   await workbench.executeCommand('Notebook: Select Notebook Kernel');
