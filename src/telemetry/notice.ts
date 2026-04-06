@@ -12,12 +12,12 @@ const TELEMETRY_NOTICE_KEY = 'telemetryNoticeAcknowledged';
 const NOTICE_MESSAGE =
   'Colab now collects identifiable usage data and error reports to improve your experience.';
 
-const NOTICE_DETAIL = "Opt out by setting telemetry.telemetryLevel to 'off'.";
+const NOTICE_DETAIL =
+  "Opt out by setting telemetry.telemetryLevel to 'off'. View extension README.md for more information.";
 const ACKNOWLEDGE: MessageItem = {
   title: 'Acknowledge',
   isCloseAffordance: true,
 };
-const LEARN_MORE: MessageItem = { title: 'Learn More' };
 
 /**
  * Initializes telemetry, showing a one-time notice if the user has not
@@ -26,13 +26,11 @@ const LEARN_MORE: MessageItem = { title: 'Learn More' };
  *
  * @param vs - The vscode module.
  * @param globalState - The extension's global state memento.
- * @param extensionUri - The extension's root URI for locating the README.
  * @returns A {@link Disposable} that cleans up the telemetry client.
  */
 export function initializeTelemetryWithNotice(
   vs: typeof vscode,
   globalState: vscode.Memento,
-  extensionUri: vscode.Uri,
 ): Disposable {
   let telemetryDisposable: Disposable | undefined;
   let isDisposed = false;
@@ -48,7 +46,7 @@ export function initializeTelemetryWithNotice(
   if (globalState.get<boolean>(TELEMETRY_NOTICE_KEY)) {
     initTelemetry();
   } else {
-    void showNoticeAndInitialize(vs, globalState, extensionUri, initTelemetry);
+    void showNoticeAndInitialize(vs, globalState, initTelemetry);
   }
 
   return {
@@ -62,22 +60,13 @@ export function initializeTelemetryWithNotice(
 async function showNoticeAndInitialize(
   vs: typeof vscode,
   globalState: vscode.Memento,
-  extensionUri: vscode.Uri,
   initTelemetry: () => void,
 ): Promise<void> {
-  const response = await vs.window.showInformationMessage(
+  await vs.window.showInformationMessage(
     NOTICE_MESSAGE,
     { modal: true, detail: NOTICE_DETAIL },
     ACKNOWLEDGE,
-    LEARN_MORE,
   );
-
-  if (response === LEARN_MORE) {
-    const readmeUri = vs.Uri.joinPath(extensionUri, 'README.md').with({
-      fragment: 'data-and-telemetry',
-    });
-    void vs.commands.executeCommand('markdown.showPreview', readmeUri);
-  }
 
   await globalState.update(TELEMETRY_NOTICE_KEY, true);
   initTelemetry();

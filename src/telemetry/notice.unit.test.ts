@@ -14,8 +14,6 @@ import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ClearcutClient } from './client';
 import { initializeTelemetryWithNotice } from './notice';
 
-const EXTENSION_URI_STRING = 'file:///extensions/google.colab-1.2.3';
-
 describe('initializeTelemetryWithNotice', () => {
   let vs: VsCodeStub;
   let disposable: vscode.Disposable | undefined;
@@ -48,17 +46,30 @@ describe('initializeTelemetryWithNotice', () => {
    * Extracts the {@link MessageItem} button with the given title from the
    * arguments passed to `showInformationMessage`.
    *
-   * @param title - The title of the button to find.
    * @returns The matching {@link MessageItem}.
    */
-  function getButton(title: 'Acknowledge' | 'Learn More'): MessageItem {
+  function getAcknowledgeBtn(): MessageItem {
     const args = vs.window.showInformationMessage.firstCall.args;
     const items = args.slice(2) as MessageItem[];
-    const item = items.find((i) => i.title === title);
+    const item = items.find((i) => i.title === 'Acknowledge');
     if (!item) {
-      throw new Error(`expected button "${title}" in dialog args`);
+      throw new Error(`expected button "Acknowledge" in dialog args`);
     }
     return item;
+  }
+
+  /**
+   * Simulates the user clicking the "Acknowledge" button in the notice dialog,
+   * waiting for the dialog promise to resolve before returning.
+   *
+   * @returns A promise that resolves after the dialog promise has resolved.
+   */
+  async function acknowledge(): Promise<void> {
+    const acknowledge = getAcknowledgeBtn();
+
+    dialog.resolve(acknowledge);
+    await dialog.promise;
+    await Promise.resolve();
   }
 
   it('does not show the modal when already acknowledged', async () => {
@@ -68,7 +79,6 @@ describe('initializeTelemetryWithNotice', () => {
     disposable = initializeTelemetryWithNotice(
       vs.asVsCode(),
       vs.globalState as vscode.Memento,
-      vs.Uri.parse(EXTENSION_URI_STRING),
     );
 
     sinon.assert.notCalled(vs.window.showInformationMessage);
@@ -79,7 +89,6 @@ describe('initializeTelemetryWithNotice', () => {
     disposable = initializeTelemetryWithNotice(
       vs.asVsCode(),
       vs.globalState as vscode.Memento,
-      vs.Uri.parse(EXTENSION_URI_STRING),
     );
 
     sinon.assert.calledOnce(vs.window.showInformationMessage);
@@ -89,10 +98,8 @@ describe('initializeTelemetryWithNotice', () => {
     expect(args[1])
       .to.have.property('detail')
       .that.includes('telemetry.telemetryLevel');
-    const acknowledge = getButton('Acknowledge');
-    const learnMore = getButton('Learn More');
+    const acknowledge = getAcknowledgeBtn();
     expect(acknowledge).to.have.property('isCloseAffordance', true);
-    expect(learnMore).not.to.have.property('isCloseAffordance');
   });
 
   it('persists acknowledgment on "Acknowledge"', async () => {
@@ -101,40 +108,12 @@ describe('initializeTelemetryWithNotice', () => {
     disposable = initializeTelemetryWithNotice(
       vs.asVsCode(),
       vs.globalState as vscode.Memento,
-      vs.Uri.parse(EXTENSION_URI_STRING),
     );
 
-    dialog.resolve(getButton('Acknowledge'));
-    await dialog.promise;
-    await Promise.resolve();
+    await acknowledge();
 
     expect(vs.globalState.get('telemetryNoticeAcknowledged')).to.equal(true);
     sinon.assert.calledOnce(logStub);
-  });
-
-  it('opens the README and initializes telemetry on "Learn More"', async () => {
-    vs.commands.executeCommand.resolves();
-    sinon.stub(ClearcutClient.prototype, 'log');
-
-    disposable = initializeTelemetryWithNotice(
-      vs.asVsCode(),
-      vs.globalState as vscode.Memento,
-      vs.Uri.parse(EXTENSION_URI_STRING),
-    );
-
-    dialog.resolve(getButton('Learn More'));
-    await dialog.promise;
-    await Promise.resolve();
-
-    sinon.assert.calledOnceWithMatch(
-      vs.commands.executeCommand,
-      'markdown.showPreview',
-      sinon.match({
-        path: sinon.match('README.md'),
-        fragment: 'data-and-telemetry',
-      }),
-    );
-    expect(vs.globalState.get('telemetryNoticeAcknowledged')).to.equal(true);
   });
 
   it('persists acknowledgment on dismiss', async () => {
@@ -143,7 +122,6 @@ describe('initializeTelemetryWithNotice', () => {
     disposable = initializeTelemetryWithNotice(
       vs.asVsCode(),
       vs.globalState as vscode.Memento,
-      vs.Uri.parse(EXTENSION_URI_STRING),
     );
 
     dialog.resolve(undefined);
@@ -158,12 +136,11 @@ describe('initializeTelemetryWithNotice', () => {
     it('disposes cleanly when telemetry was initialized', async () => {
       await vs.globalState.update('telemetryNoticeAcknowledged', true);
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-
       const d = initializeTelemetryWithNotice(
         vs.asVsCode(),
         vs.globalState as vscode.Memento,
-        vs.Uri.parse(EXTENSION_URI_STRING),
       );
+
       d.dispose();
 
       sinon.assert.calledOnce(disposeSpy);
@@ -171,12 +148,11 @@ describe('initializeTelemetryWithNotice', () => {
 
     it('disposes cleanly when telemetry has not yet been initialized', () => {
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-
       const d = initializeTelemetryWithNotice(
         vs.asVsCode(),
         vs.globalState as vscode.Memento,
-        vs.Uri.parse(EXTENSION_URI_STRING),
       );
+
       d.dispose();
 
       // Client was never created, so dispose should not have been called.
@@ -185,16 +161,12 @@ describe('initializeTelemetryWithNotice', () => {
 
     it('disposes deferred client after modal resolves', async () => {
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-
       const d = initializeTelemetryWithNotice(
         vs.asVsCode(),
         vs.globalState as vscode.Memento,
-        vs.Uri.parse(EXTENSION_URI_STRING),
       );
+      await acknowledge();
 
-      dialog.resolve(getButton('Acknowledge'));
-      await dialog.promise;
-      await Promise.resolve();
       d.dispose();
 
       sinon.assert.calledOnce(disposeSpy);

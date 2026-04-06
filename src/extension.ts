@@ -85,7 +85,6 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const disposeTelemetry = initializeTelemetryWithNotice(
     vscode,
     context.globalState,
-    context.extensionUri,
   );
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
