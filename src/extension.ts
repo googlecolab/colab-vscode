@@ -84,7 +84,6 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
   const uriHandler = new ExtensionUriHandler(vscode);
-  const uriHandlerRegistration = vscode.window.registerUriHandler(uriHandler);
   const authClient = new OAuth2Client(
     CONFIG.ClientId,
     CONFIG.ClientNotSoSecret,
@@ -181,7 +180,6 @@ async function activateInternal(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     logging,
     uriHandler,
-    uriHandlerRegistration,
     disposeAll(authFlows),
     authProvider,
     assignmentManager,
@@ -205,6 +203,11 @@ async function activateInternal(context: vscode.ExtensionContext) {
     ),
     handleUriEvents(uriHandler.onReceivedUri),
   );
+  // Register the URI handler with VS Code *after* all event listeners and
+  // commands are set up, to avoid the race condition where the URI that
+  // triggered onUri activation is delivered before the listener in
+  // handleUriEvents() is subscribed, causing the first deep link to be lost.
+  context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
   telemetry.logActivation();
 }
 
