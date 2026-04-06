@@ -218,19 +218,20 @@ describe('ConsumptionPoller', () => {
             return Promise.reject(new Error('aborted'));
           })
           .onSecondCall()
-          .callsFake(() => {
+          .callsFake(async () => {
             secondCallStarted.resolve();
             return Promise.resolve(newCcuInfo);
           });
 
         // Kick off scheduled poll and let it hang
-        await fakeClock.tickAsync(POLL_INTERVAL_MS);
+        await fakeClock.tickAsync(POLL_INTERVAL_MS + 1);
         await firstCallStarted.promise;
         // Fire assignment change to trigger another poll
         assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
         await secondCallStarted.promise;
         // Unblock the first poll
         firstCallCompleter.resolve();
+        await flush();
 
         // First call was aborted and second call was not affected.
         sinon.assert.calledWithMatch(
