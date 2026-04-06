@@ -269,6 +269,27 @@ describe('SequentialTaskRunner', () => {
     });
   });
 
+  describe('runNow', () => {
+    it('throws when disposed', () => {
+      const runner = buildRunner();
+      runner.dispose();
+
+      expect(() => {
+        runner.runNow();
+      }).to.throw(/disposed/);
+    });
+
+    it('runs the task immediately', async () => {
+      const runner = buildRunner();
+      const run = testTask.nextRun();
+
+      runner.runNow();
+
+      await expect(run.started, 'Task should run immediately').to.eventually.be
+        .fulfilled;
+    });
+  });
+
   describe('when overrun (AllowToComplete policy)', () => {
     it('does nothing for the current interval', async () => {
       const runner = buildRunner(OverrunPolicy.AllowToComplete, {
