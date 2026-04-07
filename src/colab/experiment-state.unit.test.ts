@@ -94,11 +94,17 @@ describe('ExperimentStateProvider', () => {
     sinon.assert.calledOnce(colabClientStub.getExperimentState);
   });
 
-  it('returns default value when flag is missing', () => {
-    // Ensure flags are empty
-    colabClientStub.getExperimentState.resolves({ experiments: new Map() });
+  it('returns default value when flag is missing', async () => {
+    const runGetExperimentState = new Deferred<void>();
+    colabClientStub.getExperimentState.callsFake(async () => {
+      runGetExperimentState.resolve();
+      // Ensure flags are empty
+      return Promise.resolve({ experiments: new Map() });
+    });
+
     provider.on();
 
+    await expect(runGetExperimentState.promise).to.eventually.be.fulfilled;
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
   });
 
