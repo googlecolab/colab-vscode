@@ -154,6 +154,9 @@ export class SequentialTaskRunner implements Disposable {
    */
   runNow(): void {
     this.guardDisposed();
+    if (!this.taskInterval) {
+      throw new Error('Cannot run task when runner is stopped');
+    }
     this.run();
   }
 
