@@ -66,6 +66,7 @@ import { ExtensionUriHandler } from './system/uri';
 import { telemetry } from './telemetry';
 import { CommandSource } from './telemetry/api';
 import { withErrorTracking } from './telemetry/decorators';
+import { initializeTelemetryWithNotice } from './telemetry/notice';
 
 /**
  * Called when the extension is activated.
@@ -81,6 +82,10 @@ async function activateInternal(context: vscode.ExtensionContext) {
   process.on('uncaughtException', telemetry.logError);
   process.on('unhandledRejection', telemetry.logError);
   const logging = initializeLogger(vscode, context.extensionMode);
+  const disposeTelemetry = initializeTelemetryWithNotice(
+    vscode,
+    context.globalState,
+  );
   const jupyter = await getJupyterApi(vscode);
   logEnvInfo(jupyter);
   const uriHandler = new ExtensionUriHandler(vscode);
@@ -179,6 +184,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     logging,
+    disposeTelemetry,
     uriHandler,
     disposeAll(authFlows),
     authProvider,
@@ -208,6 +214,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
   // triggered onUri activation is delivered before the listener in
   // handleUriEvents() is subscribed, causing the first deep link to be lost.
   context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
+
   telemetry.logActivation();
 }
 

@@ -218,6 +218,12 @@ export interface VsCodeStub {
     registerAuthenticationProvider: typeof vscode.authentication.registerAuthenticationProvider;
     getSession: typeof vscode.authentication.getSession;
   };
+  globalState: {
+    get: <T>(key: string, defaultValue?: T) => T | undefined;
+    update: (key: string, value: unknown) => Promise<void>;
+    keys: () => readonly string[];
+    setKeysForSync: (keys: readonly string[]) => void;
+  };
   version: string;
 }
 
@@ -231,6 +237,7 @@ export interface VsCodeStub {
  */
 export function newVsCodeStub(): VsCodeStub {
   const fakeAuthentication = new FakeAuthenticationProviderManager();
+  const globalStateStore: Record<string, unknown> = {};
 
   return {
     asVsCode: function (): typeof vscode {
@@ -357,6 +364,21 @@ export function newVsCodeStub(): VsCodeStub {
           fakeAuthentication,
         ),
       getSession: fakeAuthentication.getSession.bind(fakeAuthentication),
+    },
+    globalState: {
+      get<T>(key: string, defaultValue?: T): T | undefined {
+        const value = globalStateStore[key];
+        return (value !== undefined ? value : defaultValue) as T | undefined;
+      },
+      update(key: string, value: unknown): Promise<void> {
+        globalStateStore[key] = value;
+        return Promise.resolve();
+      },
+      keys(): readonly string[] {
+        return Object.keys(globalStateStore);
+      },
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      setKeysForSync(): void {},
     },
     version: '',
   };
