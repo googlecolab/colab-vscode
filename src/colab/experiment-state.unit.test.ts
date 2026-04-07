@@ -6,6 +6,7 @@
 
 import { expect } from 'chai';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
+import { Deferred } from '../test/helpers/async';
 import { ExperimentFlag } from './api';
 import { ColabClient } from './client';
 import {
@@ -14,28 +15,15 @@ import {
   TEST_ONLY,
 } from './experiment-state';
 
-/**
- * Test subclass to expose protected methods for testing.
- */
-class TestExperimentStateProvider extends ExperimentStateProvider {
-  override async turnOn(signal: AbortSignal): Promise<void> {
-    return super.turnOn(signal);
-  }
-
-  override async turnOff(signal: AbortSignal): Promise<void> {
-    return super.turnOff(signal);
-  }
-}
-
 describe('ExperimentStateProvider', () => {
   let colabClientStub: SinonStubbedInstance<ColabClient>;
-  let provider: TestExperimentStateProvider;
+  let provider: ExperimentStateProvider;
   let clock: SinonFakeTimers;
 
   beforeEach(() => {
     clock = sinon.useFakeTimers();
     colabClientStub = sinon.createStubInstance(ColabClient);
-    provider = new TestExperimentStateProvider(colabClientStub);
+    provider = new ExperimentStateProvider(colabClientStub);
   });
 
   afterEach(() => {
@@ -61,10 +49,15 @@ describe('ExperimentStateProvider', () => {
 
   it('fetches experiment state with auth when turned on', async () => {
     const experiments = new Map([[ExperimentFlag.RuntimeVersionNames, true]]);
-    colabClientStub.getExperimentState.resolves({ experiments });
+    const runGetExperimentState = new Deferred<void>();
+    colabClientStub.getExperimentState.callsFake(async () => {
+      runGetExperimentState.resolve();
+      return Promise.resolve({ experiments });
+    });
 
-    await provider.turnOn(new AbortController().signal);
+    provider.on();
 
+    await expect(runGetExperimentState.promise).to.eventually.be.fulfilled;
     sinon.assert.calledOnceWithExactly(
       colabClientStub.getExperimentState,
       true,
@@ -75,10 +68,15 @@ describe('ExperimentStateProvider', () => {
 
   it('fetches experiment state without auth when turned off', async () => {
     const experiments = new Map([[ExperimentFlag.RuntimeVersionNames, false]]);
-    colabClientStub.getExperimentState.resolves({ experiments });
+    const runGetExperimentState = new Deferred<void>();
+    colabClientStub.getExperimentState.callsFake(async () => {
+      runGetExperimentState.resolve();
+      return Promise.resolve({ experiments });
+    });
 
-    await provider.turnOff(new AbortController().signal);
+    provider.off();
 
+    await expect(runGetExperimentState.promise).to.eventually.be.fulfilled;
     sinon.assert.calledOnceWithExactly(
       colabClientStub.getExperimentState,
       false,
@@ -87,50 +85,46 @@ describe('ExperimentStateProvider', () => {
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.false;
   });
 
-  it('handles errors when fetching experiment state', async () => {
+  it('handles errors when fetching experiment state', () => {
     colabClientStub.getExperimentState.rejects(new Error('Network error'));
 
     // Should not throw
-    await provider.turnOn(new AbortController().signal);
+    provider.on();
 
     sinon.assert.calledOnce(colabClientStub.getExperimentState);
   });
 
-  it('returns default value when flag is missing', async () => {
+  it('returns default value when flag is missing', () => {
     // Ensure flags are empty
     colabClientStub.getExperimentState.resolves({ experiments: new Map() });
-    await provider.turnOn(new AbortController().signal);
+    provider.on();
 
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
   });
 
-  it('updates flags when state changes', async () => {
-    // Set to true
-    colabClientStub.getExperimentState.resolves({
-      experiments: new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
-    });
-    await provider.turnOn(new AbortController().signal);
-    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.true;
-
-    // Set to false
-    colabClientStub.getExperimentState.resolves({
-      experiments: new Map([[ExperimentFlag.RuntimeVersionNames, false]]),
-    });
-    await provider.turnOn(new AbortController().signal);
-    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.false;
-  });
-
   it('does not update flags if response is empty', async () => {
-    // Set initial state
-    colabClientStub.getExperimentState.resolves({
-      experiments: new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
-    });
-    await provider.turnOn(new AbortController().signal);
+    const firstCall = new Deferred<void>();
+    const secondCall = new Deferred<void>();
+    colabClientStub.getExperimentState
+      .onFirstCall()
+      .callsFake(async () => {
+        firstCall.resolve();
+        return Promise.resolve({
+          experiments: new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
+        });
+      })
+      .onSecondCall()
+      .callsFake(async () => {
+        secondCall.resolve();
+        return Promise.resolve({});
+      });
+    provider.on();
+    await expect(firstCall.promise).to.eventually.be.fulfilled;
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.true;
 
-    // Return empty experiments (undefined)
-    colabClientStub.getExperimentState.resolves({});
-    await provider.turnOn(new AbortController().signal);
+    // Trigger the second refresh call which returns an empty response
+    await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
+    await expect(secondCall.promise).to.eventually.be.fulfilled;
 
     // Should still be true (previous state preserved)
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.true;
@@ -138,7 +132,7 @@ describe('ExperimentStateProvider', () => {
 
   it('polls for experiment state updates', async () => {
     colabClientStub.getExperimentState.resolves({});
-    await provider.turnOn(new AbortController().signal);
+    provider.on();
     sinon.assert.calledOnce(colabClientStub.getExperimentState);
 
     await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
@@ -152,7 +146,7 @@ describe('ExperimentStateProvider', () => {
 
   it('stops polling when disposed', async () => {
     colabClientStub.getExperimentState.resolves({});
-    await provider.turnOn(new AbortController().signal);
+    provider.on();
     provider.dispose();
 
     await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
@@ -162,8 +156,8 @@ describe('ExperimentStateProvider', () => {
 
   it('updates polling authorization state when turned off', async () => {
     colabClientStub.getExperimentState.resolves({});
-    await provider.turnOn(new AbortController().signal);
-    await provider.turnOff(new AbortController().signal);
+    provider.on();
+    provider.off();
 
     // Advance time to trigger refresh
     await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);

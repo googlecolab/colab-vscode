@@ -6,7 +6,8 @@
 
 import { Disposable } from 'vscode';
 import { log } from '../common/logging';
-import { AsyncToggle } from '../common/toggleable';
+import { OverrunPolicy, SequentialTaskRunner } from '../common/task-runner';
+import { Toggleable } from '../common/toggleable';
 import {
   ExperimentFlag,
   ExperimentFlagValue,
@@ -25,13 +26,14 @@ export function getFlag(flag: ExperimentFlag): ExperimentFlagValue {
 }
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes.
+const REFRESH_TIMEOUT_MS = 30 * 1000; // 30 seconds.
 
 /**
  * Provides experiment state information from the Colab backend.
  */
-export class ExperimentStateProvider extends AsyncToggle implements Disposable {
+export class ExperimentStateProvider implements Toggleable, Disposable {
+  private readonly refreshPoller: SequentialTaskRunner;
   private isAuthorized = false;
-  private refreshInterval?: NodeJS.Timeout;
   private isDisposed = false;
 
   /**
@@ -40,10 +42,24 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
    * @param client - The API client instance.
    */
   constructor(private readonly client: ColabClient) {
-    super();
     // Reset experiment flags.
     flags = new Map<ExperimentFlag, ExperimentFlagValue>();
-    this.getExperimentState = this.getExperimentState.bind(this);
+    this.refreshPoller = new SequentialTaskRunner(
+      {
+        intervalTimeoutMs: REFRESH_INTERVAL_MS,
+        taskTimeoutMs: REFRESH_TIMEOUT_MS,
+        // Nothing to cleanup, abandon immediately.
+        abandonGraceMs: 0,
+      },
+      {
+        name: ExperimentStateProvider.name,
+        run: async (signal: AbortSignal) => {
+          await this.getExperimentState(this.isAuthorized, signal);
+        },
+      },
+      OverrunPolicy.AbandonAndRun,
+    );
+    this.refreshPoller.start();
   }
 
   /**
@@ -53,50 +69,26 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
     if (this.isDisposed) {
       return;
     }
-
+    this.refreshPoller.dispose();
     this.isDisposed = true;
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = undefined;
-    }
   }
 
   /**
    * Turns on experiment state polling.
    */
-  override on(): void {
+  on(): void {
     this.guardDisposed();
-    super.on();
+    this.isAuthorized = true;
+    this.refreshPoller.runNow();
   }
 
   /**
    * Turns off experiment state polling.
    */
-  override off(): void {
+  off(): void {
     this.guardDisposed();
-    super.off();
-  }
-
-  /**
-   * Starts polling for experiment state.
-   *
-   * @param signal - The cancellation signal.
-   */
-  protected override async turnOn(signal: AbortSignal): Promise<void> {
-    this.isAuthorized = true;
-    await this.getExperimentState(this.isAuthorized, signal);
-    this.ensurePolling();
-  }
-
-  /**
-   * Stops polling for experiment state.
-   *
-   * @param signal - The cancellation signal.
-   */
-  protected override async turnOff(signal: AbortSignal): Promise<void> {
     this.isAuthorized = false;
-    await this.getExperimentState(this.isAuthorized, signal);
-    this.ensurePolling();
+    this.refreshPoller.runNow();
   }
 
   private guardDisposed() {
@@ -107,25 +99,10 @@ export class ExperimentStateProvider extends AsyncToggle implements Disposable {
     }
   }
 
-  private ensurePolling() {
-    if (this.isDisposed || this.refreshInterval) {
-      return;
-    }
-    this.refreshInterval = setInterval(() => {
-      void this.getExperimentState(this.isAuthorized);
-    }, REFRESH_INTERVAL_MS);
-  }
-
   private async getExperimentState(
     requireAccessToken: boolean,
     signal?: AbortSignal,
   ): Promise<void> {
-    if (this.isDisposed) {
-      throw new Error(
-        'Cannot use ExperimentStateProvider after it has been disposed',
-      );
-    }
-
     try {
       const result = await this.client.getExperimentState(
         requireAccessToken,
