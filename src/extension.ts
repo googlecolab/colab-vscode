@@ -214,8 +214,6 @@ async function activateInternal(context: vscode.ExtensionContext) {
   // triggered onUri activation is delivered before the listener in
   // handleUriEvents() is subscribed, causing the first deep link to be lost.
   context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
-
-  telemetry.logActivation();
 }
 
 function logEnvInfo(jupyter: vscode.Extension<Jupyter>) {
