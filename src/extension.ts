@@ -208,7 +208,6 @@ async function activateInternal(context: vscode.ExtensionContext) {
       driveClient,
     ),
     handleUriEvents(uriHandler.onReceivedUri),
-    disposeTelemetry,
   );
   // Register the URI handler with VS Code *after* all event listeners and
   // commands are set up, to avoid the race condition where the URI that
