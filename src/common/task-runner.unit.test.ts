@@ -279,14 +279,62 @@ describe('SequentialTaskRunner', () => {
       }).to.throw(/disposed/);
     });
 
+    it('throws when runner is stopped', () => {
+      const runner = buildRunner();
+      runner.stop(); // Explicitly call `stop` to ensure stopped state.
+
+      expect(() => {
+        runner.runNow();
+      }).to.throw(/Cannot run task when runner is stopped/);
+    });
+
     it('runs the task immediately', async () => {
       const runner = buildRunner();
       const run = testTask.nextRun();
+      runner.start();
 
       runner.runNow();
 
       await expect(run.started, 'Task should run immediately').to.eventually.be
         .fulfilled;
+    });
+
+    it('does not abort in-flight task with AllowToComplete policy', async () => {
+      const runner = buildRunner(OverrunPolicy.AllowToComplete, {
+        abandonGraceMs: ABANDON_GRACE_MS,
+        intervalTimeoutMs: INTERVAL_TIMEOUT_MS,
+        taskTimeoutMs: INTERVAL_TIMEOUT_MS * 2,
+      });
+      const firstRun = testTask.nextRun();
+      runner.start(StartMode.Immediately);
+      await expect(firstRun.started, 'Task should start immediately').to
+        .eventually.be.fulfilled;
+
+      runner.runNow();
+
+      sinon.assert.calledOnce(testTask.run);
+    });
+
+    it('aborts the in-flight task with AbandonAndRun policy', async () => {
+      const runner = buildRunner(OverrunPolicy.AbandonAndRun, {
+        abandonGraceMs: ABANDON_GRACE_MS,
+        intervalTimeoutMs: INTERVAL_TIMEOUT_MS,
+        taskTimeoutMs: INTERVAL_TIMEOUT_MS * 2,
+      });
+      const firstRun = testTask.nextRun();
+      runner.start(StartMode.Immediately);
+      await expect(firstRun.started, 'First run should start immediately').to
+        .eventually.be.fulfilled;
+      const secondRun = testTask.nextRun();
+
+      runner.runNow();
+
+      await expect(firstRun.aborted, 'First run should be aborted').to
+        .eventually.be.fulfilled;
+      await tickPast(ABANDON_GRACE_MS);
+      await expect(secondRun.started, 'Second run should start').to.eventually
+        .be.fulfilled;
+      sinon.assert.calledTwice(testTask.run);
     });
   });
 

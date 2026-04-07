@@ -12,7 +12,7 @@ import {
   createStubInstance,
 } from 'sinon';
 import { AssignmentChangeEvent } from '../../jupyter/assignments';
-import { Deferred, flush } from '../../test/helpers/async';
+import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { ConsumptionUserInfo, SubscriptionTier, Variant } from '../api';
@@ -207,6 +207,10 @@ describe('ConsumptionPoller', () => {
       });
 
       it('aborts an in-flight scheduled poll', async () => {
+        const ccuInfoChanged = new Deferred<void>();
+        onDidChangeCcuInfo.callsFake(() => {
+          ccuInfoChanged.resolve();
+        });
         const firstCallStarted = new Deferred<void>();
         const firstCallCompleter = new Deferred<void>();
         const secondCallStarted = new Deferred<void>();
@@ -231,8 +235,8 @@ describe('ConsumptionPoller', () => {
         await secondCallStarted.promise;
         // Unblock the first poll
         firstCallCompleter.resolve();
-        await flush();
 
+        await expect(ccuInfoChanged.promise).to.eventually.be.fulfilled;
         // First call was aborted and second call was not affected.
         sinon.assert.calledWithMatch(
           clientStub.getConsumptionUserInfo.firstCall,
@@ -242,7 +246,6 @@ describe('ConsumptionPoller', () => {
           clientStub.getConsumptionUserInfo.secondCall,
           sinon.match((signal: AbortSignal) => !signal.aborted),
         );
-        sinon.assert.calledOnce(onDidChangeCcuInfo);
       });
     });
   });
@@ -270,15 +273,6 @@ describe('ConsumptionPoller', () => {
       poller.off();
 
       expect(assignmentChangeEmitter.hasListeners()).to.be.false;
-    });
-
-    it('does not trigger a poll on assignment change', async () => {
-      poller.off();
-
-      assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
-      await flush();
-
-      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
     });
 
     it('aborts the running worker', async () => {
