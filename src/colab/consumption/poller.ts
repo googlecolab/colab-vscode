@@ -111,6 +111,9 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    * @param signal - The cancellation signal.
    */
   private async poll(signal?: AbortSignal): Promise<void> {
+    if (this.isDisposed) {
+      return;
+    }
     const consumptionUserInfo =
       await this.client.getConsumptionUserInfo(signal);
     if (
