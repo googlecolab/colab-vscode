@@ -110,7 +110,10 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
       );
       if (result.experiments) {
         flags = result.experiments;
-        log.trace('Experiment state updated:', Object.fromEntries(flags));
+        log.trace(
+          `Experiment state updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
+          Object.fromEntries(flags),
+        );
       }
     } catch (e: unknown) {
       log.error('Failed to update experiment state:', e);
