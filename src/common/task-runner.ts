@@ -146,6 +146,20 @@ export class SequentialTaskRunner implements Disposable {
     this.inFlight?.abortCtrl.abort(new DisposedError(this.task.name));
   }
 
+  /**
+   * Triggers a task run immediately, without waiting for the next scheduled
+   * interval.
+   *
+   * If a task is already running, the overrun policy is applied.
+   */
+  runNow(): void {
+    this.guardDisposed();
+    if (!this.taskInterval) {
+      throw new Error('Cannot run task when runner is stopped');
+    }
+    this.run();
+  }
+
   private guardDisposed() {
     if (this.isDisposed) {
       throw new Error(

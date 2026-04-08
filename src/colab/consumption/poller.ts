@@ -11,10 +11,11 @@ import {
   StartMode,
 } from '../../common/task-runner';
 import { Toggleable } from '../../common/toggleable';
+import { AssignmentChangeEvent } from '../../jupyter/assignments';
 import { ConsumptionUserInfo } from '../api';
 import { ColabClient } from '../client';
 
-const POLL_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes.
+const POLL_INTERVAL_MS = 1000 * 60; // 1 minute.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
 
 /**
@@ -26,8 +27,9 @@ const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
 export class ConsumptionPoller implements Toggleable, Disposable {
   readonly onDidChangeCcuInfo: Event<ConsumptionUserInfo>;
   private readonly emitter: EventEmitter<ConsumptionUserInfo>;
+  private readonly runner: SequentialTaskRunner;
+  private assignmentListener?: Disposable;
   private consumptionUserInfo?: ConsumptionUserInfo;
-  private runner: SequentialTaskRunner;
   private isDisposed = false;
 
   /**
@@ -35,10 +37,12 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    *
    * @param vs - The VS Code API instance.
    * @param client - The API client instance.
+   * @param assignmentChange - The Assignment change event.
    */
   constructor(
     private readonly vs: typeof vscode,
     private readonly client: ColabClient,
+    private readonly assignmentChange: Event<AssignmentChangeEvent>,
   ) {
     this.emitter = new this.vs.EventEmitter<ConsumptionUserInfo>();
     this.onDidChangeCcuInfo = this.emitter.event;
@@ -64,8 +68,10 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     if (this.isDisposed) {
       return;
     }
-    this.isDisposed = true;
+    this.assignmentListener?.dispose();
     this.runner.dispose();
+    this.emitter.dispose();
+    this.isDisposed = true;
   }
 
   /**
@@ -74,6 +80,9 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   on(): void {
     this.guardDisposed();
     this.runner.start(StartMode.Immediately);
+    this.assignmentListener ??= this.assignmentChange(
+      this.runner.runNow.bind(this.runner),
+    );
   }
 
   /**
@@ -82,6 +91,10 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   off(): void {
     this.guardDisposed();
     this.runner.stop();
+    if (this.assignmentListener) {
+      this.assignmentListener.dispose();
+      this.assignmentListener = undefined;
+    }
   }
 
   private guardDisposed(): void {
@@ -98,6 +111,9 @@ export class ConsumptionPoller implements Toggleable, Disposable {
    * @param signal - The cancellation signal.
    */
   private async poll(signal?: AbortSignal): Promise<void> {
+    if (this.isDisposed) {
+      return;
+    }
     const consumptionUserInfo =
       await this.client.getConsumptionUserInfo(signal);
     if (
@@ -111,3 +127,8 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     this.emitter.fire(this.consumptionUserInfo);
   }
 }
+
+export const TEST_ONLY = {
+  POLL_INTERVAL_MS,
+  TASK_TIMEOUT_MS,
+};
