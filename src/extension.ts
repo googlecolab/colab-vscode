@@ -67,6 +67,7 @@ import { telemetry } from './telemetry';
 import { CommandSource } from './telemetry/api';
 import { withErrorTracking } from './telemetry/decorators';
 import { initializeTelemetryWithNotice } from './telemetry/notice';
+import { createProcessErrorHandler } from './telemetry/process-errors';
 
 /**
  * Called when the extension is activated.
@@ -79,8 +80,11 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 async function activateInternal(context: vscode.ExtensionContext) {
-  process.on('uncaughtException', telemetry.logError);
-  process.on('unhandledRejection', telemetry.logError);
+  const handleProcessError = createProcessErrorHandler(
+    context.extensionUri.fsPath,
+  );
+  process.on('uncaughtException', handleProcessError);
+  process.on('unhandledRejection', handleProcessError);
   const logging = initializeLogger(vscode, context.extensionMode);
   const disposeTelemetry = initializeTelemetryWithNotice(
     vscode,
