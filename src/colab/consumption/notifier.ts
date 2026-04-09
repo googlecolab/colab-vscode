@@ -182,7 +182,7 @@ function calculateRoughMinutesLeft(
     return 0;
   }
   // Free quota is in milli-CCUs.
-  const freeCcu = freeQuota.remainingTokens / 1000;
+  const freeCcu = (freeQuota.remainingTokens ?? 0) / 1000;
   return Math.floor((freeCcu / consumptionUserInfo.consumptionRateHourly) * 60);
 }
 
