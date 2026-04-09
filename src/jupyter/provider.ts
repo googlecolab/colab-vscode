@@ -16,7 +16,7 @@ import { CancellationToken, Disposable, Event, ProviderResult } from 'vscode';
 import vscode from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
 import { SubscriptionTier } from '../colab/api';
-import { ColabClient } from '../colab/client';
+import { ColabClient, NotFoundError } from '../colab/client';
 import {
   AUTO_CONNECT,
   Command,
@@ -136,14 +136,22 @@ export class ColabJupyterServerProvider
    */
   @traceMethod
   @trackErrors
-  resolveJupyterServer(
+  async resolveJupyterServer(
     server: JupyterServer,
     _token: CancellationToken,
-  ): ProviderResult<JupyterServer> {
+  ): Promise<JupyterServer> {
     if (!isUUID(server.id)) {
       throw new Error('Unexpected server ID format, expected UUID');
     }
-    return this.assignmentManager.refreshConnection(server.id);
+    try {
+      return await this.assignmentManager.refreshConnection(server.id);
+    } catch (e: unknown) {
+      if (e instanceof NotFoundError) {
+        this.serverChangeEmitter.fire();
+        return server;
+      }
+      throw e;
+    }
   }
 
   /**
