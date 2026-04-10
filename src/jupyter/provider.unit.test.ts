@@ -17,7 +17,7 @@ import * as sinon from 'sinon';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
 import { SubscriptionTier, Variant } from '../colab/api';
-import { ColabClient } from '../colab/client';
+import { ColabClient, NotFoundError } from '../colab/client';
 import {
   AUTO_CONNECT,
   NEW_SERVER,
@@ -252,12 +252,12 @@ describe('ColabJupyterServerProvider', () => {
   });
 
   describe('resolveJupyterServer', () => {
-    it('throws when the server ID is not a UUID', () => {
+    it('throws when the server ID is not a UUID', async () => {
       const server = { ...DEFAULT_SERVER, id: 'not-a-uuid' };
 
-      expect(() =>
+      await expect(
         serverProvider.resolveJupyterServer(server, cancellationToken),
-      ).to.throw(/expected UUID/);
+      ).to.eventually.be.rejectedWith(/expected UUID/);
     });
 
     it('returns the assigned server with refreshed connection info', async () => {
@@ -279,6 +279,32 @@ describe('ColabJupyterServerProvider', () => {
       await expect(
         serverProvider.resolveJupyterServer(DEFAULT_SERVER, cancellationToken),
       ).to.eventually.deep.equal(refreshedServer);
+    });
+
+    it('fires onDidChangeServers and returns the server as-is when NotFoundError is thrown', async () => {
+      assignmentStub.refreshConnection
+        .withArgs(DEFAULT_SERVER.id)
+        .rejects(new NotFoundError('Server is not assigned'));
+      const listener = sinon.stub();
+      serverProvider.onDidChangeServers(listener);
+
+      const result = await serverProvider.resolveJupyterServer(
+        DEFAULT_SERVER,
+        cancellationToken,
+      );
+
+      expect(result).to.deep.equal(DEFAULT_SERVER);
+      sinon.assert.calledOnce(listener);
+    });
+
+    it('rethrows non-NotFoundError errors', async () => {
+      assignmentStub.refreshConnection
+        .withArgs(DEFAULT_SERVER.id)
+        .rejects(new Error('some other error'));
+
+      await expect(
+        serverProvider.resolveJupyterServer(DEFAULT_SERVER, cancellationToken),
+      ).to.eventually.be.rejectedWith('some other error');
     });
   });
 

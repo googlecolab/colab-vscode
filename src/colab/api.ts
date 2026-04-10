@@ -201,6 +201,8 @@ export const ConsumptionUserInfoSchema = UserInfoSchema.required({
       /**
        * Number of tokens remaining in the "USAGE-mCCUs" quota group (remaining
        * free usage allowance in milli-CCUs).
+       *
+       * Is only defined when there is no paid CCU balance remaining.
        */
       // The API is defined in Protobuf and the field is an Int64. The ProtoJSON
       // format (https://protobuf.dev/programming-guides/json) returns Int64 as
@@ -210,8 +212,10 @@ export const ConsumptionUserInfoSchema = UserInfoSchema.required({
       // represent).
       remainingTokens: z
         .string()
+        .optional()
         .refine(
           (val) => {
+            if (val === undefined) return true;
             const num = Number(val);
             return Number.isSafeInteger(num);
           },
@@ -219,9 +223,9 @@ export const ConsumptionUserInfoSchema = UserInfoSchema.required({
             error: 'Value too large to be a safe integer for JavaScript',
           },
         )
-        .transform((val) => Number(val)),
+        .transform((val) => (val !== undefined ? Number(val) : undefined)),
       /** Next free quota refill timestamp (epoch) in seconds. */
-      nextRefillTimestampSec: z.number(),
+      nextRefillTimestampSec: z.number().optional(),
     })
     .optional(),
 });
