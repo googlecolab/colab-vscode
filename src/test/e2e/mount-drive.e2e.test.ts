@@ -17,7 +17,7 @@ import {
   selectQuickPicksInOrder,
 } from './ui';
 
-const CONNECT_DRIVE_WAIT_MS = 20000;
+const CONNECT_DRIVE_DIALOG_WAIT_MS = 20000;
 
 it('mounts Google Drive', async () => {
   const workbench = new Workbench();
@@ -48,7 +48,7 @@ it('mounts Google Drive', async () => {
   await pushDialogButton(
     driver,
     'Connect to Google Drive',
-    CONNECT_DRIVE_WAIT_MS,
+    CONNECT_DRIVE_DIALOG_WAIT_MS,
   );
   // Begin the sign-in process by copying the OAuth URL to the clipboard and
   // opening it in a browser window. Why do this instead of triggering the
