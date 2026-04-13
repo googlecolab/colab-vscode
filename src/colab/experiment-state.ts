@@ -68,8 +68,8 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
     if (this.isDisposed) {
       return;
     }
-    this.refreshPoller.dispose();
     this.isDisposed = true;
+    this.refreshPoller.dispose();
   }
 
   /**
