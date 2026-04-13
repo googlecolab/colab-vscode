@@ -79,12 +79,17 @@ describe('ExperimentStateProvider', () => {
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.false;
   });
 
-  it('handles errors when fetching experiment state', () => {
-    colabClientStub.getExperimentState.rejects(new Error('Network error'));
+  it('handles errors when fetching experiment state', async () => {
+    const getExperimentStateRun = new Deferred<void>();
+    colabClientStub.getExperimentState.callsFake(async () => {
+      getExperimentStateRun.resolve();
+      return Promise.reject(new Error('Network error'));
+    });
 
     // Should not throw
     provider.on();
 
+    await expect(getExperimentStateRun.promise).to.eventually.be.fulfilled;
     sinon.assert.calledOnce(colabClientStub.getExperimentState);
   });
 
@@ -98,6 +103,40 @@ describe('ExperimentStateProvider', () => {
 
     await expect(getExperimentStateRanPromise).to.eventually.be.fulfilled;
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
+  });
+
+  it('updates flags when state changes', async () => {
+    const firstCall = new Deferred<void>();
+    const secondCall = new Deferred<void>();
+    colabClientStub.getExperimentState
+      .onFirstCall()
+      .callsFake(async () => {
+        firstCall.resolve();
+        return Promise.resolve({
+          // Set to true
+          experiments: new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
+        });
+      })
+      .onSecondCall()
+      .callsFake(async () => {
+        secondCall.resolve();
+        return Promise.resolve({
+          // Set to false
+          experiments: new Map([[ExperimentFlag.RuntimeVersionNames, false]]),
+        });
+      });
+
+    // Trigger first call by turning on the provider
+    provider.on();
+
+    await expect(firstCall.promise).to.eventually.be.fulfilled;
+    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.true;
+
+    // Trigger second call by fast-forwarding time to the next refresh interval
+    await clock.tickAsync(TEST_ONLY.REFRESH_INTERVAL_MS);
+
+    await expect(secondCall.promise).to.eventually.be.fulfilled;
+    expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.false;
   });
 
   it('does not update flags if response is empty', async () => {

@@ -59,7 +59,6 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
       },
       OverrunPolicy.AbandonAndRun,
     );
-    this.refreshPoller.start();
   }
 
   /**
@@ -79,7 +78,7 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
   on(): void {
     this.guardDisposed();
     this.isAuthorized = true;
-    this.refreshPoller.runNow();
+    this.ensurePollingAndRunOnce();
   }
 
   /**
@@ -88,6 +87,11 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
   off(): void {
     this.guardDisposed();
     this.isAuthorized = false;
+    this.ensurePollingAndRunOnce();
+  }
+
+  private ensurePollingAndRunOnce(): void {
+    this.refreshPoller.start();
     this.refreshPoller.runNow();
   }
 
