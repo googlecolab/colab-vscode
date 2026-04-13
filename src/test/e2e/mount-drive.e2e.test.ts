@@ -17,6 +17,8 @@ import {
   selectQuickPicksInOrder,
 } from './ui';
 
+const CONNECT_DRIVE_WAIT_MS = 20000;
+
 it('mounts Google Drive', async () => {
   const workbench = new Workbench();
   const driver = workbench.getDriver();
@@ -43,7 +45,11 @@ it('mounts Google Drive', async () => {
   // Kick-off Drive mounting.
   await workbench.executeCommand('Colab: Mount Google Drive to Server...');
   await workbench.executeCommand('Notebook: Run All');
-  await pushDialogButton(driver, 'Connect to Google Drive');
+  await pushDialogButton(
+    driver,
+    'Connect to Google Drive',
+    CONNECT_DRIVE_WAIT_MS,
+  );
   // Begin the sign-in process by copying the OAuth URL to the clipboard and
   // opening it in a browser window. Why do this instead of triggering the
   // "Open" button in the dialog? We copy the URL so that we can use a new
