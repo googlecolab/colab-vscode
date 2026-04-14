@@ -6,7 +6,7 @@
 
 /* eslint-disable jsdoc/require-jsdoc */
 
-import { join } from 'path';
+import { join } from 'path/posix';
 import * as sinon from 'sinon';
 import { Uri } from 'vscode';
 
@@ -45,10 +45,13 @@ export class TestUri implements Uri {
 
   static joinPath(base: TestUri, ...pathSegments: string[]): TestUri {
     const { path: p, ...rest } = base;
+    const normalizedSegments = pathSegments.map((segment) =>
+      segment.replaceAll('\\', '/'),
+    );
     return new this(
       rest.scheme,
       rest.authority,
-      join(p, ...pathSegments),
+      join(p, ...normalizedSegments),
       rest.query,
       rest.fragment,
     );
