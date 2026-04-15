@@ -5,6 +5,7 @@
 .vscode-test.mjs
 .vscode-test/
 .vscode/
+.worktrees
 cspell.config.yaml
 docs/
 esbuild.config.mts
