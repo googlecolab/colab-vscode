@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
-import fetch, { Headers } from 'node-fetch';
+import fetch, { Headers, Request } from 'node-fetch';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
 import {
@@ -532,6 +532,33 @@ describe('AssignmentManager', () => {
               [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
             }),
           });
+        });
+
+        it('preserves request headers when wrapping a Request object', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, 'default');
+          const request = new Request('https://example.com', {
+            headers: {
+              Accept: 'application/json',
+              'X-Test': 'existing-value',
+            },
+          });
+
+          await server.connectionInformation.fetch(request);
+
+          sinon.assert.calledOnce(fetchStub);
+          const headers = fetchStub.firstCall.args[1]?.headers as Headers;
+          expect(headers.get('Accept')).to.equal('application/json');
+          expect(headers.get('X-Test')).to.equal('existing-value');
+          expect(headers.get(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key)).to.equal(
+            server.connectionInformation.token,
+          );
+          expect(headers.get(COLAB_CLIENT_AGENT_HEADER.key)).to.equal(
+            COLAB_CLIENT_AGENT_HEADER.value,
+          );
         });
 
         it('includes a custom WebSocket implementation', async () => {

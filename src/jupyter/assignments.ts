@@ -828,14 +828,14 @@ function colabProxyFetch(
       info = new Request(info.url, info);
     }
 
-    init ??= {};
-    const headers = new Headers(init.headers);
-    headers.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
-    headers.append(
+    const headers = new Headers(isRequest(info) ? info.headers : undefined);
+    new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+    headers.set(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
+    headers.set(
       COLAB_CLIENT_AGENT_HEADER.key,
       COLAB_CLIENT_AGENT_HEADER.value,
     );
-    init.headers = headers;
+    init = { ...init, headers };
 
     return fetch(info, init);
   };
