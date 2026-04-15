@@ -1,5 +1,6 @@
 {
   "colab.logging.level": "trace",
+  "colab.activityBarResourceView": true,
   "jupyter.logging.level": "debug",
   "telemetry.telemetryLevel": "off",
   "update.mode": "off",
