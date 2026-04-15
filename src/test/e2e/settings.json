@@ -12,5 +12,6 @@
   "workbench.editor.enablePreview": false,
   "workbench.auxiliaryBar.visible": false,
   "extensions.ignoreRecommendations": true,
-  "chat.disableAIFeatures": true
+  "chat.disableAIFeatures": true,
+  "files.simpleDialog.enable": true
 }
