@@ -320,6 +320,28 @@ describe('JupyterConnectionManager', () => {
       await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.not.be
         .undefined;
     });
+
+    it('revokes managed connections even when unrelated removals are included first', async () => {
+      const otherServer = { ...DEFAULT_SERVER, endpoint: 'other' };
+      // Cast needed due to overload.
+      (assignmentManager.getServers as sinon.SinonStub).resolves([
+        DEFAULT_SERVER,
+      ]);
+      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+
+      assignmentEmitter.fire({
+        added: [],
+        changed: [],
+        removed: [
+          { server: otherServer, userInitiated: true },
+          { server: DEFAULT_SERVER, userInitiated: true },
+        ],
+      });
+
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+      await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
+        .undefined;
+    });
   });
 
   describe('get', () => {

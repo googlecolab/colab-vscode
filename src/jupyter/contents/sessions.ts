@@ -235,16 +235,18 @@ export class JupyterConnectionManager implements Disposable {
     if (!endpoints.length) {
       return;
     }
+    const revoked: string[] = [];
     for (const endpoint of endpoints) {
       const promise = this.connections.get(endpoint);
       if (!promise) {
-        return;
+        continue;
       }
       bestEffortDisposeConnection(promise);
       this.connections.delete(endpoint);
+      revoked.push(endpoint);
     }
-    if (!silent) {
-      this.revokeConnectionEmitter.fire(endpoints);
+    if (!silent && revoked.length) {
+      this.revokeConnectionEmitter.fire(revoked);
     }
   }
 }
