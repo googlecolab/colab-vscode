@@ -823,18 +823,19 @@ function colabProxyFetch(
   token: string,
 ): (info: RequestInfo, init?: RequestInit) => Promise<Response> {
   return async (info: RequestInfo, init?: RequestInit) => {
+    let infoHeaders: Headers | undefined;
     if (isRequest(info)) {
       // Ensure compatibility with `node-fetch`
       info = new Request(info.url, info);
+      infoHeaders = info.headers;
     }
 
-    const headers = new Headers(isRequest(info) ? info.headers : undefined);
-    new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+    const headers = new Headers(infoHeaders);
+    new Headers(init?.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
     headers.set(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
-    headers.set(
-      COLAB_CLIENT_AGENT_HEADER.key,
-      COLAB_CLIENT_AGENT_HEADER.value,
-    );
+    headers.set(COLAB_CLIENT_AGENT_HEADER.key, COLAB_CLIENT_AGENT_HEADER.value);
     init = { ...init, headers };
 
     return fetch(info, init);

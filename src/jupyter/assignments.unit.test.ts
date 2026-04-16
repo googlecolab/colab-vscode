@@ -549,15 +549,55 @@ describe('AssignmentManager', () => {
 
           await server.connectionInformation.fetch(request);
 
-          sinon.assert.calledOnce(fetchStub);
-          const headers = fetchStub.firstCall.args[1]?.headers as Headers;
-          expect(headers.get('Accept')).to.equal('application/json');
-          expect(headers.get('X-Test')).to.equal('existing-value');
-          expect(headers.get(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key)).to.equal(
-            server.connectionInformation.token,
+          sinon.assert.calledOnceWithMatch(
+            fetchStub,
+            sinon.match.instanceOf(Request),
+            {
+              headers: new Headers({
+                Accept: 'application/json',
+                'X-Test': 'existing-value',
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            },
           );
-          expect(headers.get(COLAB_CLIENT_AGENT_HEADER.key)).to.equal(
-            COLAB_CLIENT_AGENT_HEADER.value,
+        });
+
+        it('allows init headers to override request headers', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, 'default');
+          const request = new Request('https://example.com', {
+            headers: {
+              Accept: 'text/plain',
+              'X-Test': 'request-value',
+            },
+          });
+
+          await server.connectionInformation.fetch(request, {
+            headers: {
+              Accept: 'application/json',
+              'X-Test': 'init-value',
+            },
+          });
+
+          sinon.assert.calledOnceWithMatch(
+            fetchStub,
+            sinon.match.instanceOf(Request),
+            {
+              headers: new Headers({
+                Accept: 'application/json',
+                'X-Test': 'init-value',
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            },
           );
         });
 
