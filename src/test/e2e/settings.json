@@ -1,6 +1,5 @@
 {
   "chat.disableAIFeatures": true,
-  "colab.activityBarResourceView": true,
   "colab.logging.level": "trace",
   "extensions.autoCheckUpdates": false,
   "extensions.autoUpdate": false,
