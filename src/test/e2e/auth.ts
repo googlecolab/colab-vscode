@@ -9,6 +9,7 @@ import { Builder, By, Key, WebDriver, until } from 'vscode-extension-tester';
 import { safeClick } from './ui';
 
 const ELEMENT_WAIT_MS = 10000;
+const SIGN_IN_SCREEN_WAIT_MS = 20000;
 
 /**
  * Performs the OAuth sign-in flow for the Colab extension.
@@ -48,7 +49,7 @@ export async function doOAuthSignIn(
   // Click Continue to sign in to Colab.
   await chromeDriver.wait(
     until.urlContains('accounts.google.com/signin/oauth/id'),
-    ELEMENT_WAIT_MS,
+    SIGN_IN_SCREEN_WAIT_MS,
   );
   await safeClick(
     chromeDriver,
