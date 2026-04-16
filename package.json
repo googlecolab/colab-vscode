@@ -76,12 +76,12 @@
         "colab.activityBarContentView": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Enables the Colab activity bar where you can view servers and interact with their `/content` directories."
+          "markdownDescription": "Enables the content view in the Colab activity bar where you can view servers and interact with their `/content` directories."
         },
         "colab.activityBarResourceView": {
           "type": "boolean",
           "default": true,
-          "description": "Enables the Colab activity bar where you can monitor server resources (RAM and disk usage)."
+          "description": "Enables the resource view in the Colab activity bar where you can monitor server resources (RAM and disk usage)."
         },
         "colab.serverMounting": {
           "type": "boolean",
