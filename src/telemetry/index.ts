@@ -88,6 +88,9 @@ export const telemetry = {
   logHandleEphemeralAuth: (authType: AuthType) => {
     log({ handle_ephemeral_auth_event: { auth_type: authType } });
   },
+  logImportNotebook: (source: CommandSource) => {
+    log({ import_notebook_event: { source } });
+  },
   logMountDriveSnippet: (source: CommandSource) => {
     log({ mount_drive_snippet_event: { source } });
   },

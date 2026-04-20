@@ -336,5 +336,16 @@ describe('Telemetry Module', () => {
         handle_ephemeral_auth_event: { auth_type: authType },
       });
     });
+
+    it('logs on importing notebook', () => {
+      const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
+
+      telemetry.logImportNotebook(source);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        import_notebook_event: { source },
+      });
+    });
   });
 });
