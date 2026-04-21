@@ -7,7 +7,7 @@
 import vscode from 'vscode';
 import { log } from '../../common/logging';
 import { telemetry } from '../../telemetry';
-import { CommandSource } from '../../telemetry/api';
+import { CommandSource, NotebookSource } from '../../telemetry/api';
 import { DriveClient } from '../client';
 import { IMPORT_DRIVE_FILE_PATH, IMPORT_NOTEBOOK_FROM_URL } from './constants';
 
@@ -29,6 +29,7 @@ export async function importNotebookFromUrl(
     inputUrl
       ? CommandSource.COMMAND_SOURCE_ON_URI
       : CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
+    NotebookSource.NOTEBOOK_SOURCE_DRIVE,
   );
 
   inputUrl ??= await vs.window.showInputBox({

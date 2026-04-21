@@ -12,7 +12,12 @@ import { AuthType } from '../colab/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { ColabLogEventBase, CommandSource, AuthFlow } from './api';
+import {
+  ColabLogEventBase,
+  CommandSource,
+  AuthFlow,
+  NotebookSource,
+} from './api';
 import { ClearcutClient } from './client';
 import { initializeTelemetry, telemetry } from '.';
 
@@ -337,14 +342,29 @@ describe('Telemetry Module', () => {
       });
     });
 
-    it('logs on importing notebook', () => {
+    it('logs on importing notebook with notebook source', () => {
+      const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
+      const notebookSource = NotebookSource.NOTEBOOK_SOURCE_DRIVE;
+
+      telemetry.logImportNotebook(source, notebookSource);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        import_notebook_event: { source, notebook_source: notebookSource },
+      });
+    });
+
+    it('logs on importing notebook without notebook source', () => {
       const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
 
       telemetry.logImportNotebook(source);
 
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
-        import_notebook_event: { source },
+        import_notebook_event: {
+          source,
+          notebook_source: NotebookSource.NOTEBOOK_SOURCE_UNSPECIFIED,
+        },
       });
     });
   });

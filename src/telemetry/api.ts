@@ -113,6 +113,12 @@ export enum CommandSource {
   COMMAND_SOURCE_ON_URI = 5,
 }
 
+/** Enum to represent different notebook sources */
+export enum NotebookSource {
+  NOTEBOOK_SOURCE_UNSPECIFIED = 0,
+  NOTEBOOK_SOURCE_DRIVE = 1,
+}
+
 // The authentication flow used for sign in.
 export enum AuthFlow {
   AUTH_FLOW_UNSPECIFIED = 0,
@@ -152,6 +158,7 @@ interface HandleEphemeralAuthEvent {
 /** An event representing a notebook import. */
 interface ImportNotebookEvent {
   source: CommandSource;
+  notebook_source: NotebookSource;
 }
 
 /** An event representing a click to insert Drive mounting snippet. */
