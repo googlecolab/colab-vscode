@@ -96,15 +96,9 @@ export const telemetry = {
   },
   logImportNotebook: (
     source: CommandSource,
-    notebookSource?: NotebookSource,
+    notebookSource: NotebookSource,
   ) => {
-    log({
-      import_notebook_event: {
-        source,
-        notebook_source:
-          notebookSource ?? NotebookSource.NOTEBOOK_SOURCE_UNSPECIFIED,
-      },
-    });
+    log({ import_notebook_event: { source, notebook_source: notebookSource } });
   },
   logMountDriveSnippet: (source: CommandSource) => {
     log({ mount_drive_snippet_event: { source } });

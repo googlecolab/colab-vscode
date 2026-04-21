@@ -342,7 +342,7 @@ describe('Telemetry Module', () => {
       });
     });
 
-    it('logs on importing notebook with notebook source', () => {
+    it('logs on importing notebook', () => {
       const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
       const notebookSource = NotebookSource.NOTEBOOK_SOURCE_DRIVE;
 
@@ -351,20 +351,6 @@ describe('Telemetry Module', () => {
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         import_notebook_event: { source, notebook_source: notebookSource },
-      });
-    });
-
-    it('logs on importing notebook without notebook source', () => {
-      const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
-
-      telemetry.logImportNotebook(source);
-
-      sinon.assert.calledOnceWithExactly(logStub, {
-        ...baseLog,
-        import_notebook_event: {
-          source,
-          notebook_source: NotebookSource.NOTEBOOK_SOURCE_UNSPECIFIED,
-        },
       });
     });
   });
