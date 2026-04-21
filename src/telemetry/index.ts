@@ -10,7 +10,13 @@ import { AuthType } from '../colab/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { ColabLogEventBase, ColabEvent, CommandSource, AuthFlow } from './api';
+import {
+  ColabLogEventBase,
+  ColabEvent,
+  CommandSource,
+  AuthFlow,
+  NotebookSource,
+} from './api';
 import { ClearcutClient } from './client';
 
 let client: ClearcutClient | undefined;
@@ -87,6 +93,12 @@ export const telemetry = {
   },
   logHandleEphemeralAuth: (authType: AuthType) => {
     log({ handle_ephemeral_auth_event: { auth_type: authType } });
+  },
+  logImportNotebook: (
+    source: CommandSource,
+    notebookSource: NotebookSource,
+  ) => {
+    log({ import_notebook_event: { source, notebook_source: notebookSource } });
   },
   logMountDriveSnippet: (source: CommandSource) => {
     log({ mount_drive_snippet_event: { source } });

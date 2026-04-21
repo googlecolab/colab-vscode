@@ -6,6 +6,8 @@
 
 import vscode from 'vscode';
 import { log } from '../../common/logging';
+import { telemetry } from '../../telemetry';
+import { CommandSource, NotebookSource } from '../../telemetry/api';
 import { DriveClient } from '../client';
 import { IMPORT_DRIVE_FILE_PATH, IMPORT_NOTEBOOK_FROM_URL } from './constants';
 
@@ -23,6 +25,13 @@ export async function importNotebookFromUrl(
   driveClient: DriveClient,
   inputUrl?: string,
 ): Promise<void> {
+  telemetry.logImportNotebook(
+    inputUrl
+      ? CommandSource.COMMAND_SOURCE_ON_URI
+      : CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
+    NotebookSource.NOTEBOOK_SOURCE_DRIVE,
+  );
+
   inputUrl ??= await vs.window.showInputBox({
     prompt: 'Link to the Colab Notebook to import',
     placeHolder: 'https://colab.research.google.com/drive/...',

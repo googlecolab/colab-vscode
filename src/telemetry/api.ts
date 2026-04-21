@@ -67,6 +67,10 @@ export type ColabEvent =
       handle_ephemeral_auth_event: HandleEphemeralAuthEvent;
     }
   | {
+      /** An event representing a notebook import. */
+      import_notebook_event: ImportNotebookEvent;
+    }
+  | {
       /** An event representing a click to insert Drive mounting snippet. */
       mount_drive_snippet_event: MountDriveSnippetEvent;
     }
@@ -106,6 +110,13 @@ export enum CommandSource {
   COMMAND_SOURCE_COLAB_TOOLBAR = 2,
   COMMAND_SOURCE_COMMAND_PALETTE = 3,
   COMMAND_SOURCE_NOTIFICATION = 4,
+  COMMAND_SOURCE_ON_URI = 5,
+}
+
+/** Enum to represent different notebook sources */
+export enum NotebookSource {
+  NOTEBOOK_SOURCE_UNSPECIFIED = 0,
+  NOTEBOOK_SOURCE_DRIVE = 1,
 }
 
 // The authentication flow used for sign in.
@@ -142,6 +153,12 @@ interface ErrorEvent {
 /** An event representing handling of an ephemeral auth. */
 interface HandleEphemeralAuthEvent {
   auth_type: AuthType;
+}
+
+/** An event representing a notebook import. */
+interface ImportNotebookEvent {
+  source: CommandSource;
+  notebook_source: NotebookSource;
 }
 
 /** An event representing a click to insert Drive mounting snippet. */
