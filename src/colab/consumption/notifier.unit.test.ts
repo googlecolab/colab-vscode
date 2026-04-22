@@ -5,7 +5,9 @@
  */
 
 import { assert, expect } from 'chai';
-import sinon, { SinonFakeTimers } from 'sinon';
+import sinon, { SinonFakeTimers, SinonStubbedFunction } from 'sinon';
+import { telemetry } from '../../telemetry';
+import { LowBalanceSeverity } from '../../telemetry/api';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { SubscriptionTier, ConsumptionUserInfo } from '../api';
@@ -425,6 +427,111 @@ describe('ConsumptionNotifier', () => {
       );
     });
   }
+
+  describe('telemetry', () => {
+    let logStub: SinonStubbedFunction<typeof telemetry.logLowCcuNotification>;
+
+    beforeEach(() => {
+      logStub = sinon.stub(telemetry, 'logLowCcuNotification');
+    });
+
+    /**
+     * Stubs out the given severity's notification API to immediately resolve
+     * with the given action (or `undefined` to simulate a dismiss).
+     *
+     * @param severity - The severity of the notification to stub ("warn" or
+     * "error").
+     * @param respondWith - The action to resolve with, or `undefined` to
+     * simulate a dismiss.
+     */
+    function autoRespond(
+      severity: NotificationSeverity,
+      respondWith: string | undefined,
+    ): void {
+      const stub =
+        severity === 'warn'
+          ? vs.window.showWarningMessage
+          : vs.window.showErrorMessage;
+      // Type assertion needed due to overloading.
+      (stub as sinon.SinonStub).callsFake(() => Promise.resolve(respondWith));
+    }
+
+    it('logs SEVERITY_LOW with clicked=false when warning is dismissed', async () => {
+      const ccuInfo = createCcuInfo(
+        { paidMinutes: 0, freeMinutes: 1 },
+        SubscriptionTier.NONE,
+      );
+      autoRespond('warn', undefined);
+
+      const noOp = consumptionNotifier.nextConsumptionCalculation();
+      ccuEmitter.fire(ccuInfo);
+      await noOp;
+
+      sinon.assert.calledOnceWithExactly(
+        logStub,
+        LowBalanceSeverity.SEVERITY_LOW,
+        SubscriptionTier.NONE,
+        false,
+      );
+    });
+
+    it('logs SEVERITY_DEPLETED with clicked=true when error action is clicked', async () => {
+      const ccuInfo = createCcuInfo(
+        { paidMinutes: 0, freeMinutes: 0 },
+        SubscriptionTier.NONE,
+      );
+      autoRespond('error', 'Sign Up for Colab');
+
+      const noOp = consumptionNotifier.nextConsumptionCalculation();
+      ccuEmitter.fire(ccuInfo);
+      await noOp;
+
+      sinon.assert.calledOnceWithExactly(
+        logStub,
+        LowBalanceSeverity.SEVERITY_DEPLETED,
+        SubscriptionTier.NONE,
+        true,
+      );
+    });
+
+    it('plumbs the Pro subscription tier through unchanged', async () => {
+      const ccuInfo = createCcuInfo(
+        { paidMinutes: 0, freeMinutes: 0 },
+        SubscriptionTier.PRO,
+      );
+      autoRespond('error', 'Upgrade to Pro+');
+
+      const noOp = consumptionNotifier.nextConsumptionCalculation();
+      ccuEmitter.fire(ccuInfo);
+      await noOp;
+
+      sinon.assert.calledOnceWithExactly(
+        logStub,
+        LowBalanceSeverity.SEVERITY_DEPLETED,
+        SubscriptionTier.PRO,
+        true,
+      );
+    });
+
+    it('plumbs the Pro+ subscription tier through unchanged', async () => {
+      const ccuInfo = createCcuInfo(
+        { paidMinutes: 0, freeMinutes: 0 },
+        SubscriptionTier.PRO_PLUS,
+      );
+      autoRespond('error', 'Purchase More CCUs');
+
+      const noOp = consumptionNotifier.nextConsumptionCalculation();
+      ccuEmitter.fire(ccuInfo);
+      await noOp;
+
+      sinon.assert.calledOnceWithExactly(
+        logStub,
+        LowBalanceSeverity.SEVERITY_DEPLETED,
+        SubscriptionTier.PRO_PLUS,
+        true,
+      );
+    });
+  });
 
   describe('snooze', () => {
     let fakeClock: SinonFakeTimers;

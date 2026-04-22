@@ -6,7 +6,10 @@
 import assert from 'assert';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
-import { AuthType } from '../colab/api';
+import {
+  AuthType,
+  SubscriptionTier as ColabSubscriptionTier,
+} from '../colab/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -18,8 +21,10 @@ import {
   AuthFlow,
   ContentBrowserOperation,
   ContentBrowserTarget,
+  LowBalanceSeverity,
   NotebookSource,
   Outcome,
+  SubscriptionTier,
 } from './api';
 import { ClearcutClient } from './client';
 
@@ -115,6 +120,19 @@ export const telemetry = {
       download_event: { outcome, downloaded_bytes: downloadedBytes },
     });
   },
+  logLowCcuNotification: (
+    severity: LowBalanceSeverity,
+    subscriptionTier: ColabSubscriptionTier,
+    clickedAction: boolean,
+  ) => {
+    log({
+      low_ccu_notification_event: {
+        severity,
+        subscription_tier: toTelemetrySubscriptionTier(subscriptionTier),
+        clicked_action: clickedAction,
+      },
+    });
+  },
   logError: (e: unknown) => {
     if (e instanceof Error) {
       log({
@@ -202,4 +220,17 @@ function log(event: ColabEvent) {
     ...event,
     timestamp: new Date().toISOString(),
   });
+}
+
+function toTelemetrySubscriptionTier(
+  tier: ColabSubscriptionTier,
+): SubscriptionTier {
+  switch (tier) {
+    case ColabSubscriptionTier.NONE:
+      return SubscriptionTier.SUBSCRIPTION_TIER_NONE;
+    case ColabSubscriptionTier.PRO:
+      return SubscriptionTier.SUBSCRIPTION_TIER_PRO;
+    case ColabSubscriptionTier.PRO_PLUS:
+      return SubscriptionTier.SUBSCRIPTION_TIER_PRO_PLUS;
+  }
 }

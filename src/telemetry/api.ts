@@ -67,6 +67,10 @@ export type ColabEvent =
       download_event: DownloadEvent;
     }
   | {
+      /** An event representing a low/depleted CCU balance notification. */
+      low_ccu_notification_event: LowCcuNotificationEvent;
+    }
+  | {
       /** An event representing an error. */
       error_event: ErrorEvent;
     }
@@ -176,6 +180,31 @@ export enum ContentBrowserTarget {
   TARGET_DIRECTORY = 2,
 }
 
+/** The severity of a Colab Compute Units (CCU) low balance notification. */
+export enum LowBalanceSeverity {
+  SEVERITY_UNSPECIFIED = 0,
+  /**
+   * Balance is low (less than 30 minutes of compute remaining at the current
+   * consumption rate); shown as a warning.
+   */
+  SEVERITY_LOW = 1,
+  /** Balance is fully depleted; shown as an error. */
+  SEVERITY_DEPLETED = 2,
+}
+
+/**
+ * The user's Colab subscription tier as recorded in telemetry. Mirrors the
+ * top-level `SubscriptionTier` proto enum. Distinct from
+ * `colab/api.SubscriptionTier`, which uses unprefixed values (`NONE`,
+ * `PRO`, `PRO_PLUS`).
+ */
+export enum SubscriptionTier {
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0,
+  SUBSCRIPTION_TIER_NONE = 1,
+  SUBSCRIPTION_TIER_PRO = 2,
+  SUBSCRIPTION_TIER_PRO_PLUS = 3,
+}
+
 // The authentication flow used for sign in.
 export enum AuthFlow {
   AUTH_FLOW_UNSPECIFIED = 0,
@@ -271,6 +300,20 @@ interface DownloadEvent {
   outcome: Outcome;
   /** The size, in bytes, of the file that was successfully downloaded. */
   downloaded_bytes: number;
+}
+
+/** An event representing a low/depleted CCU balance notification. */
+interface LowCcuNotificationEvent {
+  /** The severity level of the notification. */
+  severity: LowBalanceSeverity;
+  /** The user's subscription tier when the notification was shown. */
+  subscription_tier: SubscriptionTier;
+  /**
+   * Whether the user clicked the call-to-action (e.g., "Sign Up for Colab",
+   * "Upgrade to Pro+", "Purchase More CCUs"). False if the notification was
+   * dismissed without taking action.
+   */
+  clicked_action: boolean;
 }
 
 /** An event representing an error. */

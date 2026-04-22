@@ -8,7 +8,10 @@ import { expect } from 'chai';
 import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
-import { AuthType } from '../colab/api';
+import {
+  AuthType,
+  SubscriptionTier as ColabSubscriptionTier,
+} from '../colab/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
@@ -19,8 +22,10 @@ import {
   AuthFlow,
   ContentBrowserOperation,
   ContentBrowserTarget,
+  LowBalanceSeverity,
   NotebookSource,
   Outcome,
+  SubscriptionTier,
 } from './api';
 import { ClearcutClient } from './client';
 import { initializeTelemetry, telemetry } from '.';
@@ -322,6 +327,52 @@ describe('Telemetry Module', () => {
           downloaded_bytes: 2048,
         },
       });
+    });
+
+    it('logs on low CCU notification', () => {
+      telemetry.logLowCcuNotification(
+        LowBalanceSeverity.SEVERITY_DEPLETED,
+        ColabSubscriptionTier.PRO,
+        true,
+      );
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        low_ccu_notification_event: {
+          severity: LowBalanceSeverity.SEVERITY_DEPLETED,
+          subscription_tier: SubscriptionTier.SUBSCRIPTION_TIER_PRO,
+          clicked_action: true,
+        },
+      });
+    });
+
+    it('converts each Colab SubscriptionTier to its proto-shaped value', () => {
+      const cases: [ColabSubscriptionTier, SubscriptionTier][] = [
+        [ColabSubscriptionTier.NONE, SubscriptionTier.SUBSCRIPTION_TIER_NONE],
+        [ColabSubscriptionTier.PRO, SubscriptionTier.SUBSCRIPTION_TIER_PRO],
+        [
+          ColabSubscriptionTier.PRO_PLUS,
+          SubscriptionTier.SUBSCRIPTION_TIER_PRO_PLUS,
+        ],
+      ];
+      for (const [tier, expected] of cases) {
+        logStub.resetHistory();
+
+        telemetry.logLowCcuNotification(
+          LowBalanceSeverity.SEVERITY_LOW,
+          tier,
+          false,
+        );
+
+        sinon.assert.calledOnceWithExactly(logStub, {
+          ...baseLog,
+          low_ccu_notification_event: {
+            severity: LowBalanceSeverity.SEVERITY_LOW,
+            subscription_tier: expected,
+            clicked_action: false,
+          },
+        });
+      }
     });
 
     it('logs on mount Drive snippet', () => {
