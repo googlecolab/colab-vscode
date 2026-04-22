@@ -91,6 +91,11 @@ export const telemetry = {
       content_browser_file_operation_event: { operation, outcome, target },
     });
   },
+  logDownload: (outcome: Outcome, downloadedBytes: number) => {
+    log({
+      download_event: { outcome, downloaded_bytes: downloadedBytes },
+    });
+  },
   logError: (e: unknown) => {
     if (e instanceof Error) {
       log({

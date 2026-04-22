@@ -283,6 +283,64 @@ describe('Server Browser Commands', () => {
 
       sinon.assert.notCalled(vsStub.window.showSaveDialog);
     });
+
+    describe('telemetry', () => {
+      let logStub: SinonStubbedFunction<typeof telemetry.logDownload>;
+
+      beforeEach(() => {
+        logStub = sinon.stub(telemetry, 'logDownload');
+      });
+
+      afterEach(() => {
+        logStub.restore();
+      });
+
+      it('logs OUTCOME_SUCCEEDED with file size when a file is downloaded', async () => {
+        const localUri = TestUri.file('/local/path/foo.txt');
+        vsStub.window.showSaveDialog.resolves(localUri);
+        vsStub.workspace.fs.readFile.resolves(new Uint8Array([1, 2, 3, 4, 5]));
+
+        await download(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          Outcome.OUTCOME_SUCCEEDED,
+          5,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when the user dismisses the save dialog', async () => {
+        vsStub.window.showSaveDialog.resolves(undefined);
+
+        await download(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          Outcome.OUTCOME_CANCELLED,
+          0,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when the target item is not a file', async () => {
+        await download(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          Outcome.OUTCOME_CANCELLED,
+          0,
+        );
+      });
+
+      it('logs OUTCOME_FAILED when the underlying read fails', async () => {
+        const localUri = TestUri.file('/local/path/foo.txt');
+        vsStub.window.showSaveDialog.resolves(localUri);
+        vsStub.workspace.fs.readFile.rejects(new Error('fail'));
+
+        await download(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(logStub, Outcome.OUTCOME_FAILED, 0);
+      });
+    });
   });
 
   describe('renameFile', () => {

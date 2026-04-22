@@ -114,38 +114,47 @@ export async function newFolder(vs: typeof vscode, contextItem: ContentItem) {
  * @param contextItem - The tree view context item.
  */
 export async function download(vs: typeof vscode, contextItem: ContentItem) {
-  if (contextItem.type !== vs.FileType.File) {
-    return;
+  let outcome = Outcome.OUTCOME_CANCELLED;
+  let downloadedBytes = 0;
+  try {
+    if (contextItem.type !== vs.FileType.File) {
+      return;
+    }
+
+    const fileName = contextItem.uri.path.split('/').pop() ?? 'file';
+    const targetUri = await vs.window.showSaveDialog({
+      defaultUri: vs.Uri.file(fileName),
+      title: 'Download File',
+    });
+
+    if (!targetUri) {
+      return;
+    }
+
+    await vs.window.withProgress(
+      {
+        location: vs.ProgressLocation.Notification,
+        title: `Downloading ${fileName}...`,
+        cancellable: false,
+      },
+      async () => {
+        try {
+          const content = await vs.workspace.fs.readFile(contextItem.uri);
+          await vs.workspace.fs.writeFile(targetUri, content);
+          downloadedBytes = content.byteLength;
+          outcome = Outcome.OUTCOME_SUCCEEDED;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'unknown error';
+          void vs.window.showErrorMessage(
+            `Failed to download ${fileName}: ${msg}`,
+          );
+          outcome = Outcome.OUTCOME_FAILED;
+        }
+      },
+    );
+  } finally {
+    telemetry.logDownload(outcome, downloadedBytes);
   }
-
-  const fileName = contextItem.uri.path.split('/').pop() ?? 'file';
-  const targetUri = await vs.window.showSaveDialog({
-    defaultUri: vs.Uri.file(fileName),
-    title: 'Download File',
-  });
-
-  if (!targetUri) {
-    return;
-  }
-
-  await vs.window.withProgress(
-    {
-      location: vs.ProgressLocation.Notification,
-      title: `Downloading ${fileName}...`,
-      cancellable: false,
-    },
-    async () => {
-      try {
-        const content = await vs.workspace.fs.readFile(contextItem.uri);
-        await vs.workspace.fs.writeFile(targetUri, content);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'unknown error';
-        void vs.window.showErrorMessage(
-          `Failed to download ${fileName}: ${msg}`,
-        );
-      }
-    },
-  );
 }
 
 /**

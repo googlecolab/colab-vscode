@@ -295,6 +295,18 @@ describe('Telemetry Module', () => {
       });
     });
 
+    it('logs on download', () => {
+      telemetry.logDownload(Outcome.OUTCOME_SUCCEEDED, 2048);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        download_event: {
+          outcome: Outcome.OUTCOME_SUCCEEDED,
+          downloaded_bytes: 2048,
+        },
+      });
+    });
+
     it('logs on mount Drive snippet', () => {
       const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
 

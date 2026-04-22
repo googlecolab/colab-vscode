@@ -63,6 +63,10 @@ export type ColabEvent =
       content_browser_file_operation_event: ContentBrowserFileOperationEvent;
     }
   | {
+      /** An event representing a file download from a Colab server. */
+      download_event: DownloadEvent;
+    }
+  | {
       /** An event representing an error. */
       error_event: ErrorEvent;
     }
@@ -210,6 +214,17 @@ interface ContentBrowserFileOperationEvent {
    * `OPERATION_DELETE` it reflects the actual target type.
    */
   target: ContentBrowserTarget;
+}
+
+/** An event representing a file download from a Colab server. */
+interface DownloadEvent {
+  /**
+   * The outcome of the download. `OUTCOME_CANCELLED` covers both the user
+   * dismissing the save dialog and the target item not being a file.
+   */
+  outcome: Outcome;
+  /** The size, in bytes, of the file that was successfully downloaded. */
+  downloaded_bytes: number;
 }
 
 /** An event representing an error. */
