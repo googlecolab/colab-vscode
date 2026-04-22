@@ -5,9 +5,15 @@
  */
 
 import { assert, expect } from 'chai';
-import sinon from 'sinon';
+import sinon, { SinonStubbedFunction } from 'sinon';
 import type vscode from 'vscode';
 import { FileStat } from 'vscode';
+import { telemetry } from '../../telemetry';
+import {
+  ContentBrowserOperation,
+  ContentBrowserTarget,
+  Outcome,
+} from '../../telemetry/api';
 import { TestFileSystemError } from '../../test/helpers/errors';
 import { TestUri } from '../../test/helpers/uri';
 import { FileType, newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
@@ -380,6 +386,268 @@ describe('Server Browser Commands', () => {
         vsStub.window.showErrorMessage,
         'Failed to delete "foo.txt": fail',
       );
+    });
+  });
+
+  describe('telemetry', () => {
+    let logStub: SinonStubbedFunction<
+      typeof telemetry.logContentBrowserFileOperation
+    >;
+
+    beforeEach(() => {
+      logStub = sinon.stub(telemetry, 'logContentBrowserFileOperation');
+    });
+
+    afterEach(() => {
+      logStub.restore();
+    });
+
+    describe('newFile', () => {
+      it('logs OUTCOME_SUCCEEDED with TARGET_FILE when a file is created', async () => {
+        vsStub.window.showInputBox.resolves('new-file.txt');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+
+        await newFile(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FILE,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs TARGET_DIRECTORY when name ends with /', async () => {
+        vsStub.window.showInputBox.resolves('new-folder/');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+
+        await newFile(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FILE,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_DIRECTORY,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when input is dismissed', async () => {
+        vsStub.window.showInputBox.resolves(undefined);
+
+        await newFile(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FILE,
+          Outcome.OUTCOME_CANCELLED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs OUTCOME_FAILED when writeFile rejects', async () => {
+        vsStub.window.showInputBox.resolves('new-file.txt');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+        vsStub.workspace.fs.writeFile.rejects(new Error('fail'));
+
+        await newFile(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FILE,
+          Outcome.OUTCOME_FAILED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+    });
+
+    describe('newFolder', () => {
+      it('logs OUTCOME_SUCCEEDED when a folder is created', async () => {
+        vsStub.window.showInputBox.resolves('new-folder');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+
+        await newFolder(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FOLDER,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_DIRECTORY,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when input is dismissed', async () => {
+        vsStub.window.showInputBox.resolves(undefined);
+
+        await newFolder(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FOLDER,
+          Outcome.OUTCOME_CANCELLED,
+          ContentBrowserTarget.TARGET_DIRECTORY,
+        );
+      });
+
+      it('logs OUTCOME_FAILED when createDirectory rejects', async () => {
+        vsStub.window.showInputBox.resolves('new-folder');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+        vsStub.workspace.fs.createDirectory.rejects(new Error('fail'));
+
+        await newFolder(vs, CONTENT_ROOT);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_NEW_FOLDER,
+          Outcome.OUTCOME_FAILED,
+          ContentBrowserTarget.TARGET_DIRECTORY,
+        );
+      });
+    });
+
+    describe('renameFile', () => {
+      it('logs OUTCOME_SUCCEEDED when a file is renamed', async () => {
+        vsStub.window.showInputBox.resolves('renamed.txt');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+
+        await renameFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_RENAME,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when input is dismissed', async () => {
+        vsStub.window.showInputBox.resolves(undefined);
+
+        await renameFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_RENAME,
+          Outcome.OUTCOME_CANCELLED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when name is unchanged', async () => {
+        vsStub.window.showInputBox.resolves('foo.txt');
+
+        await renameFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_RENAME,
+          Outcome.OUTCOME_CANCELLED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs OUTCOME_FAILED when rename rejects', async () => {
+        vsStub.window.showInputBox.resolves('renamed.txt');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+        vsStub.workspace.fs.rename.rejects(new Error('fail'));
+
+        await renameFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_RENAME,
+          Outcome.OUTCOME_FAILED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs TARGET_DIRECTORY when renaming a folder', async () => {
+        const folderItem = buildContentItem(
+          'folder',
+          'colab://m-s-foo/content/some-folder',
+        );
+        vsStub.window.showInputBox.resolves('renamed-folder');
+        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+
+        await renameFile(vs, folderItem);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_RENAME,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_DIRECTORY,
+        );
+      });
+    });
+
+    describe('deleteFile', () => {
+      it('logs OUTCOME_SUCCEEDED when a file is deleted', async () => {
+        // Cast necessary due to overloading.
+        (vsStub.window.showWarningMessage as sinon.SinonStub).resolves(
+          'Delete',
+        );
+
+        await deleteFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_DELETE,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs OUTCOME_CANCELLED when confirmation is declined', async () => {
+        // Cast necessary due to overloading.
+        (vsStub.window.showWarningMessage as sinon.SinonStub).resolves(
+          undefined,
+        );
+
+        await deleteFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_DELETE,
+          Outcome.OUTCOME_CANCELLED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs OUTCOME_FAILED when delete rejects', async () => {
+        // Cast necessary due to overloading.
+        (vsStub.window.showWarningMessage as sinon.SinonStub).resolves(
+          'Delete',
+        );
+        vsStub.workspace.fs.delete.rejects(new Error('fail'));
+
+        await deleteFile(vs, FILE_ITEM);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_DELETE,
+          Outcome.OUTCOME_FAILED,
+          ContentBrowserTarget.TARGET_FILE,
+        );
+      });
+
+      it('logs TARGET_DIRECTORY when deleting a folder', async () => {
+        const folderItem = buildContentItem(
+          'folder',
+          'colab://m-s-foo/content/some-folder',
+        );
+        // Cast necessary due to overloading.
+        (vsStub.window.showWarningMessage as sinon.SinonStub).resolves(
+          'Delete',
+        );
+
+        await deleteFile(vs, folderItem);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          ContentBrowserOperation.OPERATION_DELETE,
+          Outcome.OUTCOME_SUCCEEDED,
+          ContentBrowserTarget.TARGET_DIRECTORY,
+        );
+      });
     });
   });
 });

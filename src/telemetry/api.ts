@@ -59,6 +59,10 @@ export type ColabEvent =
       colab_toolbar_event: ColabToolbarEvent;
     }
   | {
+      /** An event representing a content browser file or folder operation. */
+      content_browser_file_operation_event: ContentBrowserFileOperationEvent;
+    }
+  | {
       /** An event representing an error. */
       error_event: ErrorEvent;
     }
@@ -152,6 +156,22 @@ export enum Outcome {
   OUTCOME_PARTIAL_SUCCESS = 4,
 }
 
+/** The kind of file operation performed in the content browser tree view. */
+export enum ContentBrowserOperation {
+  OPERATION_UNSPECIFIED = 0,
+  OPERATION_NEW_FILE = 1,
+  OPERATION_NEW_FOLDER = 2,
+  OPERATION_RENAME = 3,
+  OPERATION_DELETE = 4,
+}
+
+/** The kind of target a content browser file operation was performed on. */
+export enum ContentBrowserTarget {
+  TARGET_UNSPECIFIED = 0,
+  TARGET_FILE = 1,
+  TARGET_DIRECTORY = 2,
+}
+
 // The authentication flow used for sign in.
 export enum AuthFlow {
   AUTH_FLOW_UNSPECIFIED = 0,
@@ -172,6 +192,25 @@ type AutoConnectEvent = Record<string, never>;
 
 /** An event representing a Colab toolbar click. */
 type ColabToolbarEvent = Record<string, never>;
+
+/** An event representing a content browser file or folder operation. */
+interface ContentBrowserFileOperationEvent {
+  /** The kind of file operation that was attempted. */
+  operation: ContentBrowserOperation;
+  /**
+   * The outcome of the operation. `OUTCOME_CANCELLED` covers both the user
+   * dismissing the input box and declining the delete confirmation.
+   */
+  outcome: Outcome;
+  /**
+   * The kind of target the operation was performed on. For
+   * `OPERATION_NEW_FOLDER` this is always `TARGET_DIRECTORY`. For
+   * `OPERATION_NEW_FILE` it reflects whether the user typed a trailing slash
+   * to create a folder instead. For `OPERATION_RENAME` and
+   * `OPERATION_DELETE` it reflects the actual target type.
+   */
+  target: ContentBrowserTarget;
+}
 
 /** An event representing an error. */
 interface ErrorEvent {

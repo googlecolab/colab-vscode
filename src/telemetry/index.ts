@@ -15,6 +15,8 @@ import {
   ColabEvent,
   CommandSource,
   AuthFlow,
+  ContentBrowserOperation,
+  ContentBrowserTarget,
   NotebookSource,
   Outcome,
 } from './api';
@@ -79,6 +81,15 @@ export const telemetry = {
   },
   logColabToolbar: () => {
     log({ colab_toolbar_event: {} });
+  },
+  logContentBrowserFileOperation: (
+    operation: ContentBrowserOperation,
+    outcome: Outcome,
+    target: ContentBrowserTarget,
+  ) => {
+    log({
+      content_browser_file_operation_event: { operation, outcome, target },
+    });
   },
   logError: (e: unknown) => {
     if (e instanceof Error) {
