@@ -90,8 +90,14 @@ export function registerColabCommands(
     registerCommand(
       vs,
       UPLOAD.id,
-      async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
-        await upload(vs, assignmentManager, uri, uris);
+      async (uri: vscode.Uri, uris?: vscode.Uri[], source?: CommandSource) => {
+        await upload(
+          vs,
+          assignmentManager,
+          source ?? CommandSource.COMMAND_SOURCE_EXPLORER_CONTEXT,
+          uri,
+          uris,
+        );
       },
     ),
     registerCommand(vs, COLAB_TOOLBAR.id, async () => {

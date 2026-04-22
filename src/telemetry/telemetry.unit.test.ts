@@ -17,6 +17,7 @@ import {
   CommandSource,
   AuthFlow,
   NotebookSource,
+  Outcome,
 } from './api';
 import { ClearcutClient } from './client';
 import { initializeTelemetry, telemetry } from '.';
@@ -351,6 +352,31 @@ describe('Telemetry Module', () => {
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         import_notebook_event: { source, notebook_source: notebookSource },
+      });
+    });
+
+    it('logs on upload', () => {
+      const source = CommandSource.COMMAND_SOURCE_EXPLORER_CONTEXT;
+
+      telemetry.logUpload(source, Outcome.OUTCOME_PARTIAL_SUCCESS, {
+        successCount: 3,
+        failCount: 1,
+        fileCount: 4,
+        directoryCount: 2,
+        uploadedBytes: 1024,
+      });
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        upload_event: {
+          source,
+          outcome: Outcome.OUTCOME_PARTIAL_SUCCESS,
+          success_count: 3,
+          fail_count: 1,
+          file_count: 4,
+          directory_count: 2,
+          uploaded_bytes: 1024,
+        },
       });
     });
   });

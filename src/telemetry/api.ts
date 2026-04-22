@@ -101,6 +101,10 @@ export type ColabEvent =
   | {
       /** An event representing a click to upgrade to Colab Pro. */
       upgrade_to_pro_event: UpgradeToProEvent;
+    }
+  | {
+      /** An event representing an upload of files or folders to a server. */
+      upload_event: UploadEvent;
     };
 
 /** Enum to represent different command sources/triggers */
@@ -111,12 +115,36 @@ export enum CommandSource {
   COMMAND_SOURCE_COMMAND_PALETTE = 3,
   COMMAND_SOURCE_NOTIFICATION = 4,
   COMMAND_SOURCE_ON_URI = 5,
+  COMMAND_SOURCE_EXPLORER_CONTEXT = 6,
 }
 
 /** Enum to represent different notebook sources */
 export enum NotebookSource {
   NOTEBOOK_SOURCE_UNSPECIFIED = 0,
   NOTEBOOK_SOURCE_DRIVE = 1,
+}
+
+/**
+ * The outcome of a user-initiated operation. Shared across events that have a
+ * success/failure/cancel lifecycle.
+ */
+export enum Outcome {
+  OUTCOME_UNSPECIFIED = 0,
+  /** The operation completed successfully. */
+  OUTCOME_SUCCEEDED = 1,
+  /**
+   * The user cancelled the operation before any work was attempted (e.g.,
+   * dismissed a prompt) or the operation was a no-op.
+   */
+  OUTCOME_CANCELLED = 2,
+  /** The operation was attempted but failed. */
+  OUTCOME_FAILED = 3,
+  /**
+   * The operation was attempted and partially succeeded; some work units
+   * succeeded and some failed. Applicable to events that operate on a batch
+   * of items (e.g., uploads).
+   */
+  OUTCOME_PARTIAL_SUCCESS = 4,
 }
 
 // The authentication flow used for sign in.
@@ -201,6 +229,29 @@ type SignOutEvent = Record<string, never>;
 /** An event representing a click to upgrade to Colab Pro. */
 interface UpgradeToProEvent {
   source: CommandSource;
+}
+
+/** An event representing an upload of files or folders to a Colab server. */
+interface UploadEvent {
+  /** The source of the upload command. */
+  source: CommandSource;
+  /**
+   * The outcome of the upload. `OUTCOME_CANCELLED` covers both the user
+   * dismissing the server picker and there being no servers assigned.
+   * `OUTCOME_PARTIAL_SUCCESS` is used when at least one file uploaded
+   * successfully and at least one other file or directory failed.
+   */
+  outcome: Outcome;
+  /** The number of files that were successfully uploaded. */
+  success_count: number;
+  /** The number of files or directories that failed to upload. */
+  fail_count: number;
+  /** The total number of files (excluding directories) that were attempted. */
+  file_count: number;
+  /** The total number of directories that were attempted. */
+  directory_count: number;
+  /** The total size, in bytes, of all files that were successfully uploaded. */
+  uploaded_bytes: number;
 }
 
 /** The Clearcut log event structure. */
