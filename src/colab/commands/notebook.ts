@@ -142,6 +142,7 @@ async function getAvailableCommands(
       invoke: () => {
         return vs.commands.executeCommand(
           OPEN_TERMINAL.id,
+          CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR,
           /* withBackButton= */ true,
         );
       },

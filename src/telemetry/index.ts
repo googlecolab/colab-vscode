@@ -110,6 +110,9 @@ export const telemetry = {
   logOpenColabWeb: (source: CommandSource) => {
     log({ open_colab_web_event: { source } });
   },
+  logOpenTerminal: (source: CommandSource) => {
+    log({ open_terminal_event: { source } });
+  },
   logPruneServers: (servers: string[]) => {
     log({ prune_servers_event: { servers } });
   },

@@ -8,6 +8,8 @@ import vscode, { QuickPickItem } from 'vscode';
 import { MultiStepInput } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
+import { telemetry } from '../../telemetry';
+import { CommandSource } from '../../telemetry/api';
 import { ColabPseudoterminal } from '../terminal/colab-pseudoterminal';
 import { ColabTerminalWebSocket } from '../terminal/colab-terminal-websocket';
 import { OPEN_TERMINAL } from './constants';
@@ -21,13 +23,16 @@ import { OPEN_TERMINAL } from './constants';
  *
  * @param vs - The VS Code API instance.
  * @param assignmentManager - The assignment manager instance.
+ * @param source - The source of the open terminal command invocation.
  * @param withBackButton - Whether to show a back button in the UI.
  */
 export async function openTerminal(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
+  source: CommandSource,
   withBackButton?: boolean,
 ): Promise<void> {
+  telemetry.logOpenTerminal(source);
   const allServers = await assignmentManager.getServers('extension');
 
   if (allServers.length === 0) {

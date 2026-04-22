@@ -11,6 +11,7 @@ import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { telemetry } from '../../telemetry';
 import { CommandSource } from '../../telemetry/api';
+import { ContentItem } from '../content-browser/content-item';
 import {
   COLAB_TOOLBAR,
   MOUNT_DRIVE,
@@ -103,8 +104,24 @@ export function registerColabCommands(
     registerCommand(vs, COLAB_TOOLBAR.id, async () => {
       await notebookToolbar(vs, assignmentManager);
     }),
-    registerCommand(vs, OPEN_TERMINAL.id, async (withBackButton?: boolean) => {
-      await openTerminal(vs, assignmentManager, withBackButton);
-    }),
+    registerCommand(
+      vs,
+      OPEN_TERMINAL.id,
+      async (
+        sourceOrContextItem?: CommandSource | ContentItem,
+        withBackButton?: boolean,
+      ) => {
+        // The command can be invoked from the command palette (no args), the
+        // notebook toolbar (passing a CommandSource), or the tree view inline
+        // button (passing a ContentItem as the first argument).
+        const source =
+          typeof sourceOrContextItem === 'number'
+            ? sourceOrContextItem
+            : sourceOrContextItem === undefined
+              ? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE
+              : CommandSource.COMMAND_SOURCE_TREE_VIEW_INLINE;
+        await openTerminal(vs, assignmentManager, source, withBackButton);
+      },
+    ),
   ];
 }

@@ -83,6 +83,10 @@ export type ColabEvent =
       open_colab_web_event: OpenColabWebEvent;
     }
   | {
+      /** An event representing opening a terminal connected to a Colab server. */
+      open_terminal_event: OpenTerminalEvent;
+    }
+  | {
       /** An event that logs when servers are pruned */
       prune_servers_event: PruneServersEvent;
     }
@@ -116,6 +120,7 @@ export enum CommandSource {
   COMMAND_SOURCE_NOTIFICATION = 4,
   COMMAND_SOURCE_ON_URI = 5,
   COMMAND_SOURCE_EXPLORER_CONTEXT = 6,
+  COMMAND_SOURCE_TREE_VIEW_INLINE = 7,
 }
 
 /** Enum to represent different notebook sources */
@@ -202,6 +207,11 @@ interface MountServerEvent {
 
 /** An event representing a click to open Colab web. */
 interface OpenColabWebEvent {
+  source: CommandSource;
+}
+
+/** An event representing opening a terminal connected to a Colab server. */
+interface OpenTerminalEvent {
   source: CommandSource;
 }
 

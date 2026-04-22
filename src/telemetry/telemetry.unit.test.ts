@@ -321,6 +321,17 @@ describe('Telemetry Module', () => {
       });
     });
 
+    it('logs on open terminal', () => {
+      const source = CommandSource.COMMAND_SOURCE_TREE_VIEW_INLINE;
+
+      telemetry.logOpenTerminal(source);
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        open_terminal_event: { source },
+      });
+    });
+
     it('logs on upgrade to pro', () => {
       const source = CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR;
 
