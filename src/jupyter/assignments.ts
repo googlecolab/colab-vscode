@@ -39,7 +39,7 @@ import {
 } from '../colab/headers';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
-import { CommandSource } from '../telemetry/api';
+import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { ProxiedJupyterClient } from './client';
 import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
@@ -313,60 +313,76 @@ export class AssignmentManager implements Disposable {
     this.guardDisposed();
     const id = randomUUID();
     const { label, variant, accelerator, shape, version } = descriptor;
-    let assignment: Assignment;
+    let outcome = AssignmentOutcome.ASSIGNMENT_OUTCOME_UNSPECIFIED;
+    let hadFallback = false;
     try {
-      if (isColabServerDescriptorWithAccelerator(descriptor)) {
-        assignment = await this.assignWithFallback(
+      let assignment: Assignment;
+      try {
+        if (isColabServerDescriptorWithAccelerator(descriptor)) {
+          assignment = await this.assignWithFallback(
+            id,
+            descriptor,
+            /* fallbacks= */ undefined,
+            signal,
+          );
+          hadFallback = assignment.accelerator !== descriptor.accelerator;
+        } else {
+          ({ assignment } = await this.client.assign(
+            id,
+            { variant, accelerator, shape, version },
+            signal,
+          ));
+        }
+      } catch (error) {
+        log.trace(`Failed assigning server ${id}`, error);
+        outcome = errorToAssignmentOutcome(error);
+        if (error instanceof AllAcceleratorsUnavailableError) {
+          hadFallback = error.attempted.length > 1;
+          void this.notifyAllAcceleratorsUnavailable(error);
+        }
+        // TODO: Consider listing assignments to check if there are too many
+        // before the user goes through the assignment flow. This handling logic
+        // would still be needed for the rare race condition where an assignment
+        // is made (e.g. in Colab web) during the extension assignment flow.
+        if (error instanceof TooManyAssignmentsError) {
+          void this.notifyMaxAssignmentsExceeded();
+        }
+        if (error instanceof InsufficientQuotaError) {
+          void this.notifyInsufficientQuota(error);
+        }
+        if (error instanceof DenylistedError) {
+          this.notifyBanned(error);
+        }
+        throw error;
+      }
+      const server = this.toAssignedServer(
+        {
           id,
-          descriptor,
-          /* fallbacks= */ undefined,
-          signal,
-        );
-      } else {
-        ({ assignment } = await this.client.assign(
-          id,
-          { variant, accelerator, shape, version },
-          signal,
-        ));
-      }
-    } catch (error) {
-      log.trace(`Failed assigning server ${id}`, error);
-      if (error instanceof AllAcceleratorsUnavailableError) {
-        void this.notifyAllAcceleratorsUnavailable(error);
-      }
-      // TODO: Consider listing assignments to check if there are too many
-      // before the user goes through the assignment flow. This handling logic
-      // would still be needed for the rare race condition where an assignment
-      // is made (e.g. in Colab web) during the extension assignment flow.
-      if (error instanceof TooManyAssignmentsError) {
-        void this.notifyMaxAssignmentsExceeded();
-      }
-      if (error instanceof InsufficientQuotaError) {
-        void this.notifyInsufficientQuota(error);
-      }
-      if (error instanceof DenylistedError) {
-        this.notifyBanned(error);
-      }
-      throw error;
+          label,
+          variant: assignment.variant,
+          accelerator: assignment.accelerator,
+        },
+        assignment.endpoint,
+        assignment.runtimeProxyInfo,
+        new Date(),
+      );
+      await this.storage.store([server]);
+      this.assignmentChange.fire({
+        added: [server],
+        removed: [],
+        changed: [],
+      });
+      outcome = AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED;
+      return server;
+    } finally {
+      telemetry.logAssignServer(outcome, {
+        variant,
+        accelerator: accelerator ?? '',
+        shape: shape !== undefined ? Shape[shape] : '',
+        version: version ?? '',
+        hadFallback,
+      });
     }
-    const server = this.toAssignedServer(
-      {
-        id,
-        label,
-        variant: assignment.variant,
-        accelerator: assignment.accelerator,
-      },
-      assignment.endpoint,
-      assignment.runtimeProxyInfo,
-      new Date(),
-    );
-    await this.storage.store([server]);
-    this.assignmentChange.fire({
-      added: [server],
-      removed: [],
-      changed: [],
-    });
-    return server;
   }
 
   /**
@@ -901,4 +917,23 @@ function isColabServerDescriptorWithAccelerator(
   descriptor: ColabServerDescriptor,
 ): descriptor is ColabServerDescriptorWithAccelerator {
   return !!descriptor.accelerator;
+}
+
+function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
+  if (error instanceof AllAcceleratorsUnavailableError) {
+    return AssignmentOutcome.ASSIGNMENT_OUTCOME_ALL_ACCELERATORS_UNAVAILABLE;
+  }
+  if (error instanceof AcceleratorUnavailableError) {
+    return AssignmentOutcome.ASSIGNMENT_OUTCOME_ACCELERATOR_UNAVAILABLE;
+  }
+  if (error instanceof TooManyAssignmentsError) {
+    return AssignmentOutcome.ASSIGNMENT_OUTCOME_TOO_MANY_ASSIGNMENTS;
+  }
+  if (error instanceof InsufficientQuotaError) {
+    return AssignmentOutcome.ASSIGNMENT_OUTCOME_INSUFFICIENT_QUOTA;
+  }
+  if (error instanceof DenylistedError) {
+    return AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED;
+  }
+  return AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE;
 }

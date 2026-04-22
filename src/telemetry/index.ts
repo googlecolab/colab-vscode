@@ -14,6 +14,7 @@ import {
   ColabLogEventBase,
   ColabEvent,
   CommandSource,
+  AssignmentOutcome,
   AuthFlow,
   ContentBrowserOperation,
   ContentBrowserTarget,
@@ -76,8 +77,26 @@ export const telemetry = {
   logAutoConnect: () => {
     log({ auto_connect_event: {} });
   },
-  logAssignServer: () => {
-    log({ assign_server_event: {} });
+  logAssignServer: (
+    outcome: AssignmentOutcome,
+    config: {
+      variant: string;
+      accelerator: string;
+      shape: string;
+      version: string;
+      hadFallback: boolean;
+    },
+  ) => {
+    log({
+      assign_server_event: {
+        outcome,
+        variant: config.variant,
+        accelerator: config.accelerator,
+        shape: config.shape,
+        version: config.version,
+        had_fallback: config.hadFallback,
+      },
+    });
   },
   logColabToolbar: () => {
     log({ colab_toolbar_event: {} });

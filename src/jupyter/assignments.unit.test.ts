@@ -7,7 +7,11 @@
 import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
 import fetch, { Headers, Request, Response } from 'node-fetch';
-import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
+import sinon, {
+  SinonFakeTimers,
+  SinonStubbedFunction,
+  SinonStubbedInstance,
+} from 'sinon';
 import { MessageItem, Uri } from 'vscode';
 import {
   Assignment,
@@ -32,7 +36,8 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
-import { CommandSource } from '../telemetry/api';
+import { telemetry } from '../telemetry';
+import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { TestEventEmitter } from '../test/helpers/events';
 import {
   createJupyterClientStub,
@@ -1315,6 +1320,236 @@ describe('AssignmentManager', () => {
         sinon.assert.calledWithMatch(
           vsCodeStub.window.showErrorMessage as sinon.SinonStub,
           /Unable to assign server. All GPU accelerators are unavailable: A100, T4, V100/,
+        );
+      });
+    });
+
+    describe('telemetry', () => {
+      let logStub: SinonStubbedFunction<typeof telemetry.logAssignServer>;
+
+      beforeEach(() => {
+        logStub = sinon.stub(telemetry, 'logAssignServer');
+      });
+
+      afterEach(() => {
+        logStub.restore();
+      });
+
+      it('logs OUTCOME_SUCCEEDED with the requested configuration', async () => {
+        colabClientStub.assign.resolves({
+          assignment: defaultAssignment,
+          isNew: false,
+        });
+
+        await assignmentManager.assignServer(defaultAssignmentDescriptor);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: false,
+          },
+        );
+      });
+
+      it('logs hadFallback=true when a fallback succeeds', async () => {
+        colabClientStub.getUserInfo.resolves({
+          subscriptionTier: SubscriptionTier.PRO,
+          paidComputeUnitsBalance: 1,
+          eligibleAccelerators: [
+            { variant: Variant.GPU, models: ['T4', 'A100'] },
+          ],
+          ineligibleAccelerators: [],
+        });
+        colabClientStub.assign
+          .withArgs(sinon.match(isUUID), {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: undefined,
+            version: undefined,
+          })
+          .rejects(new AcceleratorUnavailableError('A100'))
+          .withArgs(sinon.match(isUUID), {
+            variant: Variant.GPU,
+            accelerator: 'T4',
+            shape: undefined,
+            version: undefined,
+          })
+          .resolves({
+            assignment: { ...defaultAssignment, accelerator: 'T4' },
+            isNew: false,
+          });
+
+        await assignmentManager.assignServer(defaultAssignmentDescriptor);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: true,
+          },
+        );
+      });
+
+      it('logs OUTCOME_ALL_ACCELERATORS_UNAVAILABLE when fallbacks are exhausted', async () => {
+        colabClientStub.getUserInfo.resolves({
+          subscriptionTier: SubscriptionTier.PRO,
+          paidComputeUnitsBalance: 1,
+          eligibleAccelerators: [
+            { variant: Variant.GPU, models: ['T4', 'A100'] },
+          ],
+          ineligibleAccelerators: [],
+        });
+        colabClientStub.assign.rejects(new AcceleratorUnavailableError('any'));
+
+        await expect(
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
+        ).to.be.rejected;
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_ALL_ACCELERATORS_UNAVAILABLE,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: true,
+          },
+        );
+      });
+
+      it('logs OUTCOME_TOO_MANY_ASSIGNMENTS', async () => {
+        colabClientStub.assign.rejects(new TooManyAssignmentsError());
+
+        await expect(
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
+        ).to.be.rejected;
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_TOO_MANY_ASSIGNMENTS,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: false,
+          },
+        );
+      });
+
+      it('logs OUTCOME_INSUFFICIENT_QUOTA', async () => {
+        colabClientStub.assign.rejects(new InsufficientQuotaError('💰🐖'));
+
+        await expect(
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
+        ).to.be.rejected;
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_INSUFFICIENT_QUOTA,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: false,
+          },
+        );
+      });
+
+      it('logs OUTCOME_DENYLISTED', async () => {
+        colabClientStub.assign.rejects(new DenylistedError('👨‍⚖️'));
+
+        await expect(
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
+        ).to.be.rejected;
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: false,
+          },
+        );
+      });
+
+      it('logs OUTCOME_OTHER_FAILURE for unexpected errors', async () => {
+        colabClientStub.assign.rejects(new Error('boom'));
+
+        await expect(
+          assignmentManager.assignServer(defaultAssignmentDescriptor),
+        ).to.be.rejected;
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: '',
+            version: '',
+            hadFallback: false,
+          },
+        );
+      });
+
+      it('logs the requested shape and version when present', async () => {
+        colabClientStub.assign.resolves({
+          assignment: defaultAssignment,
+          isNew: false,
+        });
+
+        await assignmentManager.assignServer({
+          ...defaultAssignmentDescriptor,
+          shape: Shape.HIGHMEM,
+          version: 'v1',
+        });
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+          {
+            variant: Variant.GPU,
+            accelerator: 'A100',
+            shape: 'HIGHMEM',
+            version: 'v1',
+            hadFallback: false,
+          },
+        );
+      });
+
+      it('logs an empty accelerator for the default CPU descriptor', async () => {
+        colabClientStub.assign.resolves({
+          assignment: { ...defaultAssignment, accelerator: 'NONE' },
+          isNew: false,
+        });
+
+        await assignmentManager.assignServer(DEFAULT_CPU_SERVER);
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+          {
+            variant: Variant.DEFAULT,
+            accelerator: '',
+            shape: '',
+            version: '',
+            hadFallback: false,
+          },
         );
       });
     });
