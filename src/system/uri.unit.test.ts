@@ -10,7 +10,11 @@ import { Uri } from 'vscode';
 import { PackageInfo } from '../config/package-info';
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { buildExtensionUri, ExtensionUriHandler } from './uri';
+import {
+  buildExtensionUri,
+  ExtensionUriHandler,
+  registerUriRoutes,
+} from './uri';
 
 it('buildExtensionUri', () => {
   const vs = newVsCodeStub();
@@ -85,5 +89,65 @@ describe('ExtensionUriHandler', () => {
 
     sinon.assert.calledWithExactly(onReceivedUriStub, testUri1);
     sinon.assert.calledWithExactly(onReceivedUriStub, testUri2);
+  });
+});
+
+describe('registerUriRoutes', () => {
+  let vs: VsCodeStub;
+  let handler: ExtensionUriHandler;
+
+  beforeEach(() => {
+    vs = newVsCodeStub();
+    handler = new ExtensionUriHandler(vs.asVsCode());
+  });
+
+  afterEach(() => {
+    sinon.restore();
+    handler.dispose();
+  });
+
+  it('routes a URI to the handler whose path matches', () => {
+    const importHandler = sinon.stub();
+    const otherHandler = sinon.stub();
+    registerUriRoutes(
+      handler.onReceivedUri,
+      new Map([
+        ['import-drive-file', importHandler],
+        ['something-else', otherHandler],
+      ]),
+    );
+    const uri = TestUri.parse('vscode://google.colab/import-drive-file?id=abc');
+
+    handler.handleUri(uri);
+
+    sinon.assert.calledOnceWithExactly(importHandler, uri);
+    sinon.assert.notCalled(otherHandler);
+  });
+
+  it('ignores URIs whose path matches no registered route', () => {
+    const importHandler = sinon.stub();
+    registerUriRoutes(
+      handler.onReceivedUri,
+      new Map([['import-drive-file', importHandler]]),
+    );
+    const uri = TestUri.parse('vscode://google.colab/unknown-path');
+
+    handler.handleUri(uri);
+
+    sinon.assert.notCalled(importHandler);
+  });
+
+  it('stops routing after the registration is disposed', () => {
+    const importHandler = sinon.stub();
+    const reg = registerUriRoutes(
+      handler.onReceivedUri,
+      new Map([['import-drive-file', importHandler]]),
+    );
+    reg.dispose();
+    const uri = TestUri.parse('vscode://google.colab/import-drive-file');
+
+    handler.handleUri(uri);
+
+    sinon.assert.notCalled(importHandler);
   });
 });
