@@ -125,14 +125,24 @@ build_test_cmd() {
 
   base_cmd+=("-o" "./out/test/test/e2e/settings.json")
   base_cmd+=("-m" "./out/test/test/e2e/mocharc.js")
+  # Open a fixture workspace folder so e2e tests have a populated Explorer.
+  # Referenced from the source tree because the build does not copy .txt files
+  # into out/.
+  base_cmd+=("-r" "./src/test/e2e/fixtures/workspace")
 
   # Print each part of the command on a new line.
   printf "%s\n" "${base_cmd[@]}"
+  # The `--` separator terminates the variadic `-r` option and ensures
+  # subsequent paths are parsed as positional `testFiles` arguments.
+  printf "%s\n" "--"
   printf "%s\n" ./out/test/test/e2e/test-setup.js
   printf "%s\n" ./out/test/**/*.e2e.test.js
 
   if [[ ${#AUTH_DRIVER_ARGS[@]} -gt 0 ]]; then
-    printf "%s\n" "--"
+    # No `--` separator needed here: the one above (after `-r`) already
+    # terminated extest option parsing, so auth-driver args trail the test
+    # files as additional positional args. They are not consumed by
+    # commander; `auth.ts` reads them out of `process.argv` directly.
     printf "%s\n" "${AUTH_DRIVER_ARGS[@]}"
   fi
 }
