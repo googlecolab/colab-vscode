@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
-import fetch, { Headers } from 'node-fetch';
+import fetch, { Headers, Request } from 'node-fetch';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
 import {
@@ -532,6 +532,107 @@ describe('AssignmentManager', () => {
               [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
             }),
           });
+        });
+
+        it('preserves request headers when wrapping a Request object', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, 'default');
+          const request = new Request('https://example.com', {
+            headers: {
+              Accept: 'application/json',
+              'X-Test': 'existing-value',
+            },
+          });
+
+          await server.connectionInformation.fetch(request);
+
+          sinon.assert.calledOnceWithMatch(
+            fetchStub,
+            sinon.match.instanceOf(Request),
+            {
+              headers: new Headers({
+                Accept: 'application/json',
+                'X-Test': 'existing-value',
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            },
+          );
+        });
+
+        it('allows init headers to override request headers', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, 'default');
+          const request = new Request('https://example.com', {
+            headers: {
+              Accept: 'text/plain',
+              'X-Test': 'request-value',
+            },
+          });
+
+          await server.connectionInformation.fetch(request, {
+            headers: {
+              Accept: 'application/json',
+              'X-Test': 'init-value',
+            },
+          });
+
+          sinon.assert.calledOnceWithMatch(
+            fetchStub,
+            sinon.match.instanceOf(Request),
+            {
+              headers: new Headers({
+                Accept: 'application/json',
+                'X-Test': 'init-value',
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            },
+          );
+        });
+
+        it('overrides caller-supplied Colab proxy headers', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, 'default');
+          const request = new Request('https://example.com', {
+            headers: {
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-request-token',
+              [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-request-agent',
+            },
+          });
+
+          await server.connectionInformation.fetch(request, {
+            headers: {
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-init-token',
+              [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-init-agent',
+            },
+          });
+
+          sinon.assert.calledOnceWithMatch(
+            fetchStub,
+            sinon.match.instanceOf(Request),
+            {
+              headers: new Headers({
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            },
+          );
         });
 
         it('includes a custom WebSocket implementation', async () => {

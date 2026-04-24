@@ -815,7 +815,10 @@ class AllAcceleratorsUnavailableError extends Error {
  * To work around this, we create a new `Request` instance to ensure
  * compatibility.
  *
- * @param token - The cancellation token.
+ * Colab proxy headers always win over any caller-supplied values for the
+ * same keys.
+ *
+ * @param token - The Colab runtime proxy token.
  * @returns A fetch function that adds the Colab runtime proxy token as a
  * header.
  */
@@ -823,19 +826,20 @@ function colabProxyFetch(
   token: string,
 ): (info: RequestInfo, init?: RequestInit) => Promise<Response> {
   return async (info: RequestInfo, init?: RequestInit) => {
+    let infoHeaders: Headers | undefined;
     if (isRequest(info)) {
       // Ensure compatibility with `node-fetch`
       info = new Request(info.url, info);
+      infoHeaders = info.headers;
     }
 
-    init ??= {};
-    const headers = new Headers(init.headers);
-    headers.append(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
-    headers.append(
-      COLAB_CLIENT_AGENT_HEADER.key,
-      COLAB_CLIENT_AGENT_HEADER.value,
-    );
-    init.headers = headers;
+    const headers = new Headers(infoHeaders);
+    new Headers(init?.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
+    headers.set(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
+    headers.set(COLAB_CLIENT_AGENT_HEADER.key, COLAB_CLIENT_AGENT_HEADER.value);
+    init = { ...init, headers };
 
     return fetch(info, init);
   };
