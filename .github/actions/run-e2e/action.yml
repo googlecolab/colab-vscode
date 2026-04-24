@@ -5,7 +5,7 @@ runs:
   using: "composite"
   steps:
     - name: Use Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         # Assuming node version is provided via env var in the workflow
         node-version: ${{ env.NODE_VERSION }}
@@ -25,19 +25,19 @@ runs:
       shell: bash
     - name: upload screenshots
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: screenshots
         path: /tmp/test-resources/screenshots/
     - name: upload exthost.log
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: exthost_log
         path: /tmp/test-resources/settings/logs/*/window1/exthost/exthost.log
     - name: upload output logs
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: output_logs
         path: /tmp/test-resources/settings/logs/*/window1/exthost/output_logging_*/
