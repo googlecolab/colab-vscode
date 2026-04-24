@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Workbench, WebElement, InputBox, Key } from 'vscode-extension-tester';
+import { Workbench, WebElement } from 'vscode-extension-tester';
 import {
   assertAllCellsExecutedSuccessfully,
+  confirmInputBoxWithDefault,
   createNotebook,
   hasQuickPickItem,
   selectQuickPickItem,
@@ -33,9 +34,10 @@ it('executes basic code cells', async () => {
     'CPU',
     'Latest',
   ]);
-  // Alias the server with the default name.
-  const inputBox = await InputBox.create();
-  await inputBox.sendKeys(Key.ENTER);
+  // Alias the server with the default name. We poll until the alias InputBox
+  // is actually shown before confirming, otherwise the ENTER keystroke can be
+  // delivered to the still-focused QuickPick from the previous step and lost.
+  await confirmInputBoxWithDefault(driver, 'Alias your server');
   await selectQuickPickItem(driver, 'Python');
 
   // Input code into the first cell.

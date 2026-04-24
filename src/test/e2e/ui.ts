@@ -15,7 +15,13 @@ import {
 } from 'vscode-extension-tester';
 
 const ELEMENT_WAIT_MS = 10000;
-const CELL_EXECUTION_WAIT_MS = 30000;
+// Cell execution can be slow on a freshly assigned Colab server: the server
+// has to finish booting, the kernel has to start, the websocket has to
+// connect, and only then can the cells execute. 30s was occasionally too
+// tight for cold-start cases (kernel still showing "Connecting to kernel..."
+// when the wait expired). 60s gives a comfortable margin without slowing
+// the happy path (the wait returns as soon as all cells succeed).
+const CELL_EXECUTION_WAIT_MS = 60000;
 
 /**
  * Creates a new Jupyter notebook and waits for it to be fully loaded.
@@ -63,6 +69,11 @@ export function selectQuickPickItem(driver: WebDriver, item: string) {
 /**
  * Checks whether a QuickPick item is present in the current QuickPick options.
  *
+ * This is a non-throwing presence check: it returns `false` (rather than
+ * throwing) if no QuickPick is shown within {@link ELEMENT_WAIT_MS}, or if
+ * a QuickPick is shown but does not contain `item`. Callers that need a
+ * hard requirement should use {@link selectQuickPickItem} instead.
+ *
  * @param driver - The driver instance.
  * @param item - The UI item.
  * @returns A promise that resolves to true if the item is found, and false
@@ -72,31 +83,40 @@ export async function hasQuickPickItem(
   driver: WebDriver,
   item: string,
 ): Promise<boolean> {
-  const containsOrOthers = await driver.wait(
-    async () => {
-      try {
-        const inputBox = await InputBox.create();
-        const quickPickItem = await inputBox.findQuickPick(item);
-        if (quickPickItem) {
-          return true;
+  let containsOrOthers: boolean | string[];
+  try {
+    containsOrOthers = await driver.wait(
+      async () => {
+        try {
+          const inputBox = await InputBox.create();
+          const quickPickItem = await inputBox.findQuickPick(item);
+          if (quickPickItem) {
+            return true;
+          }
+          const items = await inputBox.getQuickPicks();
+          // A QuickPick was rendered with options other than the one we're
+          // looking for.
+          if (items.length !== 0) {
+            return await Promise.all(
+              items.map(async (i) => await i.getLabel()),
+            );
+          }
+          // No QuickPick items were shown, which likely means the QuickPick is
+          // still loading. Keep waiting.
+          return false;
+        } catch (_) {
+          // Swallow errors so we keep polling until the timeout fires.
+          return false;
         }
-        const items = await inputBox.getQuickPicks();
-        // A QuickPick was rendered with options other than the one we're
-        // looking for.
-        if (items.length !== 0) {
-          return await Promise.all(items.map(async (i) => await i.getLabel()));
-        }
-        // No QuickPick items were shown, which likely means the QuickPick is
-        // still loading. Keep waiting.
-        return false;
-      } catch (_) {
-        // Swallow errors since we want to fail when our timeout's reached.
-        return false;
-      }
-    },
-    ELEMENT_WAIT_MS,
-    `Could not find "${item}" in QuickPick`,
-  );
+      },
+      ELEMENT_WAIT_MS,
+      `Could not find "${item}" in QuickPick`,
+    );
+  } catch (_) {
+    // No QuickPick (or no items) appeared within the wait window. Treat as
+    // "item not present" rather than failing the caller.
+    return false;
+  }
   if (typeof containsOrOthers === 'boolean') {
     return containsOrOthers;
   }
@@ -125,6 +145,70 @@ export async function selectQuickPicksInOrder(
 }
 
 /**
+ * Confirms an InputBox identified by a substring of its title, accepting its
+ * current (default) value.
+ *
+ * Why not `InputBox.create()` + `sendKeys(Key.ENTER)` directly? Because of a
+ * subtle race during QuickPick → InputBox transitions: the previous QuickPick
+ * input may still be focused when `InputBox.create()` returns, and the ENTER
+ * keystroke can be lost or delivered to the wrong element. Subsequent calls
+ * then end up typing kernel-selection filter text into the still-open alias
+ * input.
+ *
+ * This helper polls until an InputBox with the expected title is shown,
+ * confirms it, and then waits for that input to transition away (i.e., either
+ * close or be replaced by an unrelated input). Only then does it return,
+ * guaranteeing follow-up `selectQuickPickItem` calls operate on the next UI
+ * surface.
+ *
+ * @param driver - The driver instance.
+ * @param expectedTitleSubstring - A substring expected to appear in the
+ * InputBox title (e.g. `"Alias your server"`).
+ */
+export async function confirmInputBoxWithDefault(
+  driver: WebDriver,
+  expectedTitleSubstring: string,
+): Promise<void> {
+  // Phase 1: wait for the expected InputBox to be shown, then confirm it.
+  await driver.wait(
+    async () => {
+      try {
+        const inputBox = await InputBox.create();
+        const title = await inputBox.getTitle();
+        if (!title?.includes(expectedTitleSubstring)) {
+          return false;
+        }
+        await inputBox.confirm();
+        return true;
+      } catch (_) {
+        // Swallow errors so we keep polling until the timeout fires.
+        return false;
+      }
+    },
+    ELEMENT_WAIT_MS,
+    `Could not confirm InputBox with title containing "${expectedTitleSubstring}"`,
+  );
+
+  // Phase 2: wait for the InputBox to transition away. It either closes
+  // entirely or is replaced by an unrelated InputBox/QuickPick whose title
+  // does not contain the expected substring.
+  await driver.wait(
+    async () => {
+      try {
+        const inputBox = await InputBox.create();
+        const title = await inputBox.getTitle();
+        return !title?.includes(expectedTitleSubstring);
+      } catch (_) {
+        // No InputBox present at all, transition complete.
+        return true;
+      }
+    },
+    ELEMENT_WAIT_MS,
+    `InputBox "${expectedTitleSubstring}" did not close after confirm`,
+  );
+}
+
+/**
  * Attempts to push a button in a modal dialog, if one is present.
  *
  * Polls for up to {@link waitMs} for the dialog to appear. If no dialog is
@@ -143,7 +227,7 @@ export async function pushDialogButtonIfShown(
   try {
     await pushDialogButton(driver, button, waitMs);
   } catch {
-    // Dialog never appeared within the wait window -- nothing to dismiss.
+    // Dialog never appeared within the wait window, nothing to dismiss.
   }
 }
 

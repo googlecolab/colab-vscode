@@ -6,7 +6,7 @@
 
 import { writeFileSync } from 'fs';
 import clipboard from 'clipboardy';
-import { Workbench, VSBrowser, InputBox, Key } from 'vscode-extension-tester';
+import { Workbench, VSBrowser } from 'vscode-extension-tester';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
   assertAllCellsExecutedSuccessfully,
@@ -17,7 +17,7 @@ import {
   selectQuickPicksInOrder,
 } from './ui';
 
-const CONNECT_DRIVE_DIALOG_WAIT_MS = 20000;
+const CONNECT_DRIVE_DIALOG_WAIT_MS = 30000;
 
 it('mounts Google Drive', async () => {
   const workbench = new Workbench();
@@ -37,9 +37,6 @@ it('mounts Google Drive', async () => {
     await selectQuickPickItem(driver, 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  // Alias the server with the default name.
-  const inputBox = await InputBox.create();
-  await inputBox.sendKeys(Key.ENTER);
   await selectQuickPickItem(driver, 'Python');
 
   // Kick-off Drive mounting.

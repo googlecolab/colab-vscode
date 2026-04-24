@@ -5,7 +5,7 @@
  */
 
 import { assert } from 'chai';
-import { Workbench, InputBox, Key } from 'vscode-extension-tester';
+import { Workbench } from 'vscode-extension-tester';
 import {
   createNotebook,
   hasQuickPickItem,
@@ -30,9 +30,6 @@ it('renders resource tree view', async () => {
     await selectQuickPickItem(driver, 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  // Alias the server with the default name.
-  const inputBox = await InputBox.create();
-  await inputBox.sendKeys(Key.ENTER);
   await selectQuickPickItem(driver, 'Python');
 
   // Verify resource view in Colab activity bar.
