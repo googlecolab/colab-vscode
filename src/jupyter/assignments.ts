@@ -815,7 +815,10 @@ class AllAcceleratorsUnavailableError extends Error {
  * To work around this, we create a new `Request` instance to ensure
  * compatibility.
  *
- * @param token - The cancellation token.
+ * Colab proxy headers always win over any caller-supplied values for the
+ * same keys.
+ *
+ * @param token - The Colab runtime proxy token.
  * @returns A fetch function that adds the Colab runtime proxy token as a
  * header.
  */

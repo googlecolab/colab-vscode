@@ -601,6 +601,40 @@ describe('AssignmentManager', () => {
           );
         });
 
+        it('overrides caller-supplied Colab proxy headers', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(fetch, 'default');
+          const request = new Request('https://example.com', {
+            headers: {
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-request-token',
+              [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-request-agent',
+            },
+          });
+
+          await server.connectionInformation.fetch(request, {
+            headers: {
+              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-init-token',
+              [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-init-agent',
+            },
+          });
+
+          sinon.assert.calledOnceWithMatch(
+            fetchStub,
+            sinon.match.instanceOf(Request),
+            {
+              headers: new Headers({
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            },
+          );
+        });
+
         it('includes a custom WebSocket implementation', async () => {
           const servers = await assignmentManager.getServers('extension');
           assert.lengthOf(servers, 1);
