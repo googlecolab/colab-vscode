@@ -56,7 +56,7 @@ export function selectQuickPickItem(driver: WebDriver, item: string) {
         }
         await quickPickItem.select();
         return true;
-      } catch (_) {
+      } catch {
         // Swallow errors since we want to fail when our timeout's reached.
         return false;
       }
@@ -85,34 +85,28 @@ export async function hasQuickPickItem(
 ): Promise<boolean> {
   let containsOrOthers: boolean | string[];
   try {
-    containsOrOthers = await driver.wait(
-      async () => {
-        try {
-          const inputBox = await InputBox.create();
-          const quickPickItem = await inputBox.findQuickPick(item);
-          if (quickPickItem) {
-            return true;
-          }
-          const items = await inputBox.getQuickPicks();
-          // A QuickPick was rendered with options other than the one we're
-          // looking for.
-          if (items.length !== 0) {
-            return await Promise.all(
-              items.map(async (i) => await i.getLabel()),
-            );
-          }
-          // No QuickPick items were shown, which likely means the QuickPick is
-          // still loading. Keep waiting.
-          return false;
-        } catch (_) {
-          // Swallow errors so we keep polling until the timeout fires.
-          return false;
+    containsOrOthers = await driver.wait(async () => {
+      try {
+        const inputBox = await InputBox.create();
+        const quickPickItem = await inputBox.findQuickPick(item);
+        if (quickPickItem) {
+          return true;
         }
-      },
-      ELEMENT_WAIT_MS,
-      `Could not find "${item}" in QuickPick`,
-    );
-  } catch (_) {
+        const items = await inputBox.getQuickPicks();
+        // A QuickPick was rendered with options other than the one we're
+        // looking for.
+        if (items.length !== 0) {
+          return await Promise.all(items.map(async (i) => await i.getLabel()));
+        }
+        // No QuickPick items were shown, which likely means the QuickPick is
+        // still loading. Keep waiting.
+        return false;
+      } catch {
+        // Swallow errors so we keep polling until the timeout fires.
+        return false;
+      }
+    }, ELEMENT_WAIT_MS);
+  } catch {
     // No QuickPick (or no items) appeared within the wait window. Treat as
     // "item not present" rather than failing the caller.
     return false;
@@ -180,7 +174,7 @@ export async function confirmInputBoxWithDefault(
         }
         await inputBox.confirm();
         return true;
-      } catch (_) {
+      } catch {
         // Swallow errors so we keep polling until the timeout fires.
         return false;
       }
@@ -198,7 +192,7 @@ export async function confirmInputBoxWithDefault(
         const inputBox = await InputBox.create();
         const title = await inputBox.getTitle();
         return !title?.includes(expectedTitleSubstring);
-      } catch (_) {
+      } catch {
         // No InputBox present at all, transition complete.
         return true;
       }
@@ -252,7 +246,7 @@ export function pushDialogButton(
         const dialog = new ModalDialog();
         await dialog.pushButton(button);
         return true;
-      } catch (_) {
+      } catch {
         // Swallow the error since we want to fail when the timeout's reached.
         return false;
       }
