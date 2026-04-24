@@ -18,6 +18,8 @@ import {
   hasQuickPickItem,
   pushDialogButton,
   selectQuickPickItem,
+  selectQuickPickItemIfShown,
+  KERNEL_SELECT_WAIT_MS,
 } from './ui';
 
 console.log('Running global E2E test setup...');
@@ -65,6 +67,11 @@ afterEach(async function () {
   const workbench = new Workbench();
   const vsCodeDriver = workbench.getDriver();
   try {
+    // Dismiss any leftover error/info modal first (e.g. a 504 surfaced by a
+    // previous best-effort 'Colab: Remove Server' that arrived after the
+    // earlier dismissal window closed). A modal blocks subsequent
+    // executeCommand() calls so we must clear it before doing anything else.
+    await pushDialogButtonIfShown(vsCodeDriver, 'OK', DIALOG_WAIT_MS);
     await workbench.executeCommand('View: Close All Editors');
     // Close-all may surface a "Don't Save" prompt if any notebook is dirty.
     await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
@@ -89,9 +96,17 @@ async function signIn(
   // Trigger Colab connection which will prompt for sign-in.
   await workbench.executeCommand('Notebook: Select Notebook Kernel');
   // If the test is running on a machine with a configured Python environment,
-  // the "Select Another Kernel" option may appear instead of "Colab". If so, we
-  // need to click it first before selecting "Colab".
-  if (await hasQuickPickItem(vsCodeDriver, 'Select Another Kernel')) {
+  // the "Select Another Kernel" option may appear instead of "Colab". If so,
+  // we need to click it first before selecting "Colab". The kernel picker
+  // can take a while to populate while Jupyter is "Detecting Kernels", so
+  // these steps are given a longer-than-default budget.
+  if (
+    await hasQuickPickItem(
+      vsCodeDriver,
+      'Select Another Kernel',
+      KERNEL_SELECT_WAIT_MS,
+    )
+  ) {
     await selectQuickPickItem(vsCodeDriver, 'Select Another Kernel');
   }
   await selectQuickPickItem(vsCodeDriver, 'Colab');
@@ -106,23 +121,32 @@ async function signIn(
     /* expectedRedirectUrl= */ 'vscode/auth-success',
   );
 
-  // Cleanup so tests start from a clean slate.
-  await selectQuickPickItem(vsCodeDriver, 'Python');
-  // 'Colab: Remove Server' can transiently fail with a backend 404 on the
-  // server's sessions API, surfacing a "Command resulted in an error" modal
-  // instead of the server picker. Treat this best-effort.
-  await workbench.executeCommand('Colab: Remove Server');
+  // Cleanup so tests start from a clean slate. This is best-effort: we
+  // intentionally swallow errors from cleanup steps so a transient backend
+  // hiccup or stale UI state doesn't fail the entire suite. Tests that
+  // follow recreate their own state.
   try {
-    await selectQuickPickItem(vsCodeDriver, 'Colab CPU');
-  } catch (cleanupErr) {
-    console.warn(
-      'Could not select "Colab CPU" for cleanup; attempting to dismiss any error modal.',
-      cleanupErr,
+    // Tolerant: with a single Python kernel the picker often auto-resolves
+    // and closes before we can click.
+    await selectQuickPickItemIfShown(
+      vsCodeDriver,
+      'Python',
+      KERNEL_SELECT_WAIT_MS,
     );
-    await pushDialogButtonIfShown(vsCodeDriver, 'OK', DIALOG_WAIT_MS);
+    await workbench.executeCommand('Colab: Remove Server');
+    try {
+      await selectQuickPickItem(vsCodeDriver, 'Colab CPU');
+    } catch (err: unknown) {
+      console.warn('Could not select "Colab CPU" for cleanup.', err);
+    }
+    await workbench.executeCommand('View: Close All Editors');
+    await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
+  } catch (err: unknown) {
+    console.warn(
+      'Best-effort post-signin cleanup failed; continuing with tests.',
+      err,
+    );
   }
-  await workbench.executeCommand('View: Close All Editors');
-  await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
 }
 
 async function captureScreenshots(

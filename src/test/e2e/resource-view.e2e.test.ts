@@ -9,11 +9,17 @@ import { Workbench } from 'vscode-extension-tester';
 import {
   createNotebook,
   hasQuickPickItem,
+  KERNEL_SELECT_WAIT_MS,
   selectQuickPickItem,
+  selectQuickPickItemIfShown,
   selectQuickPicksInOrder,
 } from './ui';
 
-const RESOURCE_VIEW_WAIT_MS = 10000;
+// The "Resources" tree-view refresh is asynchronous and can lag behind the
+// notebook-side server assignment by several seconds, especially on a fresh
+// Colab server where the resource provider has to make its first round-trip
+// to enumerate disk/CPU/etc.
+const RESOURCE_VIEW_WAIT_MS = 30000;
 
 it('renders resource tree view', async () => {
   const workbench = new Workbench();
@@ -30,7 +36,7 @@ it('renders resource tree view', async () => {
     await selectQuickPickItem(driver, 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  await selectQuickPickItem(driver, 'Python');
+  await selectQuickPickItemIfShown(driver, 'Python', KERNEL_SELECT_WAIT_MS);
 
   // Verify resource view in Colab activity bar.
   await workbench.executeCommand('Colab: Focus on Resources View');

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import clipboard from 'clipboardy';
 import { Workbench, VSBrowser } from 'vscode-extension-tester';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
@@ -12,12 +12,17 @@ import {
   assertAllCellsExecutedSuccessfully,
   createNotebook,
   hasQuickPickItem,
+  KERNEL_SELECT_WAIT_MS,
   pushDialogButton,
   selectQuickPickItem,
+  selectQuickPickItemIfShown,
   selectQuickPicksInOrder,
 } from './ui';
 
-const CONNECT_DRIVE_DIALOG_WAIT_MS = 30000;
+// The "Connect to Google Drive" dialog only appears once the kernel actually
+// starts executing the mount cell. On a freshly assigned Colab server the
+// kernel cold start and OAuth flow can be slow.
+const CONNECT_DRIVE_DIALOG_WAIT_MS = 120000;
 
 it('mounts Google Drive', async () => {
   const workbench = new Workbench();
@@ -37,7 +42,7 @@ it('mounts Google Drive', async () => {
     await selectQuickPickItem(driver, 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  await selectQuickPickItem(driver, 'Python');
+  await selectQuickPickItemIfShown(driver, 'Python', KERNEL_SELECT_WAIT_MS);
 
   // Kick-off Drive mounting.
   await workbench.executeCommand('Colab: Mount Google Drive to Server...');
@@ -64,19 +69,41 @@ it('mounts Google Drive', async () => {
 
 async function authorizeDrive() {
   const chromeDriver = await getOAuthDriver();
+  const oauthUrl = clipboard.readSync();
+  const expectedRedirectUrl = 'tun/m/authorize-for-drive-credentials-ephem';
+  // Retry the OAuth flow once on transient errors. Chrome occasionally
+  // returns ERR_FAILED loading accounts.google.com from the CI runner; a
+  // single retry typically resolves the network blip.
   try {
-    await doOAuthSignIn(
-      chromeDriver,
-      /* oauthUrl= */ clipboard.readSync(),
-      /* expectedRedirectUrl= */ 'tun/m/authorize-for-drive-credentials-ephem',
+    await doOAuthSignIn(chromeDriver, oauthUrl, expectedRedirectUrl);
+  } catch (firstErr: unknown) {
+    console.warn(
+      'OAuth Drive sign-in failed once; retrying after a brief delay.',
+      firstErr,
     );
-  } catch (err: unknown) {
-    const screenshotsDir = VSBrowser.instance.getScreenshotsDir();
-    writeFileSync(
-      `${screenshotsDir}/authorize-drive-ephem-chrome.png`,
-      await chromeDriver.takeScreenshot(),
-      'base64',
-    );
-    throw err;
+    try {
+      await chromeDriver.sleep(2000);
+      await doOAuthSignIn(chromeDriver, oauthUrl, expectedRedirectUrl);
+    } catch (retryErr: unknown) {
+      // Best-effort capture of the chrome OAuth window state on failure.
+      // The screenshots directory is created lazily by the test runner;
+      // ensure it exists before writing so a missing directory doesn't mask
+      // the real OAuth error with an unrelated ENOENT.
+      try {
+        const screenshotsDir = VSBrowser.instance.getScreenshotsDir();
+        mkdirSync(screenshotsDir, { recursive: true });
+        writeFileSync(
+          `${screenshotsDir}/authorize-drive-ephem-chrome.png`,
+          await chromeDriver.takeScreenshot(),
+          'base64',
+        );
+      } catch (screenshotErr) {
+        console.error(
+          'Could not capture chrome OAuth screenshot on failure',
+          screenshotErr,
+        );
+      }
+      throw retryErr;
+    }
   }
 }

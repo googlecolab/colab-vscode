@@ -14,14 +14,24 @@ import {
   error as extestError,
 } from 'vscode-extension-tester';
 
+/**
+ * The Jupyter "Detecting Kernels" phase can take a while on a fresh CI runner
+ * before the kernel-source QuickPick is populated with "Colab". Give the kernel
+ * picker a generous budget.
+ */
+export const KERNEL_SELECT_WAIT_MS = 30000;
+
+/**
+ * A general wait duration for UI elements to appear, in milliseconds.
+ */
 const ELEMENT_WAIT_MS = 10000;
-// Cell execution can be slow on a freshly assigned Colab server: the server
-// has to finish booting, the kernel has to start, the websocket has to
-// connect, and only then can the cells execute. 30s was occasionally too
-// tight for cold-start cases (kernel still showing "Connecting to kernel..."
-// when the wait expired). 60s gives a comfortable margin without slowing
-// the happy path (the wait returns as soon as all cells succeed).
-const CELL_EXECUTION_WAIT_MS = 60000;
+
+/**
+ * The wait duration for all notebook cells to execute, in milliseconds.
+ *
+ * Cell execution can be slow on a freshly assigned Colab server.
+ */
+const CELL_EXECUTION_WAIT_MS = 120000;
 
 /**
  * Creates a new Jupyter notebook and waits for it to be fully loaded.
@@ -38,9 +48,14 @@ export async function createNotebook(workbench: Workbench): Promise<void> {
  *
  * @param driver - The driver instance.
  * @param item - The UI item.
+ * @param waitMs - The wait duration in milliseconds.
  * @returns A promise that resolves when the QuickPick item is selected.
  */
-export function selectQuickPickItem(driver: WebDriver, item: string) {
+export function selectQuickPickItem(
+  driver: WebDriver,
+  item: string,
+  waitMs: number = ELEMENT_WAIT_MS,
+) {
   return driver.wait(
     async () => {
       try {
@@ -61,27 +76,58 @@ export function selectQuickPickItem(driver: WebDriver, item: string) {
         return false;
       }
     },
-    ELEMENT_WAIT_MS,
+    waitMs,
     `Could not select "${item}" from QuickPick`,
   );
+}
+
+/**
+ * Like {@link selectQuickPickItem} but tolerant of the QuickPick having
+ * already been resolved/dismissed by the time it runs.
+ *
+ * Returns `true` if the item was selected, `false` if no QuickPick is shown
+ * (or shown without the requested item) within {@link waitMs}. Never throws
+ * on absence. Useful for steps where the picker may auto-select the only
+ * option (e.g. when there is just one Python kernel available) and close
+ * before the test gets a chance to click it.
+ *
+ * @param driver - The driver instance.
+ * @param item - The UI item.
+ * @param waitMs - The wait duration in milliseconds.
+ * @returns A promise that resolves to true if the item was selected, and
+ * false otherwise.
+ */
+export async function selectQuickPickItemIfShown(
+  driver: WebDriver,
+  item: string,
+  waitMs: number = ELEMENT_WAIT_MS,
+): Promise<boolean> {
+  try {
+    await selectQuickPickItem(driver, item, waitMs);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Checks whether a QuickPick item is present in the current QuickPick options.
  *
  * This is a non-throwing presence check: it returns `false` (rather than
- * throwing) if no QuickPick is shown within {@link ELEMENT_WAIT_MS}, or if
- * a QuickPick is shown but does not contain `item`. Callers that need a
- * hard requirement should use {@link selectQuickPickItem} instead.
+ * throwing) if no QuickPick is shown within {@link waitMs}, or if a
+ * QuickPick is shown but does not contain `item`. Callers that need a hard
+ * requirement should use {@link selectQuickPickItem} instead.
  *
  * @param driver - The driver instance.
  * @param item - The UI item.
+ * @param waitMs - The wait duration in milliseconds.
  * @returns A promise that resolves to true if the item is found, and false
  * otherwise.
  */
 export async function hasQuickPickItem(
   driver: WebDriver,
   item: string,
+  waitMs: number = ELEMENT_WAIT_MS,
 ): Promise<boolean> {
   let containsOrOthers: boolean | string[];
   try {
@@ -105,7 +151,7 @@ export async function hasQuickPickItem(
         // Swallow errors so we keep polling until the timeout fires.
         return false;
       }
-    }, ELEMENT_WAIT_MS);
+    }, waitMs);
   } catch {
     // No QuickPick (or no items) appeared within the wait window. Treat as
     // "item not present" rather than failing the caller.
