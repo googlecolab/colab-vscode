@@ -214,9 +214,7 @@ export class ContentsFileSystemProvider
     private readonly vs: typeof vscode,
     private readonly jupyterConnections: JupyterConnectionManager,
   ) {
-    this.watchConfig = readWatchConfig(
-      vs.workspace.getConfiguration('colab'),
-    );
+    this.watchConfig = readWatchConfig(vs.workspace.getConfiguration('colab'));
     this.changeEmitter = new vs.EventEmitter<FileChangeEvent[]>();
     this.onDidChangeFile = this.changeEmitter.event;
     this.watchRunner = new SequentialTaskRunner(
@@ -755,9 +753,16 @@ export class ContentsFileSystemProvider
       if (coveredRoots.some((root) => this.contains(root, watch.uri))) {
         continue;
       }
+      if (!this.isWatchRegistered(watch)) {
+        continue;
+      }
 
       try {
-        events.push(...(await this.pollWatch(watch, signal)));
+        const watchEvents = await this.pollWatch(watch, signal);
+        if (!this.isWatchRegistered(watch)) {
+          continue;
+        }
+        events.push(...watchEvents);
         if (watch.recursive) {
           coveredRoots.push(watch.uri);
         }

@@ -198,6 +198,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
     experimentStateProvider,
     serverProvider,
     jupyterConnections,
+    fs,
     disposeFs,
     disposeContentTreeView,
     disposeResourceTreeView,
