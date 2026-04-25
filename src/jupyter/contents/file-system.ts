@@ -792,7 +792,11 @@ export class ContentsFileSystemProvider
     signal: AbortSignal,
   ): Promise<FileChangeEvent[]> {
     const current = await this.readCurrentWatchState(watch, signal);
-    if (isAborted(signal) || current.skipped) {
+    if (
+      isAborted(signal) ||
+      current.skipped ||
+      !this.isWatchRegistered(watch)
+    ) {
       return [];
     }
     if (!watch.initialized) {
@@ -1128,6 +1132,12 @@ export class ContentsFileSystemProvider
 
   private buildWatchKey(uri: Uri, recursive: boolean): string {
     return `${uri.toString()}::${recursive ? 'recursive' : 'direct'}`;
+  }
+
+  private isWatchRegistered(watch: WatchState): boolean {
+    return (
+      this.watches.get(this.buildWatchKey(watch.uri, watch.recursive)) === watch
+    );
   }
 
   private contains(parent: Uri, child: Uri): boolean {
