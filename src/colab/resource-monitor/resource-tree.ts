@@ -12,7 +12,6 @@ import {
   TreeItem,
 } from 'vscode';
 import { AuthChangeEvent } from '../../auth/auth-provider';
-import { LatestCancelable } from '../../common/async';
 import { log } from '../../common/logging';
 import { OverrunPolicy, SequentialTaskRunner } from '../../common/task-runner';
 import {
@@ -42,7 +41,6 @@ export class ResourceTreeProvider
   private readonly assignmentListener: Disposable;
   private readonly authListener: Disposable;
   private readonly refreshRunner?: SequentialTaskRunner;
-  private readonly getRootChildrenRunner: LatestCancelable<[], ResourceItem[]>;
   // Cache of resource items by server endpoint to avoid invoking resource API
   // too frequently.
   private resourceItemsByEndpoint = new Map<string, ResourceItem[]>();
@@ -65,10 +63,6 @@ export class ResourceTreeProvider
   ) {
     this.assignmentListener = assignmentChange(this.refresh.bind(this));
     this.authListener = authChange(this.handleAuthChange.bind(this));
-    this.getRootChildrenRunner = new LatestCancelable(
-      'getChildren',
-      this.getRootChildren.bind(this),
-    );
 
     // Read poll interval from experiment config once at runner initialization.
     const refreshIntervalMs = getFlag(ExperimentFlag.ResourcePollIntervalMs);
@@ -105,7 +99,6 @@ export class ResourceTreeProvider
     this.authListener.dispose();
     this.assignmentListener.dispose();
     this.resourceItemsByEndpoint.clear();
-    this.getRootChildrenRunner.cancel();
     this.isDisposed = true;
   }
 
@@ -133,6 +126,11 @@ export class ResourceTreeProvider
   /**
    * Gets the children of a {@link ResourceItem} for the tree view.
    *
+   * Each call returns its own snapshot of the current state, intentionally not
+   * coalesced or cancelled when other calls overlap.
+   * {@link TreeDataProvider.onDidChangeTreeData} is the mechanism that signals
+   * VS Code to re-query for fresh data.
+   *
    * @param element - The {@link ResourceItem} element.
    * @returns A promise that resolves to an array of {@link ResourceItem}
    * children.
@@ -153,24 +151,23 @@ export class ResourceTreeProvider
       return this.resourceItemsByEndpoint.get(element.endpoint) ?? [];
     }
 
-    // If no element is passed (requested at root level), execute
-    // getRootChildrenRunner to fetch and return all servers as root items.
-    return (await this.getRootChildrenRunner.run()) ?? [];
+    // If no element is passed (requested at root level), fetch and return
+    // all servers as root items.
+    return this.getRootChildren();
   }
 
   /**
    * Fetches and caches all servers and their resources.
    *
-   * @param signal - Optional {@link AbortSignal} to cancel the operation.
    * @returns A promise that resolves to an array of {@link ResourceItem}
    * representing servers.
    */
-  private async getRootChildren(signal?: AbortSignal): Promise<ResourceItem[]> {
-    const servers = await this.assignments.getServers('extension', signal);
+  private async getRootChildren(): Promise<ResourceItem[]> {
+    const servers = await this.assignments.getServers('extension');
     return Promise.all(
       servers.map(async (s) => {
         try {
-          await this.fetchAndCacheResourceItems(s, signal);
+          await this.fetchAndCacheResourceItems(s);
         } catch (e: unknown) {
           const errLabel = 'Failed to fetch resources';
           log.error(`${errLabel}:`, e);
@@ -186,10 +183,9 @@ export class ResourceTreeProvider
 
   private async fetchAndCacheResourceItems(
     server: ColabAssignedServer,
-    signal?: AbortSignal,
   ): Promise<void> {
     const endpoint = server.endpoint;
-    const resources = await this.client.getResources(server, signal);
+    const resources = await this.client.getResources(server);
     const resourceItems: ResourceItem[] = [];
     resourceItems.push(ResourceItem.fromMemory(endpoint, resources.memory));
     if (resources.gpus.length > 0) {

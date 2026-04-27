@@ -266,32 +266,107 @@ describe('ResourceTreeProvider', () => {
       });
     });
 
-    it('aborts previous in-flight getChildren call', async () => {
+    it('returns the real server list to every concurrent caller', async () => {
+      // Regression: previously, a second getChildren call while a first was
+      // in-flight would abort the first via LatestCancelable. The aborted first
+      // call would then resolve with [], which VS Code could cache as the root
+      // children, rendering the welcome view "No assigned Colab servers." even
+      // though servers existed.
+      //
+      // The first getServers stub honours the AbortSignal so the in-flight
+      // worker rejects when LatestCancelable aborts it, faithfully reproducing
+      // how the real getServers/listAssignments forwards the signal into fetch.
       const firstRunStarted = new Deferred<void>();
       const firstRunCompleter = new Deferred<void>();
       (assignmentStub.getServers as sinon.SinonStub)
         .onFirstCall()
-        .callsFake(async () => {
+        .callsFake(async (_from: 'extension', signal?: AbortSignal) => {
           firstRunStarted.resolve();
           await firstRunCompleter.promise;
-          return Promise.reject(new Error('aborted'));
+          if (signal?.aborted) {
+            throw new DOMException('aborted', 'AbortError');
+          }
+          return [DEFAULT_SERVER];
         })
         .onSecondCall()
         .resolves([DEFAULT_SERVER]);
       toggleAuth(AuthState.SIGNED_IN);
 
-      // Kick off first getChildren call and let it hang
+      // Kick off first getChildren call and let it hang.
       const firstGetChildrenPromise = tree.getChildren(undefined);
       await firstRunStarted.promise;
-      // Complete a second getChildren call
-      await expect(tree.getChildren(undefined)).to.eventually.deep.equal([
+      // Kick off a second concurrent getChildren call which should resolve
+      // independently with the real server list.
+      const secondGetChildrenPromise = tree.getChildren(undefined);
+      await expect(secondGetChildrenPromise).to.eventually.deep.equal([
         ResourceItem.fromServer(DEFAULT_SERVER),
       ]);
-      // Unblock the first getChildren call
+      // Unblock the first getChildren call. It must also resolve with the
+      // real server list, never an empty array.
+      firstRunCompleter.resolve();
+      await expect(firstGetChildrenPromise).to.eventually.deep.equal([
+        ResourceItem.fromServer(DEFAULT_SERVER),
+      ]);
+    });
+
+    it('returns servers after back-to-back assignment changes during an in-flight getChildren', async () => {
+      // Regression: two AssignmentChange events firing in quick succession
+      // (e.g. an `added` immediately followed by a `changed`) used to cause the
+      // in-flight getChildren triggered by the first event to be aborted and
+      // resolve to [], which VS Code would render/cache as the empty welcome
+      // view. The next refresh from the second event would produce the real
+      // list, but VS Code wouldn't necessarily re-query. After the fix,
+      // getChildren must always observe the current state when invoked,
+      // regardless of how many change events fire.
+      const firstRunStarted = new Deferred<void>();
+      const firstRunCompleter = new Deferred<void>();
+      (assignmentStub.getServers as sinon.SinonStub)
+        .onFirstCall()
+        .callsFake(async (_from: 'extension', signal?: AbortSignal) => {
+          firstRunStarted.resolve();
+          await firstRunCompleter.promise;
+          if (signal?.aborted) {
+            throw new DOMException('aborted', 'AbortError');
+          }
+          return [DEFAULT_SERVER];
+        })
+        .resolves([DEFAULT_SERVER]);
+      toggleAuth(AuthState.SIGNED_IN);
+
+      // Simulate VS Code calling getChildren in response to the first
+      // assignment change event. Let the call hang mid-fetch.
+      const firstGetChildrenPromise = tree.getChildren(undefined);
+      await firstRunStarted.promise;
+
+      // Two more assignment-change events fire back-to-back while the
+      // first getChildren is still in flight. VS Code will eventually
+      // re-call getChildren in response.
+      assignmentChangeEmitter.fire({
+        added: [DEFAULT_SERVER],
+        changed: [],
+        removed: [],
+      });
+      assignmentChangeEmitter.fire({
+        added: [],
+        changed: [DEFAULT_SERVER],
+        removed: [],
+      });
+
+      // VS Code re-queries after the change events. This call must return
+      // the real server list rather than empty.
+      const refreshedGetChildrenPromise = tree.getChildren(undefined);
+
+      // Unblock the original in-flight call.
       firstRunCompleter.resolve();
 
-      // First getChildren call should return empty since it was aborted
-      await expect(firstGetChildrenPromise).to.eventually.be.empty;
+      // Both the original and the post-refresh call must observe the
+      // real list, never empty.
+      await expect(refreshedGetChildrenPromise).to.eventually.deep.equal([
+        ResourceItem.fromServer(DEFAULT_SERVER),
+      ]);
+      await expect(firstGetChildrenPromise).to.eventually.deep.equal([
+        ResourceItem.fromServer(DEFAULT_SERVER),
+      ]);
     });
   });
 
