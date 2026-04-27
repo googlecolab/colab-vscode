@@ -139,10 +139,6 @@ build_test_cmd() {
   printf "%s\n" ./out/test/**/*.e2e.test.js
 
   if [[ ${#AUTH_DRIVER_ARGS[@]} -gt 0 ]]; then
-    # No `--` separator needed here: the one above (after `-r`) already
-    # terminated extest option parsing, so auth-driver args trail the test
-    # files as additional positional args. They are not consumed by
-    # commander; `auth.ts` reads them out of `process.argv` directly.
     printf "%s\n" "${AUTH_DRIVER_ARGS[@]}"
   fi
 }

@@ -9,8 +9,6 @@ import {
   ContextMenu,
   CustomTreeSection,
   DefaultTreeSection,
-  InputBox,
-  Key,
   SideBarView,
   Workbench,
 } from 'vscode-extension-tester';
@@ -18,8 +16,9 @@ import {
   assertAllCellsExecutedSuccessfully,
   createNotebook,
   hasQuickPickItem,
-  pushDialogButtonIfShown,
+  KERNEL_SELECT_WAIT_MS,
   selectQuickPickItem,
+  selectQuickPickItemIfShown,
   selectQuickPicksInOrder,
 } from './ui';
 
@@ -30,22 +29,13 @@ it('uploads a file from the explorer context menu', async () => {
   const workbench = new Workbench();
   const driver = workbench.getDriver();
 
-  // Close any leftover notebooks from prior tests; otherwise their cells
-  // would be counted by `assertAllCellsExecutedSuccessfully` below and the
-  // expected vs. actual cell-count comparison would never match.
-  await workbench.executeCommand('View: Close All Editors');
-  await pushDialogButtonIfShown(driver, "Don't Save", /* timeoutMs= */ 3000);
-
   await createNotebook(workbench);
   await workbench.executeCommand('Notebook: Select Notebook Kernel');
   if (await hasQuickPickItem(driver, 'Select Another Kernel')) {
     await selectQuickPickItem(driver, 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  // Alias the server with the default name.
-  const inputBox = await InputBox.create();
-  await inputBox.sendKeys(Key.ENTER);
-  await selectQuickPickItem(driver, 'Python');
+  await selectQuickPickItemIfShown(driver, 'Python', KERNEL_SELECT_WAIT_MS);
 
   await workbench.executeCommand('View: Show Explorer');
   const explorerSection = await driver.wait(
@@ -102,7 +92,7 @@ it('uploads a file from the explorer context menu', async () => {
           await serverItem.expand();
         }
         const child = await serverItem.findChildItem('hello-world.txt');
-        return Boolean(child);
+        return !!child;
       } catch {
         return false;
       }
