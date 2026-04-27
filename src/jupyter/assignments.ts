@@ -32,6 +32,7 @@ import {
   TooManyAssignmentsError,
 } from '../colab/client';
 import { REMOVE_SERVER } from '../colab/commands/constants';
+import { ColabRequestError } from '../colab/errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -256,25 +257,10 @@ export class AssignmentManager implements Disposable {
 
     let unownedServers: UnownedServer[] = [];
     if (from === 'external' || from === 'all') {
-      const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
-      unownedServers = await Promise.all(
-        allAssignments
-          .filter((a) => !storedEndpointSet.has(a.endpoint))
-          .map(async (a) => {
-            // For any remote servers created in Colab web UI, assuming there is
-            // only one session per assignment.
-            const sessions = await this.client.listSessions(a.endpoint, signal);
-            const label =
-              sessions.length === 1 && sessions[0].name?.length
-                ? sessions[0].name
-                : UNKNOWN_REMOTE_SERVER_NAME;
-            return {
-              label,
-              endpoint: a.endpoint,
-              variant: a.variant,
-              accelerator: a.accelerator,
-            };
-          }),
+      unownedServers = await this.getUnownedServers(
+        allAssignments,
+        storedServers,
+        signal,
       );
     }
 
@@ -710,6 +696,64 @@ export class AssignmentManager implements Disposable {
         WebSocket: colabProxyWebSocket(this.vs, this.client, colabServer),
       },
     };
+  }
+
+  private async getUnownedServers(
+    allAssignments: ListedAssignment[],
+    storedServers: ColabAssignedServer[],
+    signal?: AbortSignal,
+  ): Promise<UnownedServer[]> {
+    const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
+
+    return (
+      await Promise.all(
+        allAssignments
+          .filter((a) => !storedEndpointSet.has(a.endpoint))
+          .map(async (a): Promise<UnownedServer | undefined> => {
+            // For any remote servers created in Colab web UI, assuming there
+            // is only one session per assignment.
+            let label: string;
+            try {
+              const sessions = await this.client.listSessions(
+                a.endpoint,
+                signal,
+              );
+              label =
+                sessions.length === 1 && sessions[0].name?.length
+                  ? sessions[0].name
+                  : UNKNOWN_REMOTE_SERVER_NAME;
+            } catch (error: unknown) {
+              // The assignment may have been removed (e.g. via Colab web UI
+              // or another VS Code instance sharing the account) between
+              // listing assignments and listing its sessions. Drop it from
+              // the result rather than failing the entire call.
+              if (
+                error instanceof ColabRequestError &&
+                error.response.status === 404
+              ) {
+                log.trace(
+                  `Dropping orphan assignment ${a.endpoint} - sessions endpoint returned 404`,
+                  error,
+                );
+                return undefined;
+              }
+              // For any other failure, fail open with a placeholder label so
+              // we still surface the assignment to the user.
+              log.warn(
+                `Failed to list sessions for assignment ${a.endpoint}, falling back to placeholder label`,
+                error,
+              );
+              label = UNKNOWN_REMOTE_SERVER_NAME;
+            }
+            return {
+              label,
+              endpoint: a.endpoint,
+              variant: a.variant,
+              accelerator: a.accelerator,
+            };
+          }),
+      )
+    ).filter((s): s is UnownedServer => s !== undefined);
   }
 
   private async notifyAllAcceleratorsUnavailable(
