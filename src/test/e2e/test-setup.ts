@@ -10,6 +10,7 @@ import { assert } from 'chai';
 import clipboard from 'clipboardy';
 import dotenv from 'dotenv';
 import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import { CodeUtil } from 'vscode-extension-tester/out/util/codeUtil';
 import { CONFIG } from '../../colab-config';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
@@ -23,6 +24,23 @@ import {
 } from './ui';
 
 console.log('Running global E2E test setup...');
+
+// Patch `CodeUtil.open` to pass `--no-sandbox` to the VS Code CLI it spawns
+// to issue a folder-open IPC request to the running window. Without this
+// flag, the spawned Electron process exits silently on CI runners (e.g.
+// Ubuntu in GitHub Actions) where the chrome-sandbox binary lacks setuid
+// root, and `extest`'s `-r/--open_resource` flag becomes a no-op. The
+// matching `browser.start` flow already passes `--no-sandbox`; this aligns
+// the two. See https://github.com/redhat-developer/vscode-extension-tester/issues/2050.
+//
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const originalOpen = CodeUtil.prototype.open;
+CodeUtil.prototype.open = function (this: CodeUtil, ...paths: string[]) {
+  // Inject `--no-sandbox` as the first "path"; it's parsed as a flag because
+  // it starts with `--`, regardless of position in the argv.
+  originalOpen.call(this, '--no-sandbox', ...paths);
+};
+
 dotenv.config();
 assert.equal(
   CONFIG.Environment,
