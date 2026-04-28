@@ -1427,85 +1427,45 @@ describe('AssignmentManager', () => {
         );
       });
 
-      it('logs OUTCOME_TOO_MANY_ASSIGNMENTS', async () => {
-        colabClientStub.assign.rejects(new TooManyAssignmentsError());
+      const errorOutcomeCases = [
+        {
+          label: 'OUTCOME_TOO_MANY_ASSIGNMENTS',
+          error: new TooManyAssignmentsError(),
+          outcome: AssignmentOutcome.ASSIGNMENT_OUTCOME_TOO_MANY_ASSIGNMENTS,
+        },
+        {
+          label: 'OUTCOME_INSUFFICIENT_QUOTA',
+          error: new InsufficientQuotaError('💰🐖'),
+          outcome: AssignmentOutcome.ASSIGNMENT_OUTCOME_INSUFFICIENT_QUOTA,
+        },
+        {
+          label: 'OUTCOME_DENYLISTED',
+          error: new DenylistedError('👨‍⚖️'),
+          outcome: AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED,
+        },
+        {
+          label: 'OUTCOME_OTHER_FAILURE for unexpected errors',
+          error: new Error('boom'),
+          outcome: AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE,
+        },
+      ];
+      for (const { label, error, outcome } of errorOutcomeCases) {
+        it(`logs ${label}`, async () => {
+          colabClientStub.assign.rejects(error);
 
-        await expect(
-          assignmentManager.assignServer(defaultAssignmentDescriptor),
-        ).to.be.rejected;
+          await expect(
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
+          ).to.be.rejected;
 
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          AssignmentOutcome.ASSIGNMENT_OUTCOME_TOO_MANY_ASSIGNMENTS,
-          {
+          sinon.assert.calledOnceWithExactly(logStub, outcome, {
             variant: Variant.GPU,
             accelerator: 'A100',
             shape: '',
             version: '',
             hadFallback: false,
-          },
-        );
-      });
-
-      it('logs OUTCOME_INSUFFICIENT_QUOTA', async () => {
-        colabClientStub.assign.rejects(new InsufficientQuotaError('💰🐖'));
-
-        await expect(
-          assignmentManager.assignServer(defaultAssignmentDescriptor),
-        ).to.be.rejected;
-
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          AssignmentOutcome.ASSIGNMENT_OUTCOME_INSUFFICIENT_QUOTA,
-          {
-            variant: Variant.GPU,
-            accelerator: 'A100',
-            shape: '',
-            version: '',
-            hadFallback: false,
-          },
-        );
-      });
-
-      it('logs OUTCOME_DENYLISTED', async () => {
-        colabClientStub.assign.rejects(new DenylistedError('👨‍⚖️'));
-
-        await expect(
-          assignmentManager.assignServer(defaultAssignmentDescriptor),
-        ).to.be.rejected;
-
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED,
-          {
-            variant: Variant.GPU,
-            accelerator: 'A100',
-            shape: '',
-            version: '',
-            hadFallback: false,
-          },
-        );
-      });
-
-      it('logs OUTCOME_OTHER_FAILURE for unexpected errors', async () => {
-        colabClientStub.assign.rejects(new Error('boom'));
-
-        await expect(
-          assignmentManager.assignServer(defaultAssignmentDescriptor),
-        ).to.be.rejected;
-
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE,
-          {
-            variant: Variant.GPU,
-            accelerator: 'A100',
-            shape: '',
-            version: '',
-            hadFallback: false,
-          },
-        );
-      });
+          });
+        });
+      }
 
       it('logs the requested shape and version when present', async () => {
         colabClientStub.assign.resolves({
