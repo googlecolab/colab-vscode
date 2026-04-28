@@ -475,62 +475,40 @@ describe('ConsumptionNotifier', () => {
       );
     });
 
-    it('logs SEVERITY_DEPLETED with clicked=true when error action is clicked', async () => {
-      const ccuInfo = createCcuInfo(
-        { paidMinutes: 0, freeMinutes: 0 },
-        SubscriptionTier.NONE,
-      );
-      autoRespond('error', 'Sign Up for Colab');
+    const depletedTierCases = [
+      {
+        tierLabel: 'NONE (free)',
+        tier: SubscriptionTier.NONE,
+        actionLabel: 'Sign Up for Colab',
+      },
+      {
+        tierLabel: 'PRO',
+        tier: SubscriptionTier.PRO,
+        actionLabel: 'Upgrade to Pro+',
+      },
+      {
+        tierLabel: 'PRO_PLUS',
+        tier: SubscriptionTier.PRO_PLUS,
+        actionLabel: 'Purchase More CCUs',
+      },
+    ];
+    for (const { tierLabel, tier, actionLabel } of depletedTierCases) {
+      it(`logs SEVERITY_DEPLETED with clicked=true and tier=${tierLabel} when error action is clicked`, async () => {
+        const ccuInfo = createCcuInfo({ paidMinutes: 0, freeMinutes: 0 }, tier);
+        autoRespond('error', actionLabel);
 
-      const noOp = consumptionNotifier.nextConsumptionCalculation();
-      ccuEmitter.fire(ccuInfo);
-      await noOp;
+        const noOp = consumptionNotifier.nextConsumptionCalculation();
+        ccuEmitter.fire(ccuInfo);
+        await noOp;
 
-      sinon.assert.calledOnceWithExactly(
-        logStub,
-        LowBalanceSeverity.SEVERITY_DEPLETED,
-        SubscriptionTier.NONE,
-        true,
-      );
-    });
-
-    it('plumbs the Pro subscription tier through unchanged', async () => {
-      const ccuInfo = createCcuInfo(
-        { paidMinutes: 0, freeMinutes: 0 },
-        SubscriptionTier.PRO,
-      );
-      autoRespond('error', 'Upgrade to Pro+');
-
-      const noOp = consumptionNotifier.nextConsumptionCalculation();
-      ccuEmitter.fire(ccuInfo);
-      await noOp;
-
-      sinon.assert.calledOnceWithExactly(
-        logStub,
-        LowBalanceSeverity.SEVERITY_DEPLETED,
-        SubscriptionTier.PRO,
-        true,
-      );
-    });
-
-    it('plumbs the Pro+ subscription tier through unchanged', async () => {
-      const ccuInfo = createCcuInfo(
-        { paidMinutes: 0, freeMinutes: 0 },
-        SubscriptionTier.PRO_PLUS,
-      );
-      autoRespond('error', 'Purchase More CCUs');
-
-      const noOp = consumptionNotifier.nextConsumptionCalculation();
-      ccuEmitter.fire(ccuInfo);
-      await noOp;
-
-      sinon.assert.calledOnceWithExactly(
-        logStub,
-        LowBalanceSeverity.SEVERITY_DEPLETED,
-        SubscriptionTier.PRO_PLUS,
-        true,
-      );
-    });
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          LowBalanceSeverity.SEVERITY_DEPLETED,
+          tier,
+          true,
+        );
+      });
+    }
   });
 
   describe('snooze', () => {
