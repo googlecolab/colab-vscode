@@ -194,7 +194,7 @@ export async function renameFile(vs: typeof vscode, contextItem: ContentItem) {
     telemetry.logContentBrowserFileOperation(
       ContentBrowserOperation.OPERATION_RENAME,
       outcome,
-      contentItemTarget(vs, contextItem),
+      contentItemToTarget(vs, contextItem),
     );
   }
 }
@@ -231,7 +231,7 @@ export async function deleteFile(vs: typeof vscode, contextItem: ContentItem) {
     telemetry.logContentBrowserFileOperation(
       ContentBrowserOperation.OPERATION_DELETE,
       outcome,
-      contentItemTarget(vs, contextItem),
+      contentItemToTarget(vs, contextItem),
     );
   }
 }
@@ -270,7 +270,7 @@ function folderOrParent(vs: typeof vscode, item: ContentItem): Uri {
     : item.uri;
 }
 
-function contentItemTarget(
+function contentItemToTarget(
   vs: typeof vscode,
   item: ContentItem,
 ): ContentBrowserTarget {
