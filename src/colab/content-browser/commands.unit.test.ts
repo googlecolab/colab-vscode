@@ -403,33 +403,33 @@ describe('Server Browser Commands', () => {
     });
 
     describe('newFile', () => {
-      it('logs OUTCOME_SUCCEEDED with TARGET_FILE when a file is created', async () => {
-        vsStub.window.showInputBox.resolves('new-file.txt');
-        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
+      const successCases = [
+        {
+          name: 'new-file.txt',
+          target: ContentBrowserTarget.TARGET_FILE,
+          targetLabel: 'TARGET_FILE',
+        },
+        {
+          name: 'new-folder/',
+          target: ContentBrowserTarget.TARGET_DIRECTORY,
+          targetLabel: 'TARGET_DIRECTORY',
+        },
+      ];
+      for (const { name, target, targetLabel } of successCases) {
+        it(`logs OUTCOME_SUCCEEDED with ${targetLabel} when name is "${name}"`, async () => {
+          vsStub.window.showInputBox.resolves(name);
+          vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
 
-        await newFile(vs, CONTENT_ROOT);
+          await newFile(vs, CONTENT_ROOT);
 
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          ContentBrowserOperation.OPERATION_NEW_FILE,
-          Outcome.OUTCOME_SUCCEEDED,
-          ContentBrowserTarget.TARGET_FILE,
-        );
-      });
-
-      it('logs TARGET_DIRECTORY when name ends with /', async () => {
-        vsStub.window.showInputBox.resolves('new-folder/');
-        vsStub.workspace.fs.stat.rejects(TestFileSystemError.FileNotFound());
-
-        await newFile(vs, CONTENT_ROOT);
-
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          ContentBrowserOperation.OPERATION_NEW_FILE,
-          Outcome.OUTCOME_SUCCEEDED,
-          ContentBrowserTarget.TARGET_DIRECTORY,
-        );
-      });
+          sinon.assert.calledOnceWithExactly(
+            logStub,
+            ContentBrowserOperation.OPERATION_NEW_FILE,
+            Outcome.OUTCOME_SUCCEEDED,
+            target,
+          );
+        });
+      }
 
       it('logs OUTCOME_CANCELLED when input is dismissed', async () => {
         vsStub.window.showInputBox.resolves(undefined);
