@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
-import fetch, { Headers, Request } from 'node-fetch';
+import fetch, { Headers, Request, Response } from 'node-fetch';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
 import {
@@ -27,6 +27,7 @@ import {
   AcceleratorUnavailableError,
 } from '../colab/client';
 import { REMOVE_SERVER } from '../colab/commands/constants';
+import { ColabRequestError } from '../colab/errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -706,6 +707,112 @@ describe('AssignmentManager', () => {
         const results = await assignmentManager.getServers('external');
 
         // Then only 2 unowned external servers are returned
+        expect(results).to.deep.equal([
+          {
+            label: 'test-session-name',
+            endpoint: endpointWithName,
+            variant: Variant.DEFAULT,
+            accelerator: '',
+          },
+          {
+            label: 'Untitled',
+            endpoint: endpointWithoutSession,
+            variant: Variant.DEFAULT,
+            accelerator: '',
+          },
+        ]);
+      });
+
+      it('drops orphan unowned servers whose sessions endpoint returns 404', async () => {
+        // Simulates a race where the orphan assignment is deleted (e.g. via
+        // Colab web or another VS Code instance sharing the account) between
+        // listing assignments and listing its sessions.
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutSession,
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+          {
+            ...defaultSession,
+            name: 'test-session-name',
+          },
+        ]);
+        colabClientStub.listSessions
+          .withArgs(endpointWithoutSession)
+          .rejects(
+            new ColabRequestError(
+              new Request('https://example.com'),
+              new Response(undefined, { status: 404 }),
+            ),
+          );
+
+        const results = await assignmentManager.getServers('external');
+
+        expect(results).to.deep.equal([
+          {
+            label: 'test-session-name',
+            endpoint: endpointWithName,
+            variant: Variant.DEFAULT,
+            accelerator: '',
+          },
+        ]);
+      });
+
+      it('falls back to placeholder label when listing sessions throws a non-404', async () => {
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutSession,
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+          {
+            ...defaultSession,
+            name: 'test-session-name',
+          },
+        ]);
+        colabClientStub.listSessions
+          .withArgs(endpointWithoutSession)
+          .rejects(
+            new ColabRequestError(
+              new Request('https://example.com'),
+              new Response(undefined, { status: 500 }),
+            ),
+          );
+
+        const results = await assignmentManager.getServers('external');
+
+        expect(results).to.deep.equal([
+          {
+            label: 'test-session-name',
+            endpoint: endpointWithName,
+            variant: Variant.DEFAULT,
+            accelerator: '',
+          },
+          {
+            label: 'Untitled',
+            endpoint: endpointWithoutSession,
+            variant: Variant.DEFAULT,
+            accelerator: '',
+          },
+        ]);
+      });
+
+      it('falls back to placeholder label when listing sessions throws a non-ColabRequestError', async () => {
+        colabClientStub.listAssignments.resolves([
+          assignmentWithName,
+          assignmentWithoutSession,
+        ]);
+        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
+          {
+            ...defaultSession,
+            name: 'test-session-name',
+          },
+        ]);
+        colabClientStub.listSessions
+          .withArgs(endpointWithoutSession)
+          .rejects(new Error('network kaput'));
+
+        const results = await assignmentManager.getServers('external');
+
         expect(results).to.deep.equal([
           {
             label: 'test-session-name',

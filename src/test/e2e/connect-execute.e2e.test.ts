@@ -10,6 +10,7 @@ import {
   confirmInputBoxWithDefault,
   createNotebook,
   hasQuickPickItem,
+  KERNEL_SELECT_WAIT_MS,
   selectQuickPickItem,
   selectQuickPicksInOrder,
 } from './ui';
@@ -38,7 +39,7 @@ it('executes basic code cells', async () => {
   // is actually shown before confirming, otherwise the ENTER keystroke can be
   // delivered to the still-focused QuickPick from the previous step and lost.
   await confirmInputBoxWithDefault(driver, 'Alias your server');
-  await selectQuickPickItem(driver, 'Python');
+  await selectQuickPickItem(driver, 'Python', KERNEL_SELECT_WAIT_MS);
 
   // Input code into the first cell.
   let focusedCell: WebElement;

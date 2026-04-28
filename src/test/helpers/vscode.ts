@@ -103,6 +103,9 @@ export interface VsCodeStub {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
     >;
+    registerCommand: sinon.SinonStubbedMember<
+      typeof vscode.commands.registerCommand
+    >;
   };
   UIKind: typeof UIKind;
   env: {
@@ -154,6 +157,9 @@ export interface VsCodeStub {
     createStatusBarItem: sinon.SinonStubbedMember<
       typeof vscode.window.createStatusBarItem
     >;
+    createTreeView: sinon.SinonStubbedMember<
+      typeof vscode.window.createTreeView
+    >;
   };
   workspace: {
     getConfiguration: sinon.SinonStubbedMember<
@@ -172,6 +178,9 @@ export interface VsCodeStub {
       typeof vscode.workspace.onDidChangeWorkspaceFolders
     >;
     applyEdit: sinon.SinonStubbedMember<typeof vscode.workspace.applyEdit>;
+    registerFileSystemProvider: sinon.SinonStubbedMember<
+      typeof vscode.workspace.registerFileSystemProvider
+    >;
     workspaceFolders: sinon.SinonStubbedMember<
       typeof vscode.workspace.workspaceFolders
     >;
@@ -302,6 +311,7 @@ export function newVsCodeStub(): VsCodeStub {
     StatusBarAlignment: StatusBarAlignment,
     commands: {
       executeCommand: sinon.stub(),
+      registerCommand: sinon.stub(),
     },
     UIKind: UIKind,
     env: {
@@ -327,6 +337,14 @@ export function newVsCodeStub(): VsCodeStub {
       createQuickPick: sinon.stub(),
       createStatusBarItem: sinon.stub(),
       showNotebookDocument: sinon.stub(),
+      createTreeView: sinon
+        .stub<
+          Parameters<typeof vscode.window.createTreeView>,
+          ReturnType<typeof vscode.window.createTreeView>
+        >()
+        .returns({
+          dispose: sinon.stub(),
+        } as Partial<vscode.TreeView<unknown>> as vscode.TreeView<unknown>),
     },
     workspace: {
       getConfiguration: sinon.stub(),
@@ -335,6 +353,12 @@ export function newVsCodeStub(): VsCodeStub {
       onDidChangeConfiguration: sinon.stub(),
       onDidChangeWorkspaceFolders: sinon.stub(),
       applyEdit: sinon.stub(),
+      registerFileSystemProvider: sinon
+        .stub<
+          Parameters<typeof vscode.workspace.registerFileSystemProvider>,
+          ReturnType<typeof vscode.workspace.registerFileSystemProvider>
+        >()
+        .returns({ dispose: sinon.stub() }),
       workspaceFolders: undefined,
       textDocuments: [],
       fs: {

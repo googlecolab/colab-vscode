@@ -89,3 +89,32 @@ export class ExtensionUriHandler
     }
   }
 }
+
+/**
+ * A handler for a URI matched by its path component.
+ */
+export type UriRouteHandler = (uri: vscode.Uri) => void;
+
+/**
+ * A map from a URI path (without the leading `/`) to its handler.
+ */
+export type UriRoutes = ReadonlyMap<string, UriRouteHandler>;
+
+/**
+ * Subscribes route handlers to the given URI event. The path of each incoming
+ * URI is matched against the keys of `routes` (without the leading `/`); the
+ * matching handler is invoked, if any. Unmatched URIs are ignored.
+ *
+ * @param onReceivedUri - The event source from the extension URI handler.
+ * @param routes - A map from URI path to handler.
+ * @returns A disposable that unsubscribes the listener.
+ */
+export function registerUriRoutes(
+  onReceivedUri: vscode.Event<vscode.Uri>,
+  routes: UriRoutes,
+): vscode.Disposable {
+  return onReceivedUri((uri) => {
+    const path = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
+    routes.get(path)?.(uri);
+  });
+}
