@@ -106,7 +106,7 @@ export async function upload(
       void vs.window.showErrorMessage(msg);
     }
   } finally {
-    const outcome = uploadOutcome(cancelled, successCount, failCount);
+    const outcome = deriveUploadOutcome(cancelled, successCount, failCount);
     telemetry.logUpload(source, outcome, {
       successCount,
       failCount,
@@ -128,7 +128,7 @@ export async function upload(
  * upload.
  * @returns The outcome of the upload attempt.
  */
-function uploadOutcome(
+function deriveUploadOutcome(
   cancelled: boolean,
   successCount: number,
   failCount: number,
