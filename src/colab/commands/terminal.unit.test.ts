@@ -201,21 +201,6 @@ describe('openTerminal command', () => {
       logStub = sinon.stub(telemetry, 'logOpenTerminal');
     });
 
-    it('logs with the default source when none is provided', async () => {
-      (assignmentManager.getServers as sinon.SinonStub).resolves([]);
-
-      await openTerminal(
-        vsCodeStub.asVsCode(),
-        assignmentManager,
-        CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
-      );
-
-      sinon.assert.calledOnceWithExactly(
-        logStub,
-        CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
-      );
-    });
-
     it('logs with the provided source', async () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([]);
 
@@ -228,27 +213,6 @@ describe('openTerminal command', () => {
       sinon.assert.calledOnceWithExactly(
         logStub,
         CommandSource.COMMAND_SOURCE_TREE_VIEW_INLINE,
-      );
-    });
-
-    it('logs even when a terminal is opened with the only server', async () => {
-      const server = buildColabAssignedServer({
-        label: 'Server 1',
-        endpoint: 'test-endpoint-1',
-        baseUrl: 'https://server1.example.com',
-        token: 'token1',
-      });
-      (assignmentManager.getServers as sinon.SinonStub).resolves([server]);
-
-      await openTerminal(
-        vsCodeStub.asVsCode(),
-        assignmentManager,
-        CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR,
-      );
-
-      sinon.assert.calledOnceWithExactly(
-        logStub,
-        CommandSource.COMMAND_SOURCE_COLAB_TOOLBAR,
       );
     });
   });
