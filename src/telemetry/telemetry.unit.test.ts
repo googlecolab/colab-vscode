@@ -346,18 +346,38 @@ describe('Telemetry Module', () => {
       });
     });
 
-    it('converts each Colab SubscriptionTier to its proto-shaped value', () => {
-      const cases: [ColabSubscriptionTier, SubscriptionTier][] = [
-        [ColabSubscriptionTier.NONE, SubscriptionTier.SUBSCRIPTION_TIER_NONE],
-        [ColabSubscriptionTier.PRO, SubscriptionTier.SUBSCRIPTION_TIER_PRO],
-        [
-          ColabSubscriptionTier.PRO_PLUS,
-          SubscriptionTier.SUBSCRIPTION_TIER_PRO_PLUS,
-        ],
-      ];
-      for (const [tier, expected] of cases) {
-        logStub.resetHistory();
-
+    const subscriptionTierCases: {
+      tierLabel: string;
+      tier: ColabSubscriptionTier;
+      expectedLabel: string;
+      expected: SubscriptionTier;
+    }[] = [
+      {
+        tierLabel: 'NONE',
+        tier: ColabSubscriptionTier.NONE,
+        expectedLabel: 'SUBSCRIPTION_TIER_NONE',
+        expected: SubscriptionTier.SUBSCRIPTION_TIER_NONE,
+      },
+      {
+        tierLabel: 'PRO',
+        tier: ColabSubscriptionTier.PRO,
+        expectedLabel: 'SUBSCRIPTION_TIER_PRO',
+        expected: SubscriptionTier.SUBSCRIPTION_TIER_PRO,
+      },
+      {
+        tierLabel: 'PRO_PLUS',
+        tier: ColabSubscriptionTier.PRO_PLUS,
+        expectedLabel: 'SUBSCRIPTION_TIER_PRO_PLUS',
+        expected: SubscriptionTier.SUBSCRIPTION_TIER_PRO_PLUS,
+      },
+    ];
+    for (const {
+      tierLabel,
+      tier,
+      expectedLabel,
+      expected,
+    } of subscriptionTierCases) {
+      it(`converts SubscriptionTier.${tierLabel} to ${expectedLabel}`, () => {
         telemetry.logLowCcuNotification(
           LowBalanceSeverity.SEVERITY_LOW,
           tier,
@@ -372,8 +392,8 @@ describe('Telemetry Module', () => {
             clicked_action: false,
           },
         });
-      }
-    });
+      });
+    }
 
     it('logs on mount Drive snippet', () => {
       const source = CommandSource.COMMAND_SOURCE_COMMAND_PALETTE;
