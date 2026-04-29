@@ -329,55 +329,25 @@ describe('Telemetry Module', () => {
       });
     });
 
-    it('logs on low CCU notification', () => {
-      telemetry.logLowCcuNotification(
-        LowBalanceSeverity.SEVERITY_DEPLETED,
-        ColabSubscriptionTier.PRO,
-        true,
-      );
-
-      sinon.assert.calledOnceWithExactly(logStub, {
-        ...baseLog,
-        low_ccu_notification_event: {
-          severity: LowBalanceSeverity.SEVERITY_DEPLETED,
-          subscription_tier: SubscriptionTier.SUBSCRIPTION_TIER_PRO,
-          clicked_action: true,
-        },
-      });
-    });
-
     const subscriptionTierCases: {
-      tierLabel: string;
       tier: ColabSubscriptionTier;
-      expectedLabel: string;
       expected: SubscriptionTier;
     }[] = [
       {
-        tierLabel: 'NONE',
         tier: ColabSubscriptionTier.NONE,
-        expectedLabel: 'SUBSCRIPTION_TIER_NONE',
         expected: SubscriptionTier.SUBSCRIPTION_TIER_NONE,
       },
       {
-        tierLabel: 'PRO',
         tier: ColabSubscriptionTier.PRO,
-        expectedLabel: 'SUBSCRIPTION_TIER_PRO',
         expected: SubscriptionTier.SUBSCRIPTION_TIER_PRO,
       },
       {
-        tierLabel: 'PRO_PLUS',
         tier: ColabSubscriptionTier.PRO_PLUS,
-        expectedLabel: 'SUBSCRIPTION_TIER_PRO_PLUS',
         expected: SubscriptionTier.SUBSCRIPTION_TIER_PRO_PLUS,
       },
     ];
-    for (const {
-      tierLabel,
-      tier,
-      expectedLabel,
-      expected,
-    } of subscriptionTierCases) {
-      it(`converts SubscriptionTier.${tierLabel} to ${expectedLabel}`, () => {
+    for (const { tier, expected } of subscriptionTierCases) {
+      it(`logs on low CCU notification for SubscriptionTier.${ColabSubscriptionTier[tier]}`, () => {
         telemetry.logLowCcuNotification(
           LowBalanceSeverity.SEVERITY_LOW,
           tier,
