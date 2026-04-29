@@ -230,7 +230,6 @@ export class ColabJupyterServerProvider
           telemetry.logAutoConnect();
           return await this.assignmentManager.latestOrAutoAssignServer();
         case NEW_SERVER.label:
-          telemetry.logAssignServer();
           return await this.assignServer();
         case OPEN_COLAB_WEB.label:
           openColabWeb(this.vs, CommandSource.COMMAND_SOURCE_SERVER_PROVIDER);

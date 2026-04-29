@@ -188,8 +188,54 @@ export enum AuthFlow {
 /** An event representing extension activation. */
 type ActivationEvent = Record<string, never>;
 
-/** An event representing a server assignment */
-type AssignServerEvent = Record<string, never>;
+/** The final outcome of a server assignment attempt. */
+export enum AssignmentOutcome {
+  ASSIGNMENT_OUTCOME_UNSPECIFIED = 0,
+  ASSIGNMENT_OUTCOME_SUCCEEDED = 1,
+  /**
+   * The requested accelerator was unavailable and no fallback was attempted
+   * (e.g., the user explicitly requested a CPU server).
+   */
+  ASSIGNMENT_OUTCOME_ACCELERATOR_UNAVAILABLE = 2,
+  /**
+   * The requested accelerator was unavailable and the fallback chain was
+   * exhausted.
+   */
+  ASSIGNMENT_OUTCOME_ALL_ACCELERATORS_UNAVAILABLE = 3,
+  /** The user already has the maximum number of assignments. */
+  ASSIGNMENT_OUTCOME_TOO_MANY_ASSIGNMENTS = 4,
+  /**
+   * The user does not have enough quota to be assigned the requested
+   * configuration.
+   */
+  ASSIGNMENT_OUTCOME_INSUFFICIENT_QUOTA = 5,
+  /** The user is denylisted from being assigned a server. */
+  ASSIGNMENT_OUTCOME_DENYLISTED = 6,
+  /** Catch-all for unexpected failures. */
+  ASSIGNMENT_OUTCOME_OTHER_FAILURE = 7,
+}
+
+/** An event representing a server assignment attempt. */
+interface AssignServerEvent {
+  /** The final outcome of the assignment attempt. */
+  outcome: AssignmentOutcome;
+  /** The variant of the requested machine type (e.g. "DEFAULT", "GPU", "TPU"). */
+  variant: string;
+  /** The requested accelerator (e.g. "T4", "L4"). Empty when none. */
+  accelerator: string;
+  /**
+   * The requested machine shape ("STANDARD", "HIGHMEM"). Empty when not
+   * applicable.
+   */
+  shape: string;
+  /** The version of the requested runtime image. Empty when not specified. */
+  version: string;
+  /**
+   * Whether one or more fallback accelerators were attempted before reaching
+   * the final outcome.
+   */
+  had_fallback: boolean;
+}
 
 /** An event representing a server auto connection */
 type AutoConnectEvent = Record<string, never>;

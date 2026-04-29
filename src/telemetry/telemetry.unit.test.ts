@@ -15,6 +15,7 @@ import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
   ColabLogEventBase,
   CommandSource,
+  AssignmentOutcome,
   AuthFlow,
   ContentBrowserOperation,
   ContentBrowserTarget,
@@ -219,11 +220,27 @@ describe('Telemetry Module', () => {
     });
 
     it('logs on server assignment', () => {
-      telemetry.logAssignServer();
+      telemetry.logAssignServer(
+        AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+        {
+          variant: 'GPU',
+          accelerator: 'T4',
+          shape: 'STANDARD',
+          version: '',
+          hadFallback: false,
+        },
+      );
 
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
-        assign_server_event: {},
+        assign_server_event: {
+          outcome: AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+          variant: 'GPU',
+          accelerator: 'T4',
+          shape: 'STANDARD',
+          version: '',
+          had_fallback: false,
+        },
       });
     });
 
