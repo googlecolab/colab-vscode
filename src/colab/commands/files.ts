@@ -8,6 +8,8 @@ import vscode, { QuickPickItem } from 'vscode';
 import { log } from '../../common/logging';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
+import { telemetry } from '../../telemetry';
+import { CommandSource, Outcome } from '../../telemetry/api';
 import { buildColabFileUri } from '../files';
 import { UPLOAD } from './constants';
 
@@ -22,6 +24,7 @@ import { UPLOAD } from './constants';
  * @param vs - The VS Code module.
  * @param assignmentManager - The manager responsible for handling server
  * assignments.
+ * @param source - The source of the upload command invocation.
  * @param uri - The primary URI of the file or folder to upload, e.g. the URI of
  * the file which was right-clicked in the file explorer.
  * @param uris - An optional array of all files and folders which should be
@@ -32,66 +35,114 @@ import { UPLOAD } from './constants';
 export async function upload(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
+  source: CommandSource,
   uri: vscode.Uri,
   uris?: vscode.Uri[],
 ) {
-  const selectedServer = await selectServer(vs, assignmentManager);
-  if (!selectedServer) {
-    return;
-  }
-
-  const inputs = uris && uris.length > 0 ? uris : [uri];
-  const plan = await buildUploadPlan(vs, inputs, selectedServer);
-  const { operations } = plan;
-  let { failCount } = plan;
-
-  const filesToUpload = operations.filter((op) => op.type === 'file');
-  const incrementPerFile =
-    filesToUpload.length > 0 ? 100 / filesToUpload.length : 0;
+  let cancelled = true;
   let successCount = 0;
+  let failCount = 0;
+  let fileCount = 0;
+  let directoryCount = 0;
+  let uploadedBytes = 0;
 
-  if (operations.length > 0) {
-    await vs.window.withProgress(
-      {
-        location: vs.ProgressLocation.Notification,
-        title: `Uploading to ${selectedServer.label}...`,
-        cancellable: false,
-      },
-      async (progress) => {
-        for (const op of operations) {
-          try {
-            if (op.type === 'directory') {
-              await createDirectory(vs, op.dest);
-            } else {
-              const fileName = op.source.path.split('/').pop() ?? '';
-              progress.report({
-                message: `Importing ${fileName}...`,
-                increment: incrementPerFile,
-              });
-              const content = await vs.workspace.fs.readFile(op.source);
-              await vs.workspace.fs.writeFile(op.dest, content);
-              successCount++;
+  try {
+    const selectedServer = await selectServer(vs, assignmentManager);
+    if (!selectedServer) {
+      return;
+    }
+    cancelled = false;
+
+    const inputs = uris && uris.length > 0 ? uris : [uri];
+    const plan = await buildUploadPlan(vs, inputs, selectedServer);
+    const { operations } = plan;
+    failCount = plan.failCount;
+    fileCount = operations.filter((op) => op.type === 'file').length;
+    directoryCount = operations.filter((op) => op.type === 'directory').length;
+
+    const incrementPerFile = fileCount > 0 ? 100 / fileCount : 0;
+
+    if (operations.length > 0) {
+      await vs.window.withProgress(
+        {
+          location: vs.ProgressLocation.Notification,
+          title: `Uploading to ${selectedServer.label}...`,
+          cancellable: false,
+        },
+        async (progress) => {
+          for (const op of operations) {
+            try {
+              if (op.type === 'directory') {
+                await createDirectory(vs, op.dest);
+              } else {
+                const fileName = op.source.path.split('/').pop() ?? '';
+                progress.report({
+                  message: `Importing ${fileName}...`,
+                  increment: incrementPerFile,
+                });
+                const content = await vs.workspace.fs.readFile(op.source);
+                await vs.workspace.fs.writeFile(op.dest, content);
+                successCount++;
+                uploadedBytes += content.byteLength;
+              }
+            } catch (err) {
+              log.error(`Failed to process ${op.dest.toString()}`, err);
+              failCount++;
             }
-          } catch (err) {
-            log.error(`Failed to process ${op.dest.toString()}`, err);
-            failCount++;
           }
-        }
-      },
-    );
-  }
+        },
+      );
+    }
 
-  if (successCount > 0) {
-    const countPart = successCount > 1 ? 'items' : 'item';
-    const msg = `Successfully uploaded ${successCount.toString()} ${countPart} to ${selectedServer.label}`;
-    void vs.window.showInformationMessage(msg);
-  }
+    if (successCount > 0) {
+      const countPart = successCount > 1 ? 'items' : 'item';
+      const msg = `Successfully uploaded ${successCount.toString()} ${countPart} to ${selectedServer.label}`;
+      void vs.window.showInformationMessage(msg);
+    }
 
-  if (failCount > 0) {
-    const countPart = failCount > 1 ? 'items' : 'item';
-    const msg = `Failed to upload ${failCount.toString()} ${countPart}. Check logs for details.`;
-    void vs.window.showErrorMessage(msg);
+    if (failCount > 0) {
+      const countPart = failCount > 1 ? 'items' : 'item';
+      const msg = `Failed to upload ${failCount.toString()} ${countPart}. Check logs for details.`;
+      void vs.window.showErrorMessage(msg);
+    }
+  } finally {
+    const outcome = deriveUploadOutcome(cancelled, successCount, failCount);
+    telemetry.logUpload(source, outcome, {
+      successCount,
+      failCount,
+      fileCount,
+      directoryCount,
+      uploadedBytes,
+    });
   }
+}
+
+/**
+ * Derives the {@link Outcome} of an upload attempt from the success and
+ * failure counts.
+ *
+ * @param cancelled - Whether the user cancelled before any work was
+ * attempted.
+ * @param successCount - The number of files that were successfully uploaded.
+ * @param failCount - The number of files or directories that failed to
+ * upload.
+ * @returns The outcome of the upload attempt.
+ */
+function deriveUploadOutcome(
+  cancelled: boolean,
+  successCount: number,
+  failCount: number,
+): Outcome {
+  if (cancelled) {
+    return Outcome.OUTCOME_CANCELLED;
+  }
+  if (failCount === 0) {
+    return Outcome.OUTCOME_SUCCEEDED;
+  }
+  if (successCount === 0) {
+    return Outcome.OUTCOME_FAILED;
+  }
+  return Outcome.OUTCOME_PARTIAL_SUCCESS;
 }
 
 async function selectServer(

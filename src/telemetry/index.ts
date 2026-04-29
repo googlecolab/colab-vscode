@@ -16,6 +16,7 @@ import {
   CommandSource,
   AuthFlow,
   NotebookSource,
+  Outcome,
 } from './api';
 import { ClearcutClient } from './client';
 
@@ -127,6 +128,29 @@ export const telemetry = {
   },
   logUpgradeToPro: (source: CommandSource) => {
     log({ upgrade_to_pro_event: { source } });
+  },
+  logUpload: (
+    source: CommandSource,
+    outcome: Outcome,
+    stats: {
+      successCount: number;
+      failCount: number;
+      fileCount: number;
+      directoryCount: number;
+      uploadedBytes: number;
+    },
+  ) => {
+    log({
+      upload_event: {
+        source,
+        outcome,
+        success_count: stats.successCount,
+        fail_count: stats.failCount,
+        file_count: stats.fileCount,
+        directory_count: stats.directoryCount,
+        uploaded_bytes: stats.uploadedBytes,
+      },
+    });
   },
 };
 
