@@ -5,6 +5,12 @@
  */
 
 import vscode, { Uri } from 'vscode';
+import { telemetry } from '../../telemetry';
+import {
+  ContentBrowserOperation,
+  ContentBrowserTarget,
+  Outcome,
+} from '../../telemetry/api';
 import type { ContentItem } from './content-item';
 
 /**
@@ -18,29 +24,45 @@ import type { ContentItem } from './content-item';
  * @param contextItem - The tree view context item.
  */
 export async function newFile(vs: typeof vscode, contextItem: ContentItem) {
-  const destination = folderOrParent(vs, contextItem);
-  const name = await vs.window.showInputBox({
-    title: 'New File',
-    prompt: 'Enter the file name',
-    validateInput: (value) => validateFileOrFolder(vs, destination, value),
-  });
-  if (!name) {
-    return;
-  }
-  const uri = vs.Uri.joinPath(destination, name);
-  const isFolder = name.endsWith('/');
+  let outcome = Outcome.OUTCOME_CANCELLED;
+  let target = ContentBrowserTarget.TARGET_FILE;
   try {
-    if (isFolder) {
-      await vs.workspace.fs.createDirectory(uri);
+    const destination = folderOrParent(vs, contextItem);
+    const name = await vs.window.showInputBox({
+      title: 'New File',
+      prompt: 'Enter the file name',
+      validateInput: (value) => validateFileOrFolder(vs, destination, value),
+    });
+    if (!name) {
       return;
     }
-    await vs.workspace.fs.writeFile(uri, new Uint8Array());
-    await vs.commands.executeCommand('vscode.open', uri);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'unknown error';
-    const type = isFolder ? 'folder' : 'file';
-    void vs.window.showErrorMessage(
-      `Failed to create ${type} "${name}": ${msg}`,
+    const uri = vs.Uri.joinPath(destination, name);
+    const isDirectory = name.endsWith('/');
+    target = isDirectory
+      ? ContentBrowserTarget.TARGET_DIRECTORY
+      : ContentBrowserTarget.TARGET_FILE;
+    try {
+      if (isDirectory) {
+        await vs.workspace.fs.createDirectory(uri);
+        outcome = Outcome.OUTCOME_SUCCEEDED;
+        return;
+      }
+      await vs.workspace.fs.writeFile(uri, new Uint8Array());
+      await vs.commands.executeCommand('vscode.open', uri);
+      outcome = Outcome.OUTCOME_SUCCEEDED;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'unknown error';
+      const type = isDirectory ? 'folder' : 'file';
+      void vs.window.showErrorMessage(
+        `Failed to create ${type} "${name}": ${msg}`,
+      );
+      outcome = Outcome.OUTCOME_FAILED;
+    }
+  } finally {
+    telemetry.logContentBrowserFileOperation(
+      ContentBrowserOperation.OPERATION_NEW_FILE,
+      outcome,
+      target,
     );
   }
 }
@@ -54,22 +76,33 @@ export async function newFile(vs: typeof vscode, contextItem: ContentItem) {
  * @param contextItem - The tree view context item.
  */
 export async function newFolder(vs: typeof vscode, contextItem: ContentItem) {
-  const destination = folderOrParent(vs, contextItem);
-  const name = await vs.window.showInputBox({
-    title: 'New Folder',
-    prompt: 'Enter the folder name',
-    validateInput: (value) => validateFileOrFolder(vs, destination, value),
-  });
-  if (!name) {
-    return;
-  }
-  const uri = vs.Uri.joinPath(destination, name);
+  let outcome = Outcome.OUTCOME_CANCELLED;
   try {
-    await vs.workspace.fs.createDirectory(uri);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'unknown error';
-    void vs.window.showErrorMessage(
-      `Failed to create folder "${name}": ${msg}`,
+    const destination = folderOrParent(vs, contextItem);
+    const name = await vs.window.showInputBox({
+      title: 'New Folder',
+      prompt: 'Enter the folder name',
+      validateInput: (value) => validateFileOrFolder(vs, destination, value),
+    });
+    if (!name) {
+      return;
+    }
+    const uri = vs.Uri.joinPath(destination, name);
+    try {
+      await vs.workspace.fs.createDirectory(uri);
+      outcome = Outcome.OUTCOME_SUCCEEDED;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'unknown error';
+      void vs.window.showErrorMessage(
+        `Failed to create folder "${name}": ${msg}`,
+      );
+      outcome = Outcome.OUTCOME_FAILED;
+    }
+  } finally {
+    telemetry.logContentBrowserFileOperation(
+      ContentBrowserOperation.OPERATION_NEW_FOLDER,
+      outcome,
+      ContentBrowserTarget.TARGET_DIRECTORY,
     );
   }
 }
@@ -123,32 +156,45 @@ export async function download(vs: typeof vscode, contextItem: ContentItem) {
  */
 // TODO: Look into preserving expanded state of renamed folders.
 export async function renameFile(vs: typeof vscode, contextItem: ContentItem) {
-  const oldName = contextItem.uri.path.split('/').pop() ?? '';
-  const destination = vs.Uri.joinPath(contextItem.uri, '..');
-
-  const newName = await vs.window.showInputBox({
-    title: 'Rename',
-    prompt: 'Enter the new name',
-    value: oldName,
-    validateInput: async (value) => {
-      if (value === oldName) {
-        return undefined;
-      }
-      return validateFileOrFolder(vs, destination, value);
-    },
-  });
-
-  if (!newName || newName === oldName) {
-    return;
-  }
-
-  const newUri = vs.Uri.joinPath(destination, newName);
+  let outcome = Outcome.OUTCOME_CANCELLED;
   try {
-    await vs.workspace.fs.rename(contextItem.uri, newUri, { overwrite: false });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'unknown error';
-    void vs.window.showErrorMessage(
-      `Failed to rename "${oldName}" to "${newName}": ${msg}`,
+    const oldName = contextItem.uri.path.split('/').pop() ?? '';
+    const destination = vs.Uri.joinPath(contextItem.uri, '..');
+
+    const newName = await vs.window.showInputBox({
+      title: 'Rename',
+      prompt: 'Enter the new name',
+      value: oldName,
+      validateInput: async (value) => {
+        if (value === oldName) {
+          return undefined;
+        }
+        return validateFileOrFolder(vs, destination, value);
+      },
+    });
+
+    if (!newName || newName === oldName) {
+      return;
+    }
+
+    const newUri = vs.Uri.joinPath(destination, newName);
+    try {
+      await vs.workspace.fs.rename(contextItem.uri, newUri, {
+        overwrite: false,
+      });
+      outcome = Outcome.OUTCOME_SUCCEEDED;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'unknown error';
+      void vs.window.showErrorMessage(
+        `Failed to rename "${oldName}" to "${newName}": ${msg}`,
+      );
+      outcome = Outcome.OUTCOME_FAILED;
+    }
+  } finally {
+    telemetry.logContentBrowserFileOperation(
+      ContentBrowserOperation.OPERATION_RENAME,
+      outcome,
+      contentItemToTarget(vs, contextItem),
     );
   }
 }
@@ -160,22 +206,33 @@ export async function renameFile(vs: typeof vscode, contextItem: ContentItem) {
  * @param contextItem - The tree view context item.
  */
 export async function deleteFile(vs: typeof vscode, contextItem: ContentItem) {
-  const name = contextItem.uri.path.split('/').pop() ?? '';
-  const confirmation = await vs.window.showWarningMessage(
-    `Are you sure you want to delete "${name}"?`,
-    { modal: true },
-    'Delete',
-  );
-
-  if (confirmation !== 'Delete') {
-    return;
-  }
-
+  let outcome = Outcome.OUTCOME_CANCELLED;
   try {
-    await vs.workspace.fs.delete(contextItem.uri, { recursive: true });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'unknown error';
-    void vs.window.showErrorMessage(`Failed to delete "${name}": ${msg}`);
+    const name = contextItem.uri.path.split('/').pop() ?? '';
+    const confirmation = await vs.window.showWarningMessage(
+      `Are you sure you want to delete "${name}"?`,
+      { modal: true },
+      'Delete',
+    );
+
+    if (confirmation !== 'Delete') {
+      return;
+    }
+
+    try {
+      await vs.workspace.fs.delete(contextItem.uri, { recursive: true });
+      outcome = Outcome.OUTCOME_SUCCEEDED;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'unknown error';
+      void vs.window.showErrorMessage(`Failed to delete "${name}": ${msg}`);
+      outcome = Outcome.OUTCOME_FAILED;
+    }
+  } finally {
+    telemetry.logContentBrowserFileOperation(
+      ContentBrowserOperation.OPERATION_DELETE,
+      outcome,
+      contentItemToTarget(vs, contextItem),
+    );
   }
 }
 
@@ -211,4 +268,13 @@ function folderOrParent(vs: typeof vscode, item: ContentItem): Uri {
   return item.contextValue === 'file'
     ? vs.Uri.joinPath(item.uri, '..')
     : item.uri;
+}
+
+function contentItemToTarget(
+  vs: typeof vscode,
+  item: ContentItem,
+): ContentBrowserTarget {
+  return item.type === vs.FileType.Directory
+    ? ContentBrowserTarget.TARGET_DIRECTORY
+    : ContentBrowserTarget.TARGET_FILE;
 }

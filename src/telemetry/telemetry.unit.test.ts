@@ -16,6 +16,8 @@ import {
   ColabLogEventBase,
   CommandSource,
   AuthFlow,
+  ContentBrowserOperation,
+  ContentBrowserTarget,
   NotebookSource,
   Outcome,
 } from './api';
@@ -273,6 +275,23 @@ describe('Telemetry Module', () => {
       sinon.assert.calledOnceWithExactly(logStub, {
         ...baseLog,
         colab_toolbar_event: {},
+      });
+    });
+
+    it('logs on content browser file operation', () => {
+      telemetry.logContentBrowserFileOperation(
+        ContentBrowserOperation.OPERATION_DELETE,
+        Outcome.OUTCOME_SUCCEEDED,
+        ContentBrowserTarget.TARGET_DIRECTORY,
+      );
+
+      sinon.assert.calledOnceWithExactly(logStub, {
+        ...baseLog,
+        content_browser_file_operation_event: {
+          operation: ContentBrowserOperation.OPERATION_DELETE,
+          outcome: Outcome.OUTCOME_SUCCEEDED,
+          target: ContentBrowserTarget.TARGET_DIRECTORY,
+        },
       });
     });
 
