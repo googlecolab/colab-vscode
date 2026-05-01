@@ -63,6 +63,7 @@ describe('ContentTreeProvider', () => {
   let fsStub: SinonStubbedInstance<ContentsFileSystemProvider>;
   let tree: ContentTreeProvider;
   let fsDisposable: vscode.Disposable;
+  let watchDisposables: sinon.SinonStub[];
 
   enum AuthState {
     SIGNED_OUT,
@@ -90,6 +91,12 @@ describe('ContentTreeProvider', () => {
     assignmentChangeEmitter = new TestEventEmitter<AssignmentChangeEvent>();
     fileChangeEmitter = new TestEventEmitter<FileChangeEvent[]>();
     fsStub = sinon.createStubInstance(ContentsFileSystemProvider);
+    watchDisposables = [];
+    fsStub.watch.callsFake(() => {
+      const dispose = sinon.stub();
+      watchDisposables.push(dispose);
+      return { dispose };
+    });
     // Needed to work around the property being readonly.
     Object.defineProperty(fsStub, 'onDidChangeFile', {
       value: sinon.stub().callsFake(fileChangeEmitter.event),
@@ -100,13 +107,14 @@ describe('ContentTreeProvider', () => {
       { isCaseSensitive: true },
     );
 
-    tree = new ContentTreeProvider(
-      assignmentStub,
-      authChangeEmitter.event,
-      assignmentChangeEmitter.event,
-      fileChangeEmitter.event,
-      TEST_SCHEME,
-    );
+    tree = new ContentTreeProvider({
+      assignments: assignmentStub,
+      authChange: authChangeEmitter.event,
+      assignmentChange: assignmentChangeEmitter.event,
+      fileChange: fileChangeEmitter.event,
+      scheme: TEST_SCHEME,
+      watchResource: fsStub.watch,
+    });
   });
 
   afterEach(() => {
@@ -225,6 +233,47 @@ describe('ContentTreeProvider', () => {
               },
             },
           ]);
+          sinon.assert.calledOnceWithExactly(fsStub.watch, rootServerItem.uri, {
+            recursive: false,
+            excludes: [],
+          });
+        });
+
+        it('watches a directory when it is read', async () => {
+          const rootServerItems = await tree.getChildren(undefined);
+          assert(rootServerItems.length === 1);
+          const rootServerItem = rootServerItems[0];
+          fsStub.readDirectory.onCall(0).resolves([['foo.txt', FileType.File]]);
+
+          await tree.getChildren(rootServerItem);
+
+          sinon.assert.calledOnceWithExactly(fsStub.watch, rootServerItem.uri, {
+            recursive: false,
+            excludes: [],
+          });
+        });
+
+        it('does not duplicate watches for a directory that is read repeatedly', async () => {
+          const rootServerItems = await tree.getChildren(undefined);
+          assert(rootServerItems.length === 1);
+          const rootServerItem = rootServerItems[0];
+          fsStub.readDirectory.resolves([['foo.txt', FileType.File]]);
+
+          await tree.getChildren(rootServerItem);
+          await tree.getChildren(rootServerItem);
+
+          sinon.assert.calledOnce(fsStub.watch);
+        });
+
+        it('disposes directory watches when refreshed', async () => {
+          const rootServerItems = await tree.getChildren(undefined);
+          assert(rootServerItems.length === 1);
+          fsStub.readDirectory.resolves([['foo.txt', FileType.File]]);
+          await tree.getChildren(rootServerItems[0]);
+
+          tree.refresh();
+
+          sinon.assert.calledOnce(watchDisposables[0]);
         });
 
         it('returns a directory', async () => {
@@ -503,6 +552,26 @@ describe('ContentTreeProvider', () => {
       fsStub.readDirectory.onCall(3).resolves([['foo', FileType.Directory]]);
       const rootChildrenAfterDelete = await tree.getChildren(serverRoot);
       assert.notStrictEqual(rootChildrenAfterDelete[0], fooFolder);
+    });
+
+    it('disposes watches for deleted folders', async () => {
+      const rootItems = await tree.getChildren(undefined);
+      const serverRoot = rootItems[0];
+      fsStub.readDirectory.onCall(0).resolves([['foo', FileType.Directory]]);
+      const rootChildren = await tree.getChildren(serverRoot);
+      const fooFolder = rootChildren[0];
+      fsStub.readDirectory.onCall(1).resolves([['bar.txt', FileType.File]]);
+      await tree.getChildren(fooFolder);
+
+      fileChangeEmitter.fire([
+        {
+          type: vscode.FileChangeType.Deleted,
+          uri: fooFolder.uri,
+        },
+      ]);
+
+      sinon.assert.notCalled(watchDisposables[0]);
+      sinon.assert.calledOnce(watchDisposables[1]);
     });
   });
 });

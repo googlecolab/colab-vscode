@@ -82,12 +82,13 @@ export function createJupyterModule(
     assignmentManager,
   );
   const fs = new ContentsFileSystemProvider(vs, jupyterConnections);
-  const contentTree = new ContentTreeProvider(
-    assignmentManager,
-    authProvider.onDidChangeSessions,
-    assignmentManager.onDidAssignmentsChange,
-    fs.onDidChangeFile,
-  );
+  const contentTree = new ContentTreeProvider({
+    assignments: assignmentManager,
+    authChange: authProvider.onDidChangeSessions,
+    assignmentChange: assignmentManager.onDidAssignmentsChange,
+    fileChange: fs.onDidChangeFile,
+    watchResource: fs.watch.bind(fs),
+  });
   const resourceTree = new ResourceTreeProvider(
     assignmentManager,
     assignmentManager.onDidAssignmentsChange,
