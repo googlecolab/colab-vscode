@@ -7,7 +7,11 @@
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { FileChangeEvent, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
+import {
+  FileChangeEvent,
+  Uri,
+  WorkspaceFoldersChangeEvent,
+} from 'vscode';
 import { Variant } from '../../colab/api';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { TestUri } from '../../test/helpers/uri';
@@ -25,7 +29,7 @@ import {
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
-import { ContentsFileSystemProvider } from './file-system';
+import { ContentsFileSystemProvider, TEST_ONLY } from './file-system';
 import { JupyterConnectionManager } from './sessions';
 
 const DEFAULT_SERVER: ColabAssignedServer = {
@@ -54,6 +58,12 @@ const FOO_CONTENT_DIR: Contents = {
   mimetype: '',
   content: '',
   format: '',
+};
+
+const ROOT_CONTENT_DIR: Contents = {
+  ...FOO_CONTENT_DIR,
+  name: 'content',
+  path: '/',
 };
 
 const FOO_CONTENT_FILE: Contents = {
@@ -85,6 +95,7 @@ const FORBIDDEN = new ResponseError(new Response(undefined, { status: 403 }));
 const NOT_FOUND = new ResponseError(new Response(undefined, { status: 404 }));
 const CONFLICT = new ResponseError(new Response(undefined, { status: 409 }));
 const TEAPOT = new ResponseError(new Response(undefined, { status: 418 }));
+const WATCH_POLL_INTERVAL_MS = TEST_ONLY.WATCH_POLL_INTERVAL_MS;
 
 describe('ContentsFileSystemProvider', () => {
   let vs: VsCodeStub;
@@ -98,6 +109,7 @@ describe('ContentsFileSystemProvider', () => {
     endpoint: string,
   ): sinon.SinonStubbedInstance<ContentsApi> {
     const contentsStub = sinon.createStubInstance(ContentsApi);
+    jupyterStub.get.withArgs(endpoint).resolves(contentsStub);
     jupyterStub.getOrCreate.withArgs(endpoint).resolves(contentsStub);
     return contentsStub;
   }
@@ -327,7 +339,53 @@ describe('ContentsFileSystemProvider', () => {
     });
   });
 
+
   describe('watch', () => {
+    let fakeClock: sinon.SinonFakeTimers;
+
+    async function flushWatchRun() {
+      await fakeClock.tickAsync(0);
+    }
+
+    function stubWatchedRootDirectory(): {
+      contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
+      rootContents: DirectoryContents;
+    } {
+      const contentsStub = stubClient('m-s-foo');
+      const rootContents: DirectoryContents = {
+        ...ROOT_CONTENT_DIR,
+        type: 'directory',
+        content: [],
+      };
+      contentsStub.get.callsFake((request) => {
+        if (request.path === '/' && request.content === 0) {
+          return Promise.resolve(ROOT_CONTENT_DIR);
+        }
+        if (
+          request.path === '/' &&
+          request.type === ContentsGetTypeEnum.Directory
+        ) {
+          return Promise.resolve(rootContents);
+        }
+        return Promise.reject(
+          new Error(
+            `Unexpected contents.get request: ${JSON.stringify(request)}`,
+          ),
+        );
+      });
+      return { contentsStub, rootContents };
+    }
+
+    beforeEach(() => {
+      fakeClock = sinon.useFakeTimers({
+        toFake: ['setInterval', 'clearInterval', 'setTimeout'],
+      });
+    });
+
+    afterEach(() => {
+      fakeClock.restore();
+    });
+
     it('throws when disposed', () => {
       fs.dispose();
 
@@ -348,15 +406,73 @@ describe('ContentsFileSystemProvider', () => {
       }).to.throw(/FileNotFound/);
     });
 
-    it('no-ops', () => {
-      expect(
-        fs.watch(TestUri.parse('colab://m-s-foo/'), {
-          recursive: false,
-          excludes: [],
-        }),
-      ).to.have.property('dispose');
+    it('returns a disposable and forwards watcher events through the provider', async () => {
+      const { rootContents } = stubWatchedRootDirectory();
+
+      const watch = fs.watch(TestUri.parse('colab://m-s-foo/'), {
+        recursive: false,
+        excludes: [],
+      });
+
+      expect(watch).to.have.property('dispose');
+      await flushWatchRun();
+      listener.resetHistory();
+
+      rootContents.content = [FOO_CONTENT_FILE];
+      await fakeClock.tickAsync(WATCH_POLL_INTERVAL_MS);
+
+      sinon.assert.calledOnceWithMatch(listener, [
+        {
+          type: FileChangeType.Created,
+          uri: uriStringMatch('colab://m-s-foo/foo.txt'),
+        },
+      ]);
+    });
+
+    it('does not create a Jupyter client while polling watches', async () => {
+      fs.watch(TestUri.parse('colab://m-s-foo/'), {
+        recursive: false,
+        excludes: [],
+      });
+
+      await flushWatchRun();
+
+      sinon.assert.calledWith(jupyterStub.get, 'm-s-foo');
+      sinon.assert.notCalled(jupyterStub.getOrCreate);
+      sinon.assert.notCalled(listener);
+    });
+
+    it('stops polling watches when a connection is revoked', async () => {
+      const { contentsStub } = stubWatchedRootDirectory();
+      fs.watch(TestUri.parse('colab://m-s-foo/'), {
+        recursive: false,
+        excludes: [],
+      });
+      await flushWatchRun();
+      contentsStub.get.resetHistory();
+
+      connectionEmitter.fire(['m-s-foo']);
+      await fakeClock.tickAsync(WATCH_POLL_INTERVAL_MS);
+
+      sinon.assert.notCalled(contentsStub.get);
+    });
+
+    it('stops polling when the provider is disposed', async () => {
+      const { contentsStub } = stubWatchedRootDirectory();
+      fs.watch(TestUri.parse('colab://m-s-foo/'), {
+        recursive: false,
+        excludes: [],
+      });
+      await flushWatchRun();
+      contentsStub.get.resetHistory();
+
+      fs.dispose();
+      await fakeClock.tickAsync(WATCH_POLL_INTERVAL_MS);
+
+      sinon.assert.notCalled(contentsStub.get);
     });
   });
+
 
   describe('stat', () => {
     it('throws when disposed', async () => {

@@ -91,6 +91,24 @@
             "experimental"
           ]
         },
+        "colab.fileWatchPollIntervalMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 1,
+          "description": "Controls how often mounted Colab filesystems poll watched files and folders for changes, in milliseconds."
+        },
+        "colab.fileWatchSnapshotRequestConcurrency": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "Limits how many directory snapshot requests can be in flight at once for a recursive Colab filesystem watch."
+        },
+        "colab.fileWatchMaxSnapshotEntries": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 1,
+          "description": "Limits how many entries a single recursive Colab filesystem watch snapshot can collect before stopping at the shallowest discovered entries."
+        },
         "colab.terminal": {
           "type": "boolean",
           "default": true,

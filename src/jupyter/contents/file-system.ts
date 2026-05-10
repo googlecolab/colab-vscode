@@ -32,6 +32,7 @@ import {
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
+import { ContentsFileWatcher } from './file-watcher';
 import { JupyterConnectionManager } from './sessions';
 
 /**
@@ -68,6 +69,7 @@ export class ContentsFileSystemProvider
   private readonly changeEmitter: EventEmitter<FileChangeEvent[]>;
   private readonly workspaceListener: Disposable;
   private readonly connectionListener: Disposable;
+  private readonly watcher: ContentsFileWatcher;
 
   /**
    * Initializes a new instance.
@@ -81,6 +83,12 @@ export class ContentsFileSystemProvider
   ) {
     this.changeEmitter = new vs.EventEmitter<FileChangeEvent[]>();
     this.onDidChangeFile = this.changeEmitter.event;
+    this.watcher = new ContentsFileWatcher(
+      vs,
+      vs.workspace.getConfiguration('colab'),
+      this.getExistingClient.bind(this),
+      this.changeEmitter.fire.bind(this.changeEmitter),
+    );
     this.workspaceListener = vs.workspace.onDidChangeWorkspaceFolders(
       this.dropMatchingConnection.bind(this),
     );
@@ -97,6 +105,8 @@ export class ContentsFileSystemProvider
     this.isDisposed = true;
     this.workspaceListener.dispose();
     this.connectionListener.dispose();
+    this.watcher.dispose();
+    this.changeEmitter.dispose();
   }
 
   /**
@@ -132,33 +142,28 @@ export class ContentsFileSystemProvider
   }
 
   /**
-   * All calls are no-ops.
+   * Polls watched resources for changes.
    *
-   * The Jupyter Server REST API does not support watching and Colab has no
-   * socket-based implementation that can easily be used.
-   *
-   * In the future we may consider adding time-based polling to fire events for
-   * files/directories that have been `watch`-ed.
+   * The Jupyter Server REST API does not support native watching and Colab has
+   * no socket-based implementation that can easily be used. Instead, watched
+   * resources are polled on a fixed interval and translated to file change
+   * events.
    *
    * @param uri - The URI of the resource.
-   * @param _options - Configuration options for the operation.
-   * @returns A no-op disposable.
+   * @param options - Configuration options for the operation.
+   * @returns A disposable that stops polling this watch registration.
    */
   @traceMethod
   watch(
     uri: Uri,
-    _options: {
+    options: {
       readonly recursive: boolean;
       readonly excludes: readonly string[];
     },
   ): Disposable {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
-    return {
-      dispose: () => {
-        // No-op
-      },
-    };
+    return this.watcher.watch(uri, options.recursive);
   }
 
   /**
@@ -485,16 +490,30 @@ export class ContentsFileSystemProvider
     }
   }
 
+  private async getExistingClient(
+    endpoint: string | Uri,
+  ): Promise<ContentsApi | undefined> {
+    endpoint = endpoint instanceof this.vs.Uri ? endpoint.authority : endpoint;
+    try {
+      return await this.jupyterConnections.get(endpoint);
+    } catch (e: unknown) {
+      log.warn(`Unable to get existing Jupyter client for ${endpoint}`, e);
+      return undefined;
+    }
+  }
+
   private dropMatchingConnection(e: WorkspaceFoldersChangeEvent) {
     for (const s of e.removed) {
       if (s.uri.scheme !== 'colab') {
         continue;
       }
+      this.watcher.removeWatchesForAuthority(s.uri.authority);
       this.jupyterConnections.drop(s.uri.authority, true);
     }
   }
 
   private removeWorkspaceFolders(endpoints: string[]): void {
+    this.watcher.removeWatchesForAuthorities(endpoints);
     const currentFolders = this.vs.workspace.workspaceFolders;
     if (!currentFolders || currentFolders.length === 0) {
       return;
@@ -549,3 +568,5 @@ export class ContentsFileSystemProvider
     }
   }
 }
+
+export { TEST_ONLY } from './file-watcher';
