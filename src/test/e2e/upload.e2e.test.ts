@@ -17,6 +17,7 @@ import {
   createNotebook,
   hasQuickPickItem,
   KERNEL_SELECT_WAIT_MS,
+  safeExecuteCommand,
   selectQuickPickItem,
   selectQuickPickItemIfShown,
   selectQuickPicksInOrder,
@@ -30,14 +31,24 @@ it('uploads a file from the explorer context menu', async () => {
   const driver = workbench.getDriver();
 
   await createNotebook(workbench);
-  await workbench.executeCommand('Notebook: Select Notebook Kernel');
-  if (await hasQuickPickItem(driver, 'Select Another Kernel')) {
-    await selectQuickPickItem(driver, 'Select Another Kernel');
+  await safeExecuteCommand(workbench, 'Notebook: Select Notebook Kernel');
+  if (
+    await hasQuickPickItem(driver, 'Change kernel', 'Select Another Kernel')
+  ) {
+    await selectQuickPickItem(driver, 'Change kernel', 'Select Another Kernel');
   }
-  await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  await selectQuickPickItemIfShown(driver, 'Python', KERNEL_SELECT_WAIT_MS);
+  await selectQuickPicksInOrder(driver, [
+    { picker: 'kernel source', item: 'Colab' },
+    { picker: 'Select a remote server', item: 'Auto Connect' },
+  ]);
+  await selectQuickPickItemIfShown(
+    driver,
+    'Select a Kernel',
+    'Python',
+    KERNEL_SELECT_WAIT_MS,
+  );
 
-  await workbench.executeCommand('View: Show Explorer');
+  await safeExecuteCommand(workbench, 'View: Show Explorer');
   const explorerSection = await driver.wait(
     async () => {
       try {
@@ -76,7 +87,7 @@ it('uploads a file from the explorer context menu', async () => {
 
   // The Contents tree is rooted on a collapsed server node ("Colab CPU");
   // `findItem` scrolls but does not auto-expand parents, so expand first.
-  await workbench.executeCommand('Colab: Focus on Contents View');
+  await safeExecuteCommand(workbench, 'Colab: Focus on Contents View');
   await driver.wait(
     async () => {
       try {
@@ -104,7 +115,7 @@ it('uploads a file from the explorer context menu', async () => {
   // Verify the uploaded file content via a Python cell that raises on
   // mismatch. If the upload landed the wrong bytes, the cell errors and
   // `assertAllCellsExecutedSuccessfully` fails.
-  await workbench.executeCommand('Notebook: Edit Cell');
+  await safeExecuteCommand(workbench, 'Notebook: Edit Cell');
   const cell = await driver.switchTo().activeElement();
   await cell.sendKeys(
     `expected = 'Hello world!\\n'
@@ -112,6 +123,6 @@ actual = open('/content/hello-world.txt').read()
 assert actual == expected, f'expected {expected!r}, got {actual!r}'`,
   );
 
-  await workbench.executeCommand('Notebook: Run All');
+  await safeExecuteCommand(workbench, 'Notebook: Run All');
   await assertAllCellsExecutedSuccessfully(driver, workbench);
 });

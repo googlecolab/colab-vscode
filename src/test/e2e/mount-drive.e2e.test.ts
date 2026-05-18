@@ -14,6 +14,7 @@ import {
   hasQuickPickItem,
   KERNEL_SELECT_WAIT_MS,
   pushDialogButton,
+  safeExecuteCommand,
   selectQuickPickItem,
   selectQuickPickItemIfShown,
   selectQuickPicksInOrder,
@@ -31,22 +32,32 @@ it('mounts Google Drive', async () => {
   await createNotebook(workbench);
   // Delete the initial empty cell first because Mount Drive command will
   // insert code snippet in a new cell.
-  await workbench.executeCommand('Notebook: Delete Cell');
+  await safeExecuteCommand(workbench, 'Notebook: Delete Cell');
 
   // Connect to Colab.
-  await workbench.executeCommand('Notebook: Select Notebook Kernel');
+  await safeExecuteCommand(workbench, 'Notebook: Select Notebook Kernel');
   // If the test is running on a machine with a configured Python environment,
   // the "Select Another Kernel" option may appear instead of "Colab". If so, we
   // need to click it first before selecting "Colab".
-  if (await hasQuickPickItem(driver, 'Select Another Kernel')) {
-    await selectQuickPickItem(driver, 'Select Another Kernel');
+  if (
+    await hasQuickPickItem(driver, 'Change kernel', 'Select Another Kernel')
+  ) {
+    await selectQuickPickItem(driver, 'Change kernel', 'Select Another Kernel');
   }
-  await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  await selectQuickPickItemIfShown(driver, 'Python', KERNEL_SELECT_WAIT_MS);
+  await selectQuickPicksInOrder(driver, [
+    { picker: 'kernel source', item: 'Colab' },
+    { picker: 'Select a remote server', item: 'Auto Connect' },
+  ]);
+  await selectQuickPickItemIfShown(
+    driver,
+    'Select a Kernel',
+    'Python',
+    KERNEL_SELECT_WAIT_MS,
+  );
 
   // Kick-off Drive mounting.
-  await workbench.executeCommand('Colab: Mount Google Drive to Server...');
-  await workbench.executeCommand('Notebook: Run All');
+  await safeExecuteCommand(workbench, 'Colab: Mount Google Drive to Server...');
+  await safeExecuteCommand(workbench, 'Notebook: Run All');
   await pushDialogButton(
     driver,
     'Connect to Google Drive',

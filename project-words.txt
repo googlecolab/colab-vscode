@@ -13,6 +13,7 @@ googlecolab
 googlers
 grayscale
 highmem
+inputbox
 ipykernel
 ipynb
 jupyterclient

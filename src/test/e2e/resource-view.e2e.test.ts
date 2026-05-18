@@ -10,6 +10,7 @@ import {
   createNotebook,
   hasQuickPickItem,
   KERNEL_SELECT_WAIT_MS,
+  safeExecuteCommand,
   selectQuickPickItem,
   selectQuickPickItemIfShown,
   selectQuickPicksInOrder,
@@ -28,18 +29,28 @@ it('renders resource tree view', async () => {
   await createNotebook(workbench);
 
   // Connect to Colab.
-  await workbench.executeCommand('Notebook: Select Notebook Kernel');
+  await safeExecuteCommand(workbench, 'Notebook: Select Notebook Kernel');
   // If the test is running on a machine with a configured Python environment,
   // the "Select Another Kernel" option may appear instead of "Colab". If so, we
   // need to click it first before selecting "Colab".
-  if (await hasQuickPickItem(driver, 'Select Another Kernel')) {
-    await selectQuickPickItem(driver, 'Select Another Kernel');
+  if (
+    await hasQuickPickItem(driver, 'Change kernel', 'Select Another Kernel')
+  ) {
+    await selectQuickPickItem(driver, 'Change kernel', 'Select Another Kernel');
   }
-  await selectQuickPicksInOrder(driver, ['Colab', 'Auto Connect']);
-  await selectQuickPickItemIfShown(driver, 'Python', KERNEL_SELECT_WAIT_MS);
+  await selectQuickPicksInOrder(driver, [
+    { picker: 'kernel source', item: 'Colab' },
+    { picker: 'Select a remote server', item: 'Auto Connect' },
+  ]);
+  await selectQuickPickItemIfShown(
+    driver,
+    'Select a Kernel',
+    'Python',
+    KERNEL_SELECT_WAIT_MS,
+  );
 
   // Verify resource view in Colab activity bar.
-  await workbench.executeCommand('Colab: Focus on Resources View');
+  await safeExecuteCommand(workbench, 'Colab: Focus on Resources View');
 
   const activityBar = workbench.getActivityBar();
   const colabViewContainer = await activityBar.getViewControl('Colab');
