@@ -395,8 +395,8 @@ export async function hasQuickPickItem(
     return containsOrOthers;
   }
   const others = containsOrOthers;
-  console.log(
-    `Could not find "${item}" in QuickPick, available items: ${others.join(', ')}`,
+  console.info(
+    `(Not an error) Presence check for "${item}" in QuickPick came up dry, available items: ${others.join(', ')}`,
   );
   return false;
 }
