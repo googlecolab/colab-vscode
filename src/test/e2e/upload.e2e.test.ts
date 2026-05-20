@@ -33,9 +33,9 @@ it('uploads a file from the explorer context menu', async () => {
   await createNotebook(workbench);
   await safeExecuteCommand(workbench, 'Notebook: Select Notebook Kernel');
   if (
-    await hasQuickPickItem(driver, 'Change kernel', 'Select Another Kernel')
+    await hasQuickPickItem(driver, 'kernel', 'Select Another Kernel')
   ) {
-    await selectQuickPickItem(driver, 'Change kernel', 'Select Another Kernel');
+    await selectQuickPickItem(driver, 'kernel', 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, [
     { picker: 'kernel source', item: 'Colab' },

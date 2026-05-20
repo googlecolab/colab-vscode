@@ -130,16 +130,12 @@ async function signIn(
   if (
     await hasQuickPickItem(
       vsCodeDriver,
-      'Change kernel',
+      'kernel',
       'Select Another Kernel',
       KERNEL_SELECT_WAIT_MS,
     )
   ) {
-    await selectQuickPickItem(
-      vsCodeDriver,
-      'Change kernel',
-      'Select Another Kernel',
-    );
+    await selectQuickPickItem(vsCodeDriver, 'kernel', 'Select Another Kernel');
   }
   await selectQuickPickItem(vsCodeDriver, 'kernel source', 'Colab');
   // "Auto Connect" lives in the remote-server picker that Jupyter opens

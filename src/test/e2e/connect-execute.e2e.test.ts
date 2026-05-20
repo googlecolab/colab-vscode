@@ -27,10 +27,8 @@ it('executes basic code cells', async () => {
   // If the test is running on a machine with a configured Python environment,
   // the "Select Another Kernel" option may appear instead of "Colab". If so, we
   // need to click it first before selecting "Colab".
-  if (
-    await hasQuickPickItem(driver, 'Change kernel', 'Select Another Kernel')
-  ) {
-    await selectQuickPickItem(driver, 'Change kernel', 'Select Another Kernel');
+  if (await hasQuickPickItem(driver, 'kernel', 'Select Another Kernel')) {
+    await selectQuickPickItem(driver, 'kernel', 'Select Another Kernel');
   }
   await selectQuickPicksInOrder(driver, [
     { picker: 'kernel source', item: 'Colab' },
