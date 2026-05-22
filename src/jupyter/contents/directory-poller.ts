@@ -42,6 +42,8 @@ export interface DirectoryPollerOptions {
   readonly getClient: () => Promise<ContentsApi | undefined>;
   /** Receives file change events emitted by this poller. */
   readonly onDidChangeFile: (events: readonly FileChangeEvent[]) => void;
+  /** Called when this poller reaches a terminal state. */
+  readonly onDidTerminate?: () => void;
   /** Poll interval in milliseconds. */
   readonly intervalMs?: number;
   /** Maximum failed-poll backoff in milliseconds. */
@@ -53,24 +55,23 @@ export interface DirectoryPollerOptions {
 /**
  * Polls one Colab contents directory and emits file events for direct children.
  *
- * The poller deliberately has no knowledge of recursive watches or connection
- * creation. Higher-level orchestration decides which exact directories deserve
- * polling and provides an existing client when one is available.
+ * This class intentionally does not own watch registration refcounts or map
+ * membership. A higher-level registry owns sharing and removes this poller when
+ * {@link DirectoryPollerOptions.onDidTerminate} fires.
  */
 export class DirectoryPoller implements Disposable {
   private readonly runner: SequentialTaskRunner;
   private readonly intervalMs: number;
   private readonly maxBackoffMs: number;
-  private refCountValue = 0;
-  private isDisposed = false;
-  private isStarted = false;
-  private isSuspended = false;
   private currentBackoffMs: number;
-  private nextPollTimeMs = 0;
+  private retryTimeout?: NodeJS.Timeout;
+  private isDisposed = false;
+  private isSuspended = false;
+  private isTerminated = false;
   private snapshot?: DirectorySnapshot;
 
   /**
-   * Initializes a new instance.
+   * Initializes and immediately starts polling.
    *
    * @param options - Poller dependencies and timing configuration.
    */
@@ -90,78 +91,32 @@ export class DirectoryPoller implements Disposable {
       },
       OverrunPolicy.AbandonAndRun,
     );
-  }
-
-  /**
-   * Current number of active watch registrations.
-   *
-   * @returns The number of active references.
-   */
-  get refCount(): number {
-    return this.refCountValue;
-  }
-
-  /**
-   * Adds one active watch registration.
-   *
-   * @returns The updated reference count.
-   */
-  addRef(): number {
-    this.guardDisposed();
-    this.refCountValue += 1;
-    return this.refCountValue;
-  }
-
-  /**
-   * Releases one active watch registration.
-   *
-   * @returns The updated reference count.
-   */
-  release(): number {
-    this.guardDisposed();
-    if (this.refCountValue === 0) {
-      return 0;
-    }
-    this.refCountValue -= 1;
-    if (this.refCountValue === 0) {
-      this.runner.stop();
-      this.isStarted = false;
-      this.isSuspended = false;
-      this.snapshot = undefined;
-      this.currentBackoffMs = this.intervalMs;
-      this.nextPollTimeMs = 0;
-    }
-    return this.refCountValue;
-  }
-
-  /** Starts polling if there is at least one active registration. */
-  start(): void {
-    this.guardDisposed();
-    if (this.isStarted || this.refCountValue === 0) {
-      return;
-    }
-    this.isStarted = true;
     this.runner.start(StartMode.Immediately);
   }
 
   /** Suspends polling without clearing the last known snapshot. */
   suspend(): void {
     this.guardDisposed();
-    if (!this.isStarted || this.isSuspended) {
+    if (this.isSuspended || this.isTerminated) {
       return;
     }
     this.isSuspended = true;
+    this.clearRetryTimeout();
     this.runner.stop();
   }
 
-  /** Resumes polling and refreshes immediately. */
+  /**
+   * Resumes polling and refreshes immediately.
+   *
+   * Resuming is user-visible through VS Code focus regain, so it intentionally
+   * probes immediately even if a retry delay was pending before suspension.
+   */
   resume(): void {
     this.guardDisposed();
-    if (!this.isStarted || !this.isSuspended || this.refCountValue === 0) {
+    if (!this.isSuspended || this.isTerminated) {
       return;
     }
     this.isSuspended = false;
-    this.nextPollTimeMs = 0;
     this.runner.start(StartMode.Immediately);
   }
 
@@ -171,7 +126,7 @@ export class DirectoryPoller implements Disposable {
       return;
     }
     this.isDisposed = true;
-    this.refCountValue = 0;
+    this.clearRetryTimeout();
     this.runner.dispose();
   }
 
@@ -183,24 +138,30 @@ export class DirectoryPoller implements Disposable {
   }
 
   /**
-   * Runs one scheduled poll when not suspended or backed off.
+   * Runs one scheduled poll when not suspended or terminated.
    *
    * @param signal - Abort signal for the current scheduled poll.
    */
   private async poll(signal: AbortSignal): Promise<void> {
-    if (this.isSuspended || Date.now() < this.nextPollTimeMs) {
+    if (this.shouldIgnorePoll(signal)) {
       return;
     }
 
     const client = await this.options.getClient();
-    if (!client) {
+    if (!client || this.shouldIgnorePoll(signal)) {
       return;
     }
 
     try {
       const snapshot = await this.readSnapshot(client, signal);
+      if (this.shouldIgnorePoll(signal)) {
+        return;
+      }
       this.handleSuccess(snapshot);
     } catch (error: unknown) {
+      if (this.shouldIgnorePoll(signal)) {
+        return;
+      }
       this.handlePollError(error);
     }
   }
@@ -210,7 +171,7 @@ export class DirectoryPoller implements Disposable {
    *
    * @param client - Contents API client to read from.
    * @param signal - Abort signal for the request.
-   * @returns A snapshot keyed by Jupyter contents path.
+   * @returns A snapshot keyed by emitted child URI string.
    */
   private async readSnapshot(
     client: ContentsApi,
@@ -227,10 +188,10 @@ export class DirectoryPoller implements Disposable {
     }
 
     return new Map(
-      contents.content.map((child) => [
-        child.path,
-        this.toSnapshotEntry(child),
-      ]),
+      contents.content.map((child) => {
+        const entry = this.toSnapshotEntry(child);
+        return [entry.uri.toString(), entry];
+      }),
     );
   }
 
@@ -257,10 +218,13 @@ export class DirectoryPoller implements Disposable {
    * @param snapshot - Snapshot from the latest successful poll.
    */
   private handleSuccess(snapshot: DirectorySnapshot): void {
+    if (this.isDisposed || this.isTerminated) {
+      return;
+    }
     const previous = this.snapshot;
     this.snapshot = snapshot;
     this.currentBackoffMs = this.intervalMs;
-    this.nextPollTimeMs = 0;
+    this.clearRetryTimeout();
 
     if (!previous) {
       return;
@@ -278,24 +242,57 @@ export class DirectoryPoller implements Disposable {
    * @param error - Error thrown while polling.
    */
   private handlePollError(error: unknown): void {
+    if (this.isDisposed || this.isTerminated) {
+      return;
+    }
     if (error instanceof ResponseError && error.response.status === 404) {
-      this.options.onDidChangeFile([
-        { type: this.options.vs.FileChangeType.Deleted, uri: this.options.uri },
-      ]);
-      this.dispose();
+      this.handleTerminalDelete();
       return;
     }
 
     log.warn(`Unable to poll ${this.options.uri.toString()}`, error);
-    this.nextPollTimeMs = Date.now() + this.currentBackoffMs;
+    this.scheduleRetry();
+  }
+
+  private handleTerminalDelete(): void {
+    this.isTerminated = true;
+    this.clearRetryTimeout();
+    this.options.onDidChangeFile([
+      { type: this.options.vs.FileChangeType.Deleted, uri: this.options.uri },
+    ]);
+    this.runner.stop();
+    this.options.onDidTerminate?.();
+  }
+
+  private scheduleRetry(): void {
+    this.runner.stop();
+    this.clearRetryTimeout();
+    const retryDelayMs = this.currentBackoffMs;
     this.currentBackoffMs = Math.min(
       this.currentBackoffMs * 2,
       this.maxBackoffMs,
     );
+    this.retryTimeout = setTimeout(() => {
+      this.retryTimeout = undefined;
+      if (!this.isDisposed && !this.isSuspended && !this.isTerminated) {
+        this.runner.start(StartMode.Immediately);
+      }
+    }, retryDelayMs);
+  }
+
+  private clearRetryTimeout(): void {
+    clearTimeout(this.retryTimeout);
+    this.retryTimeout = undefined;
+  }
+
+  private shouldIgnorePoll(signal: AbortSignal): boolean {
+    return (
+      signal.aborted || this.isDisposed || this.isSuspended || this.isTerminated
+    );
   }
 
   /**
-   * Compares two snapshots and returns coalesced file events.
+   * Compares two snapshots and returns file events.
    *
    * @param previous - Last successful snapshot.
    * @param current - Latest successful snapshot.
@@ -349,20 +346,6 @@ export class DirectoryPoller implements Disposable {
       }
     }
 
-    return coalesceEvents([...deleted, ...changed, ...created]);
+    return [...deleted, ...changed, ...created];
   }
-}
-
-function coalesceEvents(events: readonly FileChangeEvent[]): FileChangeEvent[] {
-  const seen = new Set<string>();
-  const coalesced: FileChangeEvent[] = [];
-  for (const event of events) {
-    const key = `${String(event.type)}:${event.uri.toString()}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    coalesced.push(event);
-  }
-  return coalesced;
 }
