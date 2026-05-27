@@ -15,12 +15,14 @@ import { CONFIG } from '../../colab-config';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
   createNotebook,
-  pushDialogButtonIfShown,
+  dismissAnyOpenInput,
   hasQuickPickItem,
+  KERNEL_SELECT_WAIT_MS,
   pushDialogButton,
+  pushDialogButtonIfShown,
+  safeExecuteCommand,
   selectQuickPickItem,
   selectQuickPickItemIfShown,
-  KERNEL_SELECT_WAIT_MS,
 } from './ui';
 
 console.log('Running global E2E test setup...');
@@ -85,12 +87,16 @@ afterEach(async function () {
   const workbench = new Workbench();
   const vsCodeDriver = workbench.getDriver();
   try {
+    // Dismiss any leftover QuickPick/InputBox so the upcoming command palette
+    // invocations actually open the command palette instead of being absorbed
+    // by an orphan picker. VS Code reuses one DOM `<input>` for all pickers.
+    await dismissAnyOpenInput(vsCodeDriver);
     // Dismiss any leftover error/info modal first (e.g. a 504 surfaced by a
     // previous best-effort 'Colab: Remove Server' that arrived after the
     // earlier dismissal window closed). A modal blocks subsequent
     // executeCommand() calls so we must clear it before doing anything else.
     await pushDialogButtonIfShown(vsCodeDriver, 'OK', DIALOG_WAIT_MS);
-    await workbench.executeCommand('View: Close All Editors');
+    await safeExecuteCommand(workbench, 'View: Close All Editors');
     // Close-all may surface a "Don't Save" prompt if any notebook is dirty.
     await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
   } catch (err) {
@@ -112,23 +118,33 @@ async function signIn(
   await pushDialogButtonIfShown(vsCodeDriver, 'Acknowledge', DIALOG_WAIT_MS);
 
   // Trigger Colab connection which will prompt for sign-in.
-  await workbench.executeCommand('Notebook: Select Notebook Kernel');
-  // If the test is running on a machine with a configured Python environment,
-  // the "Select Another Kernel" option may appear instead of "Colab". If so,
-  // we need to click it first before selecting "Colab". The kernel picker
-  // can take a while to populate while Jupyter is "Detecting Kernels", so
-  // these steps are given a longer-than-default budget.
+  await safeExecuteCommand(workbench, 'Notebook: Select Notebook Kernel');
+  // On a fresh notebook with no kernel association, Jupyter opens the
+  // kernel-source picker directly. On a machine that already has a Python
+  // environment associated with the notebook (e.g. a developer workstation),
+  // Jupyter opens the "Change kernel for ..." picker first, with a
+  // "Select Another Kernel..." option that transitions to the source picker.
+  // The kernel picker can take a while to populate while Jupyter is
+  // "Detecting Kernels", so these steps are given a longer-than-default
+  // budget.
   if (
     await hasQuickPickItem(
       vsCodeDriver,
+      'kernel',
       'Select Another Kernel',
       KERNEL_SELECT_WAIT_MS,
     )
   ) {
-    await selectQuickPickItem(vsCodeDriver, 'Select Another Kernel');
+    await selectQuickPickItem(vsCodeDriver, 'kernel', 'Select Another Kernel');
   }
-  await selectQuickPickItem(vsCodeDriver, 'Colab');
-  await selectQuickPickItem(vsCodeDriver, 'Auto Connect');
+  await selectQuickPickItem(vsCodeDriver, 'kernel source', 'Colab');
+  // "Auto Connect" lives in the remote-server picker that Jupyter opens
+  // after the user picks "Colab" as a kernel source.
+  await selectQuickPickItem(
+    vsCodeDriver,
+    'Select a remote server',
+    'Auto Connect',
+  );
 
   // Sign in.
   await pushDialogButton(vsCodeDriver, 'Allow');
@@ -148,16 +164,17 @@ async function signIn(
     // and closes before we can click.
     await selectQuickPickItemIfShown(
       vsCodeDriver,
+      'Select a Kernel',
       'Python',
       KERNEL_SELECT_WAIT_MS,
     );
-    await workbench.executeCommand('Colab: Remove Server');
+    await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
-      await selectQuickPickItem(vsCodeDriver, 'Colab CPU');
+      await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);
     }
-    await workbench.executeCommand('View: Close All Editors');
+    await safeExecuteCommand(workbench, 'View: Close All Editors');
     await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
   } catch (err: unknown) {
     console.warn(
