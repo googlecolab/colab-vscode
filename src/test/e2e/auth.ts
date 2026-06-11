@@ -27,7 +27,7 @@ export async function doOAuthSignIn(
 
   // Input the test account email address.
   const emailInput = await chromeDriver.findElement(
-    By.css("input[type='email']"),
+    By.css("input[aria-label*='email' i]"),
   );
   await emailInput.clear();
   await emailInput.sendKeys(process.env.TEST_ACCOUNT_EMAIL ?? '');
