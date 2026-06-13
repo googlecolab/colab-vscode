@@ -24,6 +24,32 @@ import {
 } from '../../jupyter/assignments';
 import { ContentItem } from './content-item';
 
+export type WatchResource = (
+  uri: Uri,
+  options: {
+    /** Whether to watch descendants recursively. */
+    readonly recursive: boolean;
+    /** Glob patterns excluded from the watch. */
+    readonly excludes: readonly string[];
+  },
+) => Disposable;
+
+/** Options for initializing a {@link ContentTreeProvider}. */
+export interface ContentTreeProviderOptions {
+  /** The assignment manager instance. */
+  readonly assignments: AssignmentManager;
+  /** The Auth change event. */
+  readonly authChange: Event<AuthChangeEvent>;
+  /** The Assignment change event. */
+  readonly assignmentChange: Event<AssignmentChangeEvent>;
+  /** The File change event. */
+  readonly fileChange: Event<FileChangeEvent[]>;
+  /** The URI scheme to use for the tree items. */
+  readonly scheme?: string;
+  /** Optional file-system watch registration function. */
+  readonly watchResource?: WatchResource;
+}
+
 /**
  * A {@link TreeDataProvider} for the server content browser view.
  *
@@ -40,6 +66,10 @@ export class ContentTreeProvider
   private readonly authListener: Disposable;
   private readonly assignmentListener: Disposable;
   private readonly fileListener: Disposable;
+  private readonly assignments: AssignmentManager;
+  private readonly scheme: string;
+  private readonly watchResource?: WatchResource;
+  private readonly watchedDirectoriesByUri = new Map<string, Disposable>();
   // VS Code uses referential equality to identify TreeItems, so we need to
   // cache them to ensure we event with the same instance as returned by
   // `getChildren`.
@@ -50,19 +80,20 @@ export class ContentTreeProvider
   /**
    * Initializes a new instance.
    *
-   * @param assignments - The assignment manager instance.
-   * @param authChange - The Auth change event.
-   * @param assignmentChange - The Assignment change event.
-   * @param fileChange - The File change event.
-   * @param scheme - The URI scheme to use for the tree items.
+   * @param options - The provider dependencies and optional settings.
    */
-  constructor(
-    private readonly assignments: AssignmentManager,
-    authChange: Event<AuthChangeEvent>,
-    assignmentChange: Event<AssignmentChangeEvent>,
-    fileChange: Event<FileChangeEvent[]>,
-    private readonly scheme = 'colab',
-  ) {
+  constructor(options: ContentTreeProviderOptions) {
+    const {
+      assignments,
+      authChange,
+      assignmentChange,
+      fileChange,
+      scheme = 'colab',
+      watchResource,
+    } = options;
+    this.assignments = assignments;
+    this.scheme = scheme;
+    this.watchResource = watchResource;
     this.authListener = authChange(this.handleAuthChange.bind(this));
     this.assignmentListener = assignmentChange(this.refresh.bind(this));
     this.fileListener = fileChange(this.handleFileChange.bind(this));
@@ -78,6 +109,7 @@ export class ContentTreeProvider
     this.authListener.dispose();
     this.assignmentListener.dispose();
     this.fileListener.dispose();
+    this.disposeDirectoryWatches();
     this.contentItemsByUri.clear();
     this.isDisposed = true;
   }
@@ -87,6 +119,7 @@ export class ContentTreeProvider
    */
   refresh(): void {
     this.guardDisposed();
+    this.disposeDirectoryWatches();
     this.contentItemsByUri.clear();
     this.changeEmitter.fire(undefined);
   }
@@ -158,6 +191,7 @@ export class ContentTreeProvider
       }
       if (event.type === FileChangeType.Deleted) {
         this.removeItemsRecursively(event.uri.toString());
+        this.removeWatchesRecursively(event.uri.toString());
       }
       const parentUri = getParent(event.uri);
       if (!parentUri || parentUri.path === '/') {
@@ -177,6 +211,7 @@ export class ContentTreeProvider
   private async getContentItems(uri: Uri): Promise<ContentItem[]> {
     try {
       const entries = await workspace.fs.readDirectory(uri);
+      this.watchDirectory(uri);
 
       // Sort: Directories first, then alphabetical by name.
       entries.sort((a, b) => {
@@ -214,6 +249,36 @@ export class ContentTreeProvider
         this.contentItemsByUri.delete(key);
       }
     }
+  }
+
+  private watchDirectory(uri: Uri): void {
+    if (!this.watchResource) {
+      return;
+    }
+    const uriString = uri.toString();
+    if (this.watchedDirectoriesByUri.has(uriString)) {
+      return;
+    }
+    this.watchedDirectoriesByUri.set(
+      uriString,
+      this.watchResource(uri, { recursive: false, excludes: [] }),
+    );
+  }
+
+  private removeWatchesRecursively(uriString: string): void {
+    for (const [key, watch] of this.watchedDirectoriesByUri) {
+      if (key === uriString || key.startsWith(uriString + '/')) {
+        watch.dispose();
+        this.watchedDirectoriesByUri.delete(key);
+      }
+    }
+  }
+
+  private disposeDirectoryWatches(): void {
+    for (const watch of this.watchedDirectoriesByUri.values()) {
+      watch.dispose();
+    }
+    this.watchedDirectoriesByUri.clear();
   }
 
   private guardDisposed() {
