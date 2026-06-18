@@ -182,9 +182,11 @@ export class DirectoryPoller implements Disposable {
       { signal },
     );
     if (!isDirectoryContents(contents)) {
-      throw new Error(
-        `Expected directory contents for ${this.options.uri.toString()}`,
-      );
+      // The path exists but is no longer a directory (e.g. it was replaced by a
+      // file). Stock Jupyter rejects this request with HTTP 400 "bad type"
+      // before we get here; a non-compliant contents manager may instead
+      // resolve a coerced model. Both are terminal: see handlePollError.
+      throw new NotADirectoryError(this.options.uri);
     }
 
     return new Map(
@@ -237,7 +239,7 @@ export class DirectoryPoller implements Disposable {
   }
 
   /**
-   * Handles a failed poll, including terminal deletion and backoff.
+   * Handles a failed poll, including terminal states and backoff.
    *
    * @param error - Error thrown while polling.
    */
@@ -245,8 +247,18 @@ export class DirectoryPoller implements Disposable {
     if (this.isDisposed || this.isTerminated) {
       return;
     }
-    if (error instanceof ResponseError && error.response.status === 404) {
-      this.handleTerminalDelete();
+    // The watched directory no longer exists as a directory, so polling can
+    // never recover: 404 means it was deleted, 400 "bad type" means the path is
+    // now a file, and NotADirectoryError covers a coerced non-directory model.
+    // This request only ever sends type=directory with no format, so the only
+    // 400 it can elicit is "bad type". Auth/transient failures (401/403/5xx)
+    // keep backing off below.
+    if (
+      error instanceof NotADirectoryError ||
+      (error instanceof ResponseError &&
+        (error.response.status === 404 || error.response.status === 400))
+    ) {
+      this.handleTerminalGone();
       return;
     }
 
@@ -254,7 +266,8 @@ export class DirectoryPoller implements Disposable {
     this.scheduleRetry();
   }
 
-  private handleTerminalDelete(): void {
+  /** Marks the watched directory gone (deleted or no longer a directory). */
+  private handleTerminalGone(): void {
     this.isTerminated = true;
     this.clearRetryTimeout();
     this.options.onDidChangeFile([
@@ -347,5 +360,13 @@ export class DirectoryPoller implements Disposable {
     }
 
     return [...deleted, ...changed, ...created];
+  }
+}
+
+/** Thrown when a watched path resolves to something other than a directory. */
+class NotADirectoryError extends Error {
+  constructor(uri: Uri) {
+    super(`Expected directory contents for ${uri.toString()}`);
+    this.name = 'NotADirectoryError';
   }
 }
