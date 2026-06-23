@@ -506,13 +506,22 @@ export class AssignmentManager implements Disposable {
     // unassignServer call because the unassign API call will eventually garbage
     // collect and clean up the session(s) too.
     await Promise.all(
-      (await client.sessions.list({ signal })).map((session) =>
-        session.id
-          ? client.sessions.delete({ session: session.id }, { signal })
-          : Promise.resolve(),
-      ),
+      await client.sessions
+        .list({ signal })
+        .catch((err: unknown) => {
+          // Swallow the sessions.list error as this is best-effort.
+          log.warn('Error occurred while listing sessions:', err);
+          return [];
+        })
+        .then((sessions) =>
+          sessions.map((session) =>
+            session.id
+              ? client.sessions.delete({ session: session.id }, { signal })
+              : Promise.resolve(),
+          ),
+        ),
     ).catch((err: unknown) => {
-      // Swallow the error as this is best-effort.
+      // Swallow the sessions.delete errors as this is best-effort.
       log.warn('Error occurred while deleting sessions:', err);
     });
     await this.client.unassign(server.endpoint, signal);

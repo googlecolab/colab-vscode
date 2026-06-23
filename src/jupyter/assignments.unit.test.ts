@@ -1605,6 +1605,28 @@ describe('AssignmentManager', () => {
         );
       });
 
+      it('unassigns the server even if listing session fails', async () => {
+        jupyterStub.sessions.list.rejects(new Error('list failed'));
+
+        await assignmentManager.unassignServer(defaultServer);
+
+        const serversAfter = await assignmentManager.getServers('extension');
+        expect(serversAfter).to.be.empty;
+        sinon.assert.calledOnceWithMatch(
+          colabClientStub.unassign,
+          defaultServer.endpoint,
+        );
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: defaultServer, userInitiated: true }],
+          changed: [],
+        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 was/),
+        );
+      });
+
       it('unassigns the server even if deleting session fails', async () => {
         const session = {
           id: 'mock-session-id-1',
