@@ -1605,7 +1605,7 @@ describe('AssignmentManager', () => {
         );
       });
 
-      it('keeps the server tracked if deleting a session fails', async () => {
+      it('unassigns the server even if deleting session fails', async () => {
         const session = {
           id: 'mock-session-id-1',
           kernel: {
@@ -1622,24 +1622,23 @@ describe('AssignmentManager', () => {
         jupyterStub.sessions.list.resolves([session]);
         jupyterStub.sessions.delete.rejects(new Error('delete failed'));
 
-        await expect(
-          assignmentManager.unassignServer(defaultServer),
-        ).to.be.rejectedWith('delete failed');
+        await assignmentManager.unassignServer(defaultServer);
 
-        const serversAfter =
-          await assignmentManager.getLastKnownAssignedServers();
-        expect(serversAfter).to.deep.equal([
-          {
-            id: defaultServer.id,
-            label: defaultServer.label,
-            variant: defaultServer.variant,
-            accelerator: defaultServer.accelerator,
-            endpoint: defaultServer.endpoint,
-            dateAssigned: defaultServer.dateAssigned,
-          },
-        ]);
-        sinon.assert.notCalled(colabClientStub.unassign);
-        sinon.assert.notCalled(assignmentChangeListener);
+        const serversAfter = await assignmentManager.getServers('extension');
+        expect(serversAfter).to.be.empty;
+        sinon.assert.calledOnceWithMatch(
+          colabClientStub.unassign,
+          defaultServer.endpoint,
+        );
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: defaultServer, userInitiated: true }],
+          changed: [],
+        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 was/),
+        );
       });
 
       it('keeps the server tracked if remote unassign fails', async () => {

@@ -500,13 +500,21 @@ export class AssignmentManager implements Disposable {
       return;
     }
     const client = ProxiedJupyterClient.withStaticConnection(server);
+    // Best-effort clean up sessions before unassigning the server. Without
+    // this, session won't immediately disconnect if there is a notebook
+    // attached in VS Code. However, we don't want to fail the entire
+    // unassignServer call because the unassign API call will eventually garbage
+    // collect and clean up the session(s) too.
     await Promise.all(
       (await client.sessions.list({ signal })).map((session) =>
         session.id
           ? client.sessions.delete({ session: session.id }, { signal })
           : Promise.resolve(),
       ),
-    );
+    ).catch((err: unknown) => {
+      // Swallow the error as this is best-effort.
+      log.warn('Error occurred while deleting sessions:', err);
+    });
     await this.client.unassign(server.endpoint, signal);
     const removed = await this.storage.remove(server.id);
     if (!removed) {
