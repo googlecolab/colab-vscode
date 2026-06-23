@@ -173,6 +173,7 @@ async function signIn(
       await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);
+      await captureScreenshots(vsCodeDriver, chromeDriver);
     }
     await safeExecuteCommand(workbench, 'View: Close All Editors');
     await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
