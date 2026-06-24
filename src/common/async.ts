@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import vscode from 'vscode';
 import { log } from './logging';
 
 /**
@@ -90,4 +91,40 @@ export function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
     (typeof value === 'object' || typeof value === 'function') &&
     typeof (value as { then?: unknown }).then === 'function'
   );
+}
+
+/**
+ * A promise that can have its underlying resources (like timers or listeners)
+ * cleaned up.
+ */
+export interface DisposablePromise<T> extends vscode.Disposable {
+  /** The underlying promise that can be awaited. */
+  promise: Promise<T>;
+}
+
+/**
+ * Creates a promise that rejects after a specified timeout.
+ * Returns a disposable to clear the timer.
+ *
+ * @param ms - The delay duration in milliseconds.
+ * @param message - The error message for the timeout.
+ * @returns A disposable promise that rejects after the specified timeout.
+ */
+export function waitForTimeout(
+  ms: number,
+  message: string,
+): DisposablePromise<never> {
+  let timeoutId: NodeJS.Timeout;
+  const promise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, ms);
+  });
+
+  return {
+    promise,
+    dispose: () => {
+      clearTimeout(timeoutId);
+    },
+  };
 }

@@ -37,6 +37,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { waitForTimeout } from '../common/async';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
@@ -746,11 +747,15 @@ export class AssignmentManager implements Disposable {
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.
             let label: string;
+            const timeout = waitForTimeout(
+              LIST_SESSIONS_TIMEOUT_MS,
+              `Listing sessions timeout exceeded for endpoint ${a.endpoint}`,
+            );
             try {
-              const sessions = await this.client.listSessions(
-                a.endpoint,
-                signal,
-              );
+              const sessions = await Promise.race([
+                this.client.listSessions(a.endpoint, signal),
+                timeout.promise,
+              ]);
               label =
                 sessions.length === 1 && sessions[0].name?.length
                   ? sessions[0].name
@@ -777,6 +782,8 @@ export class AssignmentManager implements Disposable {
                 error,
               );
               label = UNKNOWN_REMOTE_SERVER_NAME;
+            } finally {
+              timeout.dispose();
             }
             return {
               label,
@@ -864,6 +871,8 @@ export class AssignmentManager implements Disposable {
 enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
+
+const LIST_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';
 
