@@ -47,11 +47,7 @@ import { ServerStorageFake } from '../test/helpers/server-storage';
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { isUUID } from '../utils/uuid';
-import {
-  AssignmentChangeEvent,
-  AssignmentManager,
-  TEST_ONLY,
-} from './assignments';
+import { AssignmentChangeEvent, AssignmentManager } from './assignments';
 import { ProxiedJupyterClient } from './client';
 import {
   ColabAssignedServer,
@@ -62,6 +58,7 @@ import { ServerStorage } from './storage';
 
 const NOW = new Date();
 const TOKEN_EXPIRY_MS = 1000 * 60 * 60;
+const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const defaultAssignmentDescriptor: ColabServerDescriptor = {
   label: 'Colab GPU A100',
@@ -844,7 +841,7 @@ describe('AssignmentManager', () => {
       colabClientStub.listSessions.callsFake(async () => {
         // Block listSessions to trigger the timeout.
         await new Promise((resolve) =>
-          setTimeout(resolve, TEST_ONLY.LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
+          setTimeout(resolve, LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
         );
         return [
           {
@@ -855,7 +852,7 @@ describe('AssignmentManager', () => {
       });
 
       const resultsPromise = assignmentManager.getServers('external');
-      await fakeClock.tickAsync(TEST_ONLY.LIST_UNOWNED_SESSIONS_TIMEOUT_MS);
+      await fakeClock.tickAsync(LIST_UNOWNED_SESSIONS_TIMEOUT_MS);
 
       await expect(resultsPromise).to.eventually.deep.equal([
         {
