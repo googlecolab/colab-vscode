@@ -51,7 +51,6 @@ assert.equal(
 );
 
 const DIALOG_WAIT_MS = 3000;
-const REMOVE_SERVER_WAIT_MS = 30000;
 
 before(async function () {
   console.log('Starting global E2E test setup...');
@@ -171,12 +170,7 @@ async function signIn(
     );
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
-      await selectQuickPickItem(
-        vsCodeDriver,
-        'Remove Server',
-        'Colab CPU',
-        REMOVE_SERVER_WAIT_MS,
-      );
+      await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);
     }
