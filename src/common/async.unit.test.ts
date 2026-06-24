@@ -5,11 +5,11 @@
  */
 
 import { expect } from 'chai';
-import sinon from 'sinon';
+import sinon, { SinonFakeTimers } from 'sinon';
 import { Deferred } from '../test/helpers/async';
 import { ColabLogWatcher } from '../test/helpers/logging';
 import { newVsCodeStub } from '../test/helpers/vscode';
-import { LatestCancelable } from './async';
+import { LatestCancelable, waitForTimeout } from './async';
 import { LogLevel } from './logging';
 
 describe('LatestCancelable', () => {
@@ -193,5 +193,44 @@ describe('LatestCancelable', () => {
       await expect(result).to.eventually.be.undefined;
       sinon.assert.calledOnce(worker);
     });
+  });
+});
+
+describe('waitForTimeout', () => {
+  let fakeClock: SinonFakeTimers;
+
+  beforeEach(() => {
+    fakeClock = sinon.useFakeTimers({
+      now: new Date(),
+      toFake: [],
+      shouldAdvanceTime: false,
+    });
+  });
+
+  afterEach(() => {
+    fakeClock.restore();
+    sinon.restore();
+  });
+
+  it('rejects the promise after the specified timeout', async () => {
+    const timeoutMs = 1000;
+
+    const timeout = waitForTimeout(timeoutMs, 'Timeout exceeded');
+    expect(timeout.promise).to.not.be.rejected;
+
+    await fakeClock.tickAsync(timeoutMs);
+    await expect(timeout.promise).to.eventually.be.rejectedWith(
+      'Timeout exceeded',
+    );
+  });
+
+  it('clears the timeout on dispose', async () => {
+    const timeoutMs = 1000;
+    const timeout = waitForTimeout(timeoutMs, 'Timeout exceeded');
+
+    timeout.dispose();
+
+    await fakeClock.tickAsync(timeoutMs + 100);
+    expect(timeout.promise).to.not.be.rejected;
   });
 });
