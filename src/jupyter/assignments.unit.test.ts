@@ -47,7 +47,11 @@ import { ServerStorageFake } from '../test/helpers/server-storage';
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { isUUID } from '../utils/uuid';
-import { AssignmentChangeEvent, AssignmentManager } from './assignments';
+import {
+  AssignmentChangeEvent,
+  AssignmentManager,
+  TEST_ONLY,
+} from './assignments';
 import { ProxiedJupyterClient } from './client';
 import {
   ColabAssignedServer,
@@ -833,6 +837,34 @@ describe('AssignmentManager', () => {
           },
         ]);
       });
+    });
+
+    it('falls back to placeholder label when listing sessions times out', async () => {
+      colabClientStub.listAssignments.resolves([assignmentWithName]);
+      colabClientStub.listSessions.callsFake(async () => {
+        // Block listSessions to trigger the timeout.
+        await new Promise((resolve) =>
+          setTimeout(resolve, TEST_ONLY.LIST_SESSIONS_TIMEOUT_MS + 100),
+        );
+        return [
+          {
+            ...defaultSession,
+            name: 'test-session-name',
+          },
+        ];
+      });
+
+      const responsePromise = assignmentManager.getServers('external');
+      await fakeClock.tickAsync(TEST_ONLY.LIST_SESSIONS_TIMEOUT_MS);
+
+      await expect(responsePromise).to.eventually.deep.equal([
+        {
+          label: 'Untitled',
+          endpoint: endpointWithName,
+          variant: Variant.DEFAULT,
+          accelerator: '',
+        },
+      ]);
     });
 
     describe('from all', () => {

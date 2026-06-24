@@ -963,3 +963,7 @@ function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
   }
   return AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE;
 }
+
+export const TEST_ONLY = {
+  LIST_SESSIONS_TIMEOUT_MS,
+};
