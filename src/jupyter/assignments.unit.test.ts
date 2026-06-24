@@ -844,20 +844,20 @@ describe('AssignmentManager', () => {
       colabClientStub.listSessions.callsFake(async () => {
         // Block listSessions to trigger the timeout.
         await new Promise((resolve) =>
-          setTimeout(resolve, TEST_ONLY.LIST_SESSIONS_TIMEOUT_MS + 100),
+          setTimeout(resolve, TEST_ONLY.LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
         );
         return [
           {
             ...defaultSession,
-            name: 'test-session-name',
+            name: 'test-session-name-that-does-not-matter',
           },
         ];
       });
 
-      const responsePromise = assignmentManager.getServers('external');
-      await fakeClock.tickAsync(TEST_ONLY.LIST_SESSIONS_TIMEOUT_MS);
+      const resultsPromise = assignmentManager.getServers('external');
+      await fakeClock.tickAsync(TEST_ONLY.LIST_UNOWNED_SESSIONS_TIMEOUT_MS);
 
-      await expect(responsePromise).to.eventually.deep.equal([
+      await expect(resultsPromise).to.eventually.deep.equal([
         {
           label: 'Untitled',
           endpoint: endpointWithName,

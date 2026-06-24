@@ -748,7 +748,7 @@ export class AssignmentManager implements Disposable {
             // is only one session per assignment.
             let label: string;
             const timeout = waitForTimeout(
-              LIST_SESSIONS_TIMEOUT_MS,
+              LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
               `Listing sessions timeout exceeded for endpoint ${a.endpoint}`,
             );
             try {
@@ -872,7 +872,7 @@ enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
-const LIST_SESSIONS_TIMEOUT_MS = 3000;
+const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';
 
@@ -965,5 +965,5 @@ function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
 }
 
 export const TEST_ONLY = {
-  LIST_SESSIONS_TIMEOUT_MS,
+  LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
 };
