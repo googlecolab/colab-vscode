@@ -853,7 +853,7 @@ export class AssignmentManager implements Disposable {
     // unassignServer call because the unassign API call will eventually garbage
     // collect and clean up the sessions too.
     const client = ProxiedJupyterClient.withStaticConnection(server);
-    return Promise.all(
+    return Promise.allSettled(
       await client.sessions
         .list({ signal })
         .catch((err: unknown) => {
