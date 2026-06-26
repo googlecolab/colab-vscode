@@ -4,6 +4,7 @@ autorestarting
 chromedriver
 colab
 colabclient
+colaboratory
 dryrun
 ephem
 extest
@@ -29,6 +30,7 @@ pkce
 Pyright
 quickpick
 refreshable
+runtimespecs
 toggleable
 tombstoned
 toolsai

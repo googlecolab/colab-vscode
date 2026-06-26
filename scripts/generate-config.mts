@@ -24,6 +24,7 @@ const envConfig = {
 
 let colabApiDomain: string;
 let colabGapiApiDomain: string;
+let colabPublicApiDomain: string;
 try {
   if (!envConfig.env) {
     throw new Error('COLAB_EXTENSION_ENVIRONMENT is not set');
@@ -38,15 +39,20 @@ try {
     case 'production':
       colabApiDomain = 'https://colab.research.google.com';
       colabGapiApiDomain = 'https://colab.pa.googleapis.com';
+      colabPublicApiDomain = 'https://colaboratory.googleapis.com';
       break;
     case 'sandbox':
       colabApiDomain = 'https://colab.sandbox.google.com';
       colabGapiApiDomain = 'https://staging-colab.sandbox.googleapis.com';
+      colabPublicApiDomain =
+        'https://staging-colaboratory.sandbox.googleapis.com';
       break;
     case 'local':
       colabApiDomain = 'https://localhost:8888';
       // It's not feasible to run this locally.
       colabGapiApiDomain = 'https://staging-colab.sandbox.googleapis.com';
+      colabPublicApiDomain =
+        'https://staging-colaboratory.sandbox.googleapis.com';
       break;
     default:
       throw new Error(
@@ -61,6 +67,7 @@ try {
 const config = {
   ColabApiDomain: colabApiDomain,
   ColabGapiDomain: colabGapiApiDomain,
+  ColabPublicApiDomain: colabPublicApiDomain,
   ClientId: envConfig.clientId,
   ClientNotSoSecret: envConfig.clientNotSoSecret,
   Environment: envConfig.env,

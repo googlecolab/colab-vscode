@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Request, Response } from 'node-fetch';
+import {
+  Request as NodeFetchRequest,
+  Response as NodeFetchResponse,
+} from 'node-fetch';
 
 /**
  * Wrapper for errors thrown from issuing requests.
@@ -18,8 +21,8 @@ export class ColabRequestError extends Error {
    * @param responseBody - The text from the body of the response, if available.
    */
   constructor(
-    readonly request: Request,
-    readonly response: Response,
+    readonly request: Request | NodeFetchRequest,
+    readonly response: Response | NodeFetchResponse,
     readonly responseBody?: string,
   ) {
     super(
