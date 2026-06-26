@@ -195,9 +195,12 @@ function getErrorHandlingMiddleware(
   return {
     async onResponse({ request, response }) {
       if (!response.ok) {
+        // Invoke onAuthError on 401 Unauthorized
         if (response.status === 401 && onAuthError) {
           await onAuthError();
         }
+
+        // Throw non-OK response as ColabRequestError
         const err = new ColabRequestError(
           request,
           response,
@@ -209,13 +212,11 @@ function getErrorHandlingMiddleware(
       }
     },
     onError({ request, error }) {
-      // Log non-status errors for troubleshooting.
       telemetry.logError(error);
       log.error(
         `Non-status error thrown during request ${request.method} ${request.url}:`,
         error,
       );
-      return; // Return nothing will still throw the error.
     },
   };
 }
