@@ -586,6 +586,7 @@ describe('ColabApiClient', () => {
 
   describe('createRuntime', () => {
     const runtimeId = 'test-runtime-id';
+    const requestId = 'test-request-id';
     const runtimeSpec = {
       variant: 'VARIANT_CPU',
       accelerator: 'NONE',
@@ -606,6 +607,7 @@ describe('ColabApiClient', () => {
           async ({ request }) => {
             const queryParams = new URL(request.url).searchParams;
             expect(queryParams.get('runtimeId')).to.equal(runtimeId);
+            expect(queryParams.get('requestId')).to.equal(requestId);
             await expect(request.json()).to.eventually.deep.equal({
               runtimeSpec,
             });
@@ -617,12 +619,12 @@ describe('ColabApiClient', () => {
 
     it('returns an operation', async () => {
       await expect(
-        client.createRuntime(runtimeSpec, runtimeId),
+        client.createRuntime(runtimeSpec, runtimeId, requestId),
       ).to.eventually.deep.equal(operation);
     });
 
     it('sends client agent header', async () => {
-      await client.createRuntime(runtimeSpec, runtimeId);
+      await client.createRuntime(runtimeSpec, runtimeId, requestId);
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -635,7 +637,7 @@ describe('ColabApiClient', () => {
     });
 
     it('sends authorization header', async () => {
-      await client.createRuntime(runtimeSpec, runtimeId);
+      await client.createRuntime(runtimeSpec, runtimeId, requestId);
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -650,7 +652,7 @@ describe('ColabApiClient', () => {
     it('does not send authorization header if token is empty', async () => {
       sessionStub.resolves('');
 
-      await client.createRuntime(runtimeSpec, runtimeId);
+      await client.createRuntime(runtimeSpec, runtimeId, requestId);
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -668,7 +670,7 @@ describe('ColabApiClient', () => {
       );
 
       await expect(
-        client.createRuntime(runtimeSpec, runtimeId),
+        client.createRuntime(runtimeSpec, runtimeId, requestId),
       ).to.be.rejectedWith(TypeError);
 
       sinon.assert.calledOnceWithMatch(
@@ -694,7 +696,7 @@ describe('ColabApiClient', () => {
 
         it('throws ColabRequestError and logs to telemetry', async () => {
           await expect(
-            client.createRuntime(runtimeSpec, runtimeId),
+            client.createRuntime(runtimeSpec, runtimeId, requestId),
           ).to.be.rejectedWith(ColabRequestError);
 
           sinon.assert.calledOnceWithMatch(
@@ -705,15 +707,17 @@ describe('ColabApiClient', () => {
 
         if (onAuthErrorCalled) {
           it('calls onAuthError', async () => {
-            await expect(client.createRuntime(runtimeSpec, runtimeId)).to.be
-              .rejected;
+            await expect(
+              client.createRuntime(runtimeSpec, runtimeId, requestId),
+            ).to.be.rejected;
 
             sinon.assert.calledOnce(onAuthErrorStub);
           });
         } else {
           it('does not call onAuthError', async () => {
-            await expect(client.createRuntime(runtimeSpec, runtimeId)).to.be
-              .rejected;
+            await expect(
+              client.createRuntime(runtimeSpec, runtimeId, requestId),
+            ).to.be.rejected;
 
             sinon.assert.notCalled(onAuthErrorStub);
           });

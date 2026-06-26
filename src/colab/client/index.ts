@@ -104,22 +104,19 @@ export class ColabApiClient {
    * Creates a new runtime for the authenticated user.
    *
    * @param spec - Runtime spec to use for the new runtime.
-   * @param id - Optional runtime ID to use for the new runtime.
+   * @param runtimeId - Optional runtime ID to use for the new runtime.
    * @param requestId - Optional request ID to ensure idempotency.
    * @returns A promise that resolves to a create runtime long-running
    * operation.
    */
   async createRuntime(
     spec: colabComponents['schemas']['Key'],
-    id?: string,
+    runtimeId?: string,
     requestId?: string,
   ) {
     const { data } = await this.colabClient.POST('/v1beta/runtimes', {
       params: {
-        query: {
-          runtimeId: id,
-          requestId,
-        },
+        query: { runtimeId, requestId },
       },
       body: {
         runtimeSpec: spec,
