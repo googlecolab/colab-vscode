@@ -16,7 +16,7 @@ https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=\{version\}&ke
   [Operations API](https://github.com/googleapis/googleapis/blob/master/google/longrunning/operations.proto),
   which is required to interact with `CreateRuntime` [long-running operations](https://google.aip.dev/151).
 
-- `api-v1beta.json` holds the schema of Colab API (still in beta), which
+- `api-v1beta.json` holds the schema of the Colab API (still in beta), which
   interacts with Colab managed runtimes.
 
 ## `openapi-typescript`
