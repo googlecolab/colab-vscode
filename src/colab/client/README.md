@@ -12,7 +12,7 @@ https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=\{version\}&ke
 > Colab API is _not yet_ launched publicly, so an API key with access to the API
 > is currently required to view the OpenAPI schema.
 
-- `api-v1.json` currently holds the schema of
+- `api-v1.json` currently holds the schema of the
   [Operations API](https://github.com/googleapis/googleapis/blob/master/google/longrunning/operations.proto),
   which is required to interact with `CreateRuntime` [long-running operations](https://google.aip.dev/151).
 
