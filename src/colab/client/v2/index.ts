@@ -4,22 +4,53 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import assert from 'assert';
 import createClient, { Middleware } from 'openapi-fetch';
-import { log } from '../../common/logging';
-import { telemetry } from '../../telemetry';
-import { ColabRequestError } from '../errors';
-import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../headers';
-import type {
-  paths as operationsPaths,
-  components as operationsComponents,
-} from './generated/schema-v1';
+import { log } from '../../../common/logging';
+import { telemetry } from '../../../telemetry';
+import { ColabRequestError } from '../../errors';
+import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import type {
   paths as colabPaths,
   components as colabComponents,
-} from './generated/schema-v1beta';
+} from './generated/colab-schema';
+import type {
+  paths as operationsPaths,
+  components as operationsComponents,
+} from './generated/operations-schema';
+
+/** Colab public API client. */
+export interface ColabApiClient {
+  /** Subscription API. */
+  readonly subscription: {
+    get: () => Promise<colabComponents['schemas']['Subscription']>;
+  };
+
+  /** Runtime Specs API. */
+  readonly runtimespecs: {
+    list: () => Promise<colabComponents['schemas']['RuntimeSpec'][]>;
+  };
+
+  /** Runtimes API. */
+  readonly runtimes: {
+    get: (id: string) => Promise<colabComponents['schemas']['Runtime']>;
+    list: () => Promise<colabComponents['schemas']['Runtime'][]>;
+    create: (
+      spec: colabComponents['schemas']['Key'],
+      runtimeId?: string,
+      requestId?: string,
+    ) => Promise<colabComponents['schemas']['CreateRuntimeOperation']>;
+    delete: (id: string) => Promise<void>;
+  };
+
+  /** Operations API. */
+  readonly operations: {
+    get: (id: string) => Promise<operationsComponents['schemas']['Operation']>;
+  };
+}
 
 /** A client for interacting with the Colab API. */
-export class ColabApiClient {
+class ColabApiClientImpl implements ColabApiClient {
   private readonly colabClient: createClient.Client<colabPaths>;
   private readonly operationsClient: createClient.Client<operationsPaths>;
 
@@ -53,14 +84,24 @@ export class ColabApiClient {
     );
   }
 
-  /**
-   * Gets the subscription for the authenticated user.
-   *
-   * @returns A promise that resolves to the subscription.
-   */
-  async getSubscription() {
-    const { data } = await this.colabClient.GET('/v1beta/subscription');
-    return data as unknown as colabComponents['schemas']['Subscription'];
+  get subscription() {
+    return {
+      get: async() => {
+        const { data } = await this.colabClient.GET('/v1beta/subscription');
+        assert(data);
+        return data;
+      }
+    };
+  }
+
+  get runtimespecs() {
+    return {
+      list: async () => {
+        const { data } = await this.colabClient.GET('/v1beta/runtimespecs');
+        assert(data?.runtimeSpecs);
+        return data.runtimeSpecs;
+      }
+    }
   }
 
   /**
@@ -68,9 +109,11 @@ export class ColabApiClient {
    *
    * @returns A promise that resolves to the list of runtime specs.
    */
-  async listRuntimeSpecs() {
+  async listRuntimeSpecs(): Promise<
+    colabComponents['schemas']['ListRuntimeSpecsResponse'] | undefined
+  > {
     const { data } = await this.colabClient.GET('/v1beta/runtimespecs');
-    return data as unknown as colabComponents['schemas']['RuntimeSpec'][];
+    return data;
   }
 
   /**
@@ -78,9 +121,11 @@ export class ColabApiClient {
    *
    * @returns A promise that resolves to the list of runtimes.
    */
-  async listRuntimes() {
+  async listRuntimes(): Promise<
+    colabComponents['schemas']['ListRuntimesResponse'] | undefined
+  > {
     const { data } = await this.colabClient.GET('/v1beta/runtimes');
-    return data as unknown as colabComponents['schemas']['Runtime'][];
+    return data;
   }
 
   /**
@@ -89,7 +134,9 @@ export class ColabApiClient {
    * @param id - Runtime ID.
    * @returns A promise that resolves to the runtime.
    */
-  async getRuntime(id: string) {
+  async getRuntime(
+    id: string,
+  ): Promise<colabComponents['schemas']['Runtime'] | undefined> {
     const { data } = await this.colabClient.GET('/v1beta/runtimes/{runtime}', {
       params: {
         path: {
@@ -97,7 +144,7 @@ export class ColabApiClient {
         },
       },
     });
-    return data as unknown as colabComponents['schemas']['Runtime'];
+    return data;
   }
 
   /**
@@ -113,7 +160,7 @@ export class ColabApiClient {
     spec: colabComponents['schemas']['Key'],
     runtimeId?: string,
     requestId?: string,
-  ) {
+  ): Promise<colabComponents['schemas']['CreateRuntimeOperation'] | undefined> {
     const { data } = await this.colabClient.POST('/v1beta/runtimes', {
       params: {
         query: { runtimeId, requestId },
@@ -122,7 +169,7 @@ export class ColabApiClient {
         runtimeSpec: spec,
       },
     });
-    return data as unknown as colabComponents['schemas']['CreateRuntimeOperation'];
+    return data;
   }
 
   /**
@@ -130,7 +177,7 @@ export class ColabApiClient {
    *
    * @param id - ID of the runtime to be deleted.
    */
-  async deleteRuntime(id: string) {
+  async deleteRuntime(id: string): Promise<void> {
     await this.colabClient.DELETE('/v1beta/runtimes/{runtime}', {
       params: {
         path: {
@@ -146,7 +193,9 @@ export class ColabApiClient {
    * @param id - Operation ID.
    * @returns A promise that resolves to the operation.
    */
-  async getOperation(id: string) {
+  async getOperation(
+    id: string,
+  ): Promise<operationsComponents['schemas']['Operation'] | undefined> {
     const { data } = await this.operationsClient.GET(
       '/v1/operations/{operationsId}',
       {
@@ -157,7 +206,7 @@ export class ColabApiClient {
         },
       },
     );
-    return data as unknown as operationsComponents['schemas']['Operation'];
+    return data;
   }
 }
 

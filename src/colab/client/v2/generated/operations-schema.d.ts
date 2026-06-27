@@ -4,35 +4,6 @@
  */
 
 export interface paths {
-    "/v1/operations": {
-        parameters: {
-            query?: {
-                /** @description Data format for response. */
-                $alt?: components["parameters"]["alt"];
-                /** @description JSONP */
-                $callback?: components["parameters"]["callback"];
-                /** @description Returns response with indentations and line breaks. */
-                $prettyPrint?: components["parameters"]["prettyPrint"];
-                /** @description V1 error format. */
-                "$.xgafv"?: components["parameters"]["_.xgafv"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * @description Lists operations that match the specified filter in the request. If the
-         *     server doesn't support this method, it returns `UNIMPLEMENTED`.
-         */
-        get: operations["ListOperations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/operations/{operationsId}:cancel": {
         parameters: {
             query?: {
@@ -106,6 +77,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/operations": {
+        parameters: {
+            query?: {
+                /** @description Data format for response. */
+                $alt?: components["parameters"]["alt"];
+                /** @description JSONP */
+                $callback?: components["parameters"]["callback"];
+                /** @description Returns response with indentations and line breaks. */
+                $prettyPrint?: components["parameters"]["prettyPrint"];
+                /** @description V1 error format. */
+                "$.xgafv"?: components["parameters"]["_.xgafv"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Lists operations that match the specified filter in the request. If the
+         *     server doesn't support this method, it returns `UNIMPLEMENTED`.
+         */
+        get: operations["ListOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -117,16 +117,13 @@ export interface components {
          *     `structured_content` of the response stream.
          */
         ExecuteCodeResult: {
+            /** @description Aggregated stdout across the execution. */
+            stdout?: string;
             /**
              * @description The `text/plain` representation of the last expression's value, if the
              *     execution ended on an expression. Empty otherwise.
              */
             result?: string;
-            /**
-             * @description Whether the runtime truncated buffered output (size or line caps hit). When
-             *     true, `stdout`/`stderr` are tail-truncated.
-             */
-            outputTruncated?: boolean;
             /**
              * @description Whether the execution produced rich (non-text) outputs that this tool does
              *     not surface (e.g. images, Plotly/Vega figures, widgets). Always false for
@@ -134,62 +131,70 @@ export interface components {
              */
             richOutputsDropped?: boolean;
             /**
-             * @description The execution identifier this result is for, echoed from the request. Empty
-             *     when the request supplied no `execution_id` (such an execution is not
-             *     resumable). Use it to resume.
+             * @description Whether the runtime truncated buffered output (size or line caps hit). When
+             *     true, `stdout`/`stderr` are tail-truncated.
              */
-            executionId?: string;
+            outputTruncated?: boolean;
+            /** @description Aggregated stderr across the execution. */
+            stderr?: string;
             /**
              * @description The session the execution ran in.
              *     Format: `runtimes/{runtime}/sessions/{session}`.
              */
             session?: string;
             /**
+             * @description Populated when the execution raised. Mutually exclusive with a successful
+             *     completion.
+             */
+            executionError?: components["schemas"]["Error"];
+            /**
+             * @description The execution identifier this result is for, echoed from the request. Empty
+             *     when the request supplied no `execution_id` (such an execution is not
+             *     resumable). Use it to resume.
+             */
+            executionId?: string;
+            /**
              * Format: int32
              * @description The Jupyter `In[N]` execution count assigned by the kernel. Informational
              *     only. Not for addressing executions, for that use `execution_id`.
              */
             executionCount?: number;
-            /** @description Aggregated stderr across the execution. */
-            stderr?: string;
-            /**
-             * @description Populated when the execution raised. Mutually exclusive with a successful
-             *     completion.
-             */
-            executionError?: components["schemas"]["Error"];
-            /** @description Aggregated stdout across the execution. */
-            stdout?: string;
-        };
-        /** @description The response message for Operations.ListOperations. */
-        ListOperationsResponse: {
-            /** @description The standard List next-page token. */
-            nextPageToken?: string;
-            /**
-             * @description Unordered list. Unreachable resources. Populated when the request sets
-             *     `ListOperationsRequest.return_partial_success` and reads across
-             *     collections. For example, when attempting to list all resources across all
-             *     supported locations.
-             */
-            unreachable?: string[];
-            /** @description A list of operations that matches the specified filter in the request. */
-            operations?: components["schemas"]["Operation"][];
         };
         /**
-         * @description A generic empty message that you can re-use to avoid defining duplicated
-         *     empty messages in your APIs. A typical example is to use it as the request
-         *     or the response type of an API method. For instance:
+         * @description The `Status` type defines a logical error model that is suitable for
+         *     different programming environments, including REST APIs and RPC APIs. It is
+         *     used by [gRPC](https://github.com/grpc). Each `Status` message contains
+         *     three pieces of data: error code, error message, and error details.
          *
-         *         service Foo {
-         *           rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);
-         *         }
+         *     You can find out more about this error model and how to work with it in the
+         *     [API Design Guide](https://cloud.google.com/apis/design/errors).
          */
-        Empty: Record<string, never>;
+        Status: {
+            /**
+             * Format: int32
+             * @description The status code, which should be an enum value of google.rpc.Code.
+             */
+            code?: number;
+            /**
+             * @description A developer-facing error message, which should be in English. Any
+             *     user-facing error message should be localized and sent in the
+             *     google.rpc.Status.details field, or localized by the client.
+             */
+            message?: string;
+            /**
+             * @description A list of messages that carry the error details.  There is a common set of
+             *     message types for APIs to use.
+             */
+            details?: {
+                [key: string]: unknown;
+            }[];
+        };
         /** @description A Python exception raised during execution. */
         Error: {
-            /** @description The exception class name, e.g. "NameError". */
-            name?: string;
             /** @description The formatted traceback, one frame per entry. */
             traceback?: string[];
+            /** @description The exception class name, e.g. "NameError". */
+            name?: string;
             /** @description The exception message, e.g. "name 'foo' is not defined". */
             value?: string;
         };
@@ -222,33 +227,28 @@ export interface components {
             };
         };
         /**
-         * @description The `Status` type defines a logical error model that is suitable for
-         *     different programming environments, including REST APIs and RPC APIs. It is
-         *     used by [gRPC](https://github.com/grpc). Each `Status` message contains
-         *     three pieces of data: error code, error message, and error details.
+         * @description A generic empty message that you can re-use to avoid defining duplicated
+         *     empty messages in your APIs. A typical example is to use it as the request
+         *     or the response type of an API method. For instance:
          *
-         *     You can find out more about this error model and how to work with it in the
-         *     [API Design Guide](https://cloud.google.com/apis/design/errors).
+         *         service Foo {
+         *           rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);
+         *         }
          */
-        Status: {
+        Empty: Record<string, never>;
+        /** @description The response message for Operations.ListOperations. */
+        ListOperationsResponse: {
+            /** @description A list of operations that matches the specified filter in the request. */
+            operations?: components["schemas"]["Operation"][];
             /**
-             * Format: int32
-             * @description The status code, which should be an enum value of google.rpc.Code.
+             * @description Unordered list. Unreachable resources. Populated when the request sets
+             *     `ListOperationsRequest.return_partial_success` and reads across
+             *     collections. For example, when attempting to list all resources across all
+             *     supported locations.
              */
-            code?: number;
-            /**
-             * @description A developer-facing error message, which should be in English. Any
-             *     user-facing error message should be localized and sent in the
-             *     google.rpc.Status.details field, or localized by the client.
-             */
-            message?: string;
-            /**
-             * @description A list of messages that carry the error details.  There is a common set of
-             *     message types for APIs to use.
-             */
-            details?: {
-                [key: string]: unknown;
-            }[];
+            unreachable?: string[];
+            /** @description The standard List next-page token. */
+            nextPageToken?: string;
         };
         /**
          * @description This resource represents a long-running operation that is the result of a
@@ -273,14 +273,14 @@ export interface components {
     };
     responses: never;
     parameters: {
-        /** @description JSONP */
-        callback: string;
-        /** @description Returns response with indentations and line breaks. */
-        prettyPrint: boolean;
         /** @description V1 error format. */
         "_.xgafv": "1" | "2";
         /** @description Data format for response. */
         alt: "json" | "media" | "proto";
+        /** @description JSONP */
+        callback: string;
+        /** @description Returns response with indentations and line breaks. */
+        prettyPrint: boolean;
     };
     requestBodies: never;
     headers: never;
@@ -288,6 +288,134 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    CancelOperation: {
+        parameters: {
+            query?: {
+                /** @description Data format for response. */
+                $alt?: components["parameters"]["alt"];
+                /** @description JSONP */
+                $callback?: components["parameters"]["callback"];
+                /** @description Returns response with indentations and line breaks. */
+                $prettyPrint?: components["parameters"]["prettyPrint"];
+                /** @description V1 error format. */
+                "$.xgafv"?: components["parameters"]["_.xgafv"];
+            };
+            header?: never;
+            path: {
+                /** @description Part of `name`. The name of the operation resource to be cancelled. */
+                operationsId: string;
+            };
+            cookie?: never;
+        };
+        /** @description The request body. */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CancelOperationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+            /** @description Successful operation */
+            "2XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+        };
+    };
+    GetOperation: {
+        parameters: {
+            query?: {
+                /** @description Data format for response. */
+                $alt?: components["parameters"]["alt"];
+                /** @description JSONP */
+                $callback?: components["parameters"]["callback"];
+                /** @description Returns response with indentations and line breaks. */
+                $prettyPrint?: components["parameters"]["prettyPrint"];
+                /** @description V1 error format. */
+                "$.xgafv"?: components["parameters"]["_.xgafv"];
+            };
+            header?: never;
+            path: {
+                /** @description Part of `name`. The name of the operation resource. */
+                operationsId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            /** @description Successful operation */
+            "2XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+        };
+    };
+    DeleteOperation: {
+        parameters: {
+            query?: {
+                /** @description Data format for response. */
+                $alt?: components["parameters"]["alt"];
+                /** @description JSONP */
+                $callback?: components["parameters"]["callback"];
+                /** @description Returns response with indentations and line breaks. */
+                $prettyPrint?: components["parameters"]["prettyPrint"];
+                /** @description V1 error format. */
+                "$.xgafv"?: components["parameters"]["_.xgafv"];
+            };
+            header?: never;
+            path: {
+                /** @description Part of `name`. The name of the operation resource to be deleted. */
+                operationsId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+            /** @description Successful operation */
+            "2XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+        };
+    };
     ListOperations: {
         parameters: {
             query?: {
@@ -335,105 +463,13 @@ export interface operations {
                     "application/json": components["schemas"]["ListOperationsResponse"];
                 };
             };
-        };
-    };
-    CancelOperation: {
-        parameters: {
-            query?: {
-                /** @description Data format for response. */
-                $alt?: components["parameters"]["alt"];
-                /** @description JSONP */
-                $callback?: components["parameters"]["callback"];
-                /** @description Returns response with indentations and line breaks. */
-                $prettyPrint?: components["parameters"]["prettyPrint"];
-                /** @description V1 error format. */
-                "$.xgafv"?: components["parameters"]["_.xgafv"];
-            };
-            header?: never;
-            path: {
-                /** @description Part of `name`. The name of the operation resource to be cancelled. */
-                operationsId: string;
-            };
-            cookie?: never;
-        };
-        /** @description The request body. */
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["CancelOperationRequest"];
-            };
-        };
-        responses: {
             /** @description Successful operation */
-            default: {
+            "2XX": {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Empty"];
-                };
-            };
-        };
-    };
-    GetOperation: {
-        parameters: {
-            query?: {
-                /** @description Data format for response. */
-                $alt?: components["parameters"]["alt"];
-                /** @description JSONP */
-                $callback?: components["parameters"]["callback"];
-                /** @description Returns response with indentations and line breaks. */
-                $prettyPrint?: components["parameters"]["prettyPrint"];
-                /** @description V1 error format. */
-                "$.xgafv"?: components["parameters"]["_.xgafv"];
-            };
-            header?: never;
-            path: {
-                /** @description Part of `name`. The name of the operation resource. */
-                operationsId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Operation"];
-                };
-            };
-        };
-    };
-    DeleteOperation: {
-        parameters: {
-            query?: {
-                /** @description Data format for response. */
-                $alt?: components["parameters"]["alt"];
-                /** @description JSONP */
-                $callback?: components["parameters"]["callback"];
-                /** @description Returns response with indentations and line breaks. */
-                $prettyPrint?: components["parameters"]["prettyPrint"];
-                /** @description V1 error format. */
-                "$.xgafv"?: components["parameters"]["_.xgafv"];
-            };
-            header?: never;
-            path: {
-                /** @description Part of `name`. The name of the operation resource to be deleted. */
-                operationsId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Empty"];
+                    "application/json": components["schemas"]["ListOperationsResponse"];
                 };
             };
         };

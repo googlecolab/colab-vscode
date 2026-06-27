@@ -387,6 +387,15 @@ export interface operations {
                     "application/json": components["schemas"]["Subscription"];
                 };
             };
+            /** @description Successful operation */
+            "2XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
         };
     };
     ListRuntimes: {
@@ -409,6 +418,15 @@ export interface operations {
         responses: {
             /** @description Successful operation */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRuntimesResponse"];
+                };
+            };
+            /** @description Successful operation */
+            "2XX": {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -475,6 +493,15 @@ export interface operations {
                     "application/json": components["schemas"]["CreateRuntimeOperation"];
                 };
             };
+            /** @description Successful operation */
+            "2XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateRuntimeOperation"];
+                };
+            };
         };
     };
     ListRuntimeSpecs: {
@@ -497,6 +524,15 @@ export interface operations {
         responses: {
             /** @description Successful operation */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRuntimeSpecsResponse"];
+                };
+            };
+            /** @description Successful operation */
+            "2XX": {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -536,6 +572,15 @@ export interface operations {
                     "application/json": components["schemas"]["Runtime"];
                 };
             };
+            /** @description Successful operation */
+            "2XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Runtime"];
+                };
+            };
         };
     };
     DeleteRuntime: {
@@ -561,6 +606,15 @@ export interface operations {
         responses: {
             /** @description Successful operation */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Empty"];
+                };
+            };
+            /** @description Successful operation */
+            "2XX": {
                 headers: {
                     [name: string]: unknown;
                 };

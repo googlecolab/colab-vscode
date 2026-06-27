@@ -9,10 +9,10 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import * as sinon from 'sinon';
 import { SinonStubbedFunction } from 'sinon';
-import { telemetry } from '../../telemetry';
-import { ColabRequestError } from '../errors';
-import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../headers';
-import type { components as colabComponents } from './generated/schema-v1beta';
+import { telemetry } from '../../../telemetry';
+import { ColabRequestError } from '../../errors';
+import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
+import type { components as colabComponents } from './generated/colab-schema';
 import { ColabApiClient } from '.';
 
 const COLAB_API_HOST = 'colaboratory.example.com';
@@ -211,15 +211,15 @@ describe('ColabApiClient', () => {
     beforeEach(() => {
       server.use(
         http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
-          HttpResponse.json(runtimeSpecs, { status: 200 }),
+          HttpResponse.json({ runtimeSpecs }, { status: 200 }),
         ),
       );
     });
 
     it('returns a list of runtime specs', async () => {
-      await expect(client.listRuntimeSpecs()).to.eventually.deep.equal(
+      await expect(client.listRuntimeSpecs()).to.eventually.deep.equal({
         runtimeSpecs,
-      );
+      });
     });
 
     it('sends client agent header', async () => {
@@ -350,13 +350,15 @@ describe('ColabApiClient', () => {
     beforeEach(() => {
       server.use(
         http.get(`https://${COLAB_API_HOST}/v1beta/runtimes`, () =>
-          HttpResponse.json(runtimes, { status: 200 }),
+          HttpResponse.json({ runtimes }, { status: 200 }),
         ),
       );
     });
 
     it('returns a list of runtimes', async () => {
-      await expect(client.listRuntimes()).to.eventually.deep.equal(runtimes);
+      await expect(client.listRuntimes()).to.eventually.deep.equal({
+        runtimes,
+      });
     });
 
     it('sends client agent header', async () => {
