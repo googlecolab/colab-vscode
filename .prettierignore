@@ -1,2 +1,2 @@
-src/colab/client/generated/**
+src/colab/client/v2/generated/**
 src/jupyter/client/generated/**

@@ -55,8 +55,14 @@
         "name": "$.xgafv",
         "description": "V1 error format.",
         "schema": {
-          "enum": ["1", "2"],
-          "x-google-enum-descriptions": ["v1 error format", "v2 error format"],
+          "enum": [
+            "1",
+            "2"
+          ],
+          "x-google-enum-descriptions": [
+            "v1 error format",
+            "v2 error format"
+          ],
           "type": "string"
         },
         "in": "query"
@@ -67,7 +73,11 @@
         "in": "query",
         "schema": {
           "default": "json",
-          "enum": ["json", "media", "proto"],
+          "enum": [
+            "json",
+            "media",
+            "proto"
+          ],
           "x-google-enum-descriptions": [
             "Responses with Content-Type of application/json",
             "Media download with context-dependent Content-Type",
@@ -153,7 +163,9 @@
             "type": "boolean"
           }
         },
-        "required": ["key"],
+        "required": [
+          "key"
+        ],
         "description": "A specification of a runtime."
       },
       "CreateRuntimeMetadata": {
@@ -190,10 +202,15 @@
             ]
           }
         },
-        "required": ["variant", "accelerator", "shape"],
+        "required": [
+          "variant",
+          "accelerator",
+          "shape"
+        ],
         "type": "object"
       },
       "Empty": {
+        "properties": {},
         "type": "object",
         "description": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:\n\n    service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }"
       },
@@ -324,7 +341,11 @@
           "Standard shape.",
           "High memory shape."
         ],
-        "enum": ["SHAPE_UNSPECIFIED", "SHAPE_STANDARD", "SHAPE_HIGHMEM"]
+        "enum": [
+          "SHAPE_UNSPECIFIED",
+          "SHAPE_STANDARD",
+          "SHAPE_HIGHMEM"
+        ]
       },
       "Status": {
         "description": "The `Status` type defines a logical error model that is suitable for\ndifferent programming environments, including REST APIs and RPC APIs. It is\nused by [gRPC](https://github.com/grpc). Each `Status` message contains\nthree pieces of data: error code, error message, and error details.\n\nYou can find out more about this error model and how to work with it in the\n[API Design Guide](https://cloud.google.com/apis/design/errors).",
@@ -378,7 +399,9 @@
             "readOnly": true
           }
         },
-        "required": ["runtimeSpec"]
+        "required": [
+          "runtimeSpec"
+        ]
       },
       "BaseOperation": {
         "type": "object",
@@ -502,7 +525,9 @@
             "bearer_auth": []
           }
         ],
-        "tags": ["colaboratory"],
+        "tags": [
+          "colaboratory"
+        ],
         "description": "Gets the subscription of the requesting user."
       }
     },
@@ -554,7 +579,9 @@
             "bearer_auth": []
           }
         ],
-        "tags": ["colaboratory"],
+        "tags": [
+          "colaboratory"
+        ],
         "x-google-lro": "true",
         "requestBody": {
           "content": {
@@ -597,7 +624,9 @@
             "description": "Successful operation"
           }
         },
-        "tags": ["colaboratory"],
+        "tags": [
+          "colaboratory"
+        ],
         "security": [
           {
             "google_oauth_implicit": [
@@ -633,7 +662,9 @@
       ],
       "get": {
         "description": "Lists Colab runtime specs available to the requesting user.",
-        "tags": ["colaboratory"],
+        "tags": [
+          "colaboratory"
+        ],
         "security": [
           {
             "google_oauth_implicit": [
@@ -706,7 +737,9 @@
             }
           }
         },
-        "tags": ["colaboratory"],
+        "tags": [
+          "colaboratory"
+        ],
         "security": [
           {
             "google_oauth_implicit": [
@@ -725,7 +758,9 @@
       },
       "delete": {
         "description": "Deletes a Colab runtime assignment.",
-        "tags": ["colaboratory"],
+        "tags": [
+          "colaboratory"
+        ],
         "security": [
           {
             "google_oauth_implicit": [
@@ -755,13 +790,6 @@
         ],
         "responses": {
           "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Empty"
-                }
-              }
-            },
             "description": "Successful operation"
           }
         }
