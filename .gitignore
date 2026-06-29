@@ -6,6 +6,8 @@ openapitools.json
 out/
 src/colab-config.ts
 src/colab/client/v2/colab-api-fixed.json
+src/colab/client/v2/generated/colab/.openapi-generator/*
+src/colab/client/v2/generated/operations/.openapi-generator/*
 src/colab/client/v2/operations-api-fixed.json
 src/jupyter/client/post-processed-api.yaml
 .worktrees/

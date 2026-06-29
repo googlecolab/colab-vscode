@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { parse, stringify } from 'yaml';
+import { findTsFiles } from '../../../scripts/common.js';
 
 const DIR = import.meta.dirname;
 const API_YAML = path.join(DIR, 'api.yaml');
@@ -218,24 +219,6 @@ function toCamelCase(str: string): string {
   return str
     .replace(/_([a-z])/g, (_: string, letter: string) => letter.toUpperCase())
     .replace(/^[A-Z]/, (letter: string) => letter.toLowerCase());
-}
-
-function findTsFiles(dir: string): string[] {
-  let results: string[] = [];
-  if (!fs.existsSync(dir)) return [];
-
-  const list = fs.readdirSync(dir);
-  for (const file of list) {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-
-    if (stat.isDirectory()) {
-      results = results.concat(findTsFiles(filePath));
-    } else if (file.endsWith('.ts')) {
-      results.push(filePath);
-    }
-  }
-  return results;
 }
 
 main();

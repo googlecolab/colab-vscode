@@ -7,6 +7,7 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { findTsFiles } from '../../../../scripts/common.js';
 
 const DIR = import.meta.dirname;
 const COLAB_API_SPEC = path.join(DIR, 'colab-api.json');
@@ -42,7 +43,7 @@ interface PathItem {
   [key: string]: unknown;
 }
 
-interface OpenAPI3Doc {
+interface OpenApi3Doc {
   paths?: Record<string, PathItem>;
   [key: string]: unknown;
 }
@@ -67,6 +68,7 @@ function main() {
         -i "${COLAB_API_SPEC_FIXED}" \
         -g typescript-fetch \
         -o "${COLAB_API_OUT_DIR}" \
+        --global-property=apiDocs=false,modelDocs=false \
         --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
     { stdio: 'inherit' },
   );
@@ -79,6 +81,7 @@ function main() {
         -i "${OPERATIONS_API_SPEC_FIXED}" \
         -g typescript-fetch \
         -o "${OPERATIONS_API_OUT_DIR}" \
+        --global-property=apiDocs=false,modelDocs=false \
         --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
     { stdio: 'inherit' },
   );
@@ -96,7 +99,13 @@ function preProcessOpenApiSpec(inputPath: string, outputPath: string) {
     const absoluteInputPath = path.resolve(inputPath);
     console.log(`📚 Reading: ${absoluteInputPath}`);
     const fileContent = fs.readFileSync(absoluteInputPath, 'utf-8');
-    const doc = JSON.parse(fileContent) as OpenAPI3Doc;
+    const doc = JSON.parse(fileContent) as unknown;
+
+    if (!isOpenApi3Doc(doc)) {
+      throw new Error(
+        "Parsed JSON is not a valid OpenAPI document (missing 'paths').",
+      );
+    }
 
     if (!doc.paths) {
       console.warn('⚠️ No "paths" object found in the OpenAPI document.');
@@ -129,6 +138,15 @@ function preProcessOpenApiSpec(inputPath: string, outputPath: string) {
   }
 }
 
+function isOpenApi3Doc(doc: unknown): doc is OpenApi3Doc {
+  return (
+    typeof doc === 'object' &&
+    !!doc &&
+    'paths' in doc &&
+    typeof doc.paths === 'object'
+  );
+}
+
 function postProcessGeneratedFiles(): void {
   const files = findTsFiles(OUT_DIR);
 
@@ -142,24 +160,6 @@ function postProcessGeneratedFiles(): void {
 
     fs.writeFileSync(file, content);
   }
-}
-
-function findTsFiles(dir: string): string[] {
-  let results: string[] = [];
-  if (!fs.existsSync(dir)) return [];
-
-  const list = fs.readdirSync(dir);
-  for (const file of list) {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-
-    if (stat.isDirectory()) {
-      results = results.concat(findTsFiles(filePath));
-    } else if (file.endsWith('.ts')) {
-      results.push(filePath);
-    }
-  }
-  return results;
 }
 
 main();
