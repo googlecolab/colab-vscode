@@ -11,7 +11,7 @@ import { CONFIG } from '../colab-config';
 import { Toggleable } from '../common/toggleable';
 import { PackageInfo } from '../config/package-info';
 import { AssignmentManager } from '../jupyter/assignments';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
 import { ConsumptionNotifier } from './consumption/notifier';
 import { ConsumptionPoller } from './consumption/poller';
 import { ConsumptionStatusBar } from './consumption/status-bar';

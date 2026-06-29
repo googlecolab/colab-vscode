@@ -15,8 +15,8 @@ import { ColabAssignedServer } from '../jupyter/servers';
 import { ControllableAsyncToggle } from '../test/helpers/async';
 import { TestEventEmitter } from '../test/helpers/events';
 import { TestUri } from '../test/helpers/uri';
-import { Variant } from './api';
-import { NotFoundError } from './client';
+import { NotFoundError } from './client/v1';
+import { Variant } from './client/v1/api';
 import {
   ConnectionRefreshController,
   ConnectionRefresher,

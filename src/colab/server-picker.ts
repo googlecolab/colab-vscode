@@ -14,7 +14,7 @@ import {
   Shape,
   shapeToMachineShape,
   ExperimentFlag,
-} from './api';
+} from './client/v1/api';
 import { getFlag } from './experiment-state';
 
 /** Provides an explanation to the user on updating the server alias. */

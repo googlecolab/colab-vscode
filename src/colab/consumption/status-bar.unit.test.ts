@@ -13,7 +13,7 @@ import {
   newVsCodeStub,
   StatusBarAlignment,
 } from '../../test/helpers/vscode';
-import { ConsumptionUserInfo, SubscriptionTier } from '../api';
+import { ConsumptionUserInfo, SubscriptionTier } from '../client/v1/api';
 import { ConsumptionStatusBar } from './status-bar';
 
 describe('ConsumptionStatusBar', () => {

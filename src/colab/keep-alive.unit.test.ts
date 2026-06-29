@@ -18,8 +18,8 @@ import {
 } from '../test/helpers/jupyter';
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { Variant } from './api';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
+import { Variant } from './client/v1/api';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,

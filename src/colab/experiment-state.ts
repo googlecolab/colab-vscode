@@ -8,12 +8,12 @@ import { Disposable } from 'vscode';
 import { log } from '../common/logging';
 import { OverrunPolicy, SequentialTaskRunner } from '../common/task-runner';
 import { Toggleable } from '../common/toggleable';
+import { ColabClient } from './client/v1';
 import {
   ExperimentFlag,
   ExperimentFlagValue,
   EXPERIMENT_FLAG_DEFAULT_VALUES,
-} from './api';
-import { ColabClient } from './client';
+} from './client/v1/api';
 
 /**
  * Gets the value of an experiment flag.

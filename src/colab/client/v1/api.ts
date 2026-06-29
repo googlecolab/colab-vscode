@@ -27,7 +27,7 @@ import { z } from 'zod';
 import {
   Session as GeneratedSession,
   Kernel as GeneratedKernel,
-} from '../jupyter/client/generated';
+} from '../../../jupyter/client/generated';
 
 export enum SubscriptionState {
   UNSUBSCRIBED = 1,

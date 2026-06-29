@@ -14,7 +14,7 @@ import {
   StatusBarAlignment,
   VsCodeStub,
 } from '../test/helpers/vscode';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
 import { ConsumptionPoller } from './consumption/poller';
 import { ConsumptionStatusBar } from './consumption/status-bar';
 import { ExperimentStateProvider } from './experiment-state';

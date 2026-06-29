@@ -15,7 +15,7 @@ import vscode, {
   type SecretStorage,
 } from 'vscode';
 import { GoogleAuthProvider } from '../auth/auth-provider';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
 import {
   COLAB_TOOLBAR,
   MOUNT_DRIVE,

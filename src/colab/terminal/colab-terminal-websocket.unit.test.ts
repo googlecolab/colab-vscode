@@ -8,9 +8,9 @@ import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import WebSocket from 'ws';
-import { Variant } from '../../colab/api';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { Variant } from '../client/v1/api';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../headers';
 import { ColabTerminalWebSocket } from './colab-terminal-websocket';
 

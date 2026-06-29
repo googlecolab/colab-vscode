@@ -14,6 +14,14 @@ import fetch, {
 } from 'node-fetch';
 import vscode, { Disposable } from 'vscode';
 import {
+  AcceleratorUnavailableError,
+  ColabClient,
+  DenylistedError,
+  InsufficientQuotaError,
+  NotFoundError,
+  TooManyAssignmentsError,
+} from '../colab/client/v1';
+import {
   Assignment,
   ListedAssignment,
   RuntimeProxyToken,
@@ -22,15 +30,7 @@ import {
   SubscriptionTier,
   Shape,
   isHighMemOnlyAccelerator,
-} from '../colab/api';
-import {
-  AcceleratorUnavailableError,
-  ColabClient,
-  DenylistedError,
-  InsufficientQuotaError,
-  NotFoundError,
-  TooManyAssignmentsError,
-} from '../colab/client';
+} from '../colab/client/v1/api';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import { ColabRequestError } from '../colab/errors';
 import {

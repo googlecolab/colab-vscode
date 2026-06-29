@@ -11,8 +11,8 @@ import vscode, { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
 import { handleEphemeralAuth } from '../auth/ephemeral';
-import { AuthType } from '../colab/api';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
+import { AuthType } from '../colab/client/v1/api';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,

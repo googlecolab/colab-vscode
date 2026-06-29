@@ -6,7 +6,7 @@
 
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ColabAssignedServer } from '../../jupyter/servers';
-import { Disk, GpuInfo, Memory } from '../api';
+import { Disk, GpuInfo, Memory } from '../client/v1/api';
 
 /**
  * Types of resources that can be displayed in resource monitor tree view.

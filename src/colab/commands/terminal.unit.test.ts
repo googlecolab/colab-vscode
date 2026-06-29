@@ -7,7 +7,6 @@
 import { randomUUID } from 'crypto';
 import sinon, { SinonStubbedFunction, SinonStubbedInstance } from 'sinon';
 import { ExtensionTerminalOptions, QuickPick, QuickPickItem } from 'vscode';
-import { Variant } from '../../colab/api';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { telemetry } from '../../telemetry';
@@ -19,6 +18,7 @@ import {
 import { TestThemeIcon } from '../../test/helpers/theme';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { Variant } from '../client/v1/api';
 import { openTerminal } from './terminal';
 
 describe('openTerminal command', () => {

@@ -15,8 +15,8 @@ import {
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
-import { ExperimentFlag, Disk, GpuInfo, Memory } from '../api';
-import { ColabClient } from '../client';
+import { ColabClient } from '../client/v1';
+import { ExperimentFlag, Disk, GpuInfo, Memory } from '../client/v1/api';
 import { TEST_ONLY as FLAGS_TEST_ONLY } from '../experiment-state';
 import { ResourceItem, ResourceType } from './resource-item';
 import { ResourceTreeProvider } from './resource-tree';

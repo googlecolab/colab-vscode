@@ -13,7 +13,7 @@ import {
   AssignmentManager,
 } from '../jupyter/assignments';
 import { ColabAssignedServer } from '../jupyter/servers';
-import { NotFoundError } from './client';
+import { NotFoundError } from './client/v1';
 
 /* The buffer we give to refresh the token, before it actually expires. */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes.

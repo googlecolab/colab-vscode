@@ -7,8 +7,8 @@
 import { expect } from 'chai';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { Deferred } from '../test/helpers/async';
-import { ExperimentFlag, ExperimentFlagValue } from './api';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
+import { ExperimentFlag, ExperimentFlagValue } from './client/v1/api';
 import {
   ExperimentStateProvider,
   getFlag,

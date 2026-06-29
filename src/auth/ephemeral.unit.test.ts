@@ -7,8 +7,8 @@
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { Uri } from 'vscode';
-import { AuthType } from '../colab/api';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
+import { AuthType } from '../colab/client/v1/api';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { handleEphemeralAuth } from './ephemeral';
