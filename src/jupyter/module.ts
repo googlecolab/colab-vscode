@@ -7,7 +7,7 @@
 import { Jupyter } from '@vscode/jupyter-extension';
 import vscode, { Disposable, Extension, ExtensionContext } from 'vscode';
 import { GoogleAuthProvider } from '../auth/auth-provider';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
 import { registerColabCommands } from '../colab/commands/register';
 import { ConnectionRefreshController } from '../colab/connection-refresher';
 import { ContentTreeProvider } from '../colab/content-browser/content-tree';

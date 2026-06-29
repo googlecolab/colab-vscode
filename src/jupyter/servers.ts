@@ -9,7 +9,7 @@ import {
   JupyterServer,
   JupyterServerConnectionInformation,
 } from '@vscode/jupyter-extension';
-import { Variant, Shape } from '../colab/api';
+import { Variant, Shape } from '../colab/client/v1/api';
 
 /**
  * Colab's Jupyter server descriptor which includes machine-specific

@@ -8,17 +8,26 @@ import { UUID } from 'crypto';
 import * as https from 'https';
 import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
-import { fetchAndParse } from '../common/fetch-utils';
-import { traceMethod } from '../common/logging/decorators';
+import { fetchAndParse } from '../../../common/fetch-utils';
+import { traceMethod } from '../../../common/logging/decorators';
 import {
   buildFetchChain,
   createAcceptJsonMiddleware,
   createAuthMiddleware,
   createErrorMiddleware,
-} from '../common/middleware';
-import { Session } from '../jupyter/client/generated';
-import { ColabAssignedServer } from '../jupyter/servers';
-import { uuidToWebSafeBase64 } from '../utils/uuid';
+} from '../../../common/middleware';
+import { Session } from '../../../jupyter/client/generated';
+import { ColabAssignedServer } from '../../../jupyter/servers';
+import { uuidToWebSafeBase64 } from '../../../utils/uuid';
+import { ColabRequestError } from '../../errors';
+import {
+  COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+  COLAB_TUNNEL_HEADER,
+  COLAB_VS_CODE_APP_NAME,
+  COLAB_VS_CODE_EXTENSION_VERSION,
+  COLAB_XSRF_TOKEN_HEADER,
+} from '../../headers';
 import {
   Assignment,
   AuthType,
@@ -47,15 +56,6 @@ import {
   Resources,
   ResourcesSchema,
 } from './api';
-import { ColabRequestError } from './errors';
-import {
-  COLAB_CLIENT_AGENT_HEADER,
-  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-  COLAB_TUNNEL_HEADER,
-  COLAB_VS_CODE_APP_NAME,
-  COLAB_VS_CODE_EXTENSION_VERSION,
-  COLAB_XSRF_TOKEN_HEADER,
-} from './headers';
 
 const TUN_ENDPOINT = '/tun/m';
 

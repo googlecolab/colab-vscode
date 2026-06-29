@@ -10,8 +10,8 @@ import sinon, { SinonStubbedInstance } from 'sinon';
 import { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { handleEphemeralAuth } from '../auth/ephemeral';
-import { AuthType } from '../colab/api';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
+import { AuthType } from '../colab/client/v1/api';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
   colabProxyWebSocket,

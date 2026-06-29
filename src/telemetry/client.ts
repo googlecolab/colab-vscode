@@ -7,7 +7,7 @@
 import fetch, { Request } from 'node-fetch';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
-import { ExperimentFlag } from '../colab/api';
+import { ExperimentFlag } from '../colab/client/v1/api';
 import { getFlag } from '../colab/experiment-state';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 import { log } from '../common/logging';

@@ -15,8 +15,8 @@ import {
 import { CancellationToken, Disposable, Event, ProviderResult } from 'vscode';
 import vscode from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
-import { SubscriptionTier } from '../colab/api';
-import { ColabClient, NotFoundError } from '../colab/client';
+import { ColabClient, NotFoundError } from '../colab/client/v1';
+import { SubscriptionTier } from '../colab/client/v1/api';
 import {
   AUTO_CONNECT,
   Command,

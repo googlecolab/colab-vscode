@@ -13,7 +13,7 @@ import { CommandSource, Outcome } from '../../telemetry/api';
 import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { Variant } from '../api';
+import { Variant } from '../client/v1/api';
 import { upload } from './files';
 
 const DEFAULT_SERVER = {

@@ -15,7 +15,7 @@ import { AssignmentManager } from '../jupyter/assignments';
 import { ProxiedJupyterClient } from '../jupyter/client';
 import { Kernel } from '../jupyter/client/generated';
 import { ColabAssignedServer } from '../jupyter/servers';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
 
 interface Config {
   /**

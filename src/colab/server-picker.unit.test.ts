@@ -14,7 +14,7 @@ import {
   buildQuickPickStub,
 } from '../test/helpers/quick-input';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { Variant, Shape, ExperimentFlag } from './api';
+import { Variant, Shape, ExperimentFlag } from './client/v1/api';
 import { TEST_ONLY } from './experiment-state';
 import { ServerPicker } from './server-picker';
 

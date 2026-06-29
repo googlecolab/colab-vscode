@@ -9,7 +9,7 @@ import { Disposable } from 'vscode';
 import {
   AuthType,
   SubscriptionTier as ColabSubscriptionTier,
-} from '../colab/api';
+} from '../colab/client/v1/api';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';

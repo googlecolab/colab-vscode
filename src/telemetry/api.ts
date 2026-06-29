@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AuthType } from '../colab/api';
+import { AuthType } from '../colab/client/v1/api';
 
 /**
  * API types for logging telemetry events to Clearcut.

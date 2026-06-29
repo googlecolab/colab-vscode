@@ -9,10 +9,20 @@ import { expect } from 'chai';
 import fetch, { Response } from 'node-fetch';
 import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
-import { Session } from '../jupyter/client/generated';
-import { ColabAssignedServer } from '../jupyter/servers';
-import { TestUri } from '../test/helpers/uri';
-import { uuidToWebSafeBase64 } from '../utils/uuid';
+import { Session } from '../../../jupyter/client/generated';
+import { ColabAssignedServer } from '../../../jupyter/servers';
+import { TestUri } from '../../../test/helpers/uri';
+import { uuidToWebSafeBase64 } from '../../../utils/uuid';
+import {
+  ACCEPT_JSON_HEADER,
+  AUTHORIZATION_HEADER,
+  COLAB_CLIENT_AGENT_HEADER,
+  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+  COLAB_TUNNEL_HEADER,
+  COLAB_VS_CODE_APP_NAME,
+  COLAB_VS_CODE_EXTENSION_VERSION,
+  COLAB_XSRF_TOKEN_HEADER,
+} from '../../headers';
 import {
   Assignment,
   Shape,
@@ -33,17 +43,7 @@ import {
   DenylistedError,
   InsufficientQuotaError,
   TooManyAssignmentsError,
-} from './client';
-import {
-  ACCEPT_JSON_HEADER,
-  AUTHORIZATION_HEADER,
-  COLAB_CLIENT_AGENT_HEADER,
-  COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-  COLAB_TUNNEL_HEADER,
-  COLAB_VS_CODE_APP_NAME,
-  COLAB_VS_CODE_EXTENSION_VERSION,
-  COLAB_XSRF_TOKEN_HEADER,
-} from './headers';
+} from '.';
 
 const COLAB_HOST = 'colab.example.com';
 const GOOGLE_APIS_HOST = 'colab.example.googleapis.com';

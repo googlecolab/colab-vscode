@@ -16,8 +16,8 @@ import { SinonStubbedInstance } from 'sinon';
 import * as sinon from 'sinon';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
-import { SubscriptionTier, Variant } from '../colab/api';
-import { ColabClient, NotFoundError } from '../colab/client';
+import { ColabClient, NotFoundError } from '../colab/client/v1';
+import { SubscriptionTier, Variant } from '../colab/client/v1/api';
 import {
   AUTO_CONNECT,
   NEW_SERVER,

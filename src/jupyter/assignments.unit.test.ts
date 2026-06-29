@@ -14,6 +14,14 @@ import sinon, {
 } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
 import {
+  ColabClient,
+  DenylistedError,
+  InsufficientQuotaError,
+  NotFoundError,
+  TooManyAssignmentsError,
+  AcceleratorUnavailableError,
+} from '../colab/client/v1';
+import {
   Assignment,
   RuntimeProxyToken,
   Shape,
@@ -21,15 +29,7 @@ import {
   SubscriptionTier,
   UserInfo,
   Variant,
-} from '../colab/api';
-import {
-  ColabClient,
-  DenylistedError,
-  InsufficientQuotaError,
-  NotFoundError,
-  TooManyAssignmentsError,
-  AcceleratorUnavailableError,
-} from '../colab/client';
+} from '../colab/client/v1/api';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import { ColabRequestError } from '../colab/errors';
 import {
