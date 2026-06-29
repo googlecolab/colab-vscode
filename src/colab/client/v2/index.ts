@@ -11,7 +11,6 @@ import {
   ColaboratoryApi,
   Configuration as ColabConfig,
   ErrorContext,
-  FetchAPI,
   FetchParams,
   Key,
   Middleware,
@@ -34,13 +33,11 @@ export class ColabApiClient {
    * @param basePath - Base URL for Colab API.
    * @param getAccessToken - Function to retrieve access token.
    * @param onAuthError - Optional function to handle authentication errors.
-   * @param fetchApi - Optional fetch API to override the default fetch.
    */
   constructor(
     basePath: string,
     getAccessToken: () => Promise<string>,
     onAuthError?: () => Promise<void>,
-    fetchApi?: FetchAPI,
   ) {
     const headers = {
       [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
@@ -50,10 +47,10 @@ export class ColabApiClient {
       new ErrorMiddleware(onAuthError),
     ];
     this.colabApi = new ColaboratoryApi(
-      new ColabConfig({ basePath, headers, middleware, fetchApi }),
+      new ColabConfig({ basePath, headers, middleware }),
     );
     this.operationsApi = new OperationsApi(
-      new OperationsConfig({ basePath, headers, middleware, fetchApi }),
+      new OperationsConfig({ basePath, headers, middleware }),
     );
   }
 

@@ -75,9 +75,7 @@
             }
           }
         ],
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "responses": {
           "default": {
             "content": {
@@ -136,9 +134,7 @@
           }
         ],
         "description": "Starts asynchronous cancellation on a long-running operation.  The server\nmakes a best effort to cancel the operation, but success is not\nguaranteed.  If the server doesn't support this method, it returns\n`google.rpc.Code.UNIMPLEMENTED`.  Clients can use\nOperations.GetOperation or\nother methods to check whether the cancellation succeeded or whether the\noperation completed despite cancellation. On successful cancellation,\nthe operation is not deleted; instead, it becomes an operation with\nan Operation.error value with a google.rpc.Status.code of `1`,\ncorresponding to `Code.CANCELLED`.",
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "responses": {
           "default": {
             "description": "Successful operation",
@@ -193,9 +189,7 @@
             "required": true
           }
         ],
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "responses": {
           "default": {
             "description": "Successful operation",
@@ -210,9 +204,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "responses": {
           "default": {
             "description": "Successful operation"
@@ -464,14 +456,8 @@
         "name": "$.xgafv",
         "description": "V1 error format.",
         "schema": {
-          "enum": [
-            "1",
-            "2"
-          ],
-          "x-google-enum-descriptions": [
-            "v1 error format",
-            "v2 error format"
-          ],
+          "enum": ["1", "2"],
+          "x-google-enum-descriptions": ["v1 error format", "v2 error format"],
           "type": "string"
         },
         "in": "query"
@@ -480,11 +466,7 @@
         "name": "$alt",
         "description": "Data format for response.",
         "schema": {
-          "enum": [
-            "json",
-            "media",
-            "proto"
-          ],
+          "enum": ["json", "media", "proto"],
           "default": "json",
           "type": "string",
           "x-google-enum-descriptions": [

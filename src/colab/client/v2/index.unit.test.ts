@@ -24,6 +24,7 @@ describe('ColabApiClient', () => {
   let sessionStub: sinon.SinonStub<[], Promise<string>>;
   let onAuthErrorStub: sinon.SinonStub<[], Promise<void>>;
   let logErrorStub: SinonStubbedFunction<typeof telemetry.logError>;
+  let fetchSpy: sinon.SinonSpy<Parameters<FetchAPI>, ReturnType<FetchAPI>>;
 
   before(() => {
     // NOTE: server.listen must be called before `createClient` is used to
@@ -42,6 +43,7 @@ describe('ColabApiClient', () => {
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);
     onAuthErrorStub = sinon.stub();
     logErrorStub = sinon.stub(telemetry, 'logError');
+    fetchSpy = sinon.spy(globalThis, 'fetch');
     client = new ColabApiClient(
       `https://${COLAB_API_HOST}`,
       () => sessionStub(),
@@ -55,75 +57,6 @@ describe('ColabApiClient', () => {
   });
   after(() => {
     server.close();
-  });
-
-  describe('middleware', () => {
-    let fetchStub: sinon.SinonStubbedFunction<FetchAPI>;
-
-    beforeEach(() => {
-      fetchStub = sinon.stub();
-      fetchStub.resolves(new Response(JSON.stringify({}), { status: 200 }));
-      client = new ColabApiClient(
-        `https://${COLAB_API_HOST}`,
-        () => sessionStub(),
-        onAuthErrorStub,
-        fetchStub,
-      );
-    });
-
-    it('sends client agent header', async () => {
-      await client.subscription.get();
-
-      sinon.assert.calledOnceWithMatch(
-        fetchStub,
-        sinon.match.string,
-        sinon.match((init: RequestInit) => {
-          const headers = new Headers(init.headers);
-          return (
-            headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
-            COLAB_CLIENT_AGENT_HEADER.value
-          );
-        }),
-      );
-    });
-
-    it('sends authorization header', async () => {
-      await client.subscription.get();
-
-      sinon.assert.calledOnceWithMatch(
-        fetchStub,
-        sinon.match.string,
-        sinon.match((init: RequestInit) => {
-          const headers = new Headers(init.headers);
-          return (
-            headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
-          );
-        }),
-      );
-    });
-
-    it('does not send authorization header if token is empty', async () => {
-      sessionStub.resolves('');
-
-      await client.subscription.get();
-
-      sinon.assert.calledOnceWithMatch(
-        fetchStub,
-        sinon.match.string,
-        sinon.match((init: RequestInit) => {
-          const headers = new Headers(init.headers);
-          return !headers.has(AUTHORIZATION_HEADER.key);
-        }),
-      );
-    });
-
-    it('logs to telemetry on fetch error', async () => {
-      fetchStub.rejects();
-
-      await expect(client.subscription.get()).to.be.rejected;
-
-      sinon.assert.calledOnce(logErrorStub);
-    });
   });
 
   describe('subscription', () => {
@@ -145,6 +78,64 @@ describe('ColabApiClient', () => {
         await expect(client.subscription.get()).to.eventually.deep.equal(
           subscription,
         );
+      });
+
+      it('sends client agent header', async () => {
+        await client.subscription.get();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.subscription.get();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.subscription.get();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
+            HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.subscription.get()).to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
       });
 
       const tests = [
@@ -227,6 +218,64 @@ describe('ColabApiClient', () => {
         await expect(client.runtimeSpecs.list()).to.eventually.deep.equal(
           runtimeSpecs,
         );
+      });
+
+      it('sends client agent header', async () => {
+        await client.runtimeSpecs.list();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.runtimeSpecs.list();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.runtimeSpecs.list();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
+            HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.runtimeSpecs.list()).to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
       });
 
       const tests = [
@@ -317,6 +366,64 @@ describe('ColabApiClient', () => {
         await expect(client.runtimes.list()).to.eventually.deep.equal(runtimes);
       });
 
+      it('sends client agent header', async () => {
+        await client.runtimes.list();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.runtimes.list();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.runtimes.list();
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.get(`https://${COLAB_API_HOST}/v1beta/runtimes`, () =>
+            HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.runtimes.list()).to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
+      });
+
       const tests = [
         { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
         { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
@@ -371,6 +478,65 @@ describe('ColabApiClient', () => {
         await expect(client.runtimes.get(runtimeId)).to.eventually.deep.equal(
           runtime,
         );
+      });
+
+      it('sends client agent header', async () => {
+        await client.runtimes.get(runtimeId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.runtimes.get(runtimeId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.runtimes.get(runtimeId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.get(
+            `https://${COLAB_API_HOST}/v1beta/runtimes/${runtimeId}`,
+            () => HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.runtimes.get(runtimeId)).to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
       });
 
       const tests = [
@@ -454,6 +620,65 @@ describe('ColabApiClient', () => {
         });
       });
 
+      it('sends client agent header', async () => {
+        await client.runtimes.create(runtimeSpec, runtimeId, requestId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.runtimes.create(runtimeSpec, runtimeId, requestId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.runtimes.create(runtimeSpec, runtimeId, requestId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.post(`https://${COLAB_API_HOST}/v1beta/runtimes`, () =>
+            HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.runtimes.create(runtimeSpec, runtimeId, requestId))
+          .to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
+      });
+
       const tests = [
         { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
         { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
@@ -510,6 +735,65 @@ describe('ColabApiClient', () => {
 
       it('executes successfully', async () => {
         await client.runtimes.delete(runtimeId);
+      });
+
+      it('sends client agent header', async () => {
+        await client.runtimes.delete(runtimeId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.runtimes.delete(runtimeId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.runtimes.delete(runtimeId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.delete(
+            `https://${COLAB_API_HOST}/v1beta/runtimes/${runtimeId}`,
+            () => HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.runtimes.delete(runtimeId)).to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
       });
 
       const tests = [
@@ -592,6 +876,65 @@ describe('ColabApiClient', () => {
           ...operation,
           error: undefined,
         });
+      });
+
+      it('sends client agent header', async () => {
+        await client.operations.get(operationId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+              COLAB_CLIENT_AGENT_HEADER.value
+            );
+          }),
+        );
+      });
+
+      it('sends authorization header', async () => {
+        await client.operations.get(operationId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return (
+              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+            );
+          }),
+        );
+      });
+
+      it('does not send authorization header if token is empty', async () => {
+        sessionStub.resolves('');
+
+        await client.operations.get(operationId);
+
+        sinon.assert.calledOnceWithMatch(
+          fetchSpy,
+          sinon.match.string,
+          sinon.match((init: RequestInit) => {
+            const headers = new Headers(init.headers);
+            return !headers.has(AUTHORIZATION_HEADER.key);
+          }),
+        );
+      });
+
+      it('logs to telemetry on fetch error', async () => {
+        server.use(
+          http.get(
+            `https://${COLAB_API_HOST}/v1/operations/${operationId}`,
+            () => HttpResponse.error(),
+          ),
+        );
+
+        await expect(client.operations.get(operationId)).to.be.rejected;
+
+        sinon.assert.calledOnce(logErrorStub);
       });
 
       const tests = [
