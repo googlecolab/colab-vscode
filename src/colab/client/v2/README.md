@@ -6,21 +6,21 @@ communicating with the Colab public API.
 ## `*-api.json`
 
 The OpenAPI spec files are manually downloaded from
-https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=\{version\}&key=\{api_key\}.
+https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version={version}&key={api_key}.
 
 > [!NOTE]
 > Colab API is _not yet_ launched publicly, so an API key with access to the API
 > is currently required to view the OpenAPI spec.
 
-- `colab-api.json` holds the schema of the Colab API (still in beta), which
-  interacts with Colab managed runtimes. This is downloaded from
-  https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=v1beta&key=\{api_key\}.
+- `colab-api.json` holds the specs of the Colab API (still in beta), which
+  primarily interacts with Colab managed runtimes. This is downloaded from
+  https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=v1beta&key={api_key}.
 
-- `operations-api.json` holds the schema of the
+- `operations-api.json` holds the specs of the
   [Operations API](https://github.com/googleapis/googleapis/blob/master/google/longrunning/operations.proto),
   which is required to interact with `CreateRuntime` [long-running operations](https://google.aip.dev/151).
   This is downloaded from
-  https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=v1&key=\{api_key\}.
+  https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=v1&key={api_key}.
 
 ## `@openapitools/openapi-generator-cli`
 
