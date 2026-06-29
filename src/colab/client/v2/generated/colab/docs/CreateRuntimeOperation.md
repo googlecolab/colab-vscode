@@ -7,8 +7,8 @@ This resource represents a long-running operation where metadata and response fi
 
 Name | Type
 ------------ | -------------
-`error` | [Status](Status.md)
 `name` | string
+`error` | [Status](Status.md)
 `done` | boolean
 `metadata` | [CreateRuntimeMetadata](CreateRuntimeMetadata.md)
 `response` | [Runtime](Runtime.md)
@@ -20,8 +20,8 @@ import type { CreateRuntimeOperation } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "error": null,
   "name": null,
+  "error": null,
   "done": null,
   "metadata": null,
   "response": null,

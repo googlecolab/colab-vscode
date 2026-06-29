@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* tslint:disable */
 /* eslint-disable */
 /**
@@ -20,12 +21,6 @@ import { mapValues } from '../runtime';
  */
 export interface ConnectionInfo {
     /**
-     * Output only. The authenticated URL that can be used to connect to the runtime.
-     * @type {string}
-     * @memberof ConnectionInfo
-     */
-    readonly url?: string;
-    /**
      * Output only. The runtime proxy token. This is a short-lived credential used to
      * authenticate to the runtime.
      * @type {string}
@@ -38,6 +33,12 @@ export interface ConnectionInfo {
      * @memberof ConnectionInfo
      */
     readonly expireTime?: Date;
+    /**
+     * Output only. The authenticated URL that can be used to connect to the runtime.
+     * @type {string}
+     * @memberof ConnectionInfo
+     */
+    readonly url?: string;
 }
 
 /**
@@ -57,9 +58,9 @@ export function ConnectionInfoFromJSONTyped(json: any, ignoreDiscriminator: bool
     }
     return {
         
-        'url': json['url'] == null ? undefined : json['url'],
         'token': json['token'] == null ? undefined : json['token'],
         'expireTime': json['expireTime'] == null ? undefined : (new Date(json['expireTime'])),
+        'url': json['url'] == null ? undefined : json['url'],
     };
 }
 
@@ -67,7 +68,7 @@ export function ConnectionInfoToJSON(json: any): ConnectionInfo {
     return ConnectionInfoToJSONTyped(json, false);
 }
 
-export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'url'|'token'|'expireTime'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'token'|'expireTime'|'url'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }

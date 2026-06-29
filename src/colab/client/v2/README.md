@@ -32,3 +32,9 @@ Some preprocessing is required for `@openapitools/openapi-generator-cli` to work
 properly with `google.protobuf.Empty` returned by `DELETE` APIs. The
 preprocessing logic can be found in `generate.mts`, and can be ran with:
 `npm run generate:colabclient`.
+
+## Special Sauce
+
+Since this codebase uses strict TS compilation rules and the generator often
+includes things like unnecessary imports (instead relying on builds to shake out
+what they don't need), we add `// @ts-nocheck` to all files.

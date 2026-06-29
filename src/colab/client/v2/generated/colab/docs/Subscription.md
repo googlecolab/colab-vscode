@@ -7,8 +7,8 @@ Colab user subscription information.
 
 Name | Type
 ------------ | -------------
-`name` | string
 `tier` | [SubscriptionTier](SubscriptionTier.md)
+`name` | string
 
 ## Example
 
@@ -17,8 +17,8 @@ import type { Subscription } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
   "tier": null,
+  "name": null,
 } satisfies Subscription
 
 console.log(example)

@@ -7,8 +7,8 @@ The `Status` type defines a logical error model that is suitable for different p
 
 Name | Type
 ------------ | -------------
-`details` | Array&lt;{ [key: string]: any; }&gt;
 `code` | number
+`details` | Array&lt;{ [key: string]: any; }&gt;
 `message` | string
 
 ## Example
@@ -18,8 +18,8 @@ import type { Status } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "details": null,
   "code": null,
+  "details": null,
   "message": null,
 } satisfies Status
 

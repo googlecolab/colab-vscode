@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* tslint:disable */
 /* eslint-disable */
 /**
@@ -28,17 +29,17 @@ import {
  */
 export interface Subscription {
     /**
-     * Identifier. Name of the subscription. This will always be "subscription".
-     * @type {string}
-     * @memberof Subscription
-     */
-    name?: string;
-    /**
      * User's Colab subscription tier.
      * @type {SubscriptionTier}
      * @memberof Subscription
      */
     tier?: SubscriptionTier;
+    /**
+     * Identifier. Name of the subscription. This will always be "subscription".
+     * @type {string}
+     * @memberof Subscription
+     */
+    name?: string;
 }
 
 
@@ -60,8 +61,8 @@ export function SubscriptionFromJSONTyped(json: any, ignoreDiscriminator: boolea
     }
     return {
         
-        'name': json['name'] == null ? undefined : json['name'],
         'tier': json['tier'] == null ? undefined : SubscriptionTierFromJSON(json['tier']),
+        'name': json['name'] == null ? undefined : json['name'],
     };
 }
 
@@ -76,8 +77,8 @@ export function SubscriptionToJSONTyped(value?: Subscription | null, ignoreDiscr
 
     return {
         
-        'name': value['name'],
         'tier': SubscriptionTierToJSON(value['tier']),
+        'name': value['name'],
     };
 }
 

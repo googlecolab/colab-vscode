@@ -10,7 +10,10 @@ import path from 'path';
 
 const DIR = import.meta.dirname;
 const COLAB_API_SPEC = path.join(DIR, 'colab-api.json');
+const COLAB_API_SPEC_FIXED = path.join(DIR, 'colab-api-fixed.json');
 const OPERATIONS_API_SPEC = path.join(DIR, 'operations-api.json');
+const OPERATIONS_API_SPEC_FIXED = path.join(DIR, 'operations-api-fixed.json');
+
 const OUT_DIR = path.join(DIR, 'generated');
 const COLAB_API_OUT_DIR = path.join(OUT_DIR, 'colab');
 const OPERATIONS_API_OUT_DIR = path.join(OUT_DIR, 'operations');
@@ -53,38 +56,44 @@ function main() {
   // workaround, we preprocess the OpenAPI spec documents and drop the
   // `responses.default.content` node from DELETE operations.
   console.log('✏️ Fixing OpenAPI spec documents...');
-  preprocessOpenApiSpec(COLAB_API_SPEC);
-  preprocessOpenApiSpec(OPERATIONS_API_SPEC);
+  preProcessOpenApiSpec(COLAB_API_SPEC, COLAB_API_SPEC_FIXED);
+  preProcessOpenApiSpec(OPERATIONS_API_SPEC, OPERATIONS_API_SPEC_FIXED);
   console.log(`✅ Done fixing OpenAPI spec documents.`);
 
   // 2. Generate TS clients with `openapi-generator-cli`.
-  console.log(`🏃 Running openapi-generator-cli on ${COLAB_API_SPEC}...`);
+  console.log(`🏃 Running openapi-generator-cli on ${COLAB_API_SPEC_FIXED}...`);
   execSync(
     `npx openapi-generator-cli generate \
-        -i "${COLAB_API_SPEC}" \
+        -i "${COLAB_API_SPEC_FIXED}" \
         -g typescript-fetch \
         -o "${COLAB_API_OUT_DIR}" \
         --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
     { stdio: 'inherit' },
   );
 
-  console.log(`🏃 Running openapi-generator-cli on ${OPERATIONS_API_SPEC}...`);
+  console.log(
+    `🏃 Running openapi-generator-cli on ${OPERATIONS_API_SPEC_FIXED}...`,
+  );
   execSync(
     `npx openapi-generator-cli generate \
-        -i "${OPERATIONS_API_SPEC}" \
+        -i "${OPERATIONS_API_SPEC_FIXED}" \
         -g typescript-fetch \
         -o "${OPERATIONS_API_OUT_DIR}" \
         --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
     { stdio: 'inherit' },
   );
+  console.log('✅ Done generating clients.');
 
-  console.log('✅ Done generating client!');
+  // 3. Post-process generated files by prepending @ts-nocheck.
+  console.log('✏️ Post-processing generated files...');
+  postProcessGeneratedFiles();
+  console.log(`✅ Done post-processing generated files.`);
 }
 
-function preprocessOpenApiSpec(filePath: string) {
+function preProcessOpenApiSpec(inputPath: string, outputPath: string) {
   try {
-    // 1. Read and parse the input OpenAPI JSON file
-    const absoluteInputPath = path.resolve(filePath);
+    // 1. Read and parse the input OpenAPI spec file
+    const absoluteInputPath = path.resolve(inputPath);
     console.log(`📚 Reading: ${absoluteInputPath}`);
     const fileContent = fs.readFileSync(absoluteInputPath, 'utf-8');
     const doc = JSON.parse(fileContent) as OpenAPI3Doc;
@@ -110,7 +119,7 @@ function preprocessOpenApiSpec(filePath: string) {
     }
 
     // 3. Output the updated OpenAPI document to a new JSON file
-    const absoluteOutputPath = path.resolve(filePath);
+    const absoluteOutputPath = path.resolve(outputPath);
     fs.writeFileSync(absoluteOutputPath, JSON.stringify(doc, null, 2), 'utf-8');
 
     console.log(`✅ Modified ${String(updateCount)} operation(s).`);
@@ -118,6 +127,39 @@ function preprocessOpenApiSpec(filePath: string) {
     console.error('❌ An error occurred during processing:', error);
     process.exit(1);
   }
+}
+
+function postProcessGeneratedFiles(): void {
+  const files = findTsFiles(OUT_DIR);
+
+  for (const file of files) {
+    let content = fs.readFileSync(file, 'utf8');
+
+    // Add @ts-nocheck if missing
+    if (!content.startsWith('// @ts-nocheck')) {
+      content = '// @ts-nocheck\n' + content;
+    }
+
+    fs.writeFileSync(file, content);
+  }
+}
+
+function findTsFiles(dir: string): string[] {
+  let results: string[] = [];
+  if (!fs.existsSync(dir)) return [];
+
+  const list = fs.readdirSync(dir);
+  for (const file of list) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+
+    if (stat.isDirectory()) {
+      results = results.concat(findTsFiles(filePath));
+    } else if (file.endsWith('.ts')) {
+      results.push(filePath);
+    }
+  }
+  return results;
 }
 
 main();

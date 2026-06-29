@@ -7,9 +7,9 @@ A Python exception raised during execution.
 
 Name | Type
 ------------ | -------------
-`name` | string
 `value` | string
 `traceback` | Array&lt;string&gt;
+`name` | string
 
 ## Example
 
@@ -18,9 +18,9 @@ import type { ModelError } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
   "value": null,
   "traceback": null,
+  "name": null,
 } satisfies ModelError
 
 console.log(example)

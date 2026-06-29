@@ -7,8 +7,8 @@ This resource represents a long-running operation that is the result of a networ
 
 Name | Type
 ------------ | -------------
-`error` | [Status](Status.md)
 `name` | string
+`error` | [Status](Status.md)
 `done` | boolean
 
 ## Example
@@ -18,8 +18,8 @@ import type { BaseOperation } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "error": null,
   "name": null,
+  "error": null,
   "done": null,
 } satisfies BaseOperation
 

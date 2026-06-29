@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* tslint:disable */
 /* eslint-disable */
 /**
@@ -42,12 +43,6 @@ import {
  */
 export interface CreateRuntimeOperation {
     /**
-     * The error result of the operation in case of failure or cancellation.
-     * @type {Status}
-     * @memberof CreateRuntimeOperation
-     */
-    error?: Status;
-    /**
      * The server-assigned name, which is only unique within the same service that
      * originally returns it. If you use the default HTTP mapping, the
      * `name` should be a resource name ending with `operations/{unique_id}`.
@@ -55,6 +50,12 @@ export interface CreateRuntimeOperation {
      * @memberof CreateRuntimeOperation
      */
     name?: string;
+    /**
+     * The error result of the operation in case of failure or cancellation.
+     * @type {Status}
+     * @memberof CreateRuntimeOperation
+     */
+    error?: Status;
     /**
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
@@ -94,8 +95,8 @@ export function CreateRuntimeOperationFromJSONTyped(json: any, ignoreDiscriminat
     }
     return {
         
-        'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'name': json['name'] == null ? undefined : json['name'],
+        'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'done': json['done'] == null ? undefined : json['done'],
         'metadata': json['metadata'] == null ? undefined : CreateRuntimeMetadataFromJSON(json['metadata']),
         'response': json['response'] == null ? undefined : RuntimeFromJSON(json['response']),
@@ -113,8 +114,8 @@ export function CreateRuntimeOperationToJSONTyped(value?: CreateRuntimeOperation
 
     return {
         
-        'error': StatusToJSON(value['error']),
         'name': value['name'],
+        'error': StatusToJSON(value['error']),
         'done': value['done'],
         'metadata': CreateRuntimeMetadataToJSON(value['metadata']),
         'response': RuntimeToJSON(value['response']),
