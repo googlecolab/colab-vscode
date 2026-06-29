@@ -7,9 +7,9 @@ The response message for Operations.ListOperations.
 
 Name | Type
 ------------ | -------------
-`operations` | [Array&lt;Operation&gt;](Operation.md)
-`unreachable` | Array&lt;string&gt;
 `nextPageToken` | string
+`unreachable` | Array&lt;string&gt;
+`operations` | [Array&lt;Operation&gt;](Operation.md)
 
 ## Example
 
@@ -18,9 +18,9 @@ import type { ListOperationsResponse } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "operations": null,
-  "unreachable": null,
   "nextPageToken": null,
+  "unreachable": null,
+  "operations": null,
 } satisfies ListOperationsResponse
 
 console.log(example)

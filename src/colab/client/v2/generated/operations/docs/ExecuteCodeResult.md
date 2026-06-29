@@ -7,15 +7,15 @@ The result of an `ExecuteCode` call, returned as the terminal `structured_conten
 
 Name | Type
 ------------ | -------------
-`stdout` | string
 `result` | string
-`richOutputsDropped` | boolean
 `outputTruncated` | boolean
-`stderr` | string
-`session` | string
-`executionError` | Error
+`richOutputsDropped` | boolean
 `executionId` | string
+`session` | string
 `executionCount` | number
+`stderr` | string
+`executionError` | Error
+`stdout` | string
 
 ## Example
 
@@ -24,15 +24,15 @@ import type { ExecuteCodeResult } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "stdout": null,
   "result": null,
-  "richOutputsDropped": null,
   "outputTruncated": null,
-  "stderr": null,
-  "session": null,
-  "executionError": null,
+  "richOutputsDropped": null,
   "executionId": null,
+  "session": null,
   "executionCount": null,
+  "stderr": null,
+  "executionError": null,
+  "stdout": null,
 } satisfies ExecuteCodeResult
 
 console.log(example)

@@ -36,18 +36,6 @@ import {
  */
 export interface Runtime {
     /**
-     * Output only. The connection info used to authenticate to the runtime.
-     * @type {ConnectionInfo}
-     * @memberof Runtime
-     */
-    readonly connectionInfo?: ConnectionInfo;
-    /**
-     * Required. The specification of the runtime.
-     * @type {Key}
-     * @memberof Runtime
-     */
-    runtimeSpec: Key;
-    /**
      * Identifier. The name of the runtime in the format `runtimes/{runtime_id}`, where
      * `runtime_id` is either the value supplied via
      * `CreateRuntimeRequest.runtime_id` or, if none was supplied, a random UUID
@@ -56,6 +44,18 @@ export interface Runtime {
      * @memberof Runtime
      */
     name?: string;
+    /**
+     * Required. The specification of the runtime.
+     * @type {Key}
+     * @memberof Runtime
+     */
+    runtimeSpec: Key;
+    /**
+     * Output only. The connection info used to authenticate to the runtime.
+     * @type {ConnectionInfo}
+     * @memberof Runtime
+     */
+    readonly connectionInfo?: ConnectionInfo;
 }
 
 /**
@@ -76,9 +76,9 @@ export function RuntimeFromJSONTyped(json: any, ignoreDiscriminator: boolean): R
     }
     return {
         
-        'connectionInfo': json['connectionInfo'] == null ? undefined : ConnectionInfoFromJSON(json['connectionInfo']),
-        'runtimeSpec': KeyFromJSON(json['runtimeSpec']),
         'name': json['name'] == null ? undefined : json['name'],
+        'runtimeSpec': KeyFromJSON(json['runtimeSpec']),
+        'connectionInfo': json['connectionInfo'] == null ? undefined : ConnectionInfoFromJSON(json['connectionInfo']),
     };
 }
 
@@ -93,8 +93,8 @@ export function RuntimeToJSONTyped(value?: Omit<Runtime, 'connectionInfo'> | nul
 
     return {
         
-        'runtimeSpec': KeyToJSON(value['runtimeSpec']),
         'name': value['name'],
+        'runtimeSpec': KeyToJSON(value['runtimeSpec']),
     };
 }
 

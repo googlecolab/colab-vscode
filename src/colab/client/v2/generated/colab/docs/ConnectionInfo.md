@@ -7,9 +7,9 @@ Connection info used to authenticate to the runtime.
 
 Name | Type
 ------------ | -------------
+`url` | string
 `token` | string
 `expireTime` | Date
-`url` | string
 
 ## Example
 
@@ -18,9 +18,9 @@ import type { ConnectionInfo } from ''
 
 // TODO: Update the object below with actual values
 const example = {
+  "url": null,
   "token": null,
   "expireTime": null,
-  "url": null,
 } satisfies ConnectionInfo
 
 console.log(example)

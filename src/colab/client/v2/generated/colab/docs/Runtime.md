@@ -7,9 +7,9 @@ A Colab managed runtime.
 
 Name | Type
 ------------ | -------------
-`connectionInfo` | [ConnectionInfo](ConnectionInfo.md)
-`runtimeSpec` | [Key](Key.md)
 `name` | string
+`runtimeSpec` | [Key](Key.md)
+`connectionInfo` | [ConnectionInfo](ConnectionInfo.md)
 
 ## Example
 
@@ -18,9 +18,9 @@ import type { Runtime } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "connectionInfo": null,
-  "runtimeSpec": null,
   "name": null,
+  "runtimeSpec": null,
+  "connectionInfo": null,
 } satisfies Runtime
 
 console.log(example)
