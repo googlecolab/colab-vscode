@@ -11,13 +11,16 @@ import * as sinon from 'sinon';
 import { SinonStubbedFunction } from 'sinon';
 import { telemetry } from '../../../telemetry';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
-import { FetchAPI, Key } from './generated/colab';
-import { ColabApiClient, createColabApiClient } from '.';
+import { SubscriptionTier as CommonSubscriptionTier } from '../../types';
+import { FetchAPI, Key, SubscriptionTier } from './generated/colab';
+import {
+  ColabApiClient,
+  createColabApiClient,
+  normalizeSubscriptionTier,
+} from '.';
 
 const COLAB_API_HOST = 'colab.example.com';
 const BEARER_TOKEN = 'test-access-token';
-
-const server = setupServer();
 
 describe('ColabApiClient', () => {
   let client: ColabApiClient;
@@ -25,6 +28,8 @@ describe('ColabApiClient', () => {
   let onAuthErrorStub: sinon.SinonStub<[], Promise<void>>;
   let logErrorStub: SinonStubbedFunction<typeof telemetry.logError>;
   let fetchSpy: sinon.SinonSpy<Parameters<FetchAPI>, ReturnType<FetchAPI>>;
+
+  const server = setupServer();
 
   before(() => {
     // NOTE: server.listen must be called before `createClient` is used to
@@ -1018,5 +1023,39 @@ describe('ColabApiClient', () => {
         }
       });
     });
+  });
+});
+
+describe('normalizeSubscriptionTier', () => {
+  const tests = [
+    {
+      input: SubscriptionTier.SubscriptionTierFree,
+      expected: CommonSubscriptionTier.NONE,
+    },
+    {
+      input: SubscriptionTier.SubscriptionTierPro,
+      expected: CommonSubscriptionTier.PRO,
+    },
+    {
+      input: SubscriptionTier.SubscriptionTierProPlus,
+      expected: CommonSubscriptionTier.PRO_PLUS,
+    },
+  ];
+  tests.forEach(({ input, expected }) => {
+    it(`normalizes ${input}`, () => {
+      expect(normalizeSubscriptionTier(input)).to.equal(expected);
+    });
+  });
+
+  it('throws an error if undefined', () => {
+    expect(() => normalizeSubscriptionTier(undefined)).to.throw(
+      'Subscription tier is undefined',
+    );
+  });
+
+  it('throws an error if unspecified', () => {
+    expect(() =>
+      normalizeSubscriptionTier(SubscriptionTier.SubscriptionTierUnspecified),
+    ).to.throw(/Unknown subscription tier:/);
   });
 });

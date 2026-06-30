@@ -202,7 +202,7 @@ export class ColabJupyterServerProvider
         if (tier === SubscriptionTier.NONE) {
           commands.push(UPGRADE_TO_PRO);
         }
-      } catch (_) {
+      } catch {
         // Including the command to upgrade to pro is non-critical. If it fails,
         // just return the commands without it.
       }

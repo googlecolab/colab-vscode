@@ -17,7 +17,7 @@ import * as sinon from 'sinon';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
 import { ColabClient, NotFoundError } from '../colab/client/v1';
-import { Variant } from '../colab/client/v1/api';
+import { ExperimentFlag, Variant } from '../colab/client/v1/api';
 import { ColabApiClient } from '../colab/client/v2';
 import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
 import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
@@ -29,6 +29,7 @@ import {
   UPGRADE_TO_PRO,
 } from '../colab/commands/constants';
 import { buildIconLabel } from '../colab/commands/utils';
+import { TEST_ONLY as EXPERIMENT_TEST } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -181,6 +182,7 @@ describe('ColabJupyterServerProvider', () => {
   });
 
   afterEach(() => {
+    EXPERIMENT_TEST.resetFlagsForTest();
     sinon.restore();
   });
 
@@ -325,80 +327,116 @@ describe('ColabJupyterServerProvider', () => {
           toggleAuth(AuthState.SIGNED_IN);
         });
 
-        it('excludes upgrade to pro command when getting the subscription tier fails', async () => {
-          colabClientStub.getUserInfo.rejects(new Error('foo'));
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
+        const tests = [
+          { name: 'with Public API enabled', enablePublicApi: true },
+          { name: 'with Public API disabled', enablePublicApi: false },
+        ];
+        tests.forEach(({ name, enablePublicApi }) => {
+          describe(name, () => {
+            beforeEach(() => {
+              EXPERIMENT_TEST.setFlagForTest(
+                ExperimentFlag.EnablePublicApi,
+                enablePublicApi,
+              );
+            });
 
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-          ]);
-        });
+            it('excludes upgrade to pro command when getting the subscription tier fails', async () => {
+              if (enablePublicApi) {
+                (
+                  colabApiClientStub.colab.getSubscription as sinon.SinonStub
+                ).rejects(new Error('foo'));
+              } else {
+                colabClientStub.getUserInfo.rejects(new Error('foo'));
+              }
+              const commands = await serverProvider.provideCommands(
+                undefined,
+                cancellationToken,
+              );
 
-        it('excludes upgrade to pro command for users with pro', async () => {
-          colabClientStub.getUserInfo.resolves({
-            subscriptionTier: SubscriptionTier.PRO,
-            eligibleAccelerators: [],
-            ineligibleAccelerators: [],
+              assert.isDefined(commands);
+              expect(commands.map((c) => c.label)).to.deep.equal([
+                buildIconLabel(AUTO_CONNECT),
+                buildIconLabel(NEW_SERVER),
+                buildIconLabel(OPEN_COLAB_WEB),
+              ]);
+            });
+
+            it('excludes upgrade to pro command for users with pro', async () => {
+              if (enablePublicApi) {
+                (
+                  colabApiClientStub.colab.getSubscription as sinon.SinonStub
+                ).resolves({ tier: 'SUBSCRIPTION_TIER_PRO' });
+              } else {
+                colabClientStub.getUserInfo.resolves({
+                  subscriptionTier: SubscriptionTier.PRO,
+                  eligibleAccelerators: [],
+                  ineligibleAccelerators: [],
+                });
+              }
+              const commands = await serverProvider.provideCommands(
+                undefined,
+                cancellationToken,
+              );
+
+              assert.isDefined(commands);
+              expect(commands.map((c) => c.label)).to.deep.equal([
+                buildIconLabel(AUTO_CONNECT),
+                buildIconLabel(NEW_SERVER),
+                buildIconLabel(OPEN_COLAB_WEB),
+              ]);
+            });
+
+            it('excludes upgrade to pro command for users with pro-plus', async () => {
+              if (enablePublicApi) {
+                (
+                  colabApiClientStub.colab.getSubscription as sinon.SinonStub
+                ).resolves({ tier: 'SUBSCRIPTION_TIER_PRO_PLUS' });
+              } else {
+                colabClientStub.getUserInfo.resolves({
+                  subscriptionTier: SubscriptionTier.PRO_PLUS,
+                  eligibleAccelerators: [],
+                  ineligibleAccelerators: [],
+                });
+              }
+              const commands = await serverProvider.provideCommands(
+                undefined,
+                cancellationToken,
+              );
+
+              assert.isDefined(commands);
+              expect(commands.map((c) => c.label)).to.deep.equal([
+                buildIconLabel(AUTO_CONNECT),
+                buildIconLabel(NEW_SERVER),
+                buildIconLabel(OPEN_COLAB_WEB),
+              ]);
+            });
+
+            it('returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users', async () => {
+              if (enablePublicApi) {
+                (
+                  colabApiClientStub.colab.getSubscription as sinon.SinonStub
+                ).resolves({ tier: 'SUBSCRIPTION_TIER_FREE' });
+              } else {
+                colabClientStub.getUserInfo.resolves({
+                  subscriptionTier: SubscriptionTier.NONE,
+                  eligibleAccelerators: [],
+                  ineligibleAccelerators: [],
+                });
+              }
+              const commands = await serverProvider.provideCommands(
+                undefined,
+                cancellationToken,
+              );
+
+              assert.isDefined(commands);
+              expect(commands.map((c) => c.label)).to.deep.equal([
+                buildIconLabel(AUTO_CONNECT),
+                buildIconLabel(NEW_SERVER),
+                buildIconLabel(OPEN_COLAB_WEB),
+                buildIconLabel(UPGRADE_TO_PRO),
+              ]);
+            });
           });
-
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
-
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-          ]);
-        });
-
-        it('excludes upgrade to pro command for users with pro-plus', async () => {
-          colabClientStub.getUserInfo.resolves({
-            subscriptionTier: SubscriptionTier.PRO_PLUS,
-            eligibleAccelerators: [],
-            ineligibleAccelerators: [],
-          });
-
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
-
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-          ]);
-        });
-
-        it('returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users', async () => {
-          colabClientStub.getUserInfo.resolves({
-            subscriptionTier: SubscriptionTier.NONE,
-            eligibleAccelerators: [],
-            ineligibleAccelerators: [],
-          });
-
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
-
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-            buildIconLabel(UPGRADE_TO_PRO),
-          ]);
         });
       });
 
