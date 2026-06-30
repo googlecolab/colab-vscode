@@ -40,22 +40,27 @@ function stubStatusBarItem(vs: VsCodeStub): StatusBarItem {
   return item;
 }
 
-describe('createColabClient', () => {
+describe('createColabClients', () => {
   afterEach(() => {
     sinon.restore();
   });
 
-  it('returns a ColabClient', () => {
+  it('returns a ColabClient and ColabApiClient', () => {
     const vs = newVsCodeStub();
     const authProvider = sinon.createStubInstance(GoogleAuthProvider);
 
-    const colabClient = createColabClients(vs.asVsCode(), authProvider, {
-      publisher: 'google',
-      name: 'colab',
-      version: '0.0.1-test',
-    });
+    const { colabClient, colabApiClient } = createColabClients(
+      vs.asVsCode(),
+      authProvider,
+      {
+        publisher: 'google',
+        name: 'colab',
+        version: '0.0.1-test',
+      },
+    );
 
     expect(colabClient).to.exist;
+    expect(colabApiClient).to.exist;
   });
 });
 
