@@ -26,7 +26,6 @@ import {
   RuntimeProxyToken,
   Shape,
   SubscriptionState,
-  SubscriptionTier,
   UserInfo,
   Variant,
 } from '../colab/client/v1/api';
@@ -36,6 +35,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { SubscriptionTier } from '../colab/types';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { TestEventEmitter } from '../test/helpers/events';

@@ -27,7 +27,6 @@ import {
   RuntimeProxyToken,
   Variant,
   variantToMachineType,
-  SubscriptionTier,
   Shape,
   isHighMemOnlyAccelerator,
 } from '../colab/client/v1/api';
@@ -37,6 +36,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { SubscriptionTier } from '../colab/types';
 import { waitForTimeout } from '../common/async';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';

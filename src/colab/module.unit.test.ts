@@ -18,7 +18,7 @@ import { ColabClient } from './client/v1';
 import { ConsumptionPoller } from './consumption/poller';
 import { ConsumptionStatusBar } from './consumption/status-bar';
 import { ExperimentStateProvider } from './experiment-state';
-import { createColabClient, createColabModule } from './module';
+import { createColabClients, createColabModule } from './module';
 
 function stubStatusBarItem(vs: VsCodeStub): StatusBarItem {
   const item: StatusBarItem = {
@@ -49,7 +49,7 @@ describe('createColabClient', () => {
     const vs = newVsCodeStub();
     const authProvider = sinon.createStubInstance(GoogleAuthProvider);
 
-    const colabClient = createColabClient(vs.asVsCode(), authProvider, {
+    const colabClient = createColabClients(vs.asVsCode(), authProvider, {
       publisher: 'google',
       name: 'colab',
       version: '0.0.1-test',

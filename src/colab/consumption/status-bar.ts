@@ -7,7 +7,8 @@
 import vscode, { Disposable, Event, StatusBarItem } from 'vscode';
 import { log } from '../../common/logging';
 import { Toggleable } from '../../common/toggleable';
-import { ConsumptionUserInfo, SubscriptionTier } from '../client/v1/api';
+import { ConsumptionUserInfo } from '../client/v1/api';
+import { SubscriptionTier } from '../types';
 
 /**
  * Monitors {@link ConsumptionUserInfo} and maintains a {@link StatusBarItem}.

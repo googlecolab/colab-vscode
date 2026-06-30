@@ -8,10 +8,8 @@ import { expect } from 'chai';
 import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
-import {
-  AuthType,
-  SubscriptionTier as ColabSubscriptionTier,
-} from '../colab/client/v1/api';
+import { AuthType } from '../colab/client/v1/api';
+import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';

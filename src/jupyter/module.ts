@@ -8,6 +8,7 @@ import { Jupyter } from '@vscode/jupyter-extension';
 import vscode, { Disposable, Extension, ExtensionContext } from 'vscode';
 import { GoogleAuthProvider } from '../auth/auth-provider';
 import { ColabClient } from '../colab/client/v1';
+import { ColabApiClient } from '../colab/client/v2';
 import { registerColabCommands } from '../colab/commands/register';
 import { ConnectionRefreshController } from '../colab/connection-refresher';
 import { ContentTreeProvider } from '../colab/content-browser/content-tree';
@@ -55,8 +56,10 @@ export interface JupyterModule {
  * @param jupyter - The installed Jupyter extension.
  * @param authProvider - The authentication provider; supplies session-change
  * events used by several services.
- * @param colab - The Colab client used by the assignment manager and
+ * @param colabClient - The Colab client used by the assignment manager and
  * resource view.
+ * @param colabApiClient - The new Colab public API client to eventually replace
+ * the existing colabClient.
  * @returns The services and disposables produced.
  */
 export function createJupyterModule(
@@ -64,15 +67,21 @@ export function createJupyterModule(
   context: ExtensionContext,
   jupyter: Extension<Jupyter>,
   authProvider: GoogleAuthProvider,
-  colab: ColabClient,
+  colabClient: ColabClient,
+  colabApiClient: ColabApiClient,
 ): JupyterModule {
   const serverStorage = new ServerStorage(vs, context.secrets);
-  const assignmentManager = new AssignmentManager(vs, colab, serverStorage);
+  const assignmentManager = new AssignmentManager(
+    vs,
+    colabClient,
+    serverStorage,
+  );
   const serverProvider = new ColabJupyterServerProvider(
     vs,
     authProvider.onDidChangeSessions,
     assignmentManager,
-    colab,
+    colabClient,
+    colabApiClient,
     new ServerPicker(vs, assignmentManager),
     jupyter.exports,
   );
@@ -92,10 +101,14 @@ export function createJupyterModule(
     assignmentManager,
     assignmentManager.onDidAssignmentsChange,
     authProvider.onDidChangeSessions,
-    colab,
+    colabClient,
   );
   const connections = new ConnectionRefreshController(assignmentManager);
-  const keepAlive = new ServerKeepAliveController(vs, colab, assignmentManager);
+  const keepAlive = new ServerKeepAliveController(
+    vs,
+    colabClient,
+    assignmentManager,
+  );
 
   const fsDisposable = vs.workspace.registerFileSystemProvider('colab', fs, {
     isCaseSensitive: true,

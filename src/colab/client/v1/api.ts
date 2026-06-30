@@ -28,6 +28,7 @@ import {
   Session as GeneratedSession,
   Kernel as GeneratedKernel,
 } from '../../../jupyter/client/generated';
+import { SubscriptionTier } from '../../types';
 
 export enum SubscriptionState {
   UNSUBSCRIBED = 1,
@@ -35,12 +36,6 @@ export enum SubscriptionState {
   NON_RECURRING = 3,
   PENDING_ACTIVATION = 4,
   DECLINED = 5,
-}
-
-export enum SubscriptionTier {
-  NONE = 0,
-  PRO = 1,
-  PRO_PLUS = 2,
 }
 
 enum ColabSubscriptionTier {
@@ -580,9 +575,10 @@ export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
 
 /** The experiment flags supported by the Colab extension. */
 export enum ExperimentFlag {
+  EnablePublicApi = 'enable_public_api_vscode',
   EnableTelemetry = 'enable_vscode_telemetry',
-  RuntimeVersionNames = 'runtime_version_names',
   ResourcePollIntervalMs = 'resource_poll_interval_ms',
+  RuntimeVersionNames = 'runtime_version_names',
 }
 
 /** The default values for each experiment flag. */
@@ -590,9 +586,10 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
+  [ExperimentFlag.EnablePublicApi]: false,
   [ExperimentFlag.EnableTelemetry]: false,
-  [ExperimentFlag.RuntimeVersionNames]: [],
   [ExperimentFlag.ResourcePollIntervalMs]: 10000,
+  [ExperimentFlag.RuntimeVersionNames]: [],
 };
 
 // Define the basic types allowed

@@ -7,6 +7,7 @@
 import { log } from '../../../common/logging';
 import { telemetry } from '../../../telemetry';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
+import { SubscriptionTier as CommonSubscriptionTier } from '../../types';
 import {
   ColaboratoryApi,
   Configuration as ColabConfig,
@@ -15,6 +16,7 @@ import {
   Middleware,
   RequestContext,
   ResponseContext,
+  SubscriptionTier,
 } from './generated/colab';
 import {
   ColaboratoryApi as OperationsApi,
@@ -22,17 +24,64 @@ import {
 } from './generated/operations';
 
 /** A client to interact with public Colab API. */
-export class ColabApiClient {
+export interface ColabApiClient {
+  /**
+   * A client instance to access the Colab APIs
+   */
+  colab: ColaboratoryApi;
+
+  /**
+   * A client instance to access the Operations APIs.
+   */
+  operations: OperationsApi;
+}
+
+/**
+ * Creates a new {@link ColabApiClient} instance.
+ *
+ * @param basePath - Base URL for Colab API.
+ * @param getAccessToken - Function to retrieve access token.
+ * @param onAuthError - Optional function to handle authentication errors.
+ * @returns A new {@link ColabApiClient} instance.
+ */
+export function createColabApiClient(
+  basePath: string,
+  getAccessToken: () => Promise<string>,
+  onAuthError?: () => Promise<void>,
+): ColabApiClient {
+  return new ColabApiClientImpl(basePath, getAccessToken, onAuthError);
+}
+
+/**
+ * Normalizes the API {@link SubscriptionTier} to the common
+ * {@link CommonSubscriptionTier}.
+ *
+ * @param tier - Subscription tier returned from public Colab API.
+ * @returns Normalized common subscription tier value.
+ */
+export function normalizeSubscriptionTier(
+  tier?: SubscriptionTier,
+): CommonSubscriptionTier {
+  if (!tier) {
+    throw new Error('Subscription tier is undefined');
+  }
+
+  switch (tier) {
+    case SubscriptionTier.SubscriptionTierFree:
+      return CommonSubscriptionTier.NONE;
+    case SubscriptionTier.SubscriptionTierPro:
+      return CommonSubscriptionTier.PRO;
+    case SubscriptionTier.SubscriptionTierProPlus:
+      return CommonSubscriptionTier.PRO_PLUS;
+    default:
+      throw new Error(`Unknown subscription tier: ${tier}`);
+  }
+}
+
+class ColabApiClientImpl implements ColabApiClient {
   private readonly colabApi: ColaboratoryApi;
   private readonly operationsApi: OperationsApi;
 
-  /**
-   * Creates a new ColabApiClient instance.
-   *
-   * @param basePath - Base URL for Colab API.
-   * @param getAccessToken - Function to retrieve access token.
-   * @param onAuthError - Optional function to handle authentication errors.
-   */
   constructor(
     basePath: string,
     getAccessToken: () => Promise<string>,
@@ -50,20 +99,10 @@ export class ColabApiClient {
     );
   }
 
-  /**
-   * Colab API.
-   *
-   * @returns A client instance to access the Colab APIs.
-   */
   get colab() {
     return this.colabApi;
   }
 
-  /**
-   * Operations API.
-   *
-   * @returns A client instance to access the Operations APIs.
-   */
   get operations() {
     return this.operationsApi;
   }

@@ -12,7 +12,7 @@ import { SinonStubbedFunction } from 'sinon';
 import { telemetry } from '../../../telemetry';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import { FetchAPI, Key } from './generated/colab';
-import { ColabApiClient } from '.';
+import { ColabApiClient, createColabApiClient } from '.';
 
 const COLAB_API_HOST = 'colab.example.com';
 const BEARER_TOKEN = 'test-access-token';
@@ -44,7 +44,7 @@ describe('ColabApiClient', () => {
     onAuthErrorStub = sinon.stub();
     logErrorStub = sinon.stub(telemetry, 'logError');
     fetchSpy = sinon.spy(globalThis, 'fetch');
-    client = new ColabApiClient(
+    client = createColabApiClient(
       `https://${COLAB_API_HOST}`,
       () => sessionStub(),
       onAuthErrorStub,

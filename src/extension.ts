@@ -7,7 +7,7 @@
 import { Jupyter } from '@vscode/jupyter-extension';
 import vscode from 'vscode';
 import { createAuthModule } from './auth/module';
-import { createColabClient, createColabModule } from './colab/module';
+import { createColabClients, createColabModule } from './colab/module';
 import { initializeLogger, log } from './common/logging';
 import { getPackageInfo } from './config/package-info';
 import { IMPORT_DRIVE_FILE_PATH } from './drive/commands/constants';
@@ -47,7 +47,11 @@ async function activateInternal(context: vscode.ExtensionContext) {
   const packageInfo = getPackageInfo(context.extension);
   const auth = createAuthModule(vscode, context, packageInfo);
   const { authProvider } = auth;
-  const colabClient = createColabClient(vscode, authProvider, packageInfo);
+  const { colabClient, colabApiClient } = createColabClients(
+    vscode,
+    authProvider,
+    packageInfo,
+  );
   const drive = createDriveModule(vscode, authProvider);
   const jupyterModule = createJupyterModule(
     vscode,
@@ -55,6 +59,7 @@ async function activateInternal(context: vscode.ExtensionContext) {
     jupyter,
     authProvider,
     colabClient,
+    colabApiClient,
   );
   const colab = createColabModule(
     vscode,

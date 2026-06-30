@@ -23,11 +23,11 @@ import {
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from '../../headers';
+import { SubscriptionTier } from '../../types';
 import {
   Assignment,
   Shape,
   SubscriptionState,
-  SubscriptionTier,
   Variant,
   Outcome,
   RuntimeProxyToken,
