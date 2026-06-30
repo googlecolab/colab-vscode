@@ -38,18 +38,15 @@ export class ColabApiClient {
     getAccessToken: () => Promise<string>,
     onAuthError?: () => Promise<void>,
   ) {
-    const headers = {
-      [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-    };
     const middleware = [
       new AuthMiddleware(getAccessToken),
       new ErrorMiddleware(onAuthError),
     ];
     this.colabApi = new ColaboratoryApi(
-      new ColabConfig({ basePath, headers, middleware }),
+      new ColabConfig({ basePath, headers: HEADERS, middleware }),
     );
     this.operationsApi = new OperationsApi(
-      new OperationsConfig({ basePath, headers, middleware }),
+      new OperationsConfig({ basePath, headers: HEADERS, middleware }),
     );
   }
 
@@ -71,6 +68,10 @@ export class ColabApiClient {
     return this.operationsApi;
   }
 }
+
+const HEADERS = {
+  [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
+} as const;
 
 class AuthMiddleware implements Middleware {
   constructor(private readonly getAccessToken: () => Promise<string>) {}
