@@ -13,15 +13,12 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  IdentityGet200Response,
-} from '../models/index';
 import {
+    type IdentityGet200Response,
     IdentityGet200ResponseFromJSON,
     IdentityGet200ResponseToJSON,
-} from '../models/index';
+} from '../models/IdentityGet200Response';
 
 export interface IdentityGetRequest {
     permissions?: string;

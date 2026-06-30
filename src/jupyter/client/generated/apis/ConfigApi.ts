@@ -13,7 +13,6 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
 
 export interface ConfigGetRequest {
@@ -104,7 +103,7 @@ export class ConfigApi extends runtime.BaseAPI implements ConfigApiInterface {
 
 
         let urlPath = `/api/config/{section_name}`;
-        urlPath = urlPath.replace(`{${"section_name"}}`, encodeURIComponent(String(requestParameters['sectionName'])));
+        urlPath = urlPath.replace('{section_name}', encodeURIComponent(String(requestParameters['sectionName'])));
 
         return {
             path: urlPath,
@@ -151,7 +150,7 @@ export class ConfigApi extends runtime.BaseAPI implements ConfigApiInterface {
 
 
         let urlPath = `/api/config/{section_name}`;
-        urlPath = urlPath.replace(`{${"section_name"}}`, encodeURIComponent(String(requestParameters['sectionName'])));
+        urlPath = urlPath.replace('{section_name}', encodeURIComponent(String(requestParameters['sectionName'])));
 
         return {
             path: urlPath,

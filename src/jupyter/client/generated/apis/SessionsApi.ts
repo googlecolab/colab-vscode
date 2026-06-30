@@ -13,18 +13,17 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  Session,
-  SessionsCreate501Response,
-} from '../models/index';
 import {
+    type Session,
     SessionFromJSON,
     SessionToJSON,
+} from '../models/Session';
+import {
+    type SessionsCreate501Response,
     SessionsCreate501ResponseFromJSON,
     SessionsCreate501ResponseToJSON,
-} from '../models/index';
+} from '../models/SessionsCreate501Response';
 
 export interface SessionsCreateRequest {
     session?: Session;
@@ -229,7 +228,7 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
 
 
         let urlPath = `/api/sessions/{session}`;
-        urlPath = urlPath.replace(`{${"session"}}`, encodeURIComponent(String(requestParameters['session'])));
+        urlPath = urlPath.replace('{session}', encodeURIComponent(String(requestParameters['session'])));
 
         return {
             path: urlPath,
@@ -273,7 +272,7 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
 
 
         let urlPath = `/api/sessions/{session}`;
-        urlPath = urlPath.replace(`{${"session"}}`, encodeURIComponent(String(requestParameters['session'])));
+        urlPath = urlPath.replace('{session}', encodeURIComponent(String(requestParameters['session'])));
 
         return {
             path: urlPath,
@@ -364,7 +363,7 @@ export class SessionsApi extends runtime.BaseAPI implements SessionsApiInterface
 
 
         let urlPath = `/api/sessions/{session}`;
-        urlPath = urlPath.replace(`{${"session"}}`, encodeURIComponent(String(requestParameters['session'])));
+        urlPath = urlPath.replace('{session}', encodeURIComponent(String(requestParameters['session'])));
 
         return {
             path: urlPath,

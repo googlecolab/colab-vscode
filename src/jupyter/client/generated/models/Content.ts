@@ -42,6 +42,8 @@ export function ContentFromJSONTyped(json: any, ignoreDiscriminator: boolean): C
                 return json.map(value => ContentsFromJSONTyped(value, true));
             }
         }
+    }
+    if (Array.isArray(json)) {
         return json;
     }
     if (typeof json === 'string') {
@@ -64,6 +66,8 @@ export function ContentToJSONTyped(value?: Content | null, ignoreDiscriminator: 
                 return value.map(value => ContentsToJSON(value as Contents));
             }
         }
+    }
+    if (Array.isArray(value)) {
         return value;
     }
     if (typeof value === 'string') {
