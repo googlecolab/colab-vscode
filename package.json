@@ -358,7 +358,7 @@
   "scripts": {
     "clean": "rm -rf out/*",
     "generate:config": "tsx ./scripts/generate-config.mts",
-    "generate:colabclient": "npx openapi-typescript ./src/colab/client/api-v1beta.json -o ./src/colab/client/generated/schema-v1beta.d.ts && npx openapi-typescript ./src/colab/client/api-v1.json -o ./src/colab/client/generated/schema-v1.d.ts",
+    "generate:colabclient": "tsx ./src/colab/client/v2/generate.mts",
     "generate:jupyterclient": "tsx ./src/jupyter/client/generate.mts",
     "build": "concurrently \"npm:build:extension\" \"npm:build:tests\" \"npm:typecheck\" --prefixColors=auto",
     "build:extension": "tsx esbuild.config.mts",
@@ -388,7 +388,7 @@
   "devDependencies": {
     "@cspell/eslint-plugin": "^8.17.3",
     "@eslint/js": "^9.39.4",
-    "@openapitools/openapi-generator-cli": "^2.31.1",
+    "@openapitools/openapi-generator-cli": "^2.39.0",
     "@stylistic/eslint-plugin": "^5.2.2",
     "@types/chai": "^4.3.20",
     "@types/chai-as-promised": "^7.1.8",
@@ -421,7 +421,7 @@
     "eslint-plugin-jsdoc": "^62.8.0",
     "eslint-plugin-tsdoc": "^0.5.2",
     "mocha": "^10.8.2",
-    "openapi-typescript": "^7.13.0",
+    "msw": "^2.14.6",
     "prettier": "3.4.2",
     "selenium-webdriver": "^4.41.0",
     "sinon": "^21.0.1",
