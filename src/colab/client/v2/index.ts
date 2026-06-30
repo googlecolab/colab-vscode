@@ -12,7 +12,6 @@ import {
   Configuration as ColabConfig,
   ErrorContext,
   FetchParams,
-  Key,
   Middleware,
   RequestContext,
   ResponseContext,
@@ -55,62 +54,21 @@ export class ColabApiClient {
   }
 
   /**
-   * Gets the Subscription API.
+   * Colab API.
    *
-   * @returns Subscription API.
+   * @returns A client instance to access the Colab APIs.
    */
-  get subscription() {
-    return {
-      get: () => this.colabApi.getSubscription(),
-    };
+  get colab() {
+    return this.colabApi;
   }
 
   /**
-   * Gets the RuntimeSpecs API.
+   * Operations API.
    *
-   * @returns RuntimeSpecs API.
-   */
-  get runtimeSpecs() {
-    return {
-      list: async () => {
-        const response = await this.colabApi.listRuntimeSpecs();
-        return response.runtimeSpecs ?? [];
-      },
-    };
-  }
-
-  /**
-   * Gets the Runtimes API.
-   *
-   * @returns Runtimes API.
-   */
-  get runtimes() {
-    return {
-      get: (id: string) => this.colabApi.getRuntime({ runtime: id }),
-      list: async () => {
-        const response = await this.colabApi.listRuntimes();
-        return response.runtimes ?? [];
-      },
-      create: (runtimeSpec: Key, runtimeId?: string, requestId?: string) =>
-        this.colabApi.createRuntime({
-          runtime: { runtimeSpec },
-          runtimeId,
-          requestId,
-        }),
-      delete: (id: string) => this.colabApi.deleteRuntime({ runtime: id }),
-    };
-  }
-
-  /**
-   * Gets the Operations API.
-   *
-   * @returns Operations API.
+   * @returns A client instance to access the Operations APIs.
    */
   get operations() {
-    return {
-      get: (id: string) =>
-        this.operationsApi.getOperation({ operationsId: id }),
-    };
+    return this.operationsApi;
   }
 }
 

@@ -59,125 +59,123 @@ describe('ColabApiClient', () => {
     server.close();
   });
 
-  describe('subscription', () => {
+  describe('getSubscription', () => {
     const subscription = {
       name: 'subscription',
       tier: 'SUBSCRIPTION_TIER_FREE',
     };
 
-    describe('get', () => {
-      beforeEach(() => {
-        server.use(
-          http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
-            HttpResponse.json(subscription, { status: 200 }),
-          ),
-        );
-      });
+    beforeEach(() => {
+      server.use(
+        http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
+          HttpResponse.json(subscription, { status: 200 }),
+        ),
+      );
+    });
 
-      it('returns the subscription', async () => {
-        await expect(client.subscription.get()).to.eventually.deep.equal(
-          subscription,
-        );
-      });
+    it('returns the subscription', async () => {
+      await expect(client.colab.getSubscription()).to.eventually.deep.equal(
+        subscription,
+      );
+    });
 
-      it('sends client agent header', async () => {
-        await client.subscription.get();
+    it('sends client agent header', async () => {
+      await client.colab.getSubscription();
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return (
-              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
-              COLAB_CLIENT_AGENT_HEADER.value
-            );
-          }),
-        );
-      });
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return (
+            headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+            COLAB_CLIENT_AGENT_HEADER.value
+          );
+        }),
+      );
+    });
 
-      it('sends authorization header', async () => {
-        await client.subscription.get();
+    it('sends authorization header', async () => {
+      await client.colab.getSubscription();
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return (
-              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
-            );
-          }),
-        );
-      });
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return (
+            headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+          );
+        }),
+      );
+    });
 
-      it('does not send authorization header if token is empty', async () => {
-        sessionStub.resolves('');
+    it('does not send authorization header if token is empty', async () => {
+      sessionStub.resolves('');
 
-        await client.subscription.get();
+      await client.colab.getSubscription();
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return !headers.has(AUTHORIZATION_HEADER.key);
-          }),
-        );
-      });
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return !headers.has(AUTHORIZATION_HEADER.key);
+        }),
+      );
+    });
 
-      it('logs to telemetry on fetch error', async () => {
-        server.use(
-          http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
-            HttpResponse.error(),
-          ),
-        );
+    it('logs to telemetry on fetch error', async () => {
+      server.use(
+        http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
+          HttpResponse.error(),
+        ),
+      );
 
-        await expect(client.subscription.get()).to.be.rejected;
+      await expect(client.colab.getSubscription()).to.be.rejected;
 
-        sinon.assert.calledOnce(logErrorStub);
-      });
+      sinon.assert.calledOnce(logErrorStub);
+    });
 
-      const tests = [
-        { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
-        { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
-        { error: 'Internal', status: 500, onAuthErrorCalled: false },
-      ];
-      tests.forEach(({ error, status, onAuthErrorCalled }) => {
-        describe(`with status ${String(status)}`, () => {
-          beforeEach(() => {
-            server.use(
-              http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
-                HttpResponse.json({ error }, { status }),
-              ),
-            );
-          });
-
-          it('throws an error and logs to telemetry', async () => {
-            await expect(client.subscription.get()).to.be.rejected;
-
-            sinon.assert.calledOnce(logErrorStub);
-          });
-
-          if (onAuthErrorCalled) {
-            it('calls onAuthError', async () => {
-              await expect(client.subscription.get()).to.be.rejected;
-
-              sinon.assert.calledOnce(onAuthErrorStub);
-            });
-          } else {
-            it('does not call onAuthError', async () => {
-              await expect(client.subscription.get()).to.be.rejected;
-
-              sinon.assert.notCalled(onAuthErrorStub);
-            });
-          }
+    const tests = [
+      { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
+      { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
+      { error: 'Internal', status: 500, onAuthErrorCalled: false },
+    ];
+    tests.forEach(({ error, status, onAuthErrorCalled }) => {
+      describe(`with status ${String(status)}`, () => {
+        beforeEach(() => {
+          server.use(
+            http.get(`https://${COLAB_API_HOST}/v1beta/subscription`, () =>
+              HttpResponse.json({ error }, { status }),
+            ),
+          );
         });
+
+        it('throws an error and logs to telemetry', async () => {
+          await expect(client.colab.getSubscription()).to.be.rejected;
+
+          sinon.assert.calledOnce(logErrorStub);
+        });
+
+        if (onAuthErrorCalled) {
+          it('calls onAuthError', async () => {
+            await expect(client.colab.getSubscription()).to.be.rejected;
+
+            sinon.assert.calledOnce(onAuthErrorStub);
+          });
+        } else {
+          it('does not call onAuthError', async () => {
+            await expect(client.colab.getSubscription()).to.be.rejected;
+
+            sinon.assert.notCalled(onAuthErrorStub);
+          });
+        }
       });
     });
   });
 
-  describe('runtimeSpecs', () => {
+  describe('listRuntimeSpecs', () => {
     const runtimeSpecs = [
       {
         key: {
@@ -205,114 +203,112 @@ describe('ColabApiClient', () => {
       },
     ];
 
-    describe('list', () => {
-      beforeEach(() => {
-        server.use(
-          http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
-            HttpResponse.json({ runtimeSpecs }, { status: 200 }),
-          ),
-        );
+    beforeEach(() => {
+      server.use(
+        http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
+          HttpResponse.json({ runtimeSpecs }, { status: 200 }),
+        ),
+      );
+    });
+
+    it('returns a list of runtime specs', async () => {
+      await expect(client.colab.listRuntimeSpecs()).to.eventually.deep.equal({
+        runtimeSpecs,
       });
+    });
 
-      it('returns a list of runtime specs', async () => {
-        await expect(client.runtimeSpecs.list()).to.eventually.deep.equal(
-          runtimeSpecs,
-        );
-      });
+    it('sends client agent header', async () => {
+      await client.colab.listRuntimeSpecs();
 
-      it('sends client agent header', async () => {
-        await client.runtimeSpecs.list();
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return (
+            headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+            COLAB_CLIENT_AGENT_HEADER.value
+          );
+        }),
+      );
+    });
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return (
-              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
-              COLAB_CLIENT_AGENT_HEADER.value
-            );
-          }),
-        );
-      });
+    it('sends authorization header', async () => {
+      await client.colab.listRuntimeSpecs();
 
-      it('sends authorization header', async () => {
-        await client.runtimeSpecs.list();
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return (
+            headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+          );
+        }),
+      );
+    });
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return (
-              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
-            );
-          }),
-        );
-      });
+    it('does not send authorization header if token is empty', async () => {
+      sessionStub.resolves('');
 
-      it('does not send authorization header if token is empty', async () => {
-        sessionStub.resolves('');
+      await client.colab.listRuntimeSpecs();
 
-        await client.runtimeSpecs.list();
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return !headers.has(AUTHORIZATION_HEADER.key);
+        }),
+      );
+    });
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return !headers.has(AUTHORIZATION_HEADER.key);
-          }),
-        );
-      });
+    it('logs to telemetry on fetch error', async () => {
+      server.use(
+        http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
+          HttpResponse.error(),
+        ),
+      );
 
-      it('logs to telemetry on fetch error', async () => {
-        server.use(
-          http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
-            HttpResponse.error(),
-          ),
-        );
+      await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
 
-        await expect(client.runtimeSpecs.list()).to.be.rejected;
+      sinon.assert.calledOnce(logErrorStub);
+    });
 
-        sinon.assert.calledOnce(logErrorStub);
-      });
-
-      const tests = [
-        { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
-        { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
-        { error: 'Internal', status: 500, onAuthErrorCalled: false },
-      ];
-      tests.forEach(({ error, status, onAuthErrorCalled }) => {
-        describe(`with status ${String(status)}`, () => {
-          beforeEach(() => {
-            server.use(
-              http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
-                HttpResponse.json({ error }, { status }),
-              ),
-            );
-          });
-
-          it('throws an error and logs to telemetry', async () => {
-            await expect(client.runtimeSpecs.list()).to.be.rejected;
-
-            sinon.assert.calledOnce(logErrorStub);
-          });
-
-          if (onAuthErrorCalled) {
-            it('calls onAuthError', async () => {
-              await expect(client.runtimeSpecs.list()).to.be.rejected;
-
-              sinon.assert.calledOnce(onAuthErrorStub);
-            });
-          } else {
-            it('does not call onAuthError', async () => {
-              await expect(client.runtimeSpecs.list()).to.be.rejected;
-
-              sinon.assert.notCalled(onAuthErrorStub);
-            });
-          }
+    const tests = [
+      { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
+      { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
+      { error: 'Internal', status: 500, onAuthErrorCalled: false },
+    ];
+    tests.forEach(({ error, status, onAuthErrorCalled }) => {
+      describe(`with status ${String(status)}`, () => {
+        beforeEach(() => {
+          server.use(
+            http.get(`https://${COLAB_API_HOST}/v1beta/runtimespecs`, () =>
+              HttpResponse.json({ error }, { status }),
+            ),
+          );
         });
+
+        it('throws an error and logs to telemetry', async () => {
+          await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+
+          sinon.assert.calledOnce(logErrorStub);
+        });
+
+        if (onAuthErrorCalled) {
+          it('calls onAuthError', async () => {
+            await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+
+            sinon.assert.calledOnce(onAuthErrorStub);
+          });
+        } else {
+          it('does not call onAuthError', async () => {
+            await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+
+            sinon.assert.notCalled(onAuthErrorStub);
+          });
+        }
       });
     });
   });
@@ -363,11 +359,13 @@ describe('ColabApiClient', () => {
       });
 
       it('returns a list of runtimes', async () => {
-        await expect(client.runtimes.list()).to.eventually.deep.equal(runtimes);
+        await expect(client.colab.listRuntimes()).to.eventually.deep.equal({
+          runtimes,
+        });
       });
 
       it('sends client agent header', async () => {
-        await client.runtimes.list();
+        await client.colab.listRuntimes();
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -383,7 +381,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.runtimes.list();
+        await client.colab.listRuntimes();
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -400,7 +398,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.runtimes.list();
+        await client.colab.listRuntimes();
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -419,7 +417,7 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.runtimes.list()).to.be.rejected;
+        await expect(client.colab.listRuntimes()).to.be.rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -440,20 +438,20 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(client.runtimes.list()).to.be.rejected;
+            await expect(client.colab.listRuntimes()).to.be.rejected;
 
             sinon.assert.calledOnce(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(client.runtimes.list()).to.be.rejected;
+              await expect(client.colab.listRuntimes()).to.be.rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(client.runtimes.list()).to.be.rejected;
+              await expect(client.colab.listRuntimes()).to.be.rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -475,13 +473,13 @@ describe('ColabApiClient', () => {
       });
 
       it('returns the runtime', async () => {
-        await expect(client.runtimes.get(runtimeId)).to.eventually.deep.equal(
-          runtime,
-        );
+        await expect(
+          client.colab.getRuntime({ runtime: runtimeId }),
+        ).to.eventually.deep.equal(runtime);
       });
 
       it('sends client agent header', async () => {
-        await client.runtimes.get(runtimeId);
+        await client.colab.getRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -497,7 +495,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.runtimes.get(runtimeId);
+        await client.colab.getRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -514,7 +512,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.runtimes.get(runtimeId);
+        await client.colab.getRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -534,7 +532,8 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.runtimes.get(runtimeId)).to.be.rejected;
+        await expect(client.colab.getRuntime({ runtime: runtimeId })).to.be
+          .rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -556,20 +555,23 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(client.runtimes.get(runtimeId)).to.be.rejected;
+            await expect(client.colab.getRuntime({ runtime: runtimeId })).to.be
+              .rejected;
 
             sinon.assert.calledOnce(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(client.runtimes.get(runtimeId)).to.be.rejected;
+              await expect(client.colab.getRuntime({ runtime: runtimeId })).to
+                .be.rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(client.runtimes.get(runtimeId)).to.be.rejected;
+              await expect(client.colab.getRuntime({ runtime: runtimeId })).to
+                .be.rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -612,7 +614,11 @@ describe('ColabApiClient', () => {
 
       it('returns an operation', async () => {
         await expect(
-          client.runtimes.create(runtimeSpec, runtimeId, requestId),
+          client.colab.createRuntime({
+            runtime: { runtimeSpec },
+            runtimeId,
+            requestId,
+          }),
         ).to.eventually.deep.equal({
           ...operation,
           error: undefined,
@@ -621,7 +627,11 @@ describe('ColabApiClient', () => {
       });
 
       it('sends client agent header', async () => {
-        await client.runtimes.create(runtimeSpec, runtimeId, requestId);
+        await client.colab.createRuntime({
+          runtime: { runtimeSpec },
+          runtimeId,
+          requestId,
+        });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -637,7 +647,11 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.runtimes.create(runtimeSpec, runtimeId, requestId);
+        await client.colab.createRuntime({
+          runtime: { runtimeSpec },
+          runtimeId,
+          requestId,
+        });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -654,7 +668,11 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.runtimes.create(runtimeSpec, runtimeId, requestId);
+        await client.colab.createRuntime({
+          runtime: { runtimeSpec },
+          runtimeId,
+          requestId,
+        });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -673,8 +691,13 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.runtimes.create(runtimeSpec, runtimeId, requestId))
-          .to.be.rejected;
+        await expect(
+          client.colab.createRuntime({
+            runtime: { runtimeSpec },
+            runtimeId,
+            requestId,
+          }),
+        ).to.be.rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -696,7 +719,11 @@ describe('ColabApiClient', () => {
 
           it('throws an error and logs to telemetry', async () => {
             await expect(
-              client.runtimes.create(runtimeSpec, runtimeId, requestId),
+              client.colab.createRuntime({
+                runtime: { runtimeSpec },
+                runtimeId,
+                requestId,
+              }),
             ).to.be.rejected;
 
             sinon.assert.calledOnce(logErrorStub);
@@ -705,7 +732,11 @@ describe('ColabApiClient', () => {
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
               await expect(
-                client.runtimes.create(runtimeSpec, runtimeId, requestId),
+                client.colab.createRuntime({
+                  runtime: { runtimeSpec },
+                  runtimeId,
+                  requestId,
+                }),
               ).to.be.rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
@@ -713,7 +744,11 @@ describe('ColabApiClient', () => {
           } else {
             it('does not call onAuthError', async () => {
               await expect(
-                client.runtimes.create(runtimeSpec, runtimeId, requestId),
+                client.colab.createRuntime({
+                  runtime: { runtimeSpec },
+                  runtimeId,
+                  requestId,
+                }),
               ).to.be.rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
@@ -734,11 +769,11 @@ describe('ColabApiClient', () => {
       });
 
       it('executes successfully', async () => {
-        await client.runtimes.delete(runtimeId);
+        await client.colab.deleteRuntime({ runtime: runtimeId });
       });
 
       it('sends client agent header', async () => {
-        await client.runtimes.delete(runtimeId);
+        await client.colab.deleteRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -754,7 +789,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.runtimes.delete(runtimeId);
+        await client.colab.deleteRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -771,7 +806,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.runtimes.delete(runtimeId);
+        await client.colab.deleteRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -791,7 +826,8 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.runtimes.delete(runtimeId)).to.be.rejected;
+        await expect(client.colab.deleteRuntime({ runtime: runtimeId })).to.be
+          .rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -813,20 +849,23 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(client.runtimes.delete(runtimeId)).to.be.rejected;
+            await expect(client.colab.deleteRuntime({ runtime: runtimeId })).to
+              .be.rejected;
 
             sinon.assert.calledOnce(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(client.runtimes.delete(runtimeId)).to.be.rejected;
+              await expect(client.colab.deleteRuntime({ runtime: runtimeId }))
+                .to.be.rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(client.runtimes.delete(runtimeId)).to.be.rejected;
+              await expect(client.colab.deleteRuntime({ runtime: runtimeId }))
+                .to.be.rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -836,7 +875,7 @@ describe('ColabApiClient', () => {
     });
   });
 
-  describe('operations', () => {
+  describe('getOperation', () => {
     const operationId = 'test-operation-id';
     const operation = {
       name: `operations/${operationId}`,
@@ -859,120 +898,124 @@ describe('ColabApiClient', () => {
       },
     };
 
-    describe('get', () => {
-      beforeEach(() => {
-        server.use(
-          http.get(
-            `https://${COLAB_API_HOST}/v1/operations/${operationId}`,
-            () => HttpResponse.json(operation, { status: 200 }),
-          ),
-        );
-      });
+    beforeEach(() => {
+      server.use(
+        http.get(`https://${COLAB_API_HOST}/v1/operations/${operationId}`, () =>
+          HttpResponse.json(operation, { status: 200 }),
+        ),
+      );
+    });
 
-      it('returns the operation', async () => {
-        await expect(
-          client.operations.get(operationId),
-        ).to.eventually.deep.equal({
-          ...operation,
-          error: undefined,
+    it('returns the operation', async () => {
+      await expect(
+        client.operations.getOperation({ operationsId: operationId }),
+      ).to.eventually.deep.equal({
+        ...operation,
+        error: undefined,
+      });
+    });
+
+    it('sends client agent header', async () => {
+      await client.operations.getOperation({ operationsId: operationId });
+
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return (
+            headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
+            COLAB_CLIENT_AGENT_HEADER.value
+          );
+        }),
+      );
+    });
+
+    it('sends authorization header', async () => {
+      await client.operations.getOperation({ operationsId: operationId });
+
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return (
+            headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
+          );
+        }),
+      );
+    });
+
+    it('does not send authorization header if token is empty', async () => {
+      sessionStub.resolves('');
+
+      await client.operations.getOperation({ operationsId: operationId });
+
+      sinon.assert.calledOnceWithMatch(
+        fetchSpy,
+        sinon.match.string,
+        sinon.match((init: RequestInit) => {
+          const headers = new Headers(init.headers);
+          return !headers.has(AUTHORIZATION_HEADER.key);
+        }),
+      );
+    });
+
+    it('logs to telemetry on fetch error', async () => {
+      server.use(
+        http.get(`https://${COLAB_API_HOST}/v1/operations/${operationId}`, () =>
+          HttpResponse.error(),
+        ),
+      );
+
+      await expect(
+        client.operations.getOperation({ operationsId: operationId }),
+      ).to.be.rejected;
+
+      sinon.assert.calledOnce(logErrorStub);
+    });
+
+    const tests = [
+      { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
+      { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
+      { error: 'Internal', status: 500, onAuthErrorCalled: false },
+    ];
+    tests.forEach(({ error, status, onAuthErrorCalled }) => {
+      describe(`with status ${String(status)}`, () => {
+        beforeEach(() => {
+          server.use(
+            http.get(
+              `https://${COLAB_API_HOST}/v1/operations/${operationId}`,
+              () => HttpResponse.json({ error }, { status }),
+            ),
+          );
         });
-      });
 
-      it('sends client agent header', async () => {
-        await client.operations.get(operationId);
+        it('throws an error and logs to telemetry', async () => {
+          await expect(
+            client.operations.getOperation({ operationsId: operationId }),
+          ).to.be.rejected;
 
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return (
-              headers.get(COLAB_CLIENT_AGENT_HEADER.key) ===
-              COLAB_CLIENT_AGENT_HEADER.value
-            );
-          }),
-        );
-      });
-
-      it('sends authorization header', async () => {
-        await client.operations.get(operationId);
-
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return (
-              headers.get(AUTHORIZATION_HEADER.key) === `Bearer ${BEARER_TOKEN}`
-            );
-          }),
-        );
-      });
-
-      it('does not send authorization header if token is empty', async () => {
-        sessionStub.resolves('');
-
-        await client.operations.get(operationId);
-
-        sinon.assert.calledOnceWithMatch(
-          fetchSpy,
-          sinon.match.string,
-          sinon.match((init: RequestInit) => {
-            const headers = new Headers(init.headers);
-            return !headers.has(AUTHORIZATION_HEADER.key);
-          }),
-        );
-      });
-
-      it('logs to telemetry on fetch error', async () => {
-        server.use(
-          http.get(
-            `https://${COLAB_API_HOST}/v1/operations/${operationId}`,
-            () => HttpResponse.error(),
-          ),
-        );
-
-        await expect(client.operations.get(operationId)).to.be.rejected;
-
-        sinon.assert.calledOnce(logErrorStub);
-      });
-
-      const tests = [
-        { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
-        { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
-        { error: 'Internal', status: 500, onAuthErrorCalled: false },
-      ];
-      tests.forEach(({ error, status, onAuthErrorCalled }) => {
-        describe(`with status ${String(status)}`, () => {
-          beforeEach(() => {
-            server.use(
-              http.get(
-                `https://${COLAB_API_HOST}/v1/operations/${operationId}`,
-                () => HttpResponse.json({ error }, { status }),
-              ),
-            );
-          });
-
-          it('throws an error and logs to telemetry', async () => {
-            await expect(client.operations.get(operationId)).to.be.rejected;
-
-            sinon.assert.calledOnce(logErrorStub);
-          });
-
-          if (onAuthErrorCalled) {
-            it('calls onAuthError', async () => {
-              await expect(client.operations.get(operationId)).to.be.rejected;
-
-              sinon.assert.calledOnce(onAuthErrorStub);
-            });
-          } else {
-            it('does not call onAuthError', async () => {
-              await expect(client.operations.get(operationId)).to.be.rejected;
-
-              sinon.assert.notCalled(onAuthErrorStub);
-            });
-          }
+          sinon.assert.calledOnce(logErrorStub);
         });
+
+        if (onAuthErrorCalled) {
+          it('calls onAuthError', async () => {
+            await expect(
+              client.operations.getOperation({ operationsId: operationId }),
+            ).to.be.rejected;
+
+            sinon.assert.calledOnce(onAuthErrorStub);
+          });
+        } else {
+          it('does not call onAuthError', async () => {
+            await expect(
+              client.operations.getOperation({ operationsId: operationId }),
+            ).to.be.rejected;
+
+            sinon.assert.notCalled(onAuthErrorStub);
+          });
+        }
       });
     });
   });
