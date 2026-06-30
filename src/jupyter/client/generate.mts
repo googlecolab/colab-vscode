@@ -123,6 +123,7 @@ function main(): void {
         -i "${POST_PROCESSED_YAML}" \
         -g typescript-fetch \
         -o "${OUT_DIR}" \
+        --global-property=apiDocs=false,modelDocs=false \
         --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
     { stdio: 'inherit' },
   );
