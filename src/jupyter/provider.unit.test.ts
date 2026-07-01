@@ -17,7 +17,7 @@ import * as sinon from 'sinon';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
 import { ColabClient, NotFoundError } from '../colab/client/v1';
-import { ExperimentFlag, Variant } from '../colab/client/v1/api';
+import { ExperimentFlag } from '../colab/client/v1/api';
 import { ColabApiClient } from '../colab/client/v2';
 import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
 import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
@@ -35,7 +35,7 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { ServerPicker } from '../colab/server-picker';
-import { SubscriptionTier } from '../colab/types';
+import { SubscriptionTier, Variant } from '../colab/types';
 import { InputFlowAction } from '../common/multi-step-quickpick';
 import { TestEventEmitter } from '../test/helpers/events';
 import { TestUri } from '../test/helpers/uri';

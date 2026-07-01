@@ -19,12 +19,12 @@ import {
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ColabClient } from './client/v1';
-import { Variant } from './client/v1/api';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from './headers';
 import { ServerKeepAliveController } from './keep-alive';
+import { Variant } from './types';
 
 const NOW = new Date();
 const ONE_SECOND_MS = 1000;

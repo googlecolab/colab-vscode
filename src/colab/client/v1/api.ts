@@ -28,7 +28,7 @@ import {
   Session as GeneratedSession,
   Kernel as GeneratedKernel,
 } from '../../../jupyter/client/generated';
-import { SubscriptionTier } from '../../types';
+import { Shape, SubscriptionTier, Variant } from '../../types';
 
 export enum SubscriptionState {
   UNSUBSCRIBED = 1,
@@ -60,22 +60,10 @@ export enum Outcome {
   DENYLISTED = 5,
 }
 
-export enum Variant {
-  DEFAULT = 'DEFAULT',
-  GPU = 'GPU',
-  TPU = 'TPU',
-}
-
 enum ColabGapiVariant {
   UNSPECIFIED = 'VARIANT_UNSPECIFIED',
   GPU = 'VARIANT_GPU',
   TPU = 'VARIANT_TPU',
-}
-
-export enum Shape {
-  STANDARD = 0,
-  HIGHMEM = 1,
-  // VERYHIGHMEM (2) is deprecated.
 }
 
 enum ColabGapiShape {

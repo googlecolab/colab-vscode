@@ -13,3 +13,15 @@ export enum SubscriptionTier {
   PRO = 1,
   PRO_PLUS = 2,
 }
+
+export enum Variant {
+  DEFAULT = 'DEFAULT',
+  GPU = 'GPU',
+  TPU = 'TPU',
+}
+
+export enum Shape {
+  STANDARD = 0,
+  HIGHMEM = 1,
+  // VERYHIGHMEM (2) is deprecated.
+}

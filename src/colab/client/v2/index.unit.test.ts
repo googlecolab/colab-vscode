@@ -11,12 +11,24 @@ import * as sinon from 'sinon';
 import { SinonStubbedFunction } from 'sinon';
 import { telemetry } from '../../../telemetry';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
-import { SubscriptionTier as CommonSubscriptionTier } from '../../types';
-import { FetchAPI, Key, SubscriptionTier } from './generated/colab';
+import {
+  Shape as CommonShape,
+  SubscriptionTier as CommonSubscriptionTier,
+  Variant as CommonVariant,
+} from '../../types';
+import {
+  FetchAPI,
+  Key,
+  Shape,
+  SubscriptionTier,
+  Variant,
+} from './generated/colab';
 import {
   ColabApiClient,
   createColabApiClient,
+  normalizeShape,
   normalizeSubscriptionTier,
+  normalizeVariant,
 } from '.';
 
 const COLAB_API_HOST = 'colab.example.com';
@@ -1057,5 +1069,57 @@ describe('normalizeSubscriptionTier', () => {
     expect(() =>
       normalizeSubscriptionTier(SubscriptionTier.SubscriptionTierUnspecified),
     ).to.throw(/Unknown subscription tier:/);
+  });
+});
+
+describe('normalizeVariant', () => {
+  const tests = [
+    {
+      input: Variant.VariantCpu,
+      expected: CommonVariant.DEFAULT,
+    },
+    {
+      input: Variant.VariantGpu,
+      expected: CommonVariant.GPU,
+    },
+    {
+      input: Variant.VariantTpu,
+      expected: CommonVariant.TPU,
+    },
+  ];
+  tests.forEach(({ input, expected }) => {
+    it(`normalizes ${input}`, () => {
+      expect(normalizeVariant(input)).to.equal(expected);
+    });
+  });
+
+  it('throws an error if unspecified', () => {
+    expect(() => normalizeVariant(Variant.VariantUnspecified)).to.throw(
+      /Unknown variant:/,
+    );
+  });
+});
+
+describe('normalizeShape', () => {
+  const tests = [
+    {
+      input: Shape.ShapeStandard,
+      expected: CommonShape.STANDARD,
+    },
+    {
+      input: Shape.ShapeHighmem,
+      expected: CommonShape.HIGHMEM,
+    },
+  ];
+  tests.forEach(({ input, expected }) => {
+    it(`normalizes ${input}`, () => {
+      expect(normalizeShape(input)).to.equal(expected);
+    });
+  });
+
+  it('throws an error if unspecified', () => {
+    expect(() => normalizeShape(Shape.ShapeUnspecified)).to.throw(
+      /Unknown shape:/,
+    );
   });
 });

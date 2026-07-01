@@ -16,7 +16,6 @@ import { ControllableAsyncToggle } from '../test/helpers/async';
 import { TestEventEmitter } from '../test/helpers/events';
 import { TestUri } from '../test/helpers/uri';
 import { NotFoundError } from './client/v1';
-import { Variant } from './client/v1/api';
 import {
   ConnectionRefreshController,
   ConnectionRefresher,
@@ -25,6 +24,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from './headers';
+import { Variant } from './types';
 
 const REFRESH_MS = 1000 * 60 * 60;
 const DEFAULT_SERVER: ColabAssignedServer = {

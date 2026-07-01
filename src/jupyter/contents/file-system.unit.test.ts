@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { FileChangeEvent, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
-import { Variant } from '../../colab/client/v1/api';
+import { Variant } from '../../colab/types';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { TestUri } from '../../test/helpers/uri';
 import {

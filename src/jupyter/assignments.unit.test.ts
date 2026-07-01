@@ -24,18 +24,19 @@ import {
 import {
   Assignment,
   RuntimeProxyToken,
-  Shape,
   SubscriptionState,
   UserInfo,
-  Variant,
 } from '../colab/client/v1/api';
+import { ColabApiClient } from '../colab/client/v2';
+import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
+import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import { ColabRequestError } from '../colab/errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
-import { SubscriptionTier } from '../colab/types';
+import { Shape, SubscriptionTier, Variant } from '../colab/types';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { TestEventEmitter } from '../test/helpers/events';
@@ -103,6 +104,7 @@ describe('AssignmentManager', () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
+  let colabApiClientStub: SinonStubbedInstance<ColabApiClient>;
   let serverStorage: ServerStorage;
   let assignmentChangeListener: sinon.SinonStub<[AssignmentChangeEvent], void>;
   let assignmentManager: AssignmentManager;
@@ -144,10 +146,15 @@ describe('AssignmentManager', () => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
+    colabApiClientStub = {
+      colab: sinon.createStubInstance(ColaboratoryApi),
+      operations: sinon.createStubInstance(OperationsApi),
+    };
     serverStorage = new ServerStorageFake() as ServerStorage;
     assignmentManager = new AssignmentManager(
       vsCodeStub.asVsCode(),
       colabClientStub,
+      colabApiClientStub,
       serverStorage,
     );
     assignmentChangeListener = sinon.stub();

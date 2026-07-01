@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { SecretStorage } from 'vscode';
-import { Variant } from '../colab/client/v1/api';
+import { Variant } from '../colab/types';
 import { PROVIDER_ID } from '../config/constants';
 import { SecretStorageFake } from '../test/helpers/secret-storage';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';

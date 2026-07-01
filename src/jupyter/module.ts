@@ -74,6 +74,7 @@ export function createJupyterModule(
   const assignmentManager = new AssignmentManager(
     vs,
     colabClient,
+    colabApiClient,
     serverStorage,
   );
   const serverProvider = new ColabJupyterServerProvider(

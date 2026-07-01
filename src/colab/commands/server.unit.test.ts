@@ -21,7 +21,7 @@ import {
   buildInputBoxStub,
 } from '../../test/helpers/quick-input';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { Variant } from '../client/v1/api';
+import { Variant } from '../types';
 import { mountServer, removeServer, renameServerAlias } from './server';
 
 describe('Server Commands', () => {

@@ -7,7 +7,11 @@
 import { log } from '../../../common/logging';
 import { telemetry } from '../../../telemetry';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
-import { SubscriptionTier as CommonSubscriptionTier } from '../../types';
+import {
+  Shape as CommonShape,
+  SubscriptionTier as CommonSubscriptionTier,
+  Variant as CommonVariant,
+} from '../../types';
 import {
   ColaboratoryApi,
   Configuration as ColabConfig,
@@ -16,7 +20,9 @@ import {
   Middleware,
   RequestContext,
   ResponseContext,
+  Shape,
   SubscriptionTier,
+  Variant,
 } from './generated/colab';
 import {
   ColaboratoryApi as OperationsApi,
@@ -75,6 +81,42 @@ export function normalizeSubscriptionTier(
       return CommonSubscriptionTier.PRO_PLUS;
     default:
       throw new Error(`Unknown subscription tier: ${tier}`);
+  }
+}
+
+/**
+ * Normalizes the API {@link Variant} to the common {@link CommonVariant}.
+ *
+ * @param variant - Variant returned from public Colab API.
+ * @returns Normalized common variant value.
+ */
+export function normalizeVariant(variant: Variant): CommonVariant {
+  switch (variant) {
+    case Variant.VariantCpu:
+      return CommonVariant.DEFAULT;
+    case Variant.VariantGpu:
+      return CommonVariant.GPU;
+    case Variant.VariantTpu:
+      return CommonVariant.TPU;
+    default:
+      throw new Error(`Unknown variant: ${variant}`);
+  }
+}
+
+/**
+ * Normalizes the API {@link Shape} to the common {@link CommonShape}.
+ *
+ * @param shape - Shape returned from public Colab API.
+ * @returns Normalized common variant value.
+ */
+export function normalizeShape(shape: Shape): CommonShape {
+  switch (shape) {
+    case Shape.ShapeStandard:
+      return CommonShape.STANDARD;
+    case Shape.ShapeHighmem:
+      return CommonShape.HIGHMEM;
+    default:
+      throw new Error(`Unknown shape: ${shape}`);
   }
 }
 

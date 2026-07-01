@@ -18,7 +18,7 @@ import {
 import { TestThemeIcon } from '../../test/helpers/theme';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { Variant } from '../client/v1/api';
+import { Variant } from '../types';
 import { openTerminal } from './terminal';
 
 describe('openTerminal command', () => {

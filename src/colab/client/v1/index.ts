@@ -28,10 +28,10 @@ import {
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from '../../headers';
+import { Shape, Variant } from '../../types';
 import {
   Assignment,
   AuthType,
-  Variant,
   GetAssignmentResponse,
   AssignmentSchema,
   GetAssignmentResponseSchema,
@@ -46,7 +46,6 @@ import {
   ListedAssignment,
   RuntimeProxyToken,
   RuntimeProxyTokenSchema,
-  Shape,
   SessionSchema,
   CredentialsPropagationResult,
   CredentialsPropagationResultSchema,
