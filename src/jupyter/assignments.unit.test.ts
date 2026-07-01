@@ -23,6 +23,7 @@ import {
 } from '../colab/client/v1';
 import {
   Assignment,
+  ExperimentFlag,
   RuntimeProxyToken,
   SubscriptionState,
   UserInfo,
@@ -32,6 +33,7 @@ import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
 import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import { ColabRequestError } from '../colab/errors';
+import { TEST_ONLY as EXPERIMENT_TEST } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -162,6 +164,7 @@ describe('AssignmentManager', () => {
   });
 
   afterEach(() => {
+    EXPERIMENT_TEST.resetFlagsForTest();
     fakeClock.restore();
     sinon.restore();
   });
@@ -174,22 +177,6 @@ describe('AssignmentManager', () => {
         assignmentManager.getAvailableServerDescriptors(),
       ).to.be.rejectedWith(/disposed/);
     });
-
-    const mockUserInfo: UserInfo = {
-      subscriptionTier: SubscriptionTier.NONE,
-      paidComputeUnitsBalance: 1,
-      eligibleAccelerators: [
-        {
-          variant: Variant.GPU,
-          models: ['T4', 'A100'],
-        },
-        {
-          variant: Variant.TPU,
-          models: ['V5E1', 'V6E1'],
-        },
-      ],
-      ineligibleAccelerators: [],
-    };
 
     const defaultGpuT4Descriptor = {
       label: 'Colab GPU T4',
@@ -215,38 +202,118 @@ describe('AssignmentManager', () => {
       accelerator: 'V6E1',
     };
 
-    it('returns the default CPU and the eligible servers', async () => {
-      colabClientStub.getUserInfo.resolves(mockUserInfo);
+    describe('with Public API disabled', () => {
+      const mockUserInfo: UserInfo = {
+        subscriptionTier: SubscriptionTier.NONE,
+        paidComputeUnitsBalance: 1,
+        eligibleAccelerators: [
+          {
+            variant: Variant.GPU,
+            models: ['T4', 'A100'],
+          },
+          {
+            variant: Variant.TPU,
+            models: ['V5E1', 'V6E1'],
+          },
+        ],
+        ineligibleAccelerators: [],
+      };
 
-      const servers = await assignmentManager.getAvailableServerDescriptors();
-
-      expect(servers).to.deep.equal([
-        DEFAULT_CPU_SERVER,
-        defaultGpuT4Descriptor,
-        defaultGpuA100Descriptor,
-        defaultTpuV5E1Descriptor,
-        defaultTpuV6E1Descriptor,
-      ]);
-    });
-
-    it('returns the default CPU and the eligible servers for pro users', async () => {
-      colabClientStub.getUserInfo.resolves({
-        ...mockUserInfo,
-        subscriptionTier: SubscriptionTier.PRO,
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(ExperimentFlag.EnablePublicApi, false);
       });
 
-      const servers = await assignmentManager.getAvailableServerDescriptors();
+      it('returns the default CPU and the eligible servers', async () => {
+        colabClientStub.getUserInfo.resolves(mockUserInfo);
 
-      expect(servers).to.deep.equal([
-        { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD },
-        { ...DEFAULT_CPU_SERVER, shape: Shape.HIGHMEM },
-        { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
-        { ...defaultGpuT4Descriptor, shape: Shape.HIGHMEM },
-        { ...defaultGpuA100Descriptor, shape: Shape.STANDARD },
-        { ...defaultGpuA100Descriptor, shape: Shape.HIGHMEM },
-        { ...defaultTpuV5E1Descriptor, shape: Shape.HIGHMEM },
-        { ...defaultTpuV6E1Descriptor, shape: Shape.HIGHMEM },
-      ]);
+        const servers = await assignmentManager.getAvailableServerDescriptors();
+
+        expect(servers).to.deep.equal([
+          DEFAULT_CPU_SERVER,
+          defaultGpuT4Descriptor,
+          defaultGpuA100Descriptor,
+          defaultTpuV5E1Descriptor,
+          defaultTpuV6E1Descriptor,
+        ]);
+      });
+
+      it('returns the default CPU and the eligible servers for pro users', async () => {
+        colabClientStub.getUserInfo.resolves({
+          ...mockUserInfo,
+          subscriptionTier: SubscriptionTier.PRO,
+        });
+
+        const servers = await assignmentManager.getAvailableServerDescriptors();
+
+        expect(servers).to.deep.equal([
+          { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD },
+          { ...DEFAULT_CPU_SERVER, shape: Shape.HIGHMEM },
+          { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
+          { ...defaultGpuT4Descriptor, shape: Shape.HIGHMEM },
+          { ...defaultGpuA100Descriptor, shape: Shape.STANDARD },
+          { ...defaultGpuA100Descriptor, shape: Shape.HIGHMEM },
+          { ...defaultTpuV5E1Descriptor, shape: Shape.HIGHMEM },
+          { ...defaultTpuV6E1Descriptor, shape: Shape.HIGHMEM },
+        ]);
+      });
+    });
+
+    describe('with Public API enabled', () => {
+      const defaultCpuSpec = {
+        variant: 'VARIANT_CPU',
+        shape: 'SHAPE_STANDARD',
+        accelerator: 'NONE',
+      };
+      const defaultGpuSpec = {
+        variant: 'VARIANT_GPU',
+        shape: 'SHAPE_STANDARD',
+        accelerator: 'T4',
+      };
+      const defaultTpuSpec = {
+        variant: 'VARIANT_TPU',
+        shape: 'SHAPE_STANDARD',
+        accelerator: 'V5E1',
+      };
+
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(ExperimentFlag.EnablePublicApi, true);
+        (colabApiClientStub.colab.listRuntimeSpecs as sinon.SinonStub).resolves(
+          {
+            runtimeSpecs: [
+              {
+                key: defaultCpuSpec,
+                eligible: true,
+              },
+              {
+                key: defaultGpuSpec,
+                eligible: true,
+              },
+              {
+                key: defaultTpuSpec,
+                eligible: true,
+              },
+              {
+                key: {
+                  variant: 'VARIANT_GPU',
+                  shape: 'SHAPE_HIGHMEM',
+                  accelerator: 'DOES_NOT_MATTER',
+                },
+                eligible: false,
+              },
+            ],
+          },
+        );
+      });
+
+      it('returns the eligible server specs', async () => {
+        await expect(
+          assignmentManager.getAvailableServerDescriptors(),
+        ).to.eventually.deep.equal([
+          { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD, accelerator: 'NONE' },
+          { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
+          { ...defaultTpuV5E1Descriptor, shape: Shape.STANDARD },
+        ]);
+      });
     });
   });
 

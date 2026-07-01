@@ -142,6 +142,10 @@ export class AssignmentManager implements Disposable {
     this.guardDisposed();
     const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
     if (enablePublicApi) {
+      // The new ListRuntimeSpecs API already takes user's subscription tier
+      // into account, returning with the correct eligibility info. The new API
+      // also returns additional high-memory shapes for the Pro users, so we
+      // don't need to manually add them.
       const response = await this.colabApiClient.colab.listRuntimeSpecs(
         {},
         { signal },
@@ -152,12 +156,14 @@ export class AssignmentManager implements Disposable {
           .map((spec) => {
             const variant = normalizeVariant(spec.key.variant);
             const shape = normalizeShape(spec.key.shape);
-            const accelerator =
-              spec.key.accelerator === 'NONE' ? '' : spec.key.accelerator;
+            const label =
+              variant === Variant.DEFAULT
+                ? 'Colab CPU'
+                : `Colab ${variant} ${spec.key.accelerator}`;
             return {
-              label: `Colab ${variant} ${accelerator}`,
+              label,
               variant,
-              accelerator,
+              accelerator: spec.key.accelerator,
               shape,
             };
           }) ?? []
