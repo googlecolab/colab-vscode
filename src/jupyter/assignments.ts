@@ -147,8 +147,8 @@ export class AssignmentManager implements Disposable {
       // also returns additional high-memory shapes for the Pro users, so we
       // don't need to manually add them.
       const response = await this.colabApiClient.colab.listRuntimeSpecs(
-        {},
-        { signal },
+        /* requestParameters= */ {},
+        /* initOverrides= */ { signal },
       );
       return (
         response.runtimeSpecs
