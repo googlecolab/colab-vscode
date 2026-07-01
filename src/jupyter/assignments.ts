@@ -156,16 +156,12 @@ export class AssignmentManager implements Disposable {
           .map((spec) => {
             const variant = normalizeVariant(spec.key.variant);
             const shape = normalizeShape(spec.key.shape);
+            const accelerator = spec.key.accelerator;
             const label =
               variant === Variant.DEFAULT
                 ? 'Colab CPU'
-                : `Colab ${variant} ${spec.key.accelerator}`;
-            return {
-              label,
-              variant,
-              accelerator: spec.key.accelerator,
-              shape,
-            };
+                : `Colab ${variant} ${accelerator}`;
+            return { label, variant, accelerator, shape };
           }) ?? []
       );
     }
