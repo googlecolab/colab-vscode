@@ -30,6 +30,14 @@ import {
  */
 export interface Operation {
     /**
+     * If the value is `false`, it means the operation is still in progress.
+     * If `true`, the operation is completed, and either `error` or `response` is
+     * available.
+     * @type {boolean}
+     * @memberof Operation
+     */
+    done?: boolean;
+    /**
      * The error result of the operation in case of failure or cancellation.
      * @type {Status}
      * @memberof Operation
@@ -43,14 +51,6 @@ export interface Operation {
      * @memberof Operation
      */
     name?: string;
-    /**
-     * If the value is `false`, it means the operation is still in progress.
-     * If `true`, the operation is completed, and either `error` or `response` is
-     * available.
-     * @type {boolean}
-     * @memberof Operation
-     */
-    done?: boolean;
     /**
      * Service-specific metadata associated with the operation.  It typically
      * contains progress information and common metadata such as create time.
@@ -92,9 +92,9 @@ export function OperationFromJSONTyped(json: any, ignoreDiscriminator: boolean):
     }
     return {
         
+        'done': json['done'] == null ? undefined : json['done'],
         'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'name': json['name'] == null ? undefined : json['name'],
-        'done': json['done'] == null ? undefined : json['done'],
         'metadata': json['metadata'] == null ? undefined : json['metadata'],
         'response': json['response'] == null ? undefined : json['response'],
     };
@@ -111,9 +111,9 @@ export function OperationToJSONTyped(value?: Operation | null, ignoreDiscriminat
 
     return {
         
+        'done': value['done'],
         'error': StatusToJSON(value['error']),
         'name': value['name'],
-        'done': value['done'],
         'metadata': value['metadata'],
         'response': value['response'],
     };

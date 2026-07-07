@@ -29,17 +29,17 @@ import {
  */
 export interface RuntimeSpec {
     /**
-     * Required. The key of the runtime spec.
-     * @type {Key}
-     * @memberof RuntimeSpec
-     */
-    key: Key;
-    /**
      * Output only. Whether the requesting user is eligible for the runtime spec.
      * @type {boolean}
      * @memberof RuntimeSpec
      */
     readonly eligible?: boolean;
+    /**
+     * Required. The key of the runtime spec.
+     * @type {Key}
+     * @memberof RuntimeSpec
+     */
+    key: Key;
 }
 
 /**
@@ -60,8 +60,8 @@ export function RuntimeSpecFromJSONTyped(json: any, ignoreDiscriminator: boolean
     }
     return {
         
-        'key': KeyFromJSON(json['key']),
         'eligible': json['eligible'] == null ? undefined : json['eligible'],
+        'key': KeyFromJSON(json['key']),
     };
 }
 

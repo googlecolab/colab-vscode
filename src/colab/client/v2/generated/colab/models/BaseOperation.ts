@@ -30,6 +30,14 @@ import {
  */
 export interface BaseOperation {
     /**
+     * If the value is `false`, it means the operation is still in progress.
+     * If `true`, the operation is completed, and either `error` or `response` is
+     * available.
+     * @type {boolean}
+     * @memberof BaseOperation
+     */
+    done?: boolean;
+    /**
      * The error result of the operation in case of failure or cancellation.
      * @type {Status}
      * @memberof BaseOperation
@@ -43,14 +51,6 @@ export interface BaseOperation {
      * @memberof BaseOperation
      */
     name?: string;
-    /**
-     * If the value is `false`, it means the operation is still in progress.
-     * If `true`, the operation is completed, and either `error` or `response` is
-     * available.
-     * @type {boolean}
-     * @memberof BaseOperation
-     */
-    done?: boolean;
 }
 
 /**
@@ -70,9 +70,9 @@ export function BaseOperationFromJSONTyped(json: any, ignoreDiscriminator: boole
     }
     return {
         
+        'done': json['done'] == null ? undefined : json['done'],
         'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'name': json['name'] == null ? undefined : json['name'],
-        'done': json['done'] == null ? undefined : json['done'],
     };
 }
 
@@ -87,9 +87,9 @@ export function BaseOperationToJSONTyped(value?: BaseOperation | null, ignoreDis
 
     return {
         
+        'done': value['done'],
         'error': StatusToJSON(value['error']),
         'name': value['name'],
-        'done': value['done'],
     };
 }
 

@@ -22,27 +22,19 @@ import { mapValues } from '../runtime';
  */
 export interface ExecuteCodeResult {
     /**
-     * The `text/plain` representation of the last expression's value, if the
-     * execution ended on an expression. Empty otherwise.
-     * @type {string}
+     * The Jupyter `In[N]` execution count assigned by the kernel. Informational
+     * only. Not for addressing executions, for that use `execution_id`.
+     * @type {number}
      * @memberof ExecuteCodeResult
      */
-    result?: string;
+    executionCount?: number;
     /**
-     * Whether the runtime truncated buffered output (size or line caps hit). When
-     * true, `stdout`/`stderr` are tail-truncated.
-     * @type {boolean}
+     * Populated when the execution raised. Mutually exclusive with a successful
+     * completion.
+     * @type {Error}
      * @memberof ExecuteCodeResult
      */
-    outputTruncated?: boolean;
-    /**
-     * Whether the execution produced rich (non-text) outputs that this tool does
-     * not surface (e.g. images, Plotly/Vega figures, widgets). Always false for
-     * executions that produced only text.
-     * @type {boolean}
-     * @memberof ExecuteCodeResult
-     */
-    richOutputsDropped?: boolean;
+    executionError?: Error;
     /**
      * The execution identifier this result is for, echoed from the request. Empty
      * when the request supplied no `execution_id` (such an execution is not
@@ -52,6 +44,28 @@ export interface ExecuteCodeResult {
      */
     executionId?: string;
     /**
+     * Whether the runtime truncated buffered output (size or line caps hit). When
+     * true, `stdout`/`stderr` are tail-truncated.
+     * @type {boolean}
+     * @memberof ExecuteCodeResult
+     */
+    outputTruncated?: boolean;
+    /**
+     * The `text/plain` representation of the last expression's value, if the
+     * execution ended on an expression. Empty otherwise.
+     * @type {string}
+     * @memberof ExecuteCodeResult
+     */
+    result?: string;
+    /**
+     * Whether the execution produced rich (non-text) outputs that this tool does
+     * not surface (e.g. images, Plotly/Vega figures, widgets). Always false for
+     * executions that produced only text.
+     * @type {boolean}
+     * @memberof ExecuteCodeResult
+     */
+    richOutputsDropped?: boolean;
+    /**
      * The session the execution ran in.
      * Format: `runtimes/{runtime}/sessions/{session}`.
      * @type {string}
@@ -59,25 +73,11 @@ export interface ExecuteCodeResult {
      */
     session?: string;
     /**
-     * The Jupyter `In[N]` execution count assigned by the kernel. Informational
-     * only. Not for addressing executions, for that use `execution_id`.
-     * @type {number}
-     * @memberof ExecuteCodeResult
-     */
-    executionCount?: number;
-    /**
      * Aggregated stderr across the execution.
      * @type {string}
      * @memberof ExecuteCodeResult
      */
     stderr?: string;
-    /**
-     * Populated when the execution raised. Mutually exclusive with a successful
-     * completion.
-     * @type {Error}
-     * @memberof ExecuteCodeResult
-     */
-    executionError?: Error;
     /**
      * Aggregated stdout across the execution.
      * @type {string}
@@ -103,14 +103,14 @@ export function ExecuteCodeResultFromJSONTyped(json: any, ignoreDiscriminator: b
     }
     return {
         
-        'result': json['result'] == null ? undefined : json['result'],
-        'outputTruncated': json['outputTruncated'] == null ? undefined : json['outputTruncated'],
-        'richOutputsDropped': json['richOutputsDropped'] == null ? undefined : json['richOutputsDropped'],
-        'executionId': json['executionId'] == null ? undefined : json['executionId'],
-        'session': json['session'] == null ? undefined : json['session'],
         'executionCount': json['executionCount'] == null ? undefined : json['executionCount'],
-        'stderr': json['stderr'] == null ? undefined : json['stderr'],
         'executionError': json['executionError'] == null ? undefined : json['executionError'],
+        'executionId': json['executionId'] == null ? undefined : json['executionId'],
+        'outputTruncated': json['outputTruncated'] == null ? undefined : json['outputTruncated'],
+        'result': json['result'] == null ? undefined : json['result'],
+        'richOutputsDropped': json['richOutputsDropped'] == null ? undefined : json['richOutputsDropped'],
+        'session': json['session'] == null ? undefined : json['session'],
+        'stderr': json['stderr'] == null ? undefined : json['stderr'],
         'stdout': json['stdout'] == null ? undefined : json['stdout'],
     };
 }
@@ -126,14 +126,14 @@ export function ExecuteCodeResultToJSONTyped(value?: ExecuteCodeResult | null, i
 
     return {
         
-        'result': value['result'],
-        'outputTruncated': value['outputTruncated'],
-        'richOutputsDropped': value['richOutputsDropped'],
-        'executionId': value['executionId'],
-        'session': value['session'],
         'executionCount': value['executionCount'],
-        'stderr': value['stderr'],
         'executionError': value['executionError'],
+        'executionId': value['executionId'],
+        'outputTruncated': value['outputTruncated'],
+        'result': value['result'],
+        'richOutputsDropped': value['richOutputsDropped'],
+        'session': value['session'],
+        'stderr': value['stderr'],
         'stdout': value['stdout'],
     };
 }
