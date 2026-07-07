@@ -17,11 +17,7 @@
         "name": "$alt",
         "description": "Data format for response.",
         "schema": {
-          "enum": [
-            "json",
-            "media",
-            "proto"
-          ],
+          "enum": ["json", "media", "proto"],
           "type": "string",
           "default": "json",
           "x-google-enum-descriptions": [
@@ -45,14 +41,8 @@
         "name": "$.xgafv",
         "description": "V1 error format.",
         "schema": {
-          "enum": [
-            "1",
-            "2"
-          ],
-          "x-google-enum-descriptions": [
-            "v1 error format",
-            "v2 error format"
-          ],
+          "enum": ["1", "2"],
+          "x-google-enum-descriptions": ["v1 error format", "v2 error format"],
           "type": "string"
         },
         "in": "query"
@@ -101,11 +91,7 @@
     },
     "schemas": {
       "Key": {
-        "required": [
-          "variant",
-          "accelerator",
-          "shape"
-        ],
+        "required": ["variant", "accelerator", "shape"],
         "description": "Key fields that uniquely identify a runtime spec.",
         "type": "object",
         "properties": {
@@ -165,11 +151,7 @@
         }
       },
       "Shape": {
-        "enum": [
-          "SHAPE_UNSPECIFIED",
-          "SHAPE_STANDARD",
-          "SHAPE_HIGHMEM"
-        ],
+        "enum": ["SHAPE_UNSPECIFIED", "SHAPE_STANDARD", "SHAPE_HIGHMEM"],
         "type": "string",
         "x-google-enum-descriptions": [
           "Default value. This value is unused.",
@@ -210,9 +192,7 @@
           }
         },
         "description": "A specification of a runtime.",
-        "required": [
-          "key"
-        ]
+        "required": ["key"]
       },
       "Operation": {
         "description": "This resource represents a long-running operation that is the result of a\nnetwork API call.",
@@ -328,11 +308,7 @@
             "description": "Required. Output only. The runtime proxy token. This is a short-lived credential used to\nauthenticate to the runtime."
           }
         },
-        "required": [
-          "token",
-          "expireTime",
-          "url"
-        ],
+        "required": ["token", "expireTime", "url"],
         "description": "Connection info used to authenticate to the runtime."
       },
       "ListRuntimesResponse": {
@@ -391,14 +367,10 @@
           }
         },
         "description": "Colab user subscription information.",
-        "required": [
-          "tier"
-        ]
+        "required": ["tier"]
       },
       "Runtime": {
-        "required": [
-          "runtimeSpec"
-        ],
+        "required": ["runtimeSpec"],
         "description": "A Colab managed runtime.",
         "type": "object",
         "properties": {
@@ -500,9 +472,7 @@
       "get": {
         "operationId": "GetSubscription",
         "description": "Gets the subscription of the requesting user.",
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "security": [
           {
             "google_oauth_implicit": [
@@ -549,9 +519,7 @@
         }
       ],
       "get": {
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "operationId": "ListRuntimes",
         "description": "Lists Colab runtimes assigned to the requesting user.",
         "parameters": [],
@@ -642,9 +610,7 @@
             }
           }
         },
-        "tags": [
-          "colaboratory"
-        ]
+        "tags": ["colaboratory"]
       }
     },
     "/v1beta/runtimespecs": {
@@ -663,9 +629,7 @@
         }
       ],
       "get": {
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "operationId": "ListRuntimeSpecs",
         "description": "Lists Colab runtime specs available to the requesting user.",
         "parameters": [],
@@ -702,9 +666,7 @@
       "get": {
         "operationId": "GetRuntime",
         "description": "Gets a Colab runtime assigned to the requesting user.",
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "security": [
           {
             "google_oauth_implicit": [
@@ -783,9 +745,7 @@
             "bearer_auth": []
           }
         ],
-        "tags": [
-          "colaboratory"
-        ],
+        "tags": ["colaboratory"],
         "operationId": "DeleteRuntime",
         "description": "Deletes a Colab runtime assignment."
       },
