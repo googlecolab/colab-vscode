@@ -1,21 +1,4 @@
 {
-  "servers": [
-    {
-      "url": "https://colaboratory.googleapis.com",
-      "description": "Global Endpoint"
-    }
-  ],
-  "info": {
-    "title": "Colab API",
-    "version": "v1beta",
-    "x-google-revision": "20260622",
-    "description": "colaboratory.googleapis.com API."
-  },
-  "externalDocs": {
-    "url": "https://developers.google.com/colab",
-    "description": "Find more info here."
-  },
-  "openapi": "3.0.3",
   "components": {
     "securitySchemes": {
       "google_oauth_implicit": {
@@ -456,6 +439,17 @@
       }
     }
   },
+  "externalDocs": {
+    "url": "https://developers.google.com/colab",
+    "description": "Find more info here."
+  },
+  "info": {
+    "title": "Colab API",
+    "version": "v1beta",
+    "x-google-revision": "20260622",
+    "description": "colaboratory.googleapis.com API."
+  },
+  "openapi": "3.0.3",
   "paths": {
     "/v1beta/subscription": {
       "parameters": [
@@ -767,5 +761,11 @@
         }
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "https://colaboratory.googleapis.com",
+      "description": "Global Endpoint"
+    }
+  ]
 }

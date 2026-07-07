@@ -6,6 +6,12 @@
       "options": {
         "singleQuote": true
       }
+    },
+    {
+      "files": ["src/colab/client/v2/*-api.json"],
+      "options": {
+        "plugins": ["prettier-plugin-sort-json"]
+      }
     }
   ]
 }
