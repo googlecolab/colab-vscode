@@ -27,17 +27,17 @@ export interface ModelError {
      */
     name?: string;
     /**
-     * The exception message, e.g. "name 'foo' is not defined".
-     * @type {string}
-     * @memberof ModelError
-     */
-    value?: string;
-    /**
      * The formatted traceback, one frame per entry.
      * @type {Array<string>}
      * @memberof ModelError
      */
     traceback?: Array<string>;
+    /**
+     * The exception message, e.g. "name 'foo' is not defined".
+     * @type {string}
+     * @memberof ModelError
+     */
+    value?: string;
 }
 
 /**
@@ -58,8 +58,8 @@ export function ModelErrorFromJSONTyped(json: any, ignoreDiscriminator: boolean)
     return {
         
         'name': json['name'] == null ? undefined : json['name'],
-        'value': json['value'] == null ? undefined : json['value'],
         'traceback': json['traceback'] == null ? undefined : json['traceback'],
+        'value': json['value'] == null ? undefined : json['value'],
     };
 }
 
@@ -75,8 +75,8 @@ export function ModelErrorToJSONTyped(value?: ModelError | null, ignoreDiscrimin
     return {
         
         'name': value['name'],
-        'value': value['value'],
         'traceback': value['traceback'],
+        'value': value['value'],
     };
 }
 

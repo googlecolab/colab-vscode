@@ -1059,12 +1059,6 @@ describe('normalizeSubscriptionTier', () => {
     });
   });
 
-  it('throws an error if undefined', () => {
-    expect(() => normalizeSubscriptionTier(undefined)).to.throw(
-      'Subscription tier is undefined',
-    );
-  });
-
   it('throws an error if unspecified', () => {
     expect(() =>
       normalizeSubscriptionTier(SubscriptionTier.SubscriptionTierUnspecified),

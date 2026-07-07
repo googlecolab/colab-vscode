@@ -66,12 +66,8 @@ export function createColabApiClient(
  * @returns Normalized common subscription tier value.
  */
 export function normalizeSubscriptionTier(
-  tier?: SubscriptionTier,
+  tier: SubscriptionTier,
 ): CommonSubscriptionTier {
-  if (!tier) {
-    throw new Error('Subscription tier is undefined');
-  }
-
   switch (tier) {
     case SubscriptionTier.SubscriptionTierFree:
       return CommonSubscriptionTier.NONE;

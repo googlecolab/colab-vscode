@@ -21,30 +21,33 @@ import { mapValues } from '../runtime';
  */
 export interface ConnectionInfo {
     /**
-     * Output only. The authenticated URL that can be used to connect to the runtime.
+     * Required. Output only. The expiration time of the runtime proxy token.
+     * @type {Date}
+     * @memberof ConnectionInfo
+     */
+    readonly expireTime: Date;
+    /**
+     * Required. Output only. The authenticated URL that can be used to connect to the runtime.
      * @type {string}
      * @memberof ConnectionInfo
      */
-    readonly url?: string;
+    readonly url: string;
     /**
-     * Output only. The runtime proxy token. This is a short-lived credential used to
+     * Required. Output only. The runtime proxy token. This is a short-lived credential used to
      * authenticate to the runtime.
      * @type {string}
      * @memberof ConnectionInfo
      */
-    readonly token?: string;
-    /**
-     * Output only. The expiration time of the runtime proxy token.
-     * @type {Date}
-     * @memberof ConnectionInfo
-     */
-    readonly expireTime?: Date;
+    readonly token: string;
 }
 
 /**
  * Check if a given object implements the ConnectionInfo interface.
  */
 export function instanceOfConnectionInfo(value: object): value is ConnectionInfo {
+    if (!('expireTime' in value) || value['expireTime'] === undefined) return false;
+    if (!('url' in value) || value['url'] === undefined) return false;
+    if (!('token' in value) || value['token'] === undefined) return false;
     return true;
 }
 
@@ -58,9 +61,9 @@ export function ConnectionInfoFromJSONTyped(json: any, ignoreDiscriminator: bool
     }
     return {
         
-        'url': json['url'] == null ? undefined : json['url'],
-        'token': json['token'] == null ? undefined : json['token'],
-        'expireTime': json['expireTime'] == null ? undefined : (new Date(json['expireTime'])),
+        'expireTime': (new Date(json['expireTime'])),
+        'url': json['url'],
+        'token': json['token'],
     };
 }
 
@@ -68,7 +71,7 @@ export function ConnectionInfoToJSON(json: any): ConnectionInfo {
     return ConnectionInfoToJSONTyped(json, false);
 }
 
-export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'url'|'token'|'expireTime'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'expireTime'|'url'|'token'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
