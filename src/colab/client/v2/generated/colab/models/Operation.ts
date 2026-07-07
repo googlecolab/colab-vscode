@@ -30,14 +30,6 @@ import {
  */
 export interface Operation {
     /**
-     * The server-assigned name, which is only unique within the same service that
-     * originally returns it. If you use the default HTTP mapping, the
-     * `name` should be a resource name ending with `operations/{unique_id}`.
-     * @type {string}
-     * @memberof Operation
-     */
-    name?: string;
-    /**
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
      * available.
@@ -51,6 +43,14 @@ export interface Operation {
      * @memberof Operation
      */
     error?: Status;
+    /**
+     * The server-assigned name, which is only unique within the same service that
+     * originally returns it. If you use the default HTTP mapping, the
+     * `name` should be a resource name ending with `operations/{unique_id}`.
+     * @type {string}
+     * @memberof Operation
+     */
+    name?: string;
     /**
      * Service-specific metadata associated with the operation.  It typically
      * contains progress information and common metadata such as create time.
@@ -92,9 +92,9 @@ export function OperationFromJSONTyped(json: any, ignoreDiscriminator: boolean):
     }
     return {
         
-        'name': json['name'] == null ? undefined : json['name'],
         'done': json['done'] == null ? undefined : json['done'],
         'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
+        'name': json['name'] == null ? undefined : json['name'],
         'metadata': json['metadata'] == null ? undefined : json['metadata'],
         'response': json['response'] == null ? undefined : json['response'],
     };
@@ -111,9 +111,9 @@ export function OperationToJSONTyped(value?: Operation | null, ignoreDiscriminat
 
     return {
         
-        'name': value['name'],
         'done': value['done'],
         'error': StatusToJSON(value['error']),
+        'name': value['name'],
         'metadata': value['metadata'],
         'response': value['response'],
     };

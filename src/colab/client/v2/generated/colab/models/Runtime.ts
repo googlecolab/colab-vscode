@@ -36,11 +36,11 @@ import {
  */
 export interface Runtime {
     /**
-     * Required. The specification of the runtime.
-     * @type {Key}
+     * Output only. The connection info used to authenticate to the runtime.
+     * @type {ConnectionInfo}
      * @memberof Runtime
      */
-    runtimeSpec: Key;
+    readonly connectionInfo?: ConnectionInfo;
     /**
      * Identifier. The name of the runtime in the format `runtimes/{runtime_id}`, where
      * `runtime_id` is either the value supplied via
@@ -51,11 +51,11 @@ export interface Runtime {
      */
     name?: string;
     /**
-     * Output only. The connection info used to authenticate to the runtime.
-     * @type {ConnectionInfo}
+     * Required. The specification of the runtime.
+     * @type {Key}
      * @memberof Runtime
      */
-    readonly connectionInfo?: ConnectionInfo;
+    runtimeSpec: Key;
 }
 
 /**
@@ -76,9 +76,9 @@ export function RuntimeFromJSONTyped(json: any, ignoreDiscriminator: boolean): R
     }
     return {
         
-        'runtimeSpec': KeyFromJSON(json['runtimeSpec']),
-        'name': json['name'] == null ? undefined : json['name'],
         'connectionInfo': json['connectionInfo'] == null ? undefined : ConnectionInfoFromJSON(json['connectionInfo']),
+        'name': json['name'] == null ? undefined : json['name'],
+        'runtimeSpec': KeyFromJSON(json['runtimeSpec']),
     };
 }
 
@@ -93,8 +93,8 @@ export function RuntimeToJSONTyped(value?: Omit<Runtime, 'connectionInfo'> | nul
 
     return {
         
-        'runtimeSpec': KeyToJSON(value['runtimeSpec']),
         'name': value['name'],
+        'runtimeSpec': KeyToJSON(value['runtimeSpec']),
     };
 }
 

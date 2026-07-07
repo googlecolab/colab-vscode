@@ -27,13 +27,11 @@ import { mapValues } from '../runtime';
  */
 export interface Status {
     /**
-     * A developer-facing error message, which should be in English. Any
-     * user-facing error message should be localized and sent in the
-     * google.rpc.Status.details field, or localized by the client.
-     * @type {string}
+     * The status code, which should be an enum value of google.rpc.Code.
+     * @type {number}
      * @memberof Status
      */
-    message?: string;
+    code?: number;
     /**
      * A list of messages that carry the error details.  There is a common set of
      * message types for APIs to use.
@@ -42,11 +40,13 @@ export interface Status {
      */
     details?: Array<{ [key: string]: any; }>;
     /**
-     * The status code, which should be an enum value of google.rpc.Code.
-     * @type {number}
+     * A developer-facing error message, which should be in English. Any
+     * user-facing error message should be localized and sent in the
+     * google.rpc.Status.details field, or localized by the client.
+     * @type {string}
      * @memberof Status
      */
-    code?: number;
+    message?: string;
 }
 
 /**
@@ -66,9 +66,9 @@ export function StatusFromJSONTyped(json: any, ignoreDiscriminator: boolean): St
     }
     return {
         
-        'message': json['message'] == null ? undefined : json['message'],
-        'details': json['details'] == null ? undefined : json['details'],
         'code': json['code'] == null ? undefined : json['code'],
+        'details': json['details'] == null ? undefined : json['details'],
+        'message': json['message'] == null ? undefined : json['message'],
     };
 }
 
@@ -83,9 +83,9 @@ export function StatusToJSONTyped(value?: Status | null, ignoreDiscriminator: bo
 
     return {
         
-        'message': value['message'],
-        'details': value['details'],
         'code': value['code'],
+        'details': value['details'],
+        'message': value['message'],
     };
 }
 

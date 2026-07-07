@@ -27,18 +27,18 @@ export interface ConnectionInfo {
      */
     readonly expireTime: Date;
     /**
-     * Required. Output only. The authenticated URL that can be used to connect to the runtime.
-     * @type {string}
-     * @memberof ConnectionInfo
-     */
-    readonly url: string;
-    /**
      * Required. Output only. The runtime proxy token. This is a short-lived credential used to
      * authenticate to the runtime.
      * @type {string}
      * @memberof ConnectionInfo
      */
     readonly token: string;
+    /**
+     * Required. Output only. The authenticated URL that can be used to connect to the runtime.
+     * @type {string}
+     * @memberof ConnectionInfo
+     */
+    readonly url: string;
 }
 
 /**
@@ -46,8 +46,8 @@ export interface ConnectionInfo {
  */
 export function instanceOfConnectionInfo(value: object): value is ConnectionInfo {
     if (!('expireTime' in value) || value['expireTime'] === undefined) return false;
-    if (!('url' in value) || value['url'] === undefined) return false;
     if (!('token' in value) || value['token'] === undefined) return false;
+    if (!('url' in value) || value['url'] === undefined) return false;
     return true;
 }
 
@@ -62,8 +62,8 @@ export function ConnectionInfoFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
         'expireTime': (new Date(json['expireTime'])),
-        'url': json['url'],
         'token': json['token'],
+        'url': json['url'],
     };
 }
 
@@ -71,7 +71,7 @@ export function ConnectionInfoToJSON(json: any): ConnectionInfo {
     return ConnectionInfoToJSONTyped(json, false);
 }
 
-export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'expireTime'|'url'|'token'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'expireTime'|'token'|'url'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }

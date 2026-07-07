@@ -43,14 +43,6 @@ import {
  */
 export interface CreateRuntimeOperation {
     /**
-     * The server-assigned name, which is only unique within the same service that
-     * originally returns it. If you use the default HTTP mapping, the
-     * `name` should be a resource name ending with `operations/{unique_id}`.
-     * @type {string}
-     * @memberof CreateRuntimeOperation
-     */
-    name?: string;
-    /**
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
      * available.
@@ -64,6 +56,14 @@ export interface CreateRuntimeOperation {
      * @memberof CreateRuntimeOperation
      */
     error?: Status;
+    /**
+     * The server-assigned name, which is only unique within the same service that
+     * originally returns it. If you use the default HTTP mapping, the
+     * `name` should be a resource name ending with `operations/{unique_id}`.
+     * @type {string}
+     * @memberof CreateRuntimeOperation
+     */
+    name?: string;
     /**
      * 
      * @type {CreateRuntimeMetadata}
@@ -95,9 +95,9 @@ export function CreateRuntimeOperationFromJSONTyped(json: any, ignoreDiscriminat
     }
     return {
         
-        'name': json['name'] == null ? undefined : json['name'],
         'done': json['done'] == null ? undefined : json['done'],
         'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
+        'name': json['name'] == null ? undefined : json['name'],
         'metadata': json['metadata'] == null ? undefined : CreateRuntimeMetadataFromJSON(json['metadata']),
         'response': json['response'] == null ? undefined : RuntimeFromJSON(json['response']),
     };
@@ -114,9 +114,9 @@ export function CreateRuntimeOperationToJSONTyped(value?: CreateRuntimeOperation
 
     return {
         
-        'name': value['name'],
         'done': value['done'],
         'error': StatusToJSON(value['error']),
+        'name': value['name'],
         'metadata': CreateRuntimeMetadataToJSON(value['metadata']),
         'response': RuntimeToJSON(value['response']),
     };

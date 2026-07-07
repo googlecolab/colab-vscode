@@ -29,6 +29,28 @@ export interface ExecuteCodeResult {
      */
     executionCount?: number;
     /**
+     * Populated when the execution raised. Mutually exclusive with a successful
+     * completion.
+     * @type {Error}
+     * @memberof ExecuteCodeResult
+     */
+    executionError?: Error;
+    /**
+     * The execution identifier this result is for, echoed from the request. Empty
+     * when the request supplied no `execution_id` (such an execution is not
+     * resumable). Use it to resume.
+     * @type {string}
+     * @memberof ExecuteCodeResult
+     */
+    executionId?: string;
+    /**
+     * Whether the runtime truncated buffered output (size or line caps hit). When
+     * true, `stdout`/`stderr` are tail-truncated.
+     * @type {boolean}
+     * @memberof ExecuteCodeResult
+     */
+    outputTruncated?: boolean;
+    /**
      * The `text/plain` representation of the last expression's value, if the
      * execution ended on an expression. Empty otherwise.
      * @type {string}
@@ -44,40 +66,18 @@ export interface ExecuteCodeResult {
      */
     richOutputsDropped?: boolean;
     /**
-     * Whether the runtime truncated buffered output (size or line caps hit). When
-     * true, `stdout`/`stderr` are tail-truncated.
-     * @type {boolean}
-     * @memberof ExecuteCodeResult
-     */
-    outputTruncated?: boolean;
-    /**
-     * The execution identifier this result is for, echoed from the request. Empty
-     * when the request supplied no `execution_id` (such an execution is not
-     * resumable). Use it to resume.
-     * @type {string}
-     * @memberof ExecuteCodeResult
-     */
-    executionId?: string;
-    /**
-     * The Jupyter `In[N]` execution count assigned by the kernel. Informational
-     * only. Not for addressing executions, for that use `execution_id`.
-     * @type {number}
-     * @memberof ExecuteCodeResult
-     */
-    result?: string;
-    /**
-     * Aggregated stderr across the execution.
-     * @type {string}
-     * @memberof ExecuteCodeResult
-     */
-    stderr?: string;
-    /**
      * The session the execution ran in.
      * Format: `runtimes/{runtime}/sessions/{session}`.
      * @type {string}
      * @memberof ExecuteCodeResult
      */
     session?: string;
+    /**
+     * Aggregated stderr across the execution.
+     * @type {string}
+     * @memberof ExecuteCodeResult
+     */
+    stderr?: string;
     /**
      * Aggregated stdout across the execution.
      * @type {string}
@@ -103,14 +103,14 @@ export function ExecuteCodeResultFromJSONTyped(json: any, ignoreDiscriminator: b
     }
     return {
         
+        'executionCount': json['executionCount'] == null ? undefined : json['executionCount'],
+        'executionError': json['executionError'] == null ? undefined : json['executionError'],
+        'executionId': json['executionId'] == null ? undefined : json['executionId'],
         'outputTruncated': json['outputTruncated'] == null ? undefined : json['outputTruncated'],
         'result': json['result'] == null ? undefined : json['result'],
         'richOutputsDropped': json['richOutputsDropped'] == null ? undefined : json['richOutputsDropped'],
         'session': json['session'] == null ? undefined : json['session'],
-        'executionId': json['executionId'] == null ? undefined : json['executionId'],
-        'executionCount': json['executionCount'] == null ? undefined : json['executionCount'],
         'stderr': json['stderr'] == null ? undefined : json['stderr'],
-        'executionError': json['executionError'] == null ? undefined : json['executionError'],
         'stdout': json['stdout'] == null ? undefined : json['stdout'],
     };
 }
@@ -126,14 +126,14 @@ export function ExecuteCodeResultToJSONTyped(value?: ExecuteCodeResult | null, i
 
     return {
         
+        'executionCount': value['executionCount'],
+        'executionError': value['executionError'],
+        'executionId': value['executionId'],
         'outputTruncated': value['outputTruncated'],
         'result': value['result'],
         'richOutputsDropped': value['richOutputsDropped'],
         'session': value['session'],
-        'executionId': value['executionId'],
-        'executionCount': value['executionCount'],
         'stderr': value['stderr'],
-        'executionError': value['executionError'],
         'stdout': value['stdout'],
     };
 }
