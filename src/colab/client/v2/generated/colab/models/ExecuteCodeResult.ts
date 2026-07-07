@@ -22,12 +22,12 @@ import { mapValues } from '../runtime';
  */
 export interface ExecuteCodeResult {
     /**
-     * Whether the runtime truncated buffered output (size or line caps hit). When
-     * true, `stdout`/`stderr` are tail-truncated.
-     * @type {boolean}
+     * The Jupyter `In[N]` execution count assigned by the kernel. Informational
+     * only. Not for addressing executions, for that use `execution_id`.
+     * @type {number}
      * @memberof ExecuteCodeResult
      */
-    outputTruncated?: boolean;
+    executionCount?: number;
     /**
      * The `text/plain` representation of the last expression's value, if the
      * execution ended on an expression. Empty otherwise.
@@ -44,12 +44,12 @@ export interface ExecuteCodeResult {
      */
     richOutputsDropped?: boolean;
     /**
-     * The session the execution ran in.
-     * Format: `runtimes/{runtime}/sessions/{session}`.
-     * @type {string}
+     * Whether the runtime truncated buffered output (size or line caps hit). When
+     * true, `stdout`/`stderr` are tail-truncated.
+     * @type {boolean}
      * @memberof ExecuteCodeResult
      */
-    session?: string;
+    outputTruncated?: boolean;
     /**
      * The execution identifier this result is for, echoed from the request. Empty
      * when the request supplied no `execution_id` (such an execution is not
@@ -64,7 +64,7 @@ export interface ExecuteCodeResult {
      * @type {number}
      * @memberof ExecuteCodeResult
      */
-    executionCount?: number;
+    result?: string;
     /**
      * Aggregated stderr across the execution.
      * @type {string}
@@ -72,12 +72,12 @@ export interface ExecuteCodeResult {
      */
     stderr?: string;
     /**
-     * Populated when the execution raised. Mutually exclusive with a successful
-     * completion.
-     * @type {Error}
+     * The session the execution ran in.
+     * Format: `runtimes/{runtime}/sessions/{session}`.
+     * @type {string}
      * @memberof ExecuteCodeResult
      */
-    executionError?: Error;
+    session?: string;
     /**
      * Aggregated stdout across the execution.
      * @type {string}

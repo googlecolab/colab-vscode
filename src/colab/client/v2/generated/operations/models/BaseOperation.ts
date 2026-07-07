@@ -30,14 +30,6 @@ import {
  */
 export interface BaseOperation {
     /**
-     * The server-assigned name, which is only unique within the same service that
-     * originally returns it. If you use the default HTTP mapping, the
-     * `name` should be a resource name ending with `operations/{unique_id}`.
-     * @type {string}
-     * @memberof BaseOperation
-     */
-    name?: string;
-    /**
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
      * available.
@@ -51,6 +43,14 @@ export interface BaseOperation {
      * @memberof BaseOperation
      */
     error?: Status;
+    /**
+     * The server-assigned name, which is only unique within the same service that
+     * originally returns it. If you use the default HTTP mapping, the
+     * `name` should be a resource name ending with `operations/{unique_id}`.
+     * @type {string}
+     * @memberof BaseOperation
+     */
+    name?: string;
 }
 
 /**
@@ -70,9 +70,9 @@ export function BaseOperationFromJSONTyped(json: any, ignoreDiscriminator: boole
     }
     return {
         
-        'name': json['name'] == null ? undefined : json['name'],
         'done': json['done'] == null ? undefined : json['done'],
         'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
+        'name': json['name'] == null ? undefined : json['name'],
     };
 }
 
@@ -87,9 +87,9 @@ export function BaseOperationToJSONTyped(value?: BaseOperation | null, ignoreDis
 
     return {
         
-        'name': value['name'],
         'done': value['done'],
         'error': StatusToJSON(value['error']),
+        'name': value['name'],
     };
 }
 

@@ -35,6 +35,12 @@ export interface ListOperationsResponse {
      */
     nextPageToken?: string;
     /**
+     * A list of operations that matches the specified filter in the request.
+     * @type {Array<Operation>}
+     * @memberof ListOperationsResponse
+     */
+    operations?: Array<Operation>;
+    /**
      * Unordered list. Unreachable resources. Populated when the request sets
      * `ListOperationsRequest.return_partial_success` and reads across
      * collections. For example, when attempting to list all resources across all
@@ -43,12 +49,6 @@ export interface ListOperationsResponse {
      * @memberof ListOperationsResponse
      */
     unreachable?: Array<string>;
-    /**
-     * A list of operations that matches the specified filter in the request.
-     * @type {Array<Operation>}
-     * @memberof ListOperationsResponse
-     */
-    operations?: Array<Operation>;
 }
 
 /**
@@ -69,8 +69,8 @@ export function ListOperationsResponseFromJSONTyped(json: any, ignoreDiscriminat
     return {
         
         'nextPageToken': json['nextPageToken'] == null ? undefined : json['nextPageToken'],
-        'unreachable': json['unreachable'] == null ? undefined : json['unreachable'],
         'operations': json['operations'] == null ? undefined : ((json['operations'] as Array<any>).map(OperationFromJSON)),
+        'unreachable': json['unreachable'] == null ? undefined : json['unreachable'],
     };
 }
 
@@ -86,8 +86,8 @@ export function ListOperationsResponseToJSONTyped(value?: ListOperationsResponse
     return {
         
         'nextPageToken': value['nextPageToken'],
-        'unreachable': value['unreachable'],
         'operations': value['operations'] == null ? undefined : ((value['operations'] as Array<any>).map(OperationToJSON)),
+        'unreachable': value['unreachable'],
     };
 }
 

@@ -30,6 +30,8 @@
         "in": "query",
         "name": "$callback",
         "description": "JSONP",
+        "in": "query",
+        "name": "$callback",
         "schema": {
           "type": "string"
         }
@@ -66,7 +68,20 @@
         "required": ["tier"]
       },
       "ExecuteCodeResult": {
+        "description": "The result of an `ExecuteCode` call, returned as the terminal\n`structured_content` of the response stream.",
         "properties": {
+          "outputTruncated": {
+            "description": "Whether the runtime truncated buffered output (size or line caps hit). When\ntrue, `stdout`/`stderr` are tail-truncated.",
+            "type": "boolean"
+          },
+          "result": {
+            "description": "The `text/plain` representation of the last expression's value, if the\nexecution ended on an expression. Empty otherwise.",
+            "type": "string"
+          },
+          "richOutputsDropped": {
+            "description": "Whether the execution produced rich (non-text) outputs that this tool does\nnot surface (e.g. images, Plotly/Vega figures, widgets). Always false for\nexecutions that produced only text.",
+            "type": "boolean"
+          },
           "outputTruncated": {
             "description": "Whether the runtime truncated buffered output (size or line caps hit). When\ntrue, `stdout`/`stderr` are tail-truncated.",
             "type": "boolean"
@@ -95,12 +110,21 @@
           "stderr": {
             "description": "Aggregated stderr across the execution.",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Key": {
+        "description": "Key fields that uniquely identify a runtime spec.",
+        "properties": {
+          "accelerator": {
+            "description": "Required. Runtime accelerator model name (e.g., \"T4\", \"L4\", \"A100\").\nFor CPU runtime specs, this field will be \"NONE\".",
+            "type": "string"
           },
-          "executionError": {
-            "description": "Populated when the execution raised. Mutually exclusive with a successful\ncompletion.",
+          "shape": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/Error"
+                "$ref": "#/components/schemas/Shape"
               }
             ]
           },
@@ -109,7 +133,7 @@
             "type": "string"
           }
         },
-        "description": "The result of an `ExecuteCode` call, returned as the terminal\n`structured_content` of the response stream.",
+        "required": ["variant", "accelerator", "shape"],
         "type": "object"
       },
       "Key": {
@@ -229,7 +253,7 @@
             "description": "Output only. The connection info used to authenticate to the runtime.",
             "allOf": [
               {
-                "$ref": "#/components/schemas/ConnectionInfo"
+                "$ref": "#/components/schemas/SubscriptionTier"
               }
             ]
           }
@@ -516,7 +540,9 @@
         {
           "$ref": "#/components/parameters/_.xgafv"
         }
-      ],
+      ]
+    },
+    "/v1beta/runtimespecs": {
       "get": {
         "parameters": [],
         "description": "Gets the subscription of the requesting user.",
@@ -582,14 +608,14 @@
         ],
         "responses": {
           "default": {
-            "description": "Successful operation",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Empty"
                 }
               }
-            }
+            },
+            "description": "Successful operation"
           }
         },
         "operationId": "DeleteRuntime",
@@ -766,8 +792,8 @@
   },
   "servers": [
     {
-      "url": "https://colaboratory.googleapis.com",
-      "description": "Global Endpoint"
+      "description": "Global Endpoint",
+      "url": "https://colaboratory.googleapis.com"
     }
   ]
 }
