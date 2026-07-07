@@ -15,7 +15,7 @@ import {
 import { CancellationToken, Disposable, Event, ProviderResult } from 'vscode';
 import vscode from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
-import { ColabClient, NotFoundError } from '../colab/client/v1';
+import { ColabClient } from '../colab/client/v1';
 import { ExperimentFlag } from '../colab/client/v1/api';
 import { ColabApiClient, normalizeSubscriptionTier } from '../colab/client/v2';
 import {
@@ -28,6 +28,7 @@ import {
 } from '../colab/commands/constants';
 import { openColabSignup, openColabWeb } from '../colab/commands/external';
 import { buildIconLabel, stripIconLabel } from '../colab/commands/utils';
+import { NotFoundError } from '../colab/errors';
 import { getFlag } from '../colab/experiment-state';
 import { ServerPicker } from '../colab/server-picker';
 import { SubscriptionTier } from '../colab/types';

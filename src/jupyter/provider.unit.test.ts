@@ -16,7 +16,7 @@ import { SinonStubbedInstance } from 'sinon';
 import * as sinon from 'sinon';
 import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
-import { ColabClient, NotFoundError } from '../colab/client/v1';
+import { ColabClient } from '../colab/client/v1';
 import { ExperimentFlag } from '../colab/client/v1/api';
 import { ColabApiClient } from '../colab/client/v2';
 import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
@@ -29,6 +29,7 @@ import {
   UPGRADE_TO_PRO,
 } from '../colab/commands/constants';
 import { buildIconLabel } from '../colab/commands/utils';
+import { NotFoundError } from '../colab/errors';
 import { TEST_ONLY as EXPERIMENT_TEST } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,

@@ -14,6 +14,12 @@ import { ColabAssignedServer } from '../../../jupyter/servers';
 import { TestUri } from '../../../test/helpers/uri';
 import { uuidToWebSafeBase64 } from '../../../utils/uuid';
 import {
+  AcceleratorUnavailableError,
+  DenylistedError,
+  InsufficientQuotaError,
+  TooManyAssignmentsError,
+} from '../../errors';
+import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
@@ -35,13 +41,7 @@ import {
   UserInfo,
   ListedAssignment,
 } from './api';
-import {
-  AcceleratorUnavailableError,
-  ColabClient,
-  DenylistedError,
-  InsufficientQuotaError,
-  TooManyAssignmentsError,
-} from '.';
+import { ColabClient } from '.';
 
 const COLAB_HOST = 'colab.example.com';
 const GOOGLE_APIS_HOST = 'colab.example.googleapis.com';

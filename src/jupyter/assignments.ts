@@ -13,14 +13,7 @@ import fetch, {
   Response,
 } from 'node-fetch';
 import vscode, { Disposable } from 'vscode';
-import {
-  AcceleratorUnavailableError,
-  ColabClient,
-  DenylistedError,
-  InsufficientQuotaError,
-  NotFoundError,
-  TooManyAssignmentsError,
-} from '../colab/client/v1';
+import { ColabClient } from '../colab/client/v1';
 import {
   Assignment,
   ListedAssignment,
@@ -35,7 +28,14 @@ import {
   normalizeVariant,
 } from '../colab/client/v2';
 import { REMOVE_SERVER } from '../colab/commands/constants';
-import { ColabRequestError } from '../colab/errors';
+import {
+  AcceleratorUnavailableError,
+  ColabRequestError,
+  DenylistedError,
+  InsufficientQuotaError,
+  NotFoundError,
+  TooManyAssignmentsError,
+} from '../colab/errors';
 import { getFlag } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
