@@ -29,17 +29,17 @@ import {
  */
 export interface Subscription {
     /**
-     * Required. User's Colab subscription tier.
-     * @type {SubscriptionTier}
-     * @memberof Subscription
-     */
-    tier: SubscriptionTier;
-    /**
      * Identifier. Name of the subscription. This will always be "subscription".
      * @type {string}
      * @memberof Subscription
      */
     name?: string;
+    /**
+     * Required. User's Colab subscription tier.
+     * @type {SubscriptionTier}
+     * @memberof Subscription
+     */
+    tier: SubscriptionTier;
 }
 
 
@@ -62,8 +62,8 @@ export function SubscriptionFromJSONTyped(json: any, ignoreDiscriminator: boolea
     }
     return {
         
-        'tier': SubscriptionTierFromJSON(json['tier']),
         'name': json['name'] == null ? undefined : json['name'],
+        'tier': SubscriptionTierFromJSON(json['tier']),
     };
 }
 
@@ -78,8 +78,8 @@ export function SubscriptionToJSONTyped(value?: Subscription | null, ignoreDiscr
 
     return {
         
-        'tier': SubscriptionTierToJSON(value['tier']),
         'name': value['name'],
+        'tier': SubscriptionTierToJSON(value['tier']),
     };
 }
 

@@ -21,12 +21,6 @@ import { mapValues } from '../runtime';
  */
 export interface ModelError {
     /**
-     * The exception class name, e.g. "NameError".
-     * @type {string}
-     * @memberof ModelError
-     */
-    name?: string;
-    /**
      * The formatted traceback, one frame per entry.
      * @type {Array<string>}
      * @memberof ModelError
@@ -38,6 +32,12 @@ export interface ModelError {
      * @memberof ModelError
      */
     value?: string;
+    /**
+     * The exception class name, e.g. "NameError".
+     * @type {string}
+     * @memberof ModelError
+     */
+    name?: string;
 }
 
 /**
@@ -57,9 +57,9 @@ export function ModelErrorFromJSONTyped(json: any, ignoreDiscriminator: boolean)
     }
     return {
         
-        'name': json['name'] == null ? undefined : json['name'],
         'traceback': json['traceback'] == null ? undefined : json['traceback'],
         'value': json['value'] == null ? undefined : json['value'],
+        'name': json['name'] == null ? undefined : json['name'],
     };
 }
 
@@ -74,9 +74,9 @@ export function ModelErrorToJSONTyped(value?: ModelError | null, ignoreDiscrimin
 
     return {
         
-        'name': value['name'],
         'traceback': value['traceback'],
         'value': value['value'],
+        'name': value['name'],
     };
 }
 

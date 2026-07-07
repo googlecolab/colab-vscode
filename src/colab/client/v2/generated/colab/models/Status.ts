@@ -27,12 +27,6 @@ import { mapValues } from '../runtime';
  */
 export interface Status {
     /**
-     * The status code, which should be an enum value of google.rpc.Code.
-     * @type {number}
-     * @memberof Status
-     */
-    code?: number;
-    /**
      * A developer-facing error message, which should be in English. Any
      * user-facing error message should be localized and sent in the
      * google.rpc.Status.details field, or localized by the client.
@@ -47,6 +41,12 @@ export interface Status {
      * @memberof Status
      */
     details?: Array<{ [key: string]: any; }>;
+    /**
+     * The status code, which should be an enum value of google.rpc.Code.
+     * @type {number}
+     * @memberof Status
+     */
+    code?: number;
 }
 
 /**
@@ -66,9 +66,9 @@ export function StatusFromJSONTyped(json: any, ignoreDiscriminator: boolean): St
     }
     return {
         
-        'code': json['code'] == null ? undefined : json['code'],
         'message': json['message'] == null ? undefined : json['message'],
         'details': json['details'] == null ? undefined : json['details'],
+        'code': json['code'] == null ? undefined : json['code'],
     };
 }
 
@@ -83,9 +83,9 @@ export function StatusToJSONTyped(value?: Status | null, ignoreDiscriminator: bo
 
     return {
         
-        'code': value['code'],
         'message': value['message'],
         'details': value['details'],
+        'code': value['code'],
     };
 }
 

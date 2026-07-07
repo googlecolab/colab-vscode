@@ -43,12 +43,6 @@ import {
  */
 export interface CreateRuntimeOperation {
     /**
-     * The error result of the operation in case of failure or cancellation.
-     * @type {Status}
-     * @memberof CreateRuntimeOperation
-     */
-    error?: Status;
-    /**
      * The server-assigned name, which is only unique within the same service that
      * originally returns it. If you use the default HTTP mapping, the
      * `name` should be a resource name ending with `operations/{unique_id}`.
@@ -64,6 +58,12 @@ export interface CreateRuntimeOperation {
      * @memberof CreateRuntimeOperation
      */
     done?: boolean;
+    /**
+     * The error result of the operation in case of failure or cancellation.
+     * @type {Status}
+     * @memberof CreateRuntimeOperation
+     */
+    error?: Status;
     /**
      * 
      * @type {CreateRuntimeMetadata}
@@ -95,9 +95,9 @@ export function CreateRuntimeOperationFromJSONTyped(json: any, ignoreDiscriminat
     }
     return {
         
-        'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'name': json['name'] == null ? undefined : json['name'],
         'done': json['done'] == null ? undefined : json['done'],
+        'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'metadata': json['metadata'] == null ? undefined : CreateRuntimeMetadataFromJSON(json['metadata']),
         'response': json['response'] == null ? undefined : RuntimeFromJSON(json['response']),
     };
@@ -114,9 +114,9 @@ export function CreateRuntimeOperationToJSONTyped(value?: CreateRuntimeOperation
 
     return {
         
-        'error': StatusToJSON(value['error']),
         'name': value['name'],
         'done': value['done'],
+        'error': StatusToJSON(value['error']),
         'metadata': CreateRuntimeMetadataToJSON(value['metadata']),
         'response': RuntimeToJSON(value['response']),
     };

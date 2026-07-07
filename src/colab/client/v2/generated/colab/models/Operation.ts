@@ -30,12 +30,6 @@ import {
  */
 export interface Operation {
     /**
-     * The error result of the operation in case of failure or cancellation.
-     * @type {Status}
-     * @memberof Operation
-     */
-    error?: Status;
-    /**
      * The server-assigned name, which is only unique within the same service that
      * originally returns it. If you use the default HTTP mapping, the
      * `name` should be a resource name ending with `operations/{unique_id}`.
@@ -51,6 +45,12 @@ export interface Operation {
      * @memberof Operation
      */
     done?: boolean;
+    /**
+     * The error result of the operation in case of failure or cancellation.
+     * @type {Status}
+     * @memberof Operation
+     */
+    error?: Status;
     /**
      * Service-specific metadata associated with the operation.  It typically
      * contains progress information and common metadata such as create time.
@@ -92,9 +92,9 @@ export function OperationFromJSONTyped(json: any, ignoreDiscriminator: boolean):
     }
     return {
         
-        'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'name': json['name'] == null ? undefined : json['name'],
         'done': json['done'] == null ? undefined : json['done'],
+        'error': json['error'] == null ? undefined : StatusFromJSON(json['error']),
         'metadata': json['metadata'] == null ? undefined : json['metadata'],
         'response': json['response'] == null ? undefined : json['response'],
     };
@@ -111,9 +111,9 @@ export function OperationToJSONTyped(value?: Operation | null, ignoreDiscriminat
 
     return {
         
-        'error': StatusToJSON(value['error']),
         'name': value['name'],
         'done': value['done'],
+        'error': StatusToJSON(value['error']),
         'metadata': value['metadata'],
         'response': value['response'],
     };

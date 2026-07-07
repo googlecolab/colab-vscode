@@ -36,17 +36,17 @@ import {
  */
 export interface Key {
     /**
-     * Required. Runtime shape.
-     * @type {Shape}
-     * @memberof Key
-     */
-    shape: Shape;
-    /**
      * Required. Runtime variant.
      * @type {Variant}
      * @memberof Key
      */
     variant: Variant;
+    /**
+     * Required. Runtime shape.
+     * @type {Shape}
+     * @memberof Key
+     */
+    shape: Shape;
     /**
      * Required. Runtime accelerator model name (e.g., "T4", "L4", "A100").
      * For CPU runtime specs, this field will be "NONE".
@@ -62,8 +62,8 @@ export interface Key {
  * Check if a given object implements the Key interface.
  */
 export function instanceOfKey(value: object): value is Key {
-    if (!('shape' in value) || value['shape'] === undefined) return false;
     if (!('variant' in value) || value['variant'] === undefined) return false;
+    if (!('shape' in value) || value['shape'] === undefined) return false;
     if (!('accelerator' in value) || value['accelerator'] === undefined) return false;
     return true;
 }
@@ -78,8 +78,8 @@ export function KeyFromJSONTyped(json: any, ignoreDiscriminator: boolean): Key {
     }
     return {
         
-        'shape': ShapeFromJSON(json['shape']),
         'variant': VariantFromJSON(json['variant']),
+        'shape': ShapeFromJSON(json['shape']),
         'accelerator': json['accelerator'],
     };
 }
@@ -95,8 +95,8 @@ export function KeyToJSONTyped(value?: Key | null, ignoreDiscriminator: boolean 
 
     return {
         
-        'shape': ShapeToJSON(value['shape']),
         'variant': VariantToJSON(value['variant']),
+        'shape': ShapeToJSON(value['shape']),
         'accelerator': value['accelerator'],
     };
 }
