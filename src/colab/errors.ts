@@ -52,3 +52,43 @@ export class InsufficientQuotaError extends Error {}
 
 /** Error thrown when the request resource cannot be found. */
 export class NotFoundError extends Error {}
+
+/** Error thrown when a long-running operation fails. */
+export class LongRunningOperationError extends Error {
+  /**
+   * Initializes a new instance.
+   *
+   * @param operationName - Long-running operation name.
+   * @param code - Status error code.
+   * @param reason - Status error reason.
+   * @param message - Status error message.
+   */
+  constructor(
+    readonly operationName: string,
+    readonly code: number,
+    readonly reason: string,
+    message?: string,
+  ) {
+    super(
+      `Operation ${operationName} failed with error ${String(code)}: ${message ?? ''} (reason: ${reason})`,
+    );
+  }
+}
+
+/** Error thrown when WaitOperation times out. */
+export class WaitOperationTimeoutError extends Error {
+  /**
+   * Initializes a new instance.
+   *
+   * @param operationId - Long-running operation ID.
+   * @param attempts - Number of attempts made.
+   */
+  constructor(
+    readonly operationId: string,
+    readonly attempts: number,
+  ) {
+    super(
+      `Operation ${operationId} timed out after ${String(attempts)} attempts`,
+    );
+  }
+}

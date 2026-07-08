@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import assert from 'assert';
 import { randomUUID, UUID } from 'crypto';
 import fetch, {
   Headers,
@@ -24,9 +25,18 @@ import {
 } from '../colab/client/v1/api';
 import {
   ColabApiClient,
+  denormalizeShape,
+  denormalizeVariant,
   normalizeShape,
   normalizeVariant,
+  throwIfOperationError,
 } from '../colab/client/v2';
+import {
+  CreateRuntimeOperation,
+  ConnectionInfo,
+  Runtime,
+  instanceOfRuntime,
+} from '../colab/client/v2/generated/colab';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
@@ -345,27 +355,40 @@ export class AssignmentManager implements Disposable {
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     this.guardDisposed();
-    const id = randomUUID();
+    let id: string = randomUUID();
     const { label, variant, accelerator, shape, version } = descriptor;
     let outcome = AssignmentOutcome.ASSIGNMENT_OUTCOME_UNSPECIFIED;
     let hadFallback = false;
+    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
     try {
-      let assignment: Assignment;
+      let assignmentOrRuntime: Assignment | Runtime;
       try {
         if (isColabServerDescriptorWithAccelerator(descriptor)) {
-          assignment = await this.assignWithFallback(
-            id,
+          assignmentOrRuntime = await this.assignWithFallback(
             descriptor,
+            enablePublicApi ? undefined : (id as UUID),
             /* fallbacks= */ undefined,
             signal,
           );
-          hadFallback = assignment.accelerator !== descriptor.accelerator;
+          if (instanceOfRuntime(assignmentOrRuntime)) {
+            hadFallback =
+              assignmentOrRuntime.runtimeSpec.accelerator !==
+              descriptor.accelerator;
+          } else {
+            hadFallback =
+              assignmentOrRuntime.accelerator !== descriptor.accelerator;
+          }
         } else {
-          ({ assignment } = await this.colabClient.assign(
-            id,
-            { variant, accelerator, shape, version },
-            signal,
-          ));
+          if (enablePublicApi) {
+            assignmentOrRuntime = await this.createRuntime(descriptor, signal);
+          } else {
+            ({ assignment: assignmentOrRuntime } =
+              await this.colabClient.assign(
+                id as UUID,
+                { variant, accelerator, shape, version },
+                signal,
+              ));
+          }
         }
       } catch (error) {
         log.trace(`Failed assigning server ${id}`, error);
@@ -389,17 +412,41 @@ export class AssignmentManager implements Disposable {
         }
         throw error;
       }
-      const server = this.toAssignedServer(
-        {
-          id,
-          label,
-          variant: assignment.variant,
-          accelerator: assignment.accelerator,
-        },
-        assignment.endpoint,
-        assignment.runtimeProxyInfo,
-        new Date(),
-      );
+
+      let server: ColabAssignedServer;
+      if (instanceOfRuntime(assignmentOrRuntime)) {
+        assert(
+          assignmentOrRuntime.name,
+          'Runtime name is missing in the response',
+        );
+        assert(
+          assignmentOrRuntime.connectionInfo,
+          'Connection info is missing in the response',
+        );
+        id = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
+        server = this.toAssignedServer(
+          {
+            id,
+            label,
+            variant: normalizeVariant(assignmentOrRuntime.runtimeSpec.variant),
+            accelerator: assignmentOrRuntime.runtimeSpec.accelerator,
+          },
+          assignmentOrRuntime.connectionInfo,
+          new Date(),
+        );
+      } else {
+        server = this.toAssignedServer(
+          {
+            id,
+            label,
+            variant: assignmentOrRuntime.variant,
+            accelerator: assignmentOrRuntime.accelerator,
+          },
+          assignmentOrRuntime.runtimeProxyInfo,
+          new Date(),
+          assignmentOrRuntime.endpoint,
+        );
+      }
       await this.storage.store([server]);
       this.assignmentChange.fire({
         added: [server],
@@ -487,15 +534,21 @@ export class AssignmentManager implements Disposable {
     if (!server) {
       throw new NotFoundError('Server is not assigned');
     }
+
+    // TODO: Remove once refreshConnection is migrated to new public API.
+    if (!server.endpoint) {
+      throw new Error('Server without endpoint is not supported yet');
+    }
+
     const newConnectionInfo = await this.colabClient.refreshConnection(
       server.endpoint,
       signal,
     );
     const updatedServer = this.toAssignedServer(
       server,
-      server.endpoint,
       newConnectionInfo,
       server.dateAssigned,
+      server.endpoint,
     );
     await this.storage.store([updatedServer]);
     this.assignmentChange.fire({
@@ -505,6 +558,7 @@ export class AssignmentManager implements Disposable {
     });
     return updatedServer;
   }
+
   /**
    * Unassigns the given server.
    *
@@ -533,6 +587,12 @@ export class AssignmentManager implements Disposable {
     if (!stored) {
       return;
     }
+
+    // TODO: Remove once unassignServer is migrated to new public API.
+    if (!server.endpoint) {
+      throw new Error('Server without endpoint is not supported yet');
+    }
+
     await this.deleteSessions(server, signal);
     await this.colabClient.unassign(server.endpoint, signal);
     const removed = await this.storage.remove(server.id);
@@ -605,10 +665,19 @@ export class AssignmentManager implements Disposable {
     liveAssignments: ListedAssignment[],
   ): Promise<ColabAssignedServer[]> {
     const liveEndpointSet = new Set(liveAssignments.map((a) => a.endpoint));
+    const liveNotebookIdHashSet = new Set(
+      liveAssignments.map((a) => a.notebookIdHash),
+    );
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
-      if (liveEndpointSet.has(s.endpoint)) {
+      // During the transition period, reconcile servers based on either
+      // endpoint or notebook hash. Servers created by the new public API will
+      // not have an endpoint returned.
+      if (
+        liveEndpointSet.has(s.endpoint ?? '') ||
+        liveNotebookIdHashSet.has(s.id)
+      ) {
         reconciled.push(s);
       } else {
         removed.push(s);
@@ -618,7 +687,7 @@ export class AssignmentManager implements Disposable {
       return reconciled;
     }
 
-    telemetry.logPruneServers(removed.map((s) => s.endpoint));
+    telemetry.logPruneServers(removed.map((s) => s.endpoint ?? s.id));
     await this.storage.clear();
     await this.storage.store(reconciled);
     this.assignmentChange.fire({
@@ -630,21 +699,27 @@ export class AssignmentManager implements Disposable {
   }
 
   private async assignWithFallback(
-    id: UUID,
     descriptor: ColabServerDescriptorWithAccelerator,
+    id?: UUID,
     fallback?: {
       toAttempt: string[];
       attempted: string[];
     },
     signal?: AbortSignal,
-  ): Promise<Assignment> {
+  ): Promise<Assignment | Runtime> {
     const { variant, accelerator, shape, version } = descriptor;
     try {
-      const { assignment } = await this.colabClient.assign(
-        id,
-        { variant, accelerator, shape, version },
-        signal,
-      );
+      let assignment: Assignment | Runtime;
+      if (id) {
+        ({ assignment } = await this.colabClient.assign(
+          id,
+          { variant, accelerator, shape, version },
+          signal,
+        ));
+      } else {
+        assignment = await this.createRuntime(descriptor, signal);
+      }
+
       const original = fallback?.attempted
         ? fallback.attempted[0]
         : accelerator;
@@ -695,8 +770,8 @@ export class AssignmentManager implements Disposable {
         `Assignment failed with unavailable accelerator ${accelerator}, retrying with ${newFallback.toAttempt[0]}`,
       );
       return this.assignWithFallback(
-        id,
         { ...descriptor, accelerator: newFallback.toAttempt[0] },
+        id,
         newFallback,
         signal,
       );
@@ -705,9 +780,9 @@ export class AssignmentManager implements Disposable {
 
   private toAssignedServer(
     server: ColabJupyterServer,
-    endpoint: string,
-    connectionInfo: RuntimeProxyToken,
+    connectionInfo: RuntimeProxyToken | ConnectionInfo,
     dateAssigned: Date,
+    endpoint?: string,
   ): ColabAssignedServer {
     const { url, token } = connectionInfo;
     const headers: Record<string, string> =
@@ -715,18 +790,20 @@ export class AssignmentManager implements Disposable {
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
     headers[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
+    const tokenExpiry =
+      'expireTime' in connectionInfo
+        ? connectionInfo.expireTime
+        : new Date(Date.now() + connectionInfo.tokenExpiresInSeconds * 1000);
     const colabServer: ColabAssignedServer = {
       id: server.id,
       label: server.label,
       variant: server.variant,
       accelerator: server.accelerator,
-      endpoint: endpoint,
+      endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
         token,
-        tokenExpiry: new Date(
-          Date.now() + connectionInfo.tokenExpiresInSeconds * 1000,
-        ),
+        tokenExpiry,
         headers,
         fetch: colabProxyFetch(token),
       },
@@ -906,6 +983,45 @@ export class AssignmentManager implements Disposable {
       log.warn('Error occurred while deleting sessions:', err);
     });
   }
+
+  private async createRuntime(
+    descriptor: ColabServerDescriptor,
+    signal?: AbortSignal,
+  ): Promise<Runtime> {
+    const requestId = randomUUID();
+    let operation = await this.colabApiClient.colab.createRuntime(
+      {
+        runtime: {
+          runtimeSpec: {
+            variant: denormalizeVariant(descriptor.variant),
+            accelerator: descriptor.accelerator ?? 'NONE',
+            shape: denormalizeShape(descriptor.shape),
+          },
+        },
+        requestId,
+      },
+      { signal },
+    );
+
+    if (operation.done) {
+      throwIfOperationError(operation, descriptor.accelerator);
+      assert(operation.response, 'Expected runtime response');
+      return operation.response;
+    }
+
+    assert(operation.name, 'Expected operation name');
+    const operationId = trimPrefix(operation.name, 'operations/');
+    operation = (await this.colabApiClient.waitOperationWithBackoff(
+      operationId,
+      { signal },
+    )) as CreateRuntimeOperation;
+    throwIfOperationError(operation, descriptor.accelerator);
+    assert(
+      operation.response,
+      `Expected runtime response in operation ${operationId}`,
+    );
+    return operation.response;
+  }
 }
 
 enum AssignmentsExceededActions {
@@ -1002,4 +1118,11 @@ function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
     return AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED;
   }
   return AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE;
+}
+
+function trimPrefix(str: string, prefix: string): string {
+  if (str.startsWith(prefix)) {
+    return str.slice(prefix.length);
+  }
+  return str;
 }

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from 'crypto';
 import {
   JupyterServer,
   JupyterServerConnectionInformation,
@@ -29,14 +28,13 @@ export interface ColabServerDescriptor {
 }
 
 /**
- * A Jupyter server which includes the Colab descriptor and enforces that IDs
- * are UUIDs.
+ * A Jupyter server which includes the Colab descriptor.
  */
 export interface ColabJupyterServer
   extends ColabServerDescriptor,
     JupyterServer {
   /** The server's unique identifier. */
-  readonly id: UUID;
+  readonly id: string;
 }
 
 /**
@@ -44,7 +42,7 @@ export interface ColabJupyterServer
  * including the required connection information.
  */
 export type ColabAssignedServer = ColabJupyterServer & {
-  readonly endpoint: string;
+  readonly endpoint?: string;
   readonly connectionInformation: JupyterServerConnectionInformation & {
     readonly token: string;
     readonly tokenExpiry: Date;
