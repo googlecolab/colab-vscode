@@ -21,6 +21,14 @@ import { mapValues } from '../runtime';
  */
 export interface ConnectionInfo {
     /**
+     * Required. Output only. The endpoint used to internally identify the runtime. This field is
+     * restricted to Colab internal use only because the endpoint is an internal
+     * implementation detail that shouldn't be exposed to public users.
+     * @type {string}
+     * @memberof ConnectionInfo
+     */
+    readonly endpoint: string;
+    /**
      * Required. Output only. The expiration time of the runtime proxy token.
      * @type {Date}
      * @memberof ConnectionInfo
@@ -45,6 +53,7 @@ export interface ConnectionInfo {
  * Check if a given object implements the ConnectionInfo interface.
  */
 export function instanceOfConnectionInfo(value: object): value is ConnectionInfo {
+    if (!('endpoint' in value) || value['endpoint'] === undefined) return false;
     if (!('expireTime' in value) || value['expireTime'] === undefined) return false;
     if (!('token' in value) || value['token'] === undefined) return false;
     if (!('url' in value) || value['url'] === undefined) return false;
@@ -61,6 +70,7 @@ export function ConnectionInfoFromJSONTyped(json: any, ignoreDiscriminator: bool
     }
     return {
         
+        'endpoint': json['endpoint'],
         'expireTime': (new Date(json['expireTime'])),
         'token': json['token'],
         'url': json['url'],
@@ -71,7 +81,7 @@ export function ConnectionInfoToJSON(json: any): ConnectionInfo {
     return ConnectionInfoToJSONTyped(json, false);
 }
 
-export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'expireTime'|'token'|'url'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionInfoToJSONTyped(value?: Omit<ConnectionInfo, 'endpoint'|'expireTime'|'token'|'url'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }

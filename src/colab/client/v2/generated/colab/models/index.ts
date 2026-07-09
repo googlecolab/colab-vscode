@@ -5,6 +5,7 @@ export * from './BaseOperation';
 export * from './ConnectionInfo';
 export * from './CreateRuntimeMetadata';
 export * from './CreateRuntimeOperation';
+export * from './ErrorInfo';
 export * from './ExecuteCodeResult';
 export * from './Key';
 export * from './ListRuntimeSpecsResponse';
