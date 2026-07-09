@@ -15,11 +15,11 @@ import { ColabAssignedServer } from '../jupyter/servers';
 import { ControllableAsyncToggle } from '../test/helpers/async';
 import { TestEventEmitter } from '../test/helpers/events';
 import { TestUri } from '../test/helpers/uri';
-import { NotFoundError } from './client/v1';
 import {
   ConnectionRefreshController,
   ConnectionRefresher,
 } from './connection-refresher';
+import { NotFoundError } from './errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,

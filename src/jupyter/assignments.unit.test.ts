@@ -13,14 +13,7 @@ import sinon, {
   SinonStubbedInstance,
 } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
-import {
-  ColabClient,
-  DenylistedError,
-  InsufficientQuotaError,
-  NotFoundError,
-  TooManyAssignmentsError,
-  AcceleratorUnavailableError,
-} from '../colab/client/v1';
+import { ColabClient } from '../colab/client/v1';
 import {
   Assignment,
   ExperimentFlag,
@@ -32,7 +25,14 @@ import { ColabApiClient } from '../colab/client/v2';
 import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
 import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import { REMOVE_SERVER } from '../colab/commands/constants';
-import { ColabRequestError } from '../colab/errors';
+import {
+  AcceleratorUnavailableError,
+  ColabRequestError,
+  DenylistedError,
+  InsufficientQuotaError,
+  NotFoundError,
+  TooManyAssignmentsError,
+} from '../colab/errors';
 import { TEST_ONLY as EXPERIMENT_TEST } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,

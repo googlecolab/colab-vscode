@@ -19,7 +19,13 @@ import {
 import { Session } from '../../../jupyter/client/generated';
 import { ColabAssignedServer } from '../../../jupyter/servers';
 import { uuidToWebSafeBase64 } from '../../../utils/uuid';
-import { ColabRequestError } from '../../errors';
+import {
+  AcceleratorUnavailableError,
+  ColabRequestError,
+  DenylistedError,
+  InsufficientQuotaError,
+  TooManyAssignmentsError,
+} from '../../errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -592,30 +598,6 @@ export class ColabClient {
       : fetchImpl(endpoint.toString(), requestInit).then(() => undefined);
   }
 }
-
-/** Error thrown when the user has too many assignments. */
-export class TooManyAssignmentsError extends Error {}
-
-/** Error thrown when the requested machine accelerator is unavailable. */
-export class AcceleratorUnavailableError extends Error {
-  /**
-   * Initializes a new instance.
-   *
-   * @param requested - The name of the requested accelerator.
-   */
-  constructor(readonly requested: string) {
-    super(`Requested accelerator "${requested}" is unavailable`);
-  }
-}
-
-/** Error thrown when the user has been denylisted. */
-export class DenylistedError extends Error {}
-
-/** Error thrown when the user has insufficient quota. */
-export class InsufficientQuotaError extends Error {}
-
-/** Error thrown when the request resource cannot be found. */
-export class NotFoundError extends Error {}
 
 function mapShapeToURLParam(shape: Shape): string | undefined {
   switch (shape) {
