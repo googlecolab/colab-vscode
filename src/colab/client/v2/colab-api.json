@@ -70,6 +70,11 @@
       "ConnectionInfo": {
         "description": "Connection info used to authenticate to the runtime.",
         "properties": {
+          "endpoint": {
+            "description": "Required. Output only. The endpoint used to internally identify the runtime. This field is\nrestricted to Colab internal use only because the endpoint is an internal\nimplementation detail that shouldn't be exposed to public users.",
+            "readOnly": true,
+            "type": "string"
+          },
           "expireTime": {
             "description": "Required. Output only. The expiration time of the runtime proxy token.",
             "format": "date-time",
@@ -87,7 +92,7 @@
             "type": "string"
           }
         },
-        "required": ["token", "expireTime", "url"],
+        "required": ["token", "expireTime", "url", "endpoint"],
         "type": "object"
       },
       "CreateRuntimeMetadata": {
@@ -470,7 +475,7 @@
     "description": "colaboratory.googleapis.com API.",
     "title": "Colab API",
     "version": "v1beta",
-    "x-google-revision": "20260707"
+    "x-google-revision": "20260709"
   },
   "openapi": "3.0.3",
   "paths": {
