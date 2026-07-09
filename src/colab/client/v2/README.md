@@ -14,7 +14,7 @@ https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version={version}&key=
 
 - `colab-api.json` holds the specs of the Colab API (still in beta), which
   primarily interacts with Colab managed runtimes. This is downloaded from
-  https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=v1beta&key={api_key}.
+  https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version=v1beta&labels=COLAB_INTERNAL&key={api_key}.
 
 - `operations-api.json` holds the specs of the
   [Operations API](https://github.com/googleapis/googleapis/blob/master/google/longrunning/operations.proto),

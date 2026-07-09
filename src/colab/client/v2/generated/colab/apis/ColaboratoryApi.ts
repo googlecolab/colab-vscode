@@ -109,7 +109,7 @@ export interface ColaboratoryApiInterface {
     createRuntimeRequestOpts(requestParameters: CreateRuntimeRequest): Promise<runtime.RequestOpts>;
 
     /**
-     * Creates a Colab runtime assignment.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
@@ -124,7 +124,7 @@ export interface ColaboratoryApiInterface {
     createRuntimeRaw(requestParameters: CreateRuntimeRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CreateRuntimeOperation>>;
 
     /**
-     * Creates a Colab runtime assignment.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      */
     createRuntime(requestParameters: CreateRuntimeRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CreateRuntimeOperation>;
 
@@ -344,7 +344,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
     }
 
     /**
-     * Creates a Colab runtime assignment.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      */
     async createRuntimeRaw(requestParameters: CreateRuntimeRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CreateRuntimeOperation>> {
         const requestOptions = await this.createRuntimeRequestOpts(requestParameters);
@@ -354,7 +354,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
     }
 
     /**
-     * Creates a Colab runtime assignment.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      */
     async createRuntime(requestParameters: CreateRuntimeRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CreateRuntimeOperation> {
         const response = await this.createRuntimeRaw(requestParameters, initOverrides);
