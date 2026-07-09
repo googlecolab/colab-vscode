@@ -341,6 +341,7 @@ describe('ColabApiClient', () => {
           shape: 'SHAPE_STANDARD',
         },
         connectionInfo: {
+          endpoint: 'test-endpoint',
           url: 'test-url',
           token: 'test-token',
           expireTime: new Date(2026, 0, 1),
