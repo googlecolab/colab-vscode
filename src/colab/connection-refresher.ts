@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from 'crypto';
 import { Disposable } from 'vscode';
 import { log } from '../common/logging';
 import { AsyncToggle } from '../common/toggleable';
@@ -117,7 +116,7 @@ export class ConnectionRefreshController
  */
 export class ConnectionRefresher implements Disposable {
   private readonly refreshes = new Map<
-    UUID,
+    string,
     {
       timeout: NodeJS.Timeout;
       expiry: Date;
@@ -293,7 +292,7 @@ export class ConnectionRefresher implements Disposable {
     return;
   }
 
-  private clear(serverId: UUID): void {
+  private clear(serverId: string): void {
     const r = this.refreshes.get(serverId);
     if (r) {
       clearTimeout(r.timeout);

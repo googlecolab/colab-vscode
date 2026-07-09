@@ -17,7 +17,7 @@ const AssignedServers = z.array(
     label: z.string().nonempty(),
     variant: z.enum(Variant),
     accelerator: z.string().optional(),
-    endpoint: z.string().optional(),
+    endpoint: z.string().nonempty(),
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),
       token: z.string().nonempty(),

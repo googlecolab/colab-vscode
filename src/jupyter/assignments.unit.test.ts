@@ -151,6 +151,7 @@ describe('AssignmentManager', () => {
     colabApiClientStub = {
       colab: sinon.createStubInstance(ColaboratoryApi),
       operations: sinon.createStubInstance(OperationsApi),
+      waitOperationWithBackoff: sinon.stub(),
     };
     serverStorage = new ServerStorageFake() as ServerStorage;
     assignmentManager = new AssignmentManager(

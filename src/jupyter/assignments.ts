@@ -355,7 +355,7 @@ export class AssignmentManager implements Disposable {
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     this.guardDisposed();
-    let id: string = randomUUID();
+    const id = randomUUID();
     const { label, variant, accelerator, shape, version } = descriptor;
     let outcome = AssignmentOutcome.ASSIGNMENT_OUTCOME_UNSPECIFIED;
     let hadFallback = false;
@@ -366,7 +366,7 @@ export class AssignmentManager implements Disposable {
         if (isColabServerDescriptorWithAccelerator(descriptor)) {
           assignmentOrRuntime = await this.assignWithFallback(
             descriptor,
-            enablePublicApi ? undefined : (id as UUID),
+            enablePublicApi ? undefined : id,
             /* fallbacks= */ undefined,
             signal,
           );
@@ -384,7 +384,7 @@ export class AssignmentManager implements Disposable {
           } else {
             ({ assignment: assignmentOrRuntime } =
               await this.colabClient.assign(
-                id as UUID,
+                id,
                 { variant, accelerator, shape, version },
                 signal,
               ));
@@ -419,19 +419,18 @@ export class AssignmentManager implements Disposable {
           assignmentOrRuntime.name,
           'Runtime name is missing in the response',
         );
-        assert(
-          assignmentOrRuntime.connectionInfo,
-          'Connection info is missing in the response',
-        );
-        id = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
+        const connectionInfo = assignmentOrRuntime.connectionInfo;
+        assert(connectionInfo, 'Connection info is missing in the response');
+        const runtimeId = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
         server = this.toAssignedServer(
           {
-            id,
+            id: runtimeId,
             label,
             variant: normalizeVariant(assignmentOrRuntime.runtimeSpec.variant),
             accelerator: assignmentOrRuntime.runtimeSpec.accelerator,
           },
-          assignmentOrRuntime.connectionInfo,
+          connectionInfo.endpoint,
+          connectionInfo,
           new Date(),
         );
       } else {
@@ -442,9 +441,9 @@ export class AssignmentManager implements Disposable {
             variant: assignmentOrRuntime.variant,
             accelerator: assignmentOrRuntime.accelerator,
           },
+          assignmentOrRuntime.endpoint,
           assignmentOrRuntime.runtimeProxyInfo,
           new Date(),
-          assignmentOrRuntime.endpoint,
         );
       }
       await this.storage.store([server]);
@@ -525,7 +524,7 @@ export class AssignmentManager implements Disposable {
    * ID.
    */
   async refreshConnection(
-    id: UUID,
+    id: string,
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     this.guardDisposed();
@@ -534,21 +533,15 @@ export class AssignmentManager implements Disposable {
     if (!server) {
       throw new NotFoundError('Server is not assigned');
     }
-
-    // TODO: Remove once refreshConnection is migrated to new public API.
-    if (!server.endpoint) {
-      throw new Error('Server without endpoint is not supported yet');
-    }
-
     const newConnectionInfo = await this.colabClient.refreshConnection(
       server.endpoint,
       signal,
     );
     const updatedServer = this.toAssignedServer(
       server,
+      server.endpoint,
       newConnectionInfo,
       server.dateAssigned,
-      server.endpoint,
     );
     await this.storage.store([updatedServer]);
     this.assignmentChange.fire({
@@ -587,12 +580,6 @@ export class AssignmentManager implements Disposable {
     if (!stored) {
       return;
     }
-
-    // TODO: Remove once unassignServer is migrated to new public API.
-    if (!server.endpoint) {
-      throw new Error('Server without endpoint is not supported yet');
-    }
-
     await this.deleteSessions(server, signal);
     await this.colabClient.unassign(server.endpoint, signal);
     const removed = await this.storage.remove(server.id);
@@ -665,19 +652,13 @@ export class AssignmentManager implements Disposable {
     liveAssignments: ListedAssignment[],
   ): Promise<ColabAssignedServer[]> {
     const liveEndpointSet = new Set(liveAssignments.map((a) => a.endpoint));
-    const liveNotebookIdHashSet = new Set(
-      liveAssignments.map((a) => a.notebookIdHash),
-    );
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
       // During the transition period, reconcile servers based on either
       // endpoint or notebook hash. Servers created by the new public API will
       // not have an endpoint returned.
-      if (
-        liveEndpointSet.has(s.endpoint ?? '') ||
-        liveNotebookIdHashSet.has(s.id)
-      ) {
+      if (liveEndpointSet.has(s.endpoint)) {
         reconciled.push(s);
       } else {
         removed.push(s);
@@ -687,7 +668,7 @@ export class AssignmentManager implements Disposable {
       return reconciled;
     }
 
-    telemetry.logPruneServers(removed.map((s) => s.endpoint ?? s.id));
+    telemetry.logPruneServers(removed.map((s) => s.endpoint));
     await this.storage.clear();
     await this.storage.store(reconciled);
     this.assignmentChange.fire({
@@ -780,9 +761,9 @@ export class AssignmentManager implements Disposable {
 
   private toAssignedServer(
     server: ColabJupyterServer,
+    endpoint: string,
     connectionInfo: RuntimeProxyToken | ConnectionInfo,
     dateAssigned: Date,
-    endpoint?: string,
   ): ColabAssignedServer {
     const { url, token } = connectionInfo;
     const headers: Record<string, string> =

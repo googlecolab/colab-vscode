@@ -167,6 +167,7 @@ describe('ColabJupyterServerProvider', () => {
     colabApiClientStub = {
       colab: sinon.createStubInstance(ColaboratoryApi),
       operations: sinon.createStubInstance(OperationsApi),
+      waitOperationWithBackoff: sinon.stub(),
     };
     serverPickerStub = sinon.createStubInstance(ServerPicker);
 
