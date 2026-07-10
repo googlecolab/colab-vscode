@@ -12,7 +12,6 @@ import {
   InsufficientQuotaError,
   LongRunningOperationError,
   TooManyAssignmentsError,
-  WaitOperationTimeoutError,
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import {
@@ -50,44 +49,6 @@ export interface ColabApiClient {
    * A client instance to access the Operations APIs.
    */
   operations: OperationsApi;
-
-  /**
-   * Waits for an operation to complete, with exponential backoff.
-   *
-   * @param id - Operation ID to wait for.
-   * @param opts - Backoff options.
-   * @returns A promise that resolves to the completed operation.
-   */
-  waitOperationWithBackoff(
-    id: string,
-    opts: Partial<WaitOperationOptions>,
-  ): Promise<Operation>;
-}
-
-/**
- * Options for waiting for an operation to complete with exponential backoff.
- */
-export interface WaitOperationOptions {
-  /**
-   * The maximum number of attempts before giving up.
-   */
-  maxAttempts: number;
-  /**
-   * The initial delay in milliseconds before the first retry.
-   */
-  initialRetryDelayMs: number;
-  /**
-   * The maximum delay in milliseconds between retries.
-   */
-  maxRetryDelayMs: number;
-  /**
-   * The factor by which the delay increases after each retry.
-   */
-  backoffFactor: number;
-  /**
-   * An optional signal to abort the operation waiting process.
-   */
-  signal?: AbortSignal;
 }
 
 /**
@@ -264,40 +225,7 @@ class ColabApiClientImpl implements ColabApiClient {
   get operations() {
     return this.operationsApi;
   }
-
-  async waitOperationWithBackoff(
-    id: string,
-    opts: Partial<WaitOperationOptions> = {},
-  ): Promise<Operation> {
-    const options = { ...DEFAULT_WAIT_OPERATION_OPTS, ...opts };
-    let currentDelay = options.initialRetryDelayMs;
-    let attempt: number;
-    for (attempt = 0; attempt < options.maxAttempts; attempt++) {
-      const operation = await this.operationsApi.getOperation(
-        { operationsId: id },
-        { signal: options.signal },
-      );
-
-      if (operation.done) {
-        return operation;
-      }
-
-      await delay(currentDelay);
-      currentDelay = Math.min(
-        currentDelay * options.backoffFactor,
-        options.maxRetryDelayMs,
-      );
-    }
-    throw new WaitOperationTimeoutError(id, attempt);
-  }
 }
-
-const DEFAULT_WAIT_OPERATION_OPTS: WaitOperationOptions = {
-  maxAttempts: 20,
-  initialRetryDelayMs: 500,
-  maxRetryDelayMs: 5000,
-  backoffFactor: 1.3,
-};
 
 const HEADERS = {
   [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
@@ -341,10 +269,6 @@ class ErrorMiddleware implements Middleware {
     );
     return Promise.resolve();
   }
-}
-
-async function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isErrorInfo(obj: unknown): obj is ErrorInfo {

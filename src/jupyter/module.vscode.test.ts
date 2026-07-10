@@ -78,7 +78,6 @@ describe('createJupyterModule', () => {
     colabApiClient = {
       colab: sinon.createStubInstance(ColaboratoryApi),
       operations: sinon.createStubInstance(OperationsApi),
-      waitOperationWithBackoff: sinon.stub(),
     };
 
     // The integration host already has the activated extension's `colab` FS

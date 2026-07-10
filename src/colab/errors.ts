@@ -81,14 +81,12 @@ export class WaitOperationTimeoutError extends Error {
    * Initializes a new instance.
    *
    * @param operationId - Long-running operation ID.
-   * @param attempts - Number of attempts made.
+   * @param timeout - Timeout duration.
    */
   constructor(
     readonly operationId: string,
-    readonly attempts: number,
+    readonly timeout: string,
   ) {
-    super(
-      `Operation ${operationId} timed out after ${String(attempts)} attempts`,
-    );
+    super(`Operation ${operationId} timed out after ${timeout}`);
   }
 }

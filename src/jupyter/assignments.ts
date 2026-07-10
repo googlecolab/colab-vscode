@@ -45,6 +45,7 @@ import {
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
+  WaitOperationTimeoutError,
 } from '../colab/errors';
 import { getFlag } from '../colab/experiment-state';
 import {
@@ -995,11 +996,16 @@ export class AssignmentManager implements Disposable {
         title: `Assigning server...`,
       },
       () => {
-        return this.colabApiClient.waitOperationWithBackoff(operationId, {
-          signal,
-        });
+        return this.colabApiClient.operations.waitOperation(
+          { operationsId: operationId, timeout: WAIT_OPERATION_TIMEOUT },
+          { signal },
+        );
       },
     )) as CreateRuntimeOperation;
+    if (!operation.done) {
+      throw new WaitOperationTimeoutError(operationId, WAIT_OPERATION_TIMEOUT);
+    }
+
     throwIfOperationError(operation, descriptor.accelerator);
     assert(
       operation.response,
@@ -1013,6 +1019,7 @@ enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
+const WAIT_OPERATION_TIMEOUT = '120s';
 const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';
