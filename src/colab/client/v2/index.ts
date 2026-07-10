@@ -60,18 +60,18 @@ export interface ColabApiClient {
    */
   waitOperationWithBackoff(
     id: string,
-    opts: Partial<BackoffOptions>,
+    opts: Partial<WaitOperationOptions>,
   ): Promise<Operation>;
 }
 
 /**
  * Options for waiting for an operation to complete with exponential backoff.
  */
-export interface BackoffOptions {
+export interface WaitOperationOptions {
   /**
-   * The maximum number of retries to attempt before giving up.
+   * The maximum number of attempts before giving up.
    */
-  maxRetries: number;
+  maxAttempts: number;
   /**
    * The initial delay in milliseconds before the first retry.
    */
@@ -267,39 +267,33 @@ class ColabApiClientImpl implements ColabApiClient {
 
   async waitOperationWithBackoff(
     id: string,
-    opts: Partial<BackoffOptions> = {},
+    opts: Partial<WaitOperationOptions> = {},
   ): Promise<Operation> {
-    const options = { ...DEFAULT_BACKOFF_OPTS, ...opts };
+    const options = { ...DEFAULT_WAIT_OPERATION_OPTS, ...opts };
     let currentDelay = options.initialRetryDelayMs;
-    let operation = await this.operationsApi.getOperation(
-      { operationsId: id },
-      { signal: options.signal },
-    );
-
-    let attempt = 1;
-    while (!operation.done) {
-      if (attempt > options.maxRetries) {
-        throw new WaitOperationTimeoutError(id, attempt);
-      }
-
-      await delay(currentDelay);
-      operation = await this.operationsApi.getOperation(
+    let attempt: number;
+    for (attempt = 0; attempt < options.maxAttempts; attempt++) {
+      const operation = await this.operationsApi.getOperation(
         { operationsId: id },
         { signal: options.signal },
       );
 
+      if (operation.done) {
+        return operation;
+      }
+
+      await delay(currentDelay);
       currentDelay = Math.min(
         currentDelay * options.backoffFactor,
         options.maxRetryDelayMs,
       );
-      attempt++;
     }
-    return operation;
+    throw new WaitOperationTimeoutError(id, attempt);
   }
 }
 
-const DEFAULT_BACKOFF_OPTS: BackoffOptions = {
-  maxRetries: 20,
+const DEFAULT_WAIT_OPERATION_OPTS: WaitOperationOptions = {
+  maxAttempts: 20,
   initialRetryDelayMs: 500,
   maxRetryDelayMs: 5000,
   backoffFactor: 1.3,
