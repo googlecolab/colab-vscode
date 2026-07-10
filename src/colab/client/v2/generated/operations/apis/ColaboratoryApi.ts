@@ -25,23 +25,6 @@ import {
     OperationToJSON,
 } from '../models/Operation';
 
-export interface CancelOperationRequest {
-    operationsId: string;
-    $alt?: CancelOperationAltEnum;
-    $callback?: string;
-    $prettyPrint?: boolean;
-    $xgafv?: CancelOperationXgafvEnum;
-    body?: object;
-}
-
-export interface DeleteOperationRequest {
-    operationsId: string;
-    $alt?: DeleteOperationAltEnum;
-    $callback?: string;
-    $prettyPrint?: boolean;
-    $xgafv?: DeleteOperationXgafvEnum;
-}
-
 export interface GetOperationRequest {
     operationsId: string;
     $alt?: GetOperationAltEnum;
@@ -61,6 +44,15 @@ export interface ListOperationsRequest {
     returnPartialSuccess?: boolean;
 }
 
+export interface WaitOperationRequest {
+    operationsId: string;
+    $alt?: WaitOperationAltEnum;
+    $callback?: string;
+    $prettyPrint?: boolean;
+    $xgafv?: WaitOperationXgafvEnum;
+    timeout?: string;
+}
+
 /**
  * ColaboratoryApi - interface
  * 
@@ -68,68 +60,6 @@ export interface ListOperationsRequest {
  * @interface ColaboratoryApiInterface
  */
 export interface ColaboratoryApiInterface {
-    /**
-     * Creates request options for cancelOperation without sending the request
-     * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource to be cancelled.
-     * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
-     * @param {string} [$callback] JSONP
-     * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
-     * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {object} [body] The request body.
-     * @throws {RequiredError}
-     * @memberof ColaboratoryApiInterface
-     */
-    cancelOperationRequestOpts(requestParameters: CancelOperationRequest): Promise<runtime.RequestOpts>;
-
-    /**
-     * Starts asynchronous cancellation on a long-running operation.  The server makes a best effort to cancel the operation, but success is not guaranteed.  If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.  Clients can use Operations.GetOperation or other methods to check whether the cancellation succeeded or whether the operation completed despite cancellation. On successful cancellation, the operation is not deleted; instead, it becomes an operation with an Operation.error value with a google.rpc.Status.code of `1`, corresponding to `Code.CANCELLED`.
-     * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource to be cancelled.
-     * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
-     * @param {string} [$callback] JSONP
-     * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
-     * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {object} [body] The request body.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof ColaboratoryApiInterface
-     */
-    cancelOperationRaw(requestParameters: CancelOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>>;
-
-    /**
-     * Starts asynchronous cancellation on a long-running operation.  The server makes a best effort to cancel the operation, but success is not guaranteed.  If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.  Clients can use Operations.GetOperation or other methods to check whether the cancellation succeeded or whether the operation completed despite cancellation. On successful cancellation, the operation is not deleted; instead, it becomes an operation with an Operation.error value with a google.rpc.Status.code of `1`, corresponding to `Code.CANCELLED`.
-     */
-    cancelOperation(requestParameters: CancelOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object>;
-
-    /**
-     * Creates request options for deleteOperation without sending the request
-     * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource to be deleted.
-     * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
-     * @param {string} [$callback] JSONP
-     * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
-     * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @throws {RequiredError}
-     * @memberof ColaboratoryApiInterface
-     */
-    deleteOperationRequestOpts(requestParameters: DeleteOperationRequest): Promise<runtime.RequestOpts>;
-
-    /**
-     * Deletes a long-running operation. This method indicates that the client is no longer interested in the operation result. It does not cancel the operation. If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.
-     * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource to be deleted.
-     * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
-     * @param {string} [$callback] JSONP
-     * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
-     * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof ColaboratoryApiInterface
-     */
-    deleteOperationRaw(requestParameters: DeleteOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>>;
-
-    /**
-     * Deletes a long-running operation. This method indicates that the client is no longer interested in the operation result. It does not cancel the operation. If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.
-     */
-    deleteOperation(requestParameters: DeleteOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
-
     /**
      * Creates request options for getOperation without sending the request
      * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource.
@@ -196,172 +126,44 @@ export interface ColaboratoryApiInterface {
      */
     listOperations(requestParameters: ListOperationsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ListOperationsResponse>;
 
+    /**
+     * Creates request options for waitOperation without sending the request
+     * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource to wait on.
+     * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
+     * @param {string} [$callback] JSONP
+     * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
+     * @param {'1' | '2'} [$xgafv] V1 error format.
+     * @param {string} [timeout] The maximum duration to wait before timing out. If left blank, the wait will be at most the time permitted by the underlying HTTP/RPC protocol. If RPC context deadline is also specified, the shorter one will be used.
+     * @throws {RequiredError}
+     * @memberof ColaboratoryApiInterface
+     */
+    waitOperationRequestOpts(requestParameters: WaitOperationRequest): Promise<runtime.RequestOpts>;
+
+    /**
+     * Waits until the specified long-running operation is done or reaches at most a specified timeout, returning the latest state.  If the operation is already done, the latest state is immediately returned.  If the timeout specified is greater than the default HTTP/RPC timeout, the HTTP/RPC timeout is used.  If the server does not support this method, it returns `google.rpc.Code.UNIMPLEMENTED`. Note that this method is on a best-effort basis.  It may return the latest state before the specified timeout (including immediately), meaning even an immediate response is no guarantee that the operation is done.
+     * @param {string} operationsId Part of &#x60;name&#x60;. The name of the operation resource to wait on.
+     * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
+     * @param {string} [$callback] JSONP
+     * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
+     * @param {'1' | '2'} [$xgafv] V1 error format.
+     * @param {string} [timeout] The maximum duration to wait before timing out. If left blank, the wait will be at most the time permitted by the underlying HTTP/RPC protocol. If RPC context deadline is also specified, the shorter one will be used.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ColaboratoryApiInterface
+     */
+    waitOperationRaw(requestParameters: WaitOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Operation>>;
+
+    /**
+     * Waits until the specified long-running operation is done or reaches at most a specified timeout, returning the latest state.  If the operation is already done, the latest state is immediately returned.  If the timeout specified is greater than the default HTTP/RPC timeout, the HTTP/RPC timeout is used.  If the server does not support this method, it returns `google.rpc.Code.UNIMPLEMENTED`. Note that this method is on a best-effort basis.  It may return the latest state before the specified timeout (including immediately), meaning even an immediate response is no guarantee that the operation is done.
+     */
+    waitOperation(requestParameters: WaitOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Operation>;
+
 }
 
 /**
  * 
  */
 export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiInterface {
-
-    /**
-     * Creates request options for cancelOperation without sending the request
-     */
-    async cancelOperationRequestOpts(requestParameters: CancelOperationRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['operationsId'] == null) {
-            throw new runtime.RequiredError(
-                'operationsId',
-                'Required parameter "operationsId" was null or undefined when calling cancelOperation().'
-            );
-        }
-
-        const queryParameters: any = {};
-
-        if (requestParameters['$alt'] != null) {
-            queryParameters['$alt'] = requestParameters['$alt'];
-        }
-
-        if (requestParameters['$callback'] != null) {
-            queryParameters['$callback'] = requestParameters['$callback'];
-        }
-
-        if (requestParameters['$prettyPrint'] != null) {
-            queryParameters['$prettyPrint'] = requestParameters['$prettyPrint'];
-        }
-
-        if (requestParameters['$xgafv'] != null) {
-            queryParameters['$.xgafv'] = requestParameters['$xgafv'];
-        }
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("bearer_auth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-        if (this.configuration && this.configuration.accessToken) {
-            // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
-        }
-
-        if (this.configuration && this.configuration.accessToken) {
-            // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
-        }
-
-
-        let urlPath = `/v1/operations/{operationsId}:cancel`;
-        urlPath = urlPath.replace('{operationsId}', encodeURIComponent(String(requestParameters['operationsId'])));
-
-        return {
-            path: urlPath,
-            method: 'POST',
-            headers: headerParameters,
-            query: queryParameters,
-            body: requestParameters['body'] as any,
-        };
-    }
-
-    /**
-     * Starts asynchronous cancellation on a long-running operation.  The server makes a best effort to cancel the operation, but success is not guaranteed.  If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.  Clients can use Operations.GetOperation or other methods to check whether the cancellation succeeded or whether the operation completed despite cancellation. On successful cancellation, the operation is not deleted; instead, it becomes an operation with an Operation.error value with a google.rpc.Status.code of `1`, corresponding to `Code.CANCELLED`.
-     */
-    async cancelOperationRaw(requestParameters: CancelOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
-        const requestOptions = await this.cancelOperationRequestOpts(requestParameters);
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.JSONApiResponse<any>(response);
-    }
-
-    /**
-     * Starts asynchronous cancellation on a long-running operation.  The server makes a best effort to cancel the operation, but success is not guaranteed.  If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.  Clients can use Operations.GetOperation or other methods to check whether the cancellation succeeded or whether the operation completed despite cancellation. On successful cancellation, the operation is not deleted; instead, it becomes an operation with an Operation.error value with a google.rpc.Status.code of `1`, corresponding to `Code.CANCELLED`.
-     */
-    async cancelOperation(requestParameters: CancelOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
-        const response = await this.cancelOperationRaw(requestParameters, initOverrides);
-        return await response.value();
-    }
-
-    /**
-     * Creates request options for deleteOperation without sending the request
-     */
-    async deleteOperationRequestOpts(requestParameters: DeleteOperationRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['operationsId'] == null) {
-            throw new runtime.RequiredError(
-                'operationsId',
-                'Required parameter "operationsId" was null or undefined when calling deleteOperation().'
-            );
-        }
-
-        const queryParameters: any = {};
-
-        if (requestParameters['$alt'] != null) {
-            queryParameters['$alt'] = requestParameters['$alt'];
-        }
-
-        if (requestParameters['$callback'] != null) {
-            queryParameters['$callback'] = requestParameters['$callback'];
-        }
-
-        if (requestParameters['$prettyPrint'] != null) {
-            queryParameters['$prettyPrint'] = requestParameters['$prettyPrint'];
-        }
-
-        if (requestParameters['$xgafv'] != null) {
-            queryParameters['$.xgafv'] = requestParameters['$xgafv'];
-        }
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("bearer_auth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-        if (this.configuration && this.configuration.accessToken) {
-            // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
-        }
-
-        if (this.configuration && this.configuration.accessToken) {
-            // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
-        }
-
-
-        let urlPath = `/v1/operations/{operationsId}`;
-        urlPath = urlPath.replace('{operationsId}', encodeURIComponent(String(requestParameters['operationsId'])));
-
-        return {
-            path: urlPath,
-            method: 'DELETE',
-            headers: headerParameters,
-            query: queryParameters,
-        };
-    }
-
-    /**
-     * Deletes a long-running operation. This method indicates that the client is no longer interested in the operation result. It does not cancel the operation. If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.
-     */
-    async deleteOperationRaw(requestParameters: DeleteOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        const requestOptions = await this.deleteOperationRequestOpts(requestParameters);
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.VoidApiResponse(response);
-    }
-
-    /**
-     * Deletes a long-running operation. This method indicates that the client is no longer interested in the operation result. It does not cancel the operation. If the server doesn\'t support this method, it returns `google.rpc.Code.UNIMPLEMENTED`.
-     */
-    async deleteOperation(requestParameters: DeleteOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.deleteOperationRaw(requestParameters, initOverrides);
-    }
 
     /**
      * Creates request options for getOperation without sending the request
@@ -529,42 +331,91 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         return await response.value();
     }
 
+    /**
+     * Creates request options for waitOperation without sending the request
+     */
+    async waitOperationRequestOpts(requestParameters: WaitOperationRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['operationsId'] == null) {
+            throw new runtime.RequiredError(
+                'operationsId',
+                'Required parameter "operationsId" was null or undefined when calling waitOperation().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['$alt'] != null) {
+            queryParameters['$alt'] = requestParameters['$alt'];
+        }
+
+        if (requestParameters['$callback'] != null) {
+            queryParameters['$callback'] = requestParameters['$callback'];
+        }
+
+        if (requestParameters['$prettyPrint'] != null) {
+            queryParameters['$prettyPrint'] = requestParameters['$prettyPrint'];
+        }
+
+        if (requestParameters['$xgafv'] != null) {
+            queryParameters['$.xgafv'] = requestParameters['$xgafv'];
+        }
+
+        if (requestParameters['timeout'] != null) {
+            queryParameters['timeout'] = requestParameters['timeout'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("bearer_auth", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+        }
+
+
+        let urlPath = `/v1/operations/{operationsId}:wait`;
+        urlPath = urlPath.replace('{operationsId}', encodeURIComponent(String(requestParameters['operationsId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Waits until the specified long-running operation is done or reaches at most a specified timeout, returning the latest state.  If the operation is already done, the latest state is immediately returned.  If the timeout specified is greater than the default HTTP/RPC timeout, the HTTP/RPC timeout is used.  If the server does not support this method, it returns `google.rpc.Code.UNIMPLEMENTED`. Note that this method is on a best-effort basis.  It may return the latest state before the specified timeout (including immediately), meaning even an immediate response is no guarantee that the operation is done.
+     */
+    async waitOperationRaw(requestParameters: WaitOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Operation>> {
+        const requestOptions = await this.waitOperationRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => OperationFromJSON(jsonValue));
+    }
+
+    /**
+     * Waits until the specified long-running operation is done or reaches at most a specified timeout, returning the latest state.  If the operation is already done, the latest state is immediately returned.  If the timeout specified is greater than the default HTTP/RPC timeout, the HTTP/RPC timeout is used.  If the server does not support this method, it returns `google.rpc.Code.UNIMPLEMENTED`. Note that this method is on a best-effort basis.  It may return the latest state before the specified timeout (including immediately), meaning even an immediate response is no guarantee that the operation is done.
+     */
+    async waitOperation(requestParameters: WaitOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Operation> {
+        const response = await this.waitOperationRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
 }
 
-/**
- * @export
- */
-export const CancelOperationAltEnum = {
-    Json: 'json',
-    Media: 'media',
-    Proto: 'proto'
-} as const;
-export type CancelOperationAltEnum = typeof CancelOperationAltEnum[keyof typeof CancelOperationAltEnum];
-/**
- * @export
- */
-export const CancelOperationXgafvEnum = {
-    _1: '1',
-    _2: '2'
-} as const;
-export type CancelOperationXgafvEnum = typeof CancelOperationXgafvEnum[keyof typeof CancelOperationXgafvEnum];
-/**
- * @export
- */
-export const DeleteOperationAltEnum = {
-    Json: 'json',
-    Media: 'media',
-    Proto: 'proto'
-} as const;
-export type DeleteOperationAltEnum = typeof DeleteOperationAltEnum[keyof typeof DeleteOperationAltEnum];
-/**
- * @export
- */
-export const DeleteOperationXgafvEnum = {
-    _1: '1',
-    _2: '2'
-} as const;
-export type DeleteOperationXgafvEnum = typeof DeleteOperationXgafvEnum[keyof typeof DeleteOperationXgafvEnum];
 /**
  * @export
  */
@@ -599,3 +450,20 @@ export const ListOperationsXgafvEnum = {
     _2: '2'
 } as const;
 export type ListOperationsXgafvEnum = typeof ListOperationsXgafvEnum[keyof typeof ListOperationsXgafvEnum];
+/**
+ * @export
+ */
+export const WaitOperationAltEnum = {
+    Json: 'json',
+    Media: 'media',
+    Proto: 'proto'
+} as const;
+export type WaitOperationAltEnum = typeof WaitOperationAltEnum[keyof typeof WaitOperationAltEnum];
+/**
+ * @export
+ */
+export const WaitOperationXgafvEnum = {
+    _1: '1',
+    _2: '2'
+} as const;
+export type WaitOperationXgafvEnum = typeof WaitOperationXgafvEnum[keyof typeof WaitOperationXgafvEnum];
