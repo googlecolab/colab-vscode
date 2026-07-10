@@ -1042,7 +1042,7 @@ describe('ColabApiClient', () => {
     });
 
     describe('wait', () => {
-      const TIMEOUT = '2m';
+      const TIMEOUT = '120s';
 
       beforeEach(() => {
         server.use(
