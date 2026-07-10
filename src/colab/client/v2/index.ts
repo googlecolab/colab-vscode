@@ -269,7 +269,7 @@ class ColabApiClientImpl implements ColabApiClient {
     id: string,
     opts: Partial<BackoffOptions> = {},
   ): Promise<Operation> {
-    const options = { ...DEFAULT_WAIT_OPERATION_OPTS, ...opts };
+    const options = { ...DEFAULT_BACKOFF_OPTS, ...opts };
     let currentDelay = options.initialRetryDelayMs;
     let operation = await this.operationsApi.getOperation(
       { operationsId: id },
@@ -298,11 +298,11 @@ class ColabApiClientImpl implements ColabApiClient {
   }
 }
 
-const DEFAULT_WAIT_OPERATION_OPTS: BackoffOptions = {
-  maxRetries: 10,
-  initialRetryDelayMs: 200,
+const DEFAULT_BACKOFF_OPTS: BackoffOptions = {
+  maxRetries: 20,
+  initialRetryDelayMs: 500,
   maxRetryDelayMs: 5000,
-  backoffFactor: 2,
+  backoffFactor: 1.3,
 };
 
 const HEADERS = {

@@ -415,13 +415,10 @@ export class AssignmentManager implements Disposable {
 
       let server: ColabAssignedServer;
       if (instanceOfRuntime(assignmentOrRuntime)) {
-        assert(
-          assignmentOrRuntime.name,
-          'Runtime name is missing in the response',
-        );
-        const connectionInfo = assignmentOrRuntime.connectionInfo;
-        assert(connectionInfo, 'Connection info is missing in the response');
+        assert(assignmentOrRuntime.name);
         const runtimeId = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
+        const c = assignmentOrRuntime.connectionInfo;
+        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}}`);
         server = this.toAssignedServer(
           {
             id: runtimeId,
@@ -429,8 +426,8 @@ export class AssignmentManager implements Disposable {
             variant: normalizeVariant(assignmentOrRuntime.runtimeSpec.variant),
             accelerator: assignmentOrRuntime.runtimeSpec.accelerator,
           },
-          connectionInfo.endpoint,
-          connectionInfo,
+          c.endpoint,
+          c,
           new Date(),
         );
       } else {
@@ -986,20 +983,27 @@ export class AssignmentManager implements Disposable {
 
     if (operation.done) {
       throwIfOperationError(operation, descriptor.accelerator);
-      assert(operation.response, 'Expected runtime response');
+      assert(operation.response);
       return operation.response;
     }
 
-    assert(operation.name, 'Expected operation name');
+    assert(operation.name);
     const operationId = trimPrefix(operation.name, 'operations/');
-    operation = (await this.colabApiClient.waitOperationWithBackoff(
-      operationId,
-      { signal },
+    operation = (await this.vs.window.withProgress(
+      {
+        location: this.vs.ProgressLocation.Window,
+        title: `Assigning server...`,
+      },
+      () => {
+        return this.colabApiClient.waitOperationWithBackoff(operationId, {
+          signal,
+        });
+      },
     )) as CreateRuntimeOperation;
     throwIfOperationError(operation, descriptor.accelerator);
     assert(
       operation.response,
-      `Expected runtime response in operation ${operationId}`,
+      `Runtime response is missing in operation: ${operationId}`,
     );
     return operation.response;
   }
