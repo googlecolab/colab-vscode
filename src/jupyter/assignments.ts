@@ -653,9 +653,6 @@ export class AssignmentManager implements Disposable {
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
-      // During the transition period, reconcile servers based on either
-      // endpoint or notebook hash. Servers created by the new public API will
-      // not have an endpoint returned.
       if (liveEndpointSet.has(s.endpoint)) {
         reconciled.push(s);
       } else {

@@ -189,10 +189,10 @@ export function throwIfOperationError(
       }
     }
     throw new LongRunningOperationError(
-      operation.name ?? 'unknown',
-      operation.error.code ?? 0,
-      reason ?? 'UNKNOWN',
+      operation.name,
+      operation.error.code,
       operation.error.message,
+      reason,
     );
   }
 }

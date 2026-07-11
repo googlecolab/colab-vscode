@@ -10,6 +10,13 @@ import { setupServer } from 'msw/node';
 import * as sinon from 'sinon';
 import { SinonStubbedFunction } from 'sinon';
 import { telemetry } from '../../../telemetry';
+import {
+  AcceleratorUnavailableError,
+  DenylistedError,
+  InsufficientQuotaError,
+  LongRunningOperationError,
+  TooManyAssignmentsError,
+} from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import {
   Shape as CommonShape,
@@ -23,12 +30,16 @@ import {
   SubscriptionTier,
   Variant,
 } from './generated/colab';
+import { Operation } from './generated/operations';
 import {
   ColabApiClient,
   createColabApiClient,
+  denormalizeShape,
+  denormalizeVariant,
   normalizeShape,
   normalizeSubscriptionTier,
   normalizeVariant,
+  throwIfOperationError,
 } from '.';
 
 const COLAB_API_HOST = 'colab.example.com';
@@ -1275,5 +1286,191 @@ describe('normalizeShape', () => {
     expect(() => normalizeShape(Shape.ShapeUnspecified)).to.throw(
       /Unknown shape:/,
     );
+  });
+});
+
+describe('denormalizeVariant', () => {
+  const tests = [
+    {
+      input: CommonVariant.DEFAULT,
+      expected: Variant.VariantCpu,
+    },
+    {
+      input: CommonVariant.GPU,
+      expected: Variant.VariantGpu,
+    },
+    {
+      input: CommonVariant.TPU,
+      expected: Variant.VariantTpu,
+    },
+  ];
+  tests.forEach(({ input, expected }) => {
+    it(`returns ${expected} from ${input}`, () => {
+      expect(denormalizeVariant(input)).to.equal(expected);
+    });
+  });
+});
+
+describe('denormalizeShape', () => {
+  const tests = [
+    {
+      name: 'undefined value',
+      input: undefined,
+      expected: Shape.ShapeStandard,
+    },
+    {
+      name: 'STANDARD',
+      input: CommonShape.STANDARD,
+      expected: Shape.ShapeStandard,
+    },
+    {
+      name: 'HIGHMEM',
+      input: CommonShape.HIGHMEM,
+      expected: Shape.ShapeHighmem,
+    },
+  ];
+  tests.forEach(({ name, input, expected }) => {
+    it(`returns ${expected} from ${name}`, () => {
+      expect(denormalizeShape(input)).to.equal(expected);
+    });
+  });
+});
+
+describe('throwIfOperationError', () => {
+  const OPERATION_NAME = 'operations/test-operation-id';
+  const ERROR_CODE = 9;
+  const ERROR_MESSAGE = 'test error message';
+
+  it('does nothing if operation does not contain an error', () => {
+    const nonErrorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      response: {
+        name: 'runtimes/1',
+      },
+    };
+
+    throwIfOperationError(nonErrorOperation);
+
+    // No error is thrown. We are good!
+  });
+
+  it('throws TooManyAssignmentsError if TOO_MANY_ACTIVE_RUNTIMES', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: ERROR_CODE,
+        message: ERROR_MESSAGE,
+        details: [
+          // Intentionally add an unrelated detail here to ensure that it will
+          // be ignored
+          { unrelatedKey: 'unrelated value' },
+          // This will be identified as the ErrorInfo containing the reason
+          { reason: 'TOO_MANY_ACTIVE_RUNTIMES' },
+        ],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(TooManyAssignmentsError, ERROR_MESSAGE);
+  });
+
+  it('throws DenylistedError if DENYLISTED', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: ERROR_CODE,
+        message: ERROR_MESSAGE,
+        details: [
+          // Intentionally add an unrelated detail here to ensure that it will
+          // be ignored
+          { unrelatedKey: 'unrelated value' },
+          // This will be identified as the ErrorInfo containing the reason
+          { reason: 'DENYLISTED' },
+        ],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(DenylistedError, /This account has been blocked/);
+  });
+
+  it('throws InsufficientQuotaError if QUOTA_EXCEEDED_USAGE_TIME', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: ERROR_CODE,
+        message: ERROR_MESSAGE,
+        details: [
+          // Intentionally add an unrelated detail here to ensure that it will
+          // be ignored
+          { unrelatedKey: 'unrelated value' },
+          // This will be identified as the ErrorInfo containing the reason
+          { reason: 'QUOTA_EXCEEDED_USAGE_TIME' },
+        ],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(
+      InsufficientQuotaError,
+      'You have insufficient quota to assign this server.',
+    );
+  });
+
+  it('throws AcceleratorUnavailableError if any other reason with accelerator', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: ERROR_CODE,
+        message: ERROR_MESSAGE,
+        details: [
+          // Intentionally add an unrelated detail here to ensure that it will
+          // be ignored
+          { unrelatedKey: 'unrelated value' },
+          // This will be identified as the ErrorInfo containing the reason
+          { reason: 'ANY_RANDOM_REASON' },
+        ],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation, 'T4');
+    }).to.throw(AcceleratorUnavailableError, /T4/);
+  });
+
+  const accelerators = [undefined, 'NONE'];
+  accelerators.forEach((accelerator) => {
+    it(`throws LongRunningOperationError if any other reason with ${accelerator ?? 'no'} accelerator`, () => {
+      const errorOperation: Operation = {
+        name: OPERATION_NAME,
+        done: true,
+        error: {
+          code: ERROR_CODE,
+          message: ERROR_MESSAGE,
+          details: [
+            // Intentionally add an unrelated detail here to ensure that it will
+            // be ignored
+            { unrelatedKey: 'unrelated value' },
+            // This will be identified as the ErrorInfo containing the reason
+            { reason: 'ANY_RANDOM_REASON' },
+          ],
+        },
+      };
+
+      expect(() => {
+        throwIfOperationError(errorOperation, accelerator);
+      }).to.throw(
+        LongRunningOperationError,
+        `Operation ${OPERATION_NAME} failed with error ${String(ERROR_CODE)}: ${ERROR_MESSAGE} (reason: ANY_RANDOM_REASON)`,
+      );
+    });
   });
 });

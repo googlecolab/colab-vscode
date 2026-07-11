@@ -60,17 +60,17 @@ export class LongRunningOperationError extends Error {
    *
    * @param operationName - Long-running operation name.
    * @param code - Status error code.
-   * @param reason - Status error reason.
    * @param message - Status error message.
+   * @param reason - Status error reason.
    */
   constructor(
-    readonly operationName: string,
-    readonly code: number,
-    readonly reason: string,
-    message?: string,
+    readonly operationName = 'unknown',
+    readonly code = 0,
+    message = '',
+    readonly reason = 'UNKNOWN',
   ) {
     super(
-      `Operation ${operationName} failed with error ${String(code)}: ${message ?? ''} (reason: ${reason})`,
+      `Operation ${operationName} failed with error ${String(code)}: ${message} (reason: ${reason})`,
     );
   }
 }
