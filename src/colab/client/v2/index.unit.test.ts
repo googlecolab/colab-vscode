@@ -1338,7 +1338,8 @@ describe('denormalizeShape', () => {
 
 describe('throwIfOperationError', () => {
   const OPERATION_NAME = 'operations/test-operation-id';
-  const ERROR_CODE = 9;
+  const FAILED_PRECONDITION_ERROR_CODE = 9;
+  const ALREADY_EXISTS_ERROR_CODE = 6;
   const ERROR_MESSAGE = 'test error message';
 
   it('does nothing if operation does not contain an error', () => {
@@ -1360,7 +1361,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: ERROR_CODE,
+        code: FAILED_PRECONDITION_ERROR_CODE,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1382,7 +1383,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: ERROR_CODE,
+        code: FAILED_PRECONDITION_ERROR_CODE,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1404,7 +1405,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: ERROR_CODE,
+        code: FAILED_PRECONDITION_ERROR_CODE,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1424,12 +1425,12 @@ describe('throwIfOperationError', () => {
     );
   });
 
-  it('throws AcceleratorUnavailableError if any other reason with accelerator', () => {
+  it('throws AcceleratorUnavailableError if other reason with accelerator', () => {
     const errorOperation: Operation = {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: ERROR_CODE,
+        code: FAILED_PRECONDITION_ERROR_CODE,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1446,14 +1447,29 @@ describe('throwIfOperationError', () => {
     }).to.throw(AcceleratorUnavailableError, /T4/);
   });
 
-  const accelerators = [undefined, 'NONE'];
-  accelerators.forEach((accelerator) => {
-    it(`throws LongRunningOperationError if any other reason with ${accelerator ?? 'no'} accelerator`, () => {
+  const tests = [
+    {
+      name: 'failed precondition without accelerator',
+      code: FAILED_PRECONDITION_ERROR_CODE,
+    },
+    {
+      name: 'failed precondition with NONE accelerator',
+      code: FAILED_PRECONDITION_ERROR_CODE,
+      accelerator: 'NONE',
+    },
+    {
+      name: 'other error code with accelerator',
+      code: ALREADY_EXISTS_ERROR_CODE,
+      accelerator: 'T4',
+    },
+  ];
+  tests.forEach(({ name, code, accelerator }) => {
+    it(`throws LongRunningOperationError if ${name}`, () => {
       const errorOperation: Operation = {
         name: OPERATION_NAME,
         done: true,
         error: {
-          code: ERROR_CODE,
+          code,
           message: ERROR_MESSAGE,
           details: [
             // Intentionally add an unrelated detail here to ensure that it will
@@ -1469,8 +1485,26 @@ describe('throwIfOperationError', () => {
         throwIfOperationError(errorOperation, accelerator);
       }).to.throw(
         LongRunningOperationError,
-        `Operation ${OPERATION_NAME} failed with error ${String(ERROR_CODE)}: ${ERROR_MESSAGE} (reason: ANY_RANDOM_REASON)`,
+        `Operation ${OPERATION_NAME} failed with error ${String(code)}: ${ERROR_MESSAGE} (reason: ANY_RANDOM_REASON)`,
       );
     });
+  });
+
+  it(`throws LongRunningOperationError if no error details`, () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: FAILED_PRECONDITION_ERROR_CODE,
+        message: ERROR_MESSAGE,
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(
+      LongRunningOperationError,
+      `Operation ${OPERATION_NAME} failed with error ${String(FAILED_PRECONDITION_ERROR_CODE)}: ${ERROR_MESSAGE} (reason: UNKNOWN)`,
+    );
   });
 });

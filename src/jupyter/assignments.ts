@@ -367,8 +367,8 @@ export class AssignmentManager implements Disposable {
         if (isColabServerDescriptorWithAccelerator(descriptor)) {
           assignmentOrRuntime = await this.assignWithFallback(
             descriptor,
-            enablePublicApi ? undefined : id,
-            /* fallbacks= */ undefined,
+            /* id= */ enablePublicApi ? undefined : id,
+            /* fallback= */ undefined,
             signal,
           );
           if (instanceOfRuntime(assignmentOrRuntime)) {
@@ -687,12 +687,14 @@ export class AssignmentManager implements Disposable {
     try {
       let assignment: Assignment | Runtime;
       if (id) {
+        // Take the old v1 route if an `id` is passed in.
         ({ assignment } = await this.colabClient.assign(
           id,
           { variant, accelerator, shape, version },
           signal,
         ));
       } else {
+        // Otherwise, take the new v2 route.
         assignment = await this.createRuntime(descriptor, signal);
       }
 

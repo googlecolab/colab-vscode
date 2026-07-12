@@ -165,6 +165,7 @@ export function throwIfOperationError(
   accelerator?: string,
 ): void {
   if (operation.error) {
+    const code = operation.error.code;
     let reason: string | undefined;
     for (const detail of operation.error.details ?? []) {
       if (isErrorInfo(detail)) {
@@ -181,7 +182,11 @@ export function throwIfOperationError(
               'You have insufficient quota to assign this server.',
             );
           default:
-            if (accelerator && accelerator !== 'NONE') {
+            if (
+              code === FAILED_PRECONDITION_ERROR_CODE &&
+              accelerator &&
+              accelerator !== 'NONE'
+            ) {
               throw new AcceleratorUnavailableError(accelerator);
             }
         }
@@ -190,7 +195,7 @@ export function throwIfOperationError(
     }
     throw new LongRunningOperationError(
       operation.name,
-      operation.error.code,
+      code,
       operation.error.message,
       reason,
     );
@@ -227,6 +232,7 @@ class ColabApiClientImpl implements ColabApiClient {
   }
 }
 
+const FAILED_PRECONDITION_ERROR_CODE = 9;
 const HEADERS = {
   [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
 } as const;
