@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { status } from '@grpc/grpc-js';
 import { log } from '../../../common/logging';
 import { telemetry } from '../../../telemetry';
 import {
@@ -183,7 +184,7 @@ export function throwIfOperationError(
             );
           default:
             if (
-              code === FAILED_PRECONDITION_ERROR_CODE &&
+              code === status.FAILED_PRECONDITION &&
               accelerator &&
               accelerator !== 'NONE'
             ) {
@@ -232,7 +233,6 @@ class ColabApiClientImpl implements ColabApiClient {
   }
 }
 
-const FAILED_PRECONDITION_ERROR_CODE = 9;
 const HEADERS = {
   [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
 } as const;

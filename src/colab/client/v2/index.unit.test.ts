@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { status } from '@grpc/grpc-js';
 import { expect } from 'chai';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -1338,8 +1339,6 @@ describe('denormalizeShape', () => {
 
 describe('throwIfOperationError', () => {
   const OPERATION_NAME = 'operations/test-operation-id';
-  const FAILED_PRECONDITION_ERROR_CODE = 9;
-  const ALREADY_EXISTS_ERROR_CODE = 6;
   const ERROR_MESSAGE = 'test error message';
 
   it('does nothing if operation does not contain an error', () => {
@@ -1361,7 +1360,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: FAILED_PRECONDITION_ERROR_CODE,
+        code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1383,7 +1382,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: FAILED_PRECONDITION_ERROR_CODE,
+        code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1405,7 +1404,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: FAILED_PRECONDITION_ERROR_CODE,
+        code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1430,7 +1429,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: FAILED_PRECONDITION_ERROR_CODE,
+        code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will
@@ -1450,16 +1449,16 @@ describe('throwIfOperationError', () => {
   const tests = [
     {
       name: 'failed precondition without accelerator',
-      code: FAILED_PRECONDITION_ERROR_CODE,
+      code: status.FAILED_PRECONDITION,
     },
     {
       name: 'failed precondition with NONE accelerator',
-      code: FAILED_PRECONDITION_ERROR_CODE,
+      code: status.FAILED_PRECONDITION,
       accelerator: 'NONE',
     },
     {
       name: 'other error code with accelerator',
-      code: ALREADY_EXISTS_ERROR_CODE,
+      code: status.ALREADY_EXISTS,
       accelerator: 'T4',
     },
   ];
@@ -1491,11 +1490,12 @@ describe('throwIfOperationError', () => {
   });
 
   it(`throws LongRunningOperationError if no error details`, () => {
+    const code = status.FAILED_PRECONDITION;
     const errorOperation: Operation = {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: FAILED_PRECONDITION_ERROR_CODE,
+        code,
         message: ERROR_MESSAGE,
       },
     };
@@ -1504,7 +1504,7 @@ describe('throwIfOperationError', () => {
       throwIfOperationError(errorOperation);
     }).to.throw(
       LongRunningOperationError,
-      `Operation ${OPERATION_NAME} failed with error ${String(FAILED_PRECONDITION_ERROR_CODE)}: ${ERROR_MESSAGE} (reason: UNKNOWN)`,
+      `Operation ${OPERATION_NAME} failed with error ${String(code)}: ${ERROR_MESSAGE} (reason: UNKNOWN)`,
     );
   });
 });

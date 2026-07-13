@@ -434,6 +434,7 @@
     "yaml": "^2.8.2"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.4",
     "@jupyterlab/services": "^7.5.3",
     "glob": "^11.1.0",
     "google-auth-library": "^9.15.0",
