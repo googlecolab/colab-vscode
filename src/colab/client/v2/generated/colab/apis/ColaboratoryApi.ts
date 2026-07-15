@@ -323,12 +323,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
 
@@ -402,12 +402,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
 
@@ -480,12 +480,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
 
@@ -552,12 +552,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
 
@@ -623,12 +623,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
 
@@ -694,12 +694,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
         }
 
 

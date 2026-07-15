@@ -103,7 +103,7 @@
             "type": "object"
           },
           "reason": {
-            "description": "The reason of the error. This is a constant value that identifies the\nproximate cause of the error. Error reasons are unique within a particular\ndomain of errors. This should be at most 63 characters and match a\nregular expression of `A-Z+[A-Z0-9]`, which represents\nUPPER_SNAKE_CASE.",
+            "description": "The reason for the error. This is a constant value that identifies the\nproximate cause of the error. Error reasons are unique within a particular\ndomain of errors. This should be at most 63 characters and match a\nregular expression of `A-Z+[A-Z0-9]`, which represents\nUPPER_SNAKE_CASE.",
             "type": "string"
           }
         },
@@ -248,7 +248,8 @@
             "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
             "refreshUrl": "https://oauth2.googleapis.com/token",
             "scopes": {
-              "https://www.googleapis.com/auth/colaboratory": "Read, write, and delete your Colab resources"
+              "https://www.googleapis.com/auth/colaboratory": "Read, write, and delete your Colab resources",
+              "https://www.googleapis.com/auth/colaboratory.readonly": "Read-only access to your Colab resources"
             },
             "tokenUrl": "https://oauth2.googleapis.com/token"
           }
@@ -261,7 +262,8 @@
           "implicit": {
             "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
             "scopes": {
-              "https://www.googleapis.com/auth/colaboratory": "Read, write, and delete your Colab resources"
+              "https://www.googleapis.com/auth/colaboratory": "Read, write, and delete your Colab resources",
+              "https://www.googleapis.com/auth/colaboratory.readonly": "Read-only access to your Colab resources"
             }
           }
         },
@@ -277,7 +279,7 @@
     "description": "colaboratory.googleapis.com API.",
     "title": "Colab API",
     "version": "v1",
-    "x-google-revision": "20260710"
+    "x-google-revision": "20260714"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -335,12 +337,14 @@
         "security": [
           {
             "google_oauth_implicit": [
-              "https://www.googleapis.com/auth/colaboratory"
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
             ]
           },
           {
             "google_oauth_code": [
-              "https://www.googleapis.com/auth/colaboratory"
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
             ]
           },
           {
@@ -394,12 +398,14 @@
         "security": [
           {
             "google_oauth_implicit": [
-              "https://www.googleapis.com/auth/colaboratory"
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
             ]
           },
           {
             "google_oauth_code": [
-              "https://www.googleapis.com/auth/colaboratory"
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
             ]
           },
           {
@@ -462,12 +468,14 @@
         "security": [
           {
             "google_oauth_implicit": [
-              "https://www.googleapis.com/auth/colaboratory"
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
             ]
           },
           {
             "google_oauth_code": [
-              "https://www.googleapis.com/auth/colaboratory"
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
             ]
           },
           {

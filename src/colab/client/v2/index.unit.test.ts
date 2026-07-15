@@ -346,6 +346,7 @@ describe('ColabApiClient', () => {
           token: 'test-token',
           expireTime: new Date(2026, 0, 1),
         },
+        version: 'test.version',
       },
       {
         name: 'runtimes/r-2',
@@ -355,6 +356,7 @@ describe('ColabApiClient', () => {
           shape: 'SHAPE_STANDARD',
         },
         connectionInfo: undefined,
+        version: undefined,
       },
       {
         name: 'runtimes/r-3',
@@ -364,6 +366,7 @@ describe('ColabApiClient', () => {
           shape: 'SHAPE_HIGHMEM',
         },
         connectionInfo: undefined,
+        version: undefined,
       },
     ];
 

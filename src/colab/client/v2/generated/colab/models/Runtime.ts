@@ -56,6 +56,17 @@ export interface Runtime {
      * @memberof Runtime
      */
     runtimeSpec: Key;
+    /**
+     * Optional. The version of the runtime image.
+     * 
+     * See [Colab Runtime Version
+     * FAQ](https://research.google.com/colaboratory/runtime-version-faq.html) for
+     * supported runtime versions. If omitted (empty), the latest runtime image is
+     * used.
+     * @type {string}
+     * @memberof Runtime
+     */
+    version?: string;
 }
 
 /**
@@ -79,6 +90,7 @@ export function RuntimeFromJSONTyped(json: any, ignoreDiscriminator: boolean): R
         'connectionInfo': json['connectionInfo'] == null ? undefined : ConnectionInfoFromJSON(json['connectionInfo']),
         'name': json['name'] == null ? undefined : json['name'],
         'runtimeSpec': KeyFromJSON(json['runtimeSpec']),
+        'version': json['version'] == null ? undefined : json['version'],
     };
 }
 
@@ -95,6 +107,7 @@ export function RuntimeToJSONTyped(value?: Omit<Runtime, 'connectionInfo'> | nul
         
         'name': value['name'],
         'runtimeSpec': KeyToJSON(value['runtimeSpec']),
+        'version': value['version'],
     };
 }
 
