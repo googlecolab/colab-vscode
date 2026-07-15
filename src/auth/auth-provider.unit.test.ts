@@ -5,7 +5,7 @@
  */
 
 import { expect } from 'chai';
-import { GaxiosError } from 'gaxios';
+import { GaxiosError, GaxiosOptionsPrepared, GaxiosResponse } from 'gaxios';
 import { OAuth2Client } from 'google-auth-library';
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from 'sinon';
@@ -295,7 +295,7 @@ describe('GoogleAuthProvider', () => {
           it(`clears the session and re-initializes if refreshAccessToken throws a ${status.toString()} GaxiosError`, async () => {
             const gaxiosError: GaxiosError = new GaxiosError(
               message,
-              {},
+              {} as GaxiosOptionsPrepared,
               {
                 config: {},
                 data: undefined,
@@ -303,7 +303,7 @@ describe('GoogleAuthProvider', () => {
                 statusText: 'Unauthorized',
                 headers: {},
                 request: { responseURL: '' },
-              },
+              } as unknown as GaxiosResponse,
             );
             sinon.stub(oauth2Client, 'refreshAccessToken').throws(gaxiosError);
             storageStub.getSessions.onSecondCall().resolves([]);
@@ -600,7 +600,7 @@ describe('GoogleAuthProvider', () => {
         it(`clears the session when refreshing the access token throws a ${status.toString()} GaxiosError`, async () => {
           const gaxiosError: GaxiosError = new GaxiosError(
             message,
-            {},
+            {} as GaxiosOptionsPrepared,
             {
               config: {},
               data: undefined,
@@ -608,7 +608,7 @@ describe('GoogleAuthProvider', () => {
               statusText: 'Unauthorized',
               headers: {},
               request: { responseURL: '' },
-            },
+            } as unknown as GaxiosResponse,
           );
           refreshAccessTokenStub.throws(gaxiosError);
           sinon.stub(oauth2Client, 'revokeToken').resolves();
