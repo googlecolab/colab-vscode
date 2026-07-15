@@ -5,7 +5,7 @@
  */
 
 import { expect } from 'chai';
-import { GaxiosError } from 'gaxios';
+import { GaxiosError, GaxiosResponse } from 'gaxios';
 import { OAuth2Client } from 'google-auth-library';
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from 'sinon';
@@ -293,17 +293,18 @@ describe('GoogleAuthProvider', () => {
 
         for (const { message, status } of GAXIOS_ERRORS) {
           it(`clears the session and re-initializes if refreshAccessToken throws a ${status.toString()} GaxiosError`, async () => {
+            const headers = new Headers();
+            const url = new URL('https://example.com');
             const gaxiosError: GaxiosError = new GaxiosError(
               message,
-              {},
+              { headers, url },
               {
-                config: {},
+                config: { headers, url },
                 data: undefined,
                 status,
                 statusText: 'Unauthorized',
-                headers: {},
-                request: { responseURL: '' },
-              },
+                headers,
+              } as Partial<GaxiosResponse> as GaxiosResponse,
             );
             sinon.stub(oauth2Client, 'refreshAccessToken').throws(gaxiosError);
             storageStub.getSessions.onSecondCall().resolves([]);
@@ -598,17 +599,18 @@ describe('GoogleAuthProvider', () => {
 
       for (const { message, status } of GAXIOS_ERRORS) {
         it(`clears the session when refreshing the access token throws a ${status.toString()} GaxiosError`, async () => {
+          const headers = new Headers();
+          const url = new URL('https://example.com');
           const gaxiosError: GaxiosError = new GaxiosError(
             message,
-            {},
+            { headers, url },
             {
-              config: {},
+              config: { headers, url },
               data: undefined,
               status,
               statusText: 'Unauthorized',
-              headers: {},
-              request: { responseURL: '' },
-            },
+              headers,
+            } as Partial<GaxiosResponse> as GaxiosResponse,
           );
           refreshAccessTokenStub.throws(gaxiosError);
           sinon.stub(oauth2Client, 'revokeToken').resolves();
