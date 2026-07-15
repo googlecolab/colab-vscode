@@ -426,6 +426,8 @@ export class AssignmentManager implements Disposable {
             label,
             variant: normalizeVariant(assignmentOrRuntime.runtimeSpec.variant),
             accelerator: assignmentOrRuntime.runtimeSpec.accelerator,
+            shape: normalizeShape(assignmentOrRuntime.runtimeSpec.shape),
+            version: assignmentOrRuntime.version,
           },
           c.endpoint,
           c,
@@ -773,10 +775,7 @@ export class AssignmentManager implements Disposable {
         ? connectionInfo.expireTime
         : new Date(Date.now() + connectionInfo.tokenExpiresInSeconds * 1000);
     const colabServer: ColabAssignedServer = {
-      id: server.id,
-      label: server.label,
-      variant: server.variant,
-      accelerator: server.accelerator,
+      ...server,
       endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
@@ -975,6 +974,7 @@ export class AssignmentManager implements Disposable {
             accelerator: descriptor.accelerator ?? 'NONE',
             shape: denormalizeShape(descriptor.shape),
           },
+          version: descriptor.version,
         },
         requestId,
       },
@@ -991,8 +991,9 @@ export class AssignmentManager implements Disposable {
     const operationId = trimPrefix(operation.name, 'operations/');
     operation = (await this.vs.window.withProgress(
       {
-        location: this.vs.ProgressLocation.Window,
-        title: `Assigning server...`,
+        location: this.vs.ProgressLocation.Notification,
+        title: 'Assigning server...',
+        cancellable: false,
       },
       () => {
         return this.colabApiClient.operations.waitOperation(

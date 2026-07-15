@@ -27,7 +27,10 @@ import {
   CreateRuntimeRequest,
   Runtime,
 } from '../colab/client/v2/generated/colab';
-import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
+import {
+  ColaboratoryApi as OperationsApi,
+  WaitOperationRequest,
+} from '../colab/client/v2/generated/operations';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
@@ -106,6 +109,12 @@ const defaultServer: ColabAssignedServer = {
   dateAssigned: NOW,
 };
 
+const defaultServerDescriptor: ColabServerDescriptor = {
+  ...defaultAssignmentDescriptor,
+  shape: Shape.STANDARD,
+  version: '2026.04',
+};
+
 const defaultRuntimeId = `r-${randomUUID()}`;
 const defaultRuntime: Runtime = {
   name: `runtimes/${defaultRuntimeId}`,
@@ -120,10 +129,12 @@ const defaultRuntime: Runtime = {
     expireTime: new Date(NOW.getTime() + TOKEN_EXPIRY_MS),
     endpoint: 'm-s-foo',
   },
+  version: defaultServerDescriptor.version,
 };
 
 const defaultServerV2: ColabAssignedServer = {
   ...defaultServer,
+  ...defaultServerDescriptor,
   id: defaultRuntimeId,
 };
 
@@ -1681,7 +1692,8 @@ describe('AssignmentManager', () => {
                 isUUID(req.requestId) &&
                 spec?.variant === defaultRuntime.runtimeSpec.variant &&
                 spec.shape === defaultRuntime.runtimeSpec.shape &&
-                spec.accelerator === defaultRuntime.runtimeSpec.accelerator
+                spec.accelerator === defaultRuntime.runtimeSpec.accelerator &&
+                req.runtime?.version === defaultRuntime.version
               );
             }),
           )
@@ -1711,7 +1723,8 @@ describe('AssignmentManager', () => {
                 isUUID(req.requestId) &&
                 spec?.variant === defaultRuntime.runtimeSpec.variant &&
                 spec.shape === defaultRuntime.runtimeSpec.shape &&
-                spec.accelerator === defaultRuntime.runtimeSpec.accelerator
+                spec.accelerator === defaultRuntime.runtimeSpec.accelerator &&
+                req.runtime?.version === defaultRuntime.version
               );
             }),
           )
@@ -1744,7 +1757,8 @@ describe('AssignmentManager', () => {
                   isUUID(req.requestId) &&
                   spec?.variant === defaultRuntime.runtimeSpec.variant &&
                   spec.shape === defaultRuntime.runtimeSpec.shape &&
-                  spec.accelerator === defaultRuntime.runtimeSpec.accelerator
+                  spec.accelerator === defaultRuntime.runtimeSpec.accelerator &&
+                  req.runtime?.version === defaultRuntime.version
                 );
               }),
             )
@@ -1756,7 +1770,7 @@ describe('AssignmentManager', () => {
           await serverStorage.store([defaultServerV2]);
 
           assignedServer = await assignmentManager.assignServer(
-            defaultAssignmentDescriptor,
+            defaultServerDescriptor,
           );
         });
 
@@ -1796,6 +1810,70 @@ describe('AssignmentManager', () => {
         });
       });
 
+      describe('when a server is assigned in a long-running operation', () => {
+        const OPERATION_ID = randomUUID();
+        const WAIT_OPERATION_TIMEOUT = '120s';
+
+        beforeEach(() => {
+          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+            .withArgs(
+              sinon.match((req: CreateRuntimeRequest) => {
+                const spec = req.runtime?.runtimeSpec;
+                return (
+                  req.requestId &&
+                  isUUID(req.requestId) &&
+                  spec?.variant === defaultRuntime.runtimeSpec.variant &&
+                  spec.shape === defaultRuntime.runtimeSpec.shape &&
+                  spec.accelerator === defaultRuntime.runtimeSpec.accelerator &&
+                  req.runtime?.version === defaultRuntime.version
+                );
+              }),
+            )
+            .resolves({
+              name: `operations/${OPERATION_ID}`,
+              done: false,
+            });
+          (colabApiClientStub.operations.waitOperation as sinon.SinonStub)
+            .withArgs(
+              sinon.match(
+                (req: WaitOperationRequest) =>
+                  req.operationsId === OPERATION_ID &&
+                  req.timeout === WAIT_OPERATION_TIMEOUT,
+              ),
+            )
+            .resolves({
+              name: `operations/${OPERATION_ID}`,
+              done: true,
+              response: defaultRuntime,
+            });
+
+          vsCodeStub.window.withProgress
+            .withArgs(
+              sinon.match({
+                location: vsCodeStub.ProgressLocation.Notification,
+                title: 'Assigning server...',
+                cancellable: false,
+              }),
+              sinon.match.any,
+            )
+            .callsFake((_, task) => {
+              const tokenSource = new vsCodeStub.CancellationTokenSource();
+              return task({ report: sinon.stub() }, tokenSource.token);
+            });
+        });
+
+        it('stores and returns the server with progress', async () => {
+          const assignedServer = await assignmentManager.assignServer(
+            defaultServerDescriptor,
+          );
+
+          expect(stripNetworkOverride(assignedServer)).to.deep.equal(
+            defaultServerV2,
+          );
+          sinon.assert.calledOnce(vsCodeStub.window.withProgress);
+        });
+      });
+
       describe('with too many assigned servers', () => {
         beforeEach(() => {
           (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
@@ -1809,7 +1887,7 @@ describe('AssignmentManager', () => {
 
         it('notifies the user', async () => {
           await expect(
-            assignmentManager.assignServer(defaultAssignmentDescriptor),
+            assignmentManager.assignServer(defaultServerDescriptor),
           ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
           sinon.assert.calledOnceWithMatch(
@@ -1824,7 +1902,7 @@ describe('AssignmentManager', () => {
           );
 
           await expect(
-            assignmentManager.assignServer(defaultAssignmentDescriptor),
+            assignmentManager.assignServer(defaultServerDescriptor),
           ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
           sinon.assert.calledOnceWithExactly(
@@ -1848,7 +1926,7 @@ describe('AssignmentManager', () => {
 
         it('notifies the user', async () => {
           await expect(
-            assignmentManager.assignServer(defaultAssignmentDescriptor),
+            assignmentManager.assignServer(defaultServerDescriptor),
           ).to.eventually.be.rejectedWith(InsufficientQuotaError);
 
           sinon.assert.calledOnceWithMatch(
@@ -1864,7 +1942,7 @@ describe('AssignmentManager', () => {
           );
 
           await expect(
-            assignmentManager.assignServer(defaultAssignmentDescriptor),
+            assignmentManager.assignServer(defaultServerDescriptor),
           ).to.eventually.be.rejectedWith(InsufficientQuotaError);
 
           sinon.assert.calledOnceWithMatch(
@@ -1892,7 +1970,7 @@ describe('AssignmentManager', () => {
 
         it('notifies the user', async () => {
           await expect(
-            assignmentManager.assignServer(defaultAssignmentDescriptor),
+            assignmentManager.assignServer(defaultServerDescriptor),
           ).to.eventually.be.rejectedWith(DenylistedError);
 
           sinon.assert.calledOnceWithMatch(
@@ -2097,16 +2175,16 @@ describe('AssignmentManager', () => {
             response: defaultRuntime,
           });
 
-          await assignmentManager.assignServer(defaultAssignmentDescriptor);
+          await assignmentManager.assignServer(defaultServerDescriptor);
 
           sinon.assert.calledOnceWithExactly(
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: defaultAssignment.variant,
-              accelerator: defaultAssignment.accelerator,
-              shape: '',
-              version: '',
+              variant: defaultServerDescriptor.variant,
+              accelerator: defaultServerDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultServerDescriptor.version ?? '',
               hadFallback: false,
             },
           );
@@ -2170,16 +2248,16 @@ describe('AssignmentManager', () => {
               },
             });
 
-          await assignmentManager.assignServer(defaultAssignmentDescriptor);
+          await assignmentManager.assignServer(defaultServerDescriptor);
 
           sinon.assert.calledOnceWithExactly(
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: defaultAssignment.variant,
-              accelerator: defaultAssignment.accelerator,
-              shape: '',
-              version: '',
+              variant: defaultServerDescriptor.variant,
+              accelerator: defaultServerDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultServerDescriptor.version ?? '',
               hadFallback: true,
             },
           );
@@ -2216,18 +2294,17 @@ describe('AssignmentManager', () => {
             },
           });
 
-          await expect(
-            assignmentManager.assignServer(defaultAssignmentDescriptor),
-          ).to.be.rejected;
+          await expect(assignmentManager.assignServer(defaultServerDescriptor))
+            .to.be.rejected;
 
           sinon.assert.calledOnceWithExactly(
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_ALL_ACCELERATORS_UNAVAILABLE,
             {
-              variant: defaultAssignment.variant,
-              accelerator: defaultAssignment.accelerator,
-              shape: '',
-              version: '',
+              variant: defaultServerDescriptor.variant,
+              accelerator: defaultServerDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultServerDescriptor.version ?? '',
               hadFallback: true,
             },
           );
@@ -2272,43 +2349,18 @@ describe('AssignmentManager', () => {
             });
 
             await expect(
-              assignmentManager.assignServer(defaultAssignmentDescriptor),
+              assignmentManager.assignServer(defaultServerDescriptor),
             ).to.be.rejected;
 
             sinon.assert.calledOnceWithExactly(logStub, outcome, {
-              variant: defaultAssignment.variant,
-              accelerator: defaultAssignment.accelerator,
-              shape: '',
-              version: '',
+              variant: defaultServerDescriptor.variant,
+              accelerator: defaultServerDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultServerDescriptor.version ?? '',
               hadFallback: false,
             });
           });
         }
-
-        it('logs the requested shape and version when present', async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
-            done: true,
-            response: defaultRuntime,
-          });
-
-          await assignmentManager.assignServer({
-            ...defaultAssignmentDescriptor,
-            shape: Shape.HIGHMEM,
-            version: 'v1',
-          });
-
-          sinon.assert.calledOnceWithExactly(
-            logStub,
-            AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
-            {
-              variant: defaultAssignment.variant,
-              accelerator: defaultAssignment.accelerator,
-              shape: 'HIGHMEM',
-              version: 'v1',
-              hadFallback: false,
-            },
-          );
-        });
 
         it('logs an empty accelerator for the default CPU descriptor', async () => {
           (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
