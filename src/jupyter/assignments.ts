@@ -220,8 +220,24 @@ export class AssignmentManager implements Disposable {
     if (stored.length === 0) {
       return;
     }
-    const live = await this.colabClient.listAssignments(signal);
-    await this.reconcileStoredServers(stored, live);
+
+    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
+    let live: ListedAssignment[] | Runtime[];
+    if (enablePublicApi) {
+      live =
+        (
+          await this.colabApiClient.colab.listRuntimes(
+            /* requestParameters= */ {},
+            { signal },
+          )
+        ).runtimes ?? [];
+    } else {
+      live = await this.colabClient.listAssignments(signal);
+    }
+    await this.reconcileStoredServers(
+      stored,
+      live.map((a) => getEndpoint(a)),
+    );
   }
 
   /**
@@ -282,11 +298,26 @@ export class AssignmentManager implements Disposable {
       return storedServers;
     }
 
-    const allAssignments = await this.colabClient.listAssignments(signal);
+    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
+    let allAssignments: ListedAssignment[] | Runtime[];
+    if (enablePublicApi) {
+      allAssignments =
+        (
+          await this.colabApiClient.colab.listRuntimes(
+            /* requestParameters= */ {},
+            { signal },
+          )
+        ).runtimes ?? [];
+    } else {
+      allAssignments = await this.colabClient.listAssignments(signal);
+    }
 
     if (from === 'extension' || from === 'all') {
       storedServers = (
-        await this.reconcileStoredServers(storedServers, allAssignments)
+        await this.reconcileStoredServers(
+          storedServers,
+          allAssignments.map((a) => getEndpoint(a)),
+        )
       ).map((server) => {
         const c = server.connectionInformation;
         return {
@@ -649,9 +680,9 @@ export class AssignmentManager implements Disposable {
 
   private async reconcileStoredServers(
     storedServers: ColabAssignedServer[],
-    liveAssignments: ListedAssignment[],
+    liveEndpoints: string[],
   ): Promise<ColabAssignedServer[]> {
-    const liveEndpointSet = new Set(liveAssignments.map((a) => a.endpoint));
+    const liveEndpointSet = new Set(liveEndpoints);
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
@@ -796,7 +827,7 @@ export class AssignmentManager implements Disposable {
   }
 
   private async getUnownedServers(
-    allAssignments: ListedAssignment[],
+    allAssignments: ListedAssignment[] | Runtime[],
     storedServers: ColabAssignedServer[],
     signal?: AbortSignal,
   ): Promise<UnownedServer[]> {
@@ -805,18 +836,19 @@ export class AssignmentManager implements Disposable {
     return (
       await Promise.all(
         allAssignments
-          .filter((a) => !storedEndpointSet.has(a.endpoint))
+          .filter((a) => !storedEndpointSet.has(getEndpoint(a)))
           .map(async (a): Promise<UnownedServer | undefined> => {
+            const endpoint = getEndpoint(a);
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.
             let label: string;
             const timeout = waitForTimeout(
               LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
-              `Listing sessions timeout exceeded for endpoint ${a.endpoint}`,
+              `Listing sessions timeout exceeded for endpoint ${endpoint}`,
             );
             try {
               const sessions = await Promise.race([
-                this.colabClient.listSessions(a.endpoint, signal),
+                this.colabClient.listSessions(endpoint, signal),
                 timeout.promise,
               ]);
               label =
@@ -833,7 +865,7 @@ export class AssignmentManager implements Disposable {
                 error.response.status === 404
               ) {
                 log.trace(
-                  `Dropping orphan assignment ${a.endpoint} - sessions endpoint returned 404`,
+                  `Dropping orphan assignment ${endpoint} - sessions endpoint returned 404`,
                   error,
                 );
                 return undefined;
@@ -841,19 +873,14 @@ export class AssignmentManager implements Disposable {
               // For any other failure, fail open with a placeholder label so
               // we still surface the assignment to the user.
               log.warn(
-                `Failed to list sessions for assignment ${a.endpoint}, falling back to placeholder label`,
+                `Failed to list sessions for assignment ${endpoint}, falling back to placeholder label`,
                 error,
               );
               label = UNKNOWN_REMOTE_SERVER_NAME;
             } finally {
               timeout.dispose();
             }
-            return {
-              label,
-              endpoint: a.endpoint,
-              variant: a.variant,
-              accelerator: a.accelerator,
-            };
+            return toUnownedServer(label, a);
           }),
       )
     ).filter((s): s is UnownedServer => s !== undefined);
@@ -1091,6 +1118,40 @@ function isColabServerDescriptorWithAccelerator(
   descriptor: ColabServerDescriptor,
 ): descriptor is ColabServerDescriptorWithAccelerator {
   return !!descriptor.accelerator;
+}
+
+function toUnownedServer(
+  label: string,
+  runtime: Runtime | ListedAssignment,
+): UnownedServer {
+  if (instanceOfRuntime(runtime)) {
+    assert(runtime.name);
+    assert(runtime.connectionInfo);
+    return {
+      id: trimPrefix(runtime.name, 'runtimes/'),
+      label,
+      endpoint: runtime.connectionInfo.endpoint,
+      variant: normalizeVariant(runtime.runtimeSpec.variant),
+      accelerator: runtime.runtimeSpec.accelerator,
+      shape: normalizeShape(runtime.runtimeSpec.shape),
+      version: runtime.version,
+    };
+  }
+  return {
+    id: runtime.notebookIdHash,
+    label,
+    endpoint: runtime.endpoint,
+    variant: runtime.variant,
+    accelerator: runtime.accelerator,
+  };
+}
+
+function getEndpoint(runtime: Runtime | ListedAssignment | Assignment): string {
+  if (instanceOfRuntime(runtime)) {
+    assert(runtime.connectionInfo);
+    return runtime.connectionInfo.endpoint;
+  }
+  return runtime.endpoint;
 }
 
 function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
