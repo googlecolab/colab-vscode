@@ -14,9 +14,10 @@ import {
   buildQuickPickStub,
 } from '../test/helpers/quick-input';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { Variant, Shape, ExperimentFlag } from './api';
+import { ExperimentFlag } from './client/v1/api';
 import { TEST_ONLY } from './experiment-state';
 import { ServerPicker } from './server-picker';
+import { Shape, Variant } from './types';
 
 const STANDARD_T4_SERVER = {
   label: 'Colab GPU T4',

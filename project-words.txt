@@ -3,6 +3,8 @@ authuser
 autorestarting
 chromedriver
 colab
+colabclient
+colaboratory
 dryrun
 ephem
 extest

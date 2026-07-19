@@ -13,29 +13,32 @@ import sinon, {
   SinonStubbedInstance,
 } from 'sinon';
 import { MessageItem, Uri } from 'vscode';
+import { ColabClient } from '../colab/client/v1';
 import {
   Assignment,
+  ExperimentFlag,
   RuntimeProxyToken,
-  Shape,
   SubscriptionState,
-  SubscriptionTier,
   UserInfo,
-  Variant,
-} from '../colab/api';
+} from '../colab/client/v1/api';
+import { ColabApiClient } from '../colab/client/v2';
+import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
+import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
+import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
-  ColabClient,
+  AcceleratorUnavailableError,
+  ColabRequestError,
   DenylistedError,
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
-  AcceleratorUnavailableError,
-} from '../colab/client';
-import { REMOVE_SERVER } from '../colab/commands/constants';
-import { ColabRequestError } from '../colab/errors';
+} from '../colab/errors';
+import { TEST_ONLY as EXPERIMENT_TEST } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { Shape, SubscriptionTier, Variant } from '../colab/types';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { TestEventEmitter } from '../test/helpers/events';
@@ -58,6 +61,7 @@ import { ServerStorage } from './storage';
 
 const NOW = new Date();
 const TOKEN_EXPIRY_MS = 1000 * 60 * 60;
+const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const defaultAssignmentDescriptor: ColabServerDescriptor = {
   label: 'Colab GPU A100',
@@ -102,6 +106,7 @@ describe('AssignmentManager', () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
+  let colabApiClientStub: SinonStubbedInstance<ColabApiClient>;
   let serverStorage: ServerStorage;
   let assignmentChangeListener: sinon.SinonStub<[AssignmentChangeEvent], void>;
   let assignmentManager: AssignmentManager;
@@ -143,10 +148,15 @@ describe('AssignmentManager', () => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
+    colabApiClientStub = {
+      colab: sinon.createStubInstance(ColaboratoryApi),
+      operations: sinon.createStubInstance(OperationsApi),
+    };
     serverStorage = new ServerStorageFake() as ServerStorage;
     assignmentManager = new AssignmentManager(
       vsCodeStub.asVsCode(),
       colabClientStub,
+      colabApiClientStub,
       serverStorage,
     );
     assignmentChangeListener = sinon.stub();
@@ -154,6 +164,7 @@ describe('AssignmentManager', () => {
   });
 
   afterEach(() => {
+    EXPERIMENT_TEST.resetFlagsForTest();
     fakeClock.restore();
     sinon.restore();
   });
@@ -166,22 +177,6 @@ describe('AssignmentManager', () => {
         assignmentManager.getAvailableServerDescriptors(),
       ).to.be.rejectedWith(/disposed/);
     });
-
-    const mockUserInfo: UserInfo = {
-      subscriptionTier: SubscriptionTier.NONE,
-      paidComputeUnitsBalance: 1,
-      eligibleAccelerators: [
-        {
-          variant: Variant.GPU,
-          models: ['T4', 'A100'],
-        },
-        {
-          variant: Variant.TPU,
-          models: ['V5E1', 'V6E1'],
-        },
-      ],
-      ineligibleAccelerators: [],
-    };
 
     const defaultGpuT4Descriptor = {
       label: 'Colab GPU T4',
@@ -207,38 +202,118 @@ describe('AssignmentManager', () => {
       accelerator: 'V6E1',
     };
 
-    it('returns the default CPU and the eligible servers', async () => {
-      colabClientStub.getUserInfo.resolves(mockUserInfo);
+    describe('with Public API disabled', () => {
+      const mockUserInfo: UserInfo = {
+        subscriptionTier: SubscriptionTier.NONE,
+        paidComputeUnitsBalance: 1,
+        eligibleAccelerators: [
+          {
+            variant: Variant.GPU,
+            models: ['T4', 'A100'],
+          },
+          {
+            variant: Variant.TPU,
+            models: ['V5E1', 'V6E1'],
+          },
+        ],
+        ineligibleAccelerators: [],
+      };
 
-      const servers = await assignmentManager.getAvailableServerDescriptors();
-
-      expect(servers).to.deep.equal([
-        DEFAULT_CPU_SERVER,
-        defaultGpuT4Descriptor,
-        defaultGpuA100Descriptor,
-        defaultTpuV5E1Descriptor,
-        defaultTpuV6E1Descriptor,
-      ]);
-    });
-
-    it('returns the default CPU and the eligible servers for pro users', async () => {
-      colabClientStub.getUserInfo.resolves({
-        ...mockUserInfo,
-        subscriptionTier: SubscriptionTier.PRO,
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(ExperimentFlag.EnablePublicApi, false);
       });
 
-      const servers = await assignmentManager.getAvailableServerDescriptors();
+      it('returns the default CPU and the eligible servers', async () => {
+        colabClientStub.getUserInfo.resolves(mockUserInfo);
 
-      expect(servers).to.deep.equal([
-        { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD },
-        { ...DEFAULT_CPU_SERVER, shape: Shape.HIGHMEM },
-        { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
-        { ...defaultGpuT4Descriptor, shape: Shape.HIGHMEM },
-        { ...defaultGpuA100Descriptor, shape: Shape.STANDARD },
-        { ...defaultGpuA100Descriptor, shape: Shape.HIGHMEM },
-        { ...defaultTpuV5E1Descriptor, shape: Shape.HIGHMEM },
-        { ...defaultTpuV6E1Descriptor, shape: Shape.HIGHMEM },
-      ]);
+        const servers = await assignmentManager.getAvailableServerDescriptors();
+
+        expect(servers).to.deep.equal([
+          DEFAULT_CPU_SERVER,
+          defaultGpuT4Descriptor,
+          defaultGpuA100Descriptor,
+          defaultTpuV5E1Descriptor,
+          defaultTpuV6E1Descriptor,
+        ]);
+      });
+
+      it('returns the default CPU and the eligible servers for pro users', async () => {
+        colabClientStub.getUserInfo.resolves({
+          ...mockUserInfo,
+          subscriptionTier: SubscriptionTier.PRO,
+        });
+
+        const servers = await assignmentManager.getAvailableServerDescriptors();
+
+        expect(servers).to.deep.equal([
+          { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD },
+          { ...DEFAULT_CPU_SERVER, shape: Shape.HIGHMEM },
+          { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
+          { ...defaultGpuT4Descriptor, shape: Shape.HIGHMEM },
+          { ...defaultGpuA100Descriptor, shape: Shape.STANDARD },
+          { ...defaultGpuA100Descriptor, shape: Shape.HIGHMEM },
+          { ...defaultTpuV5E1Descriptor, shape: Shape.HIGHMEM },
+          { ...defaultTpuV6E1Descriptor, shape: Shape.HIGHMEM },
+        ]);
+      });
+    });
+
+    describe('with Public API enabled', () => {
+      const defaultCpuSpec = {
+        variant: 'VARIANT_CPU',
+        shape: 'SHAPE_STANDARD',
+        accelerator: 'NONE',
+      };
+      const defaultGpuSpec = {
+        variant: 'VARIANT_GPU',
+        shape: 'SHAPE_STANDARD',
+        accelerator: 'T4',
+      };
+      const defaultTpuSpec = {
+        variant: 'VARIANT_TPU',
+        shape: 'SHAPE_STANDARD',
+        accelerator: 'V5E1',
+      };
+
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(ExperimentFlag.EnablePublicApi, true);
+        (colabApiClientStub.colab.listRuntimeSpecs as sinon.SinonStub).resolves(
+          {
+            runtimeSpecs: [
+              {
+                key: defaultCpuSpec,
+                eligible: true,
+              },
+              {
+                key: defaultGpuSpec,
+                eligible: true,
+              },
+              {
+                key: defaultTpuSpec,
+                eligible: true,
+              },
+              {
+                key: {
+                  variant: 'VARIANT_GPU',
+                  shape: 'SHAPE_HIGHMEM',
+                  accelerator: 'DOES_NOT_MATTER',
+                },
+                eligible: false,
+              },
+            ],
+          },
+        );
+      });
+
+      it('returns the eligible server specs', async () => {
+        await expect(
+          assignmentManager.getAvailableServerDescriptors(),
+        ).to.eventually.deep.equal([
+          { ...DEFAULT_CPU_SERVER, shape: Shape.STANDARD, accelerator: 'NONE' },
+          { ...defaultGpuT4Descriptor, shape: Shape.STANDARD },
+          { ...defaultTpuV5E1Descriptor, shape: Shape.STANDARD },
+        ]);
+      });
     });
   });
 
@@ -833,6 +908,34 @@ describe('AssignmentManager', () => {
           },
         ]);
       });
+    });
+
+    it('falls back to placeholder label when listing sessions times out', async () => {
+      colabClientStub.listAssignments.resolves([assignmentWithName]);
+      colabClientStub.listSessions.callsFake(async () => {
+        // Block listSessions to trigger the timeout.
+        await new Promise((resolve) =>
+          setTimeout(resolve, LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
+        );
+        return [
+          {
+            ...defaultSession,
+            name: 'test-session-name-that-does-not-matter',
+          },
+        ];
+      });
+
+      const resultsPromise = assignmentManager.getServers('external');
+      await fakeClock.tickAsync(LIST_UNOWNED_SESSIONS_TIMEOUT_MS);
+
+      await expect(resultsPromise).to.eventually.deep.equal([
+        {
+          label: 'Untitled',
+          endpoint: endpointWithName,
+          variant: Variant.DEFAULT,
+          accelerator: '',
+        },
+      ]);
     });
 
     describe('from all', () => {
@@ -1605,7 +1708,29 @@ describe('AssignmentManager', () => {
         );
       });
 
-      it('keeps the server tracked if deleting a session fails', async () => {
+      it('unassigns the server even if listing session fails', async () => {
+        jupyterStub.sessions.list.rejects(new Error('list failed'));
+
+        await assignmentManager.unassignServer(defaultServer);
+
+        const serversAfter = await assignmentManager.getServers('extension');
+        expect(serversAfter).to.be.empty;
+        sinon.assert.calledOnceWithMatch(
+          colabClientStub.unassign,
+          defaultServer.endpoint,
+        );
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: defaultServer, userInitiated: true }],
+          changed: [],
+        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 was/),
+        );
+      });
+
+      it('unassigns the server even if deleting session fails', async () => {
         const session = {
           id: 'mock-session-id-1',
           kernel: {
@@ -1622,24 +1747,23 @@ describe('AssignmentManager', () => {
         jupyterStub.sessions.list.resolves([session]);
         jupyterStub.sessions.delete.rejects(new Error('delete failed'));
 
-        await expect(
-          assignmentManager.unassignServer(defaultServer),
-        ).to.be.rejectedWith('delete failed');
+        await assignmentManager.unassignServer(defaultServer);
 
-        const serversAfter =
-          await assignmentManager.getLastKnownAssignedServers();
-        expect(serversAfter).to.deep.equal([
-          {
-            id: defaultServer.id,
-            label: defaultServer.label,
-            variant: defaultServer.variant,
-            accelerator: defaultServer.accelerator,
-            endpoint: defaultServer.endpoint,
-            dateAssigned: defaultServer.dateAssigned,
-          },
-        ]);
-        sinon.assert.notCalled(colabClientStub.unassign);
-        sinon.assert.notCalled(assignmentChangeListener);
+        const serversAfter = await assignmentManager.getServers('extension');
+        expect(serversAfter).to.be.empty;
+        sinon.assert.calledOnceWithMatch(
+          colabClientStub.unassign,
+          defaultServer.endpoint,
+        );
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: defaultServer, userInitiated: true }],
+          changed: [],
+        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 was/),
+        );
       });
 
       it('keeps the server tracked if remote unassign fails', async () => {

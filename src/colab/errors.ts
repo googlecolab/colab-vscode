@@ -28,3 +28,27 @@ export class ColabRequestError extends Error {
     );
   }
 }
+
+/** Error thrown when the user has too many assignments. */
+export class TooManyAssignmentsError extends Error {}
+
+/** Error thrown when the requested machine accelerator is unavailable. */
+export class AcceleratorUnavailableError extends Error {
+  /**
+   * Initializes a new instance.
+   *
+   * @param requested - The name of the requested accelerator.
+   */
+  constructor(readonly requested: string) {
+    super(`Requested accelerator "${requested}" is unavailable`);
+  }
+}
+
+/** Error thrown when the user has been denylisted. */
+export class DenylistedError extends Error {}
+
+/** Error thrown when the user has insufficient quota. */
+export class InsufficientQuotaError extends Error {}
+
+/** Error thrown when the request resource cannot be found. */
+export class NotFoundError extends Error {}

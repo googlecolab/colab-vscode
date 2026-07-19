@@ -25,7 +25,7 @@ export default defineConfig(
   cspellESLintPluginRecommended,
   jsdoc.configs['flat/recommended-typescript-error'],
   {
-    ignores: ['src/jupyter/client/generated'],
+    ignores: ['src/colab/client/v2/generated', 'src/jupyter/client/generated'],
   },
   {
     languageOptions: {

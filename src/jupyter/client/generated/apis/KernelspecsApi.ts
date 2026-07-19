@@ -13,15 +13,12 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  KernelspecsList200Response,
-} from '../models/index';
 import {
+    type KernelspecsList200Response,
     KernelspecsList200ResponseFromJSON,
     KernelspecsList200ResponseToJSON,
-} from '../models/index';
+} from '../models/KernelspecsList200Response';
 
 /**
  * KernelspecsApi - interface

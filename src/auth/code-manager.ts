@@ -5,16 +5,9 @@
  */
 
 import vscode from 'vscode';
+import { DisposablePromise, waitForTimeout } from '../common/async';
 
 const EXCHANGE_TIMEOUT_MS = 60_000;
-
-/**
- * A promise that can have its underlying resources (like timers or listeners)
- * cleaned up.
- */
-interface DisposablePromise<T> extends vscode.Disposable {
-  promise: Promise<T>;
-}
 
 /**
  * Provides the mechanism to wait for and resolve authorization codes. This
@@ -58,7 +51,10 @@ export class CodeManager implements vscode.Disposable {
     }
 
     const userCancellation = waitForCancellation(token);
-    const timeout = waitForTimeout(EXCHANGE_TIMEOUT_MS);
+    const timeout = waitForTimeout(
+      EXCHANGE_TIMEOUT_MS,
+      'Exchange timeout exceeded',
+    );
 
     try {
       const codePromise = new Promise<string>((resolve, reject) => {
@@ -124,28 +120,5 @@ function waitForCancellation(
     promise,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     dispose: () => listener.dispose(),
-  };
-}
-
-/**
- * Creates a promise that rejects after a specified timeout.
- * Returns a disposable to clear the timer.
- *
- * @param ms - The delay duration in milliseconds.
- * @returns A disposable promise that rejects after the specified timeout.
- */
-function waitForTimeout(ms: number): DisposablePromise<never> {
-  let timeoutId: NodeJS.Timeout;
-  const promise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error('Exchange timeout exceeded'));
-    }, ms);
-  });
-
-  return {
-    promise,
-    dispose: () => {
-      clearTimeout(timeoutId);
-    },
   };
 }

@@ -13,18 +13,17 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  Kernel,
-  KernelsStartRequest,
-} from '../models/index';
 import {
+    type Kernel,
     KernelFromJSON,
     KernelToJSON,
+} from '../models/Kernel';
+import {
+    type KernelsStartRequest,
     KernelsStartRequestFromJSON,
     KernelsStartRequestToJSON,
-} from '../models/index';
+} from '../models/KernelsStartRequest';
 
 export interface KernelsGetRequest {
     kernelId: string;
@@ -213,7 +212,7 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
 
         let urlPath = `/api/kernels/{kernel_id}`;
-        urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
+        urlPath = urlPath.replace('{kernel_id}', encodeURIComponent(String(requestParameters['kernelId'])));
 
         return {
             path: urlPath,
@@ -258,7 +257,7 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
 
         let urlPath = `/api/kernels/{kernel_id}/interrupt`;
-        urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
+        urlPath = urlPath.replace('{kernel_id}', encodeURIComponent(String(requestParameters['kernelId'])));
 
         return {
             path: urlPath,
@@ -302,7 +301,7 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
 
         let urlPath = `/api/kernels/{kernel_id}`;
-        urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
+        urlPath = urlPath.replace('{kernel_id}', encodeURIComponent(String(requestParameters['kernelId'])));
 
         return {
             path: urlPath,
@@ -383,7 +382,7 @@ export class KernelsApi extends runtime.BaseAPI implements KernelsApiInterface {
 
 
         let urlPath = `/api/kernels/{kernel_id}/restart`;
-        urlPath = urlPath.replace(`{${"kernel_id"}}`, encodeURIComponent(String(requestParameters['kernelId'])));
+        urlPath = urlPath.replace('{kernel_id}', encodeURIComponent(String(requestParameters['kernelId'])));
 
         return {
             path: urlPath,

@@ -7,8 +7,9 @@
 import vscode, { Disposable, Event } from 'vscode';
 import { telemetry } from '../../telemetry';
 import { CommandSource, LowBalanceSeverity } from '../../telemetry/api';
-import { ConsumptionUserInfo, SubscriptionTier } from '../api';
+import { ConsumptionUserInfo } from '../client/v1/api';
 import { openColabSignup } from '../commands/external';
+import { SubscriptionTier } from '../types';
 
 const WARN_WHEN_LESS_THAN_MINUTES = 30;
 const DEFAULT_SNOOZE_MINUTES = 10;

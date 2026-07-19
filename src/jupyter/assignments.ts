@@ -13,30 +13,36 @@ import fetch, {
   Response,
 } from 'node-fetch';
 import vscode, { Disposable } from 'vscode';
+import { ColabClient } from '../colab/client/v1';
 import {
   Assignment,
   ListedAssignment,
   RuntimeProxyToken,
-  Variant,
   variantToMachineType,
-  SubscriptionTier,
-  Shape,
   isHighMemOnlyAccelerator,
-} from '../colab/api';
+  ExperimentFlag,
+} from '../colab/client/v1/api';
+import {
+  ColabApiClient,
+  normalizeShape,
+  normalizeVariant,
+} from '../colab/client/v2';
+import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
-  ColabClient,
+  ColabRequestError,
   DenylistedError,
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
-} from '../colab/client';
-import { REMOVE_SERVER } from '../colab/commands/constants';
-import { ColabRequestError } from '../colab/errors';
+} from '../colab/errors';
+import { getFlag } from '../colab/experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { Shape, SubscriptionTier, Variant } from '../colab/types';
+import { waitForTimeout } from '../common/async';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
@@ -93,12 +99,14 @@ export class AssignmentManager implements Disposable {
    * Initializes a new instance.
    *
    * @param vs - The VS Code API instance.
-   * @param client - The API client instance.
+   * @param colabClient - The old Colab private API client instance.
+   * @param colabApiClient - The new Colab public API client instance.
    * @param storage - The storage instance for persistence.
    */
   constructor(
     private readonly vs: typeof vscode,
-    private readonly client: ColabClient,
+    private readonly colabClient: ColabClient,
+    private readonly colabApiClient: ColabApiClient,
     private readonly storage: ServerStorage,
   ) {
     this.assignmentChange = new vs.EventEmitter<AssignmentChangeEvent>();
@@ -132,7 +140,33 @@ export class AssignmentManager implements Disposable {
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
     this.guardDisposed();
-    const userInfo = await this.client.getUserInfo(signal);
+    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
+    if (enablePublicApi) {
+      // The new ListRuntimeSpecs API already takes user's subscription tier
+      // into account, returning with the correct eligibility info. The new API
+      // also returns additional high-memory shapes for the Pro users, so we
+      // don't need to manually add them.
+      const response = await this.colabApiClient.colab.listRuntimeSpecs(
+        /* requestParameters= */ {},
+        /* initOverrides= */ { signal },
+      );
+      return (
+        response.runtimeSpecs
+          ?.filter((spec) => spec.eligible)
+          .map((spec) => {
+            const variant = normalizeVariant(spec.key.variant);
+            const shape = normalizeShape(spec.key.shape);
+            const accelerator = spec.key.accelerator;
+            const label =
+              variant === Variant.DEFAULT
+                ? 'Colab CPU'
+                : `Colab ${variant} ${accelerator}`;
+            return { label, variant, accelerator, shape };
+          }) ?? []
+      );
+    }
+
+    const userInfo = await this.colabClient.getUserInfo(signal);
 
     const eligibleDescriptors: ColabServerDescriptor[] =
       userInfo.eligibleAccelerators.flatMap((acc) =>
@@ -175,7 +209,7 @@ export class AssignmentManager implements Disposable {
     if (stored.length === 0) {
       return;
     }
-    const live = await this.client.listAssignments(signal);
+    const live = await this.colabClient.listAssignments(signal);
     await this.reconcileStoredServers(stored, live);
   }
 
@@ -237,7 +271,7 @@ export class AssignmentManager implements Disposable {
       return storedServers;
     }
 
-    const allAssignments = await this.client.listAssignments(signal);
+    const allAssignments = await this.colabClient.listAssignments(signal);
 
     if (from === 'extension' || from === 'all') {
       storedServers = (
@@ -249,7 +283,7 @@ export class AssignmentManager implements Disposable {
           connectionInformation: {
             ...c,
             fetch: colabProxyFetch(c.token),
-            WebSocket: colabProxyWebSocket(this.vs, this.client, server),
+            WebSocket: colabProxyWebSocket(this.vs, this.colabClient, server),
           },
         };
       });
@@ -327,7 +361,7 @@ export class AssignmentManager implements Disposable {
           );
           hadFallback = assignment.accelerator !== descriptor.accelerator;
         } else {
-          ({ assignment } = await this.client.assign(
+          ({ assignment } = await this.colabClient.assign(
             id,
             { variant, accelerator, shape, version },
             signal,
@@ -453,7 +487,7 @@ export class AssignmentManager implements Disposable {
     if (!server) {
       throw new NotFoundError('Server is not assigned');
     }
-    const newConnectionInfo = await this.client.refreshConnection(
+    const newConnectionInfo = await this.colabClient.refreshConnection(
       server.endpoint,
       signal,
     );
@@ -491,7 +525,7 @@ export class AssignmentManager implements Disposable {
   ): Promise<void> {
     this.guardDisposed();
     if (!isColabAssignedServer(server)) {
-      await this.client.unassign(server.endpoint, signal);
+      await this.colabClient.unassign(server.endpoint, signal);
       return;
     }
 
@@ -499,15 +533,8 @@ export class AssignmentManager implements Disposable {
     if (!stored) {
       return;
     }
-    const client = ProxiedJupyterClient.withStaticConnection(server);
-    await Promise.all(
-      (await client.sessions.list({ signal })).map((session) =>
-        session.id
-          ? client.sessions.delete({ session: session.id }, { signal })
-          : Promise.resolve(),
-      ),
-    );
-    await this.client.unassign(server.endpoint, signal);
+    await this.deleteSessions(server, signal);
+    await this.colabClient.unassign(server.endpoint, signal);
     const removed = await this.storage.remove(server.id);
     if (!removed) {
       return;
@@ -613,7 +640,7 @@ export class AssignmentManager implements Disposable {
   ): Promise<Assignment> {
     const { variant, accelerator, shape, version } = descriptor;
     try {
-      const { assignment } = await this.client.assign(
+      const { assignment } = await this.colabClient.assign(
         id,
         { variant, accelerator, shape, version },
         signal,
@@ -709,7 +736,7 @@ export class AssignmentManager implements Disposable {
       ...colabServer,
       connectionInformation: {
         ...colabServer.connectionInformation,
-        WebSocket: colabProxyWebSocket(this.vs, this.client, colabServer),
+        WebSocket: colabProxyWebSocket(this.vs, this.colabClient, colabServer),
       },
     };
   }
@@ -729,11 +756,15 @@ export class AssignmentManager implements Disposable {
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.
             let label: string;
+            const timeout = waitForTimeout(
+              LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
+              `Listing sessions timeout exceeded for endpoint ${a.endpoint}`,
+            );
             try {
-              const sessions = await this.client.listSessions(
-                a.endpoint,
-                signal,
-              );
+              const sessions = await Promise.race([
+                this.colabClient.listSessions(a.endpoint, signal),
+                timeout.promise,
+              ]);
               label =
                 sessions.length === 1 && sessions[0].name?.length
                   ? sessions[0].name
@@ -760,6 +791,8 @@ export class AssignmentManager implements Disposable {
                 error,
               );
               label = UNKNOWN_REMOTE_SERVER_NAME;
+            } finally {
+              timeout.dispose();
             }
             return {
               label,
@@ -842,11 +875,44 @@ export class AssignmentManager implements Disposable {
       );
     }
   }
+
+  private async deleteSessions(
+    server: ColabAssignedServer,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    // Best-effort clean up sessions before unassigning the server. Without
+    // this, sessions won't immediately disconnect if there are notebooks
+    // attached in VS Code. However, we don't want to fail the entire
+    // unassignServer call because the unassign API call will eventually garbage
+    // collect and clean up the sessions too.
+    const client = ProxiedJupyterClient.withStaticConnection(server);
+    return Promise.allSettled(
+      await client.sessions
+        .list({ signal })
+        .catch((err: unknown) => {
+          // Swallow the sessions.list error as this is best-effort.
+          log.warn('Error occurred while listing sessions:', err);
+          return [];
+        })
+        .then((sessions) =>
+          sessions.map((session) =>
+            session.id
+              ? client.sessions.delete({ session: session.id }, { signal })
+              : Promise.resolve(),
+          ),
+        ),
+    ).catch((err: unknown) => {
+      // Swallow the sessions.delete errors as this is best-effort.
+      log.warn('Error occurred while deleting sessions:', err);
+    });
+  }
 }
 
 enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
+
+const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';
 

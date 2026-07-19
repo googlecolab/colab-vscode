@@ -9,7 +9,7 @@ import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
 import type vscode from 'vscode';
-import { ExperimentFlag } from '../colab/api';
+import { ExperimentFlag } from '../colab/client/v1/api';
 import { TEST_ONLY as FLAGS_TEST_ONLY } from '../colab/experiment-state';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
 import { Deferred } from '../test/helpers/async';

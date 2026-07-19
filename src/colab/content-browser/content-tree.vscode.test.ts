@@ -21,11 +21,11 @@ import {
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { TestEventEmitter } from '../../test/helpers/events';
-import { Variant } from '../api';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../headers';
+import { Variant } from '../types';
 import { ContentItem } from './content-item';
 import { ContentTreeProvider } from './content-tree';
 

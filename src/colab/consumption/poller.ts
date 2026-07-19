@@ -12,8 +12,8 @@ import {
 } from '../../common/task-runner';
 import { Toggleable } from '../../common/toggleable';
 import { AssignmentChangeEvent } from '../../jupyter/assignments';
-import { ConsumptionUserInfo } from '../api';
-import { ColabClient } from '../client';
+import { ColabClient } from '../client/v1';
+import { ConsumptionUserInfo } from '../client/v1/api';
 
 const POLL_INTERVAL_MS = 1000 * 60; // 1 minute.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.

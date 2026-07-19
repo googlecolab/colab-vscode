@@ -14,11 +14,11 @@ import {
   StatusBarAlignment,
   VsCodeStub,
 } from '../test/helpers/vscode';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
 import { ConsumptionPoller } from './consumption/poller';
 import { ConsumptionStatusBar } from './consumption/status-bar';
 import { ExperimentStateProvider } from './experiment-state';
-import { createColabClient, createColabModule } from './module';
+import { createColabClients, createColabModule } from './module';
 
 function stubStatusBarItem(vs: VsCodeStub): StatusBarItem {
   const item: StatusBarItem = {
@@ -40,22 +40,27 @@ function stubStatusBarItem(vs: VsCodeStub): StatusBarItem {
   return item;
 }
 
-describe('createColabClient', () => {
+describe('createColabClients', () => {
   afterEach(() => {
     sinon.restore();
   });
 
-  it('returns a ColabClient', () => {
+  it('returns a ColabClient and ColabApiClient', () => {
     const vs = newVsCodeStub();
     const authProvider = sinon.createStubInstance(GoogleAuthProvider);
 
-    const colabClient = createColabClient(vs.asVsCode(), authProvider, {
-      publisher: 'google',
-      name: 'colab',
-      version: '0.0.1-test',
-    });
+    const { colabClient, colabApiClient } = createColabClients(
+      vs.asVsCode(),
+      authProvider,
+      {
+        publisher: 'google',
+        name: 'colab',
+        version: '0.0.1-test',
+      },
+    );
 
     expect(colabClient).to.exist;
+    expect(colabApiClient).to.exist;
   });
 });
 

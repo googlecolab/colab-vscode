@@ -11,35 +11,49 @@ import { CONFIG } from '../colab-config';
 import { Toggleable } from '../common/toggleable';
 import { PackageInfo } from '../config/package-info';
 import { AssignmentManager } from '../jupyter/assignments';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
+import { ColabApiClient, createColabApiClient } from './client/v2';
 import { ConsumptionNotifier } from './consumption/notifier';
 import { ConsumptionPoller } from './consumption/poller';
 import { ConsumptionStatusBar } from './consumption/status-bar';
 import { ExperimentStateProvider } from './experiment-state';
 
 /**
- * Builds the {@link ColabClient} bound to the user's auth state.
+ * Builds the {@link ColabClient} and {@link ColabApiClient} bound to the user's
+ * auth state.
  *
  * @param vs - The VS Code API instance.
  * @param authProvider - For token retrieval and sign-out on auth failure.
  * @param packageInfo - Used to set the user-agent on Colab requests.
  * @returns The constructed Colab client.
  */
-export function createColabClient(
+export function createColabClients(
   vs: typeof vscode,
   authProvider: GoogleAuthProvider,
   packageInfo: PackageInfo,
-): ColabClient {
-  return ColabClient.create(
-    new URL(CONFIG.ColabApiDomain),
-    new URL(CONFIG.ColabGapiDomain),
-    { appName: vs.env.appName, extensionVersion: packageInfo.version },
-    () =>
-      GoogleAuthProvider.getOrCreateSession(vs, REQUIRED_SCOPES).then(
-        (session) => session.accessToken,
-      ),
-    () => authProvider.signOut(),
-  );
+): {
+  colabClient: ColabClient;
+  colabApiClient: ColabApiClient;
+} {
+  const getAccessToken = () =>
+    GoogleAuthProvider.getOrCreateSession(vs, REQUIRED_SCOPES).then(
+      (session) => session.accessToken,
+    );
+  const onAuthError = () => authProvider.signOut();
+  return {
+    colabClient: ColabClient.create(
+      new URL(CONFIG.ColabApiDomain),
+      new URL(CONFIG.ColabGapiDomain),
+      { appName: vs.env.appName, extensionVersion: packageInfo.version },
+      getAccessToken,
+      onAuthError,
+    ),
+    colabApiClient: createColabApiClient(
+      CONFIG.ColabPublicApiDomain,
+      getAccessToken,
+      onAuthError,
+    ),
+  };
 }
 
 /** The result of activating the Colab module's background services. */

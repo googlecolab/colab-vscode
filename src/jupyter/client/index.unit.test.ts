@@ -8,11 +8,11 @@ import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { Disposable } from 'vscode';
-import { Variant } from '../../colab/api';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../../colab/headers';
+import { Variant } from '../../colab/types';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { TestUri } from '../../test/helpers/uri';
 import { AssignmentChangeEvent } from '../assignments';

@@ -15,7 +15,10 @@ import vscode, {
   type SecretStorage,
 } from 'vscode';
 import { GoogleAuthProvider } from '../auth/auth-provider';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
+import { ColabApiClient } from '../colab/client/v2';
+import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
+import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import {
   COLAB_TOOLBAR,
   MOUNT_DRIVE,
@@ -36,6 +39,7 @@ describe('createJupyterModule', () => {
   let jupyter: Extension<Jupyter>;
   let authProvider: sinon.SinonStubbedInstance<GoogleAuthProvider>;
   let colabClient: sinon.SinonStubbedInstance<ColabClient>;
+  let colabApiClient: sinon.SinonStubbedInstance<ColabApiClient>;
   let fsStub: sinon.SinonStubbedMember<
     typeof vscode.workspace.registerFileSystemProvider
   >;
@@ -71,6 +75,10 @@ describe('createJupyterModule', () => {
       value: new EventEmitter<unknown>().event,
     });
     colabClient = sinon.createStubInstance(ColabClient);
+    colabApiClient = {
+      colab: sinon.createStubInstance(ColaboratoryApi),
+      operations: sinon.createStubInstance(OperationsApi),
+    };
 
     // The integration host already has the activated extension's `colab` FS
     // provider, the two tree views, and all of the command IDs registered.
@@ -112,6 +120,7 @@ describe('createJupyterModule', () => {
       jupyter,
       authProvider,
       colabClient,
+      colabApiClient,
     );
     return result;
   }

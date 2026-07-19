@@ -10,7 +10,8 @@ import { telemetry } from '../../telemetry';
 import { LowBalanceSeverity } from '../../telemetry/api';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { SubscriptionTier, ConsumptionUserInfo } from '../api';
+import { ConsumptionUserInfo } from '../client/v1/api';
+import { SubscriptionTier } from '../types';
 import { ConsumptionNotifier } from './notifier';
 
 const NOTIFICATION_SEVERITIES = ['warn', 'error'] as const;

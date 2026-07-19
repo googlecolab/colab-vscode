@@ -7,7 +7,7 @@
 import { UUID } from 'crypto';
 import vscode from 'vscode';
 import { z } from 'zod';
-import { Variant } from '../colab/api';
+import { Variant } from '../colab/types';
 import { PROVIDER_ID } from '../config/constants';
 import { isUUID } from '../utils/uuid';
 import { ColabAssignedServer } from './servers';

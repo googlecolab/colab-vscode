@@ -15,8 +15,9 @@ import { AssignmentChangeEvent } from '../../jupyter/assignments';
 import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
-import { ConsumptionUserInfo, SubscriptionTier, Variant } from '../api';
-import { ColabClient } from '../client';
+import { ColabClient } from '../client/v1';
+import { ConsumptionUserInfo } from '../client/v1/api';
+import { SubscriptionTier, Variant } from '../types';
 import { ConsumptionPoller, TEST_ONLY } from './poller';
 
 const POLL_INTERVAL_MS = TEST_ONLY.POLL_INTERVAL_MS;

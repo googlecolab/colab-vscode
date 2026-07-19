@@ -13,30 +13,37 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  Checkpoints,
-  Contents,
-  ContentsCreateRequest,
-  ContentsGet400Response,
-  ContentsRenameRequest,
-  ContentsSaveRequest,
-} from '../models/index';
 import {
+    type Checkpoints,
     CheckpointsFromJSON,
     CheckpointsToJSON,
+} from '../models/Checkpoints';
+import {
+    type Contents,
     ContentsFromJSON,
     ContentsToJSON,
+} from '../models/Contents';
+import {
+    type ContentsCreateRequest,
     ContentsCreateRequestFromJSON,
     ContentsCreateRequestToJSON,
+} from '../models/ContentsCreateRequest';
+import {
+    type ContentsGet400Response,
     ContentsGet400ResponseFromJSON,
     ContentsGet400ResponseToJSON,
+} from '../models/ContentsGet400Response';
+import {
+    type ContentsRenameRequest,
     ContentsRenameRequestFromJSON,
     ContentsRenameRequestToJSON,
+} from '../models/ContentsRenameRequest';
+import {
+    type ContentsSaveRequest,
     ContentsSaveRequestFromJSON,
     ContentsSaveRequestToJSON,
-} from '../models/index';
+} from '../models/ContentsSaveRequest';
 
 export interface ContentsCreateOperationRequest {
     path: string;
@@ -346,7 +353,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,
@@ -394,7 +401,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}/checkpoints`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,
@@ -441,7 +448,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,
@@ -492,8 +499,8 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}/checkpoints/{checkpoint_id}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
-        urlPath = urlPath.replace(`{${"checkpoint_id"}}`, encodeURIComponent(String(requestParameters['checkpointId'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{checkpoint_id}', encodeURIComponent(String(requestParameters['checkpointId'])));
 
         return {
             path: urlPath,
@@ -553,7 +560,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,
@@ -600,7 +607,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}/checkpoints`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,
@@ -656,7 +663,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,
@@ -709,8 +716,8 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}/checkpoints/{checkpoint_id}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
-        urlPath = urlPath.replace(`{${"checkpoint_id"}}`, encodeURIComponent(String(requestParameters['checkpointId'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{checkpoint_id}', encodeURIComponent(String(requestParameters['checkpointId'])));
 
         return {
             path: urlPath,
@@ -756,7 +763,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
 
 
         let urlPath = `/api/contents/{path}`;
-        urlPath = urlPath.replace(`{${"path"}}`, encodeURIComponent(String(requestParameters['path'])));
+        urlPath = urlPath.replace('{path}', encodeURIComponent(String(requestParameters['path'])));
 
         return {
             path: urlPath,

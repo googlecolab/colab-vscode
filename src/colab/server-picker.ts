@@ -9,13 +9,12 @@ import { InputStep, MultiStepInput } from '../common/multi-step-quickpick';
 import { AssignmentManager } from '../jupyter/assignments';
 import { ColabServerDescriptor } from '../jupyter/servers';
 import {
-  Variant,
   variantToMachineType,
-  Shape,
   shapeToMachineShape,
   ExperimentFlag,
-} from './api';
+} from './client/v1/api';
 import { getFlag } from './experiment-state';
+import { Shape, Variant } from './types';
 
 /** Provides an explanation to the user on updating the server alias. */
 export const PROMPT_SERVER_ALIAS =

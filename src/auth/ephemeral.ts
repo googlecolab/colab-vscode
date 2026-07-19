@@ -5,8 +5,8 @@
  */
 
 import vscode from 'vscode';
-import { AuthType } from '../colab/api';
-import { ColabClient } from '../colab/client';
+import { ColabClient } from '../colab/client/v1';
+import { AuthType } from '../colab/client/v1/api';
 import { log } from '../common/logging';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { telemetry } from '../telemetry';

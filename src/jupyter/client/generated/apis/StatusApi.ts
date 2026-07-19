@@ -13,15 +13,12 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  APIStatus,
-} from '../models/index';
 import {
+    type APIStatus,
     APIStatusFromJSON,
     APIStatusToJSON,
-} from '../models/index';
+} from '../models/APIStatus';
 
 /**
  * StatusApi - interface

@@ -72,7 +72,7 @@ export interface KernelSpecFile {
 export function instanceOfKernelSpecFile(value: object): value is KernelSpecFile {
     if (!('language' in value) || value['language'] === undefined) return false;
     if (!('argv' in value) || value['argv'] === undefined) return false;
-    if (!('displayName' in value) || value['displayName'] === undefined) return false;
+    if ((!('displayName' in value) && !('display_name' in value)) || (value['displayName'] === undefined && value['display_name'] === undefined)) return false;
     return true;
 }
 

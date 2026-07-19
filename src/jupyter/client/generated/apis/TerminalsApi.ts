@@ -13,15 +13,12 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  Terminal,
-} from '../models/index';
 import {
+    type Terminal,
     TerminalFromJSON,
     TerminalToJSON,
-} from '../models/index';
+} from '../models/Terminal';
 
 export interface TerminalsDeleteRequest {
     terminalId: string;
@@ -187,7 +184,7 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
 
 
         let urlPath = `/api/terminals/{terminal_id}`;
-        urlPath = urlPath.replace(`{${"terminal_id"}}`, encodeURIComponent(String(requestParameters['terminalId'])));
+        urlPath = urlPath.replace('{terminal_id}', encodeURIComponent(String(requestParameters['terminalId'])));
 
         return {
             path: urlPath,
@@ -231,7 +228,7 @@ export class TerminalsApi extends runtime.BaseAPI implements TerminalsApiInterfa
 
 
         let urlPath = `/api/terminals/{terminal_id}`;
-        urlPath = urlPath.replace(`{${"terminal_id"}}`, encodeURIComponent(String(requestParameters['terminalId'])));
+        urlPath = urlPath.replace('{terminal_id}', encodeURIComponent(String(requestParameters['terminalId'])));
 
         return {
             path: urlPath,

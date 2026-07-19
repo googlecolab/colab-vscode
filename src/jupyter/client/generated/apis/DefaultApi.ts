@@ -13,15 +13,12 @@
  * Do not edit the class manually.
  */
 
-
 import * as runtime from '../runtime';
-import type {
-  DefaultGetVersion200Response,
-} from '../models/index';
 import {
+    type DefaultGetVersion200Response,
     DefaultGetVersion200ResponseFromJSON,
     DefaultGetVersion200ResponseToJSON,
-} from '../models/index';
+} from '../models/DefaultGetVersion200Response';
 
 /**
  * DefaultApi - interface

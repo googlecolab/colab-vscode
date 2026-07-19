@@ -19,8 +19,8 @@ import {
   AssignmentManager,
 } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
-import { ExperimentFlag } from '../api';
-import { ColabClient } from '../client';
+import { ColabClient } from '../client/v1';
+import { ExperimentFlag } from '../client/v1/api';
 import { getFlag } from '../experiment-state';
 import { ResourceItem, ResourceType } from './resource-item';
 

@@ -1,0 +1,817 @@
+{
+  "components": {
+    "parameters": {
+      "_.xgafv": {
+        "description": "V1 error format.",
+        "in": "query",
+        "name": "$.xgafv",
+        "schema": {
+          "enum": ["1", "2"],
+          "type": "string",
+          "x-google-enum-descriptions": ["v1 error format", "v2 error format"]
+        }
+      },
+      "alt": {
+        "description": "Data format for response.",
+        "in": "query",
+        "name": "$alt",
+        "schema": {
+          "default": "json",
+          "enum": ["json", "media", "proto"],
+          "type": "string",
+          "x-google-enum-descriptions": [
+            "Responses with Content-Type of application/json",
+            "Media download with context-dependent Content-Type",
+            "Responses with Content-Type of application/x-protobuf"
+          ]
+        }
+      },
+      "callback": {
+        "description": "JSONP",
+        "in": "query",
+        "name": "$callback",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "prettyPrint": {
+        "description": "Returns response with indentations and line breaks.",
+        "in": "query",
+        "name": "$prettyPrint",
+        "schema": {
+          "default": "true",
+          "type": "boolean"
+        }
+      }
+    },
+    "schemas": {
+      "BaseOperation": {
+        "description": "This resource represents a long-running operation that is the result of a\nnetwork API call.",
+        "properties": {
+          "done": {
+            "description": "If the value is `false`, it means the operation is still in progress.\nIf `true`, the operation is completed, and either `error` or `response` is\navailable.",
+            "type": "boolean"
+          },
+          "error": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Status"
+              }
+            ],
+            "description": "The error result of the operation in case of failure or cancellation."
+          },
+          "name": {
+            "description": "The server-assigned name, which is only unique within the same service that\noriginally returns it. If you use the default HTTP mapping, the\n`name` should be a resource name ending with `operations/{unique_id}`.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ConnectionInfo": {
+        "description": "Connection info used to authenticate to the runtime.",
+        "properties": {
+          "endpoint": {
+            "description": "Required. Output only. The endpoint used to internally identify the runtime. This field is\nrestricted to Colab internal use only because the endpoint is an internal\nimplementation detail that shouldn't be exposed to public users.",
+            "readOnly": true,
+            "type": "string"
+          },
+          "expireTime": {
+            "description": "Required. Output only. The expiration time of the runtime proxy token.",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "token": {
+            "description": "Required. Output only. The runtime proxy token. This is a short-lived credential used to\nauthenticate to the runtime.",
+            "readOnly": true,
+            "type": "string"
+          },
+          "url": {
+            "description": "Required. Output only. The authenticated URL that can be used to connect to the runtime.",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": ["token", "expireTime", "url", "endpoint"],
+        "type": "object"
+      },
+      "CreateRuntimeMetadata": {
+        "description": "Metadata for `CreateRuntime` long-running operation.",
+        "properties": {
+          "runtime": {
+            "description": "The runtime resource being created, in the format of\n`runtimes/{runtime_id}`.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CreateRuntimeOperation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseOperation"
+          },
+          {
+            "properties": {
+              "metadata": {
+                "$ref": "#/components/schemas/CreateRuntimeMetadata"
+              },
+              "response": {
+                "$ref": "#/components/schemas/Runtime"
+              }
+            },
+            "type": "object"
+          }
+        ],
+        "description": "This resource represents a long-running operation where metadata and response fields are strongly typed.",
+        "type": "object"
+      },
+      "Empty": {
+        "description": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:\n\n    service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }",
+        "type": "object"
+      },
+      "Error": {
+        "description": "A Python exception raised during execution.",
+        "properties": {
+          "name": {
+            "description": "The exception class name, e.g. \"NameError\".",
+            "type": "string"
+          },
+          "traceback": {
+            "description": "The formatted traceback, one frame per entry.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "value": {
+            "description": "The exception message, e.g. \"name 'foo' is not defined\".",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ErrorInfo": {
+        "description": "Describes the cause of the error with structured details.\n\nExample of an error when contacting the \"pubsub.googleapis.com\" API when it\nis not enabled:\n\n    { \"reason\": \"API_DISABLED\"\n      \"domain\": \"googleapis.com\"\n      \"metadata\": {\n        \"resource\": \"projects/123\",\n        \"service\": \"pubsub.googleapis.com\"\n      }\n    }\n\nThis response indicates that the pubsub.googleapis.com API is not enabled.\n\nExample of an error that is returned when attempting to create a Spanner\ninstance in a region that is out of stock:\n\n    { \"reason\": \"STOCKOUT\"\n      \"domain\": \"spanner.googleapis.com\",\n      \"metadata\": {\n        \"availableRegions\": \"us-central1,us-east2\"\n      }\n    }",
+        "properties": {
+          "domain": {
+            "description": "The logical grouping to which the \"reason\" belongs. The error domain\nis typically the registered service name of the tool or product that\ngenerates the error. Example: \"pubsub.googleapis.com\". If the error is\ngenerated by some common infrastructure, the error domain must be a\nglobally unique value that identifies the infrastructure. For Google API\ninfrastructure, the error domain is \"googleapis.com\".",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Additional structured details about this error.\n\nKeys must match a regular expression of `a-z+` but should\nideally be lowerCamelCase. Also, they must be limited to 64 characters in\nlength. When identifying the current value of an exceeded limit, the units\nshould be contained in the key, not the value.  For example, rather than\n`{\"instanceLimit\": \"100/request\"}`, should be returned as,\n`{\"instanceLimitPerRequest\": \"100\"}`, if the client exceeds the number of\ninstances that can be created in a single (batch) request.",
+            "type": "object"
+          },
+          "reason": {
+            "description": "The reason for the error. This is a constant value that identifies the\nproximate cause of the error. Error reasons are unique within a particular\ndomain of errors. This should be at most 63 characters and match a\nregular expression of `A-Z+[A-Z0-9]`, which represents\nUPPER_SNAKE_CASE.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ExecuteCodeResult": {
+        "description": "The result of an `ExecuteCode` call, returned as the terminal\n`structured_content` of the response stream.",
+        "properties": {
+          "executionCount": {
+            "description": "The Jupyter `In[N]` execution count assigned by the kernel. Informational\nonly. Not for addressing executions, for that use `execution_id`.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "executionError": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              }
+            ],
+            "description": "Populated when the execution raised. Mutually exclusive with a successful\ncompletion."
+          },
+          "executionId": {
+            "description": "The execution identifier this result is for, echoed from the request. Empty\nwhen the request supplied no `execution_id` (such an execution is not\nresumable). Use it to resume.",
+            "type": "string"
+          },
+          "outputTruncated": {
+            "description": "Whether the runtime truncated buffered output (size or line caps hit). When\ntrue, `stdout`/`stderr` are tail-truncated.",
+            "type": "boolean"
+          },
+          "result": {
+            "description": "The `text/plain` representation of the last expression's value, if the\nexecution ended on an expression. Empty otherwise.",
+            "type": "string"
+          },
+          "richOutputsDropped": {
+            "description": "Whether the execution produced rich (non-text) outputs that this tool does\nnot surface (e.g. images, Plotly/Vega figures, widgets). Always false for\nexecutions that produced only text.",
+            "type": "boolean"
+          },
+          "session": {
+            "description": "The session the execution ran in.\nFormat: `runtimes/{runtime}/sessions/{session}`.",
+            "type": "string"
+          },
+          "stderr": {
+            "description": "Aggregated stderr across the execution.",
+            "type": "string"
+          },
+          "stdout": {
+            "description": "Aggregated stdout across the execution.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Key": {
+        "description": "Key fields that uniquely identify a runtime spec.",
+        "properties": {
+          "accelerator": {
+            "description": "Required. Runtime accelerator model name (e.g., \"T4\", \"L4\", \"A100\").\nFor CPU runtime specs, this field will be \"NONE\".",
+            "type": "string"
+          },
+          "shape": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Shape"
+              }
+            ],
+            "description": "Required. Runtime shape."
+          },
+          "variant": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Variant"
+              }
+            ],
+            "description": "Required. Runtime variant."
+          }
+        },
+        "required": ["variant", "accelerator", "shape"],
+        "type": "object"
+      },
+      "ListRuntimeSpecsResponse": {
+        "description": "Response message for `ListRuntimeSpecs`.",
+        "properties": {
+          "runtimeSpecs": {
+            "description": "The list of runtime specs available to the requesting user.",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeSpec"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ListRuntimesResponse": {
+        "description": "Response message for `ListRuntimes`.",
+        "properties": {
+          "runtimes": {
+            "description": "The list of runtimes assigned to the requesting user.",
+            "items": {
+              "$ref": "#/components/schemas/Runtime"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Operation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseOperation"
+          },
+          {
+            "properties": {
+              "metadata": {
+                "additionalProperties": {
+                  "description": "Properties of the object. Contains field @type with type URL."
+                },
+                "description": "Service-specific metadata associated with the operation.  It typically\ncontains progress information and common metadata such as create time.\nSome services might not provide such metadata.  Any method that returns a\nlong-running operation should document the metadata type, if any.",
+                "type": "object"
+              },
+              "response": {
+                "additionalProperties": {
+                  "description": "Properties of the object. Contains field @type with type URL."
+                },
+                "description": "The normal, successful response of the operation.  If the original\nmethod returns no data on success, such as `Delete`, the response is\n`google.protobuf.Empty`.  If the original method is standard\n`Get`/`Create`/`Update`, the response should be the resource.  For other\nmethods, the response should have the type `XxxResponse`, where `Xxx`\nis the original method name.  For example, if the original method name\nis `TakeSnapshot()`, the inferred response type is\n`TakeSnapshotResponse`.",
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        ],
+        "description": "This resource represents a long-running operation that is the result of a\nnetwork API call.",
+        "type": "object"
+      },
+      "Runtime": {
+        "description": "A Colab managed runtime.",
+        "properties": {
+          "connectionInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionInfo"
+              }
+            ],
+            "description": "Output only. The connection info used to authenticate to the runtime.",
+            "readOnly": true
+          },
+          "name": {
+            "description": "Identifier. The name of the runtime in the format `runtimes/{runtime_id}`, where\n`runtime_id` is either the value supplied via\n`CreateRuntimeRequest.runtime_id` or, if none was supplied, a random UUID\ngenerated by the backend.",
+            "type": "string",
+            "x-google-identifier": true
+          },
+          "runtimeSpec": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Key"
+              }
+            ],
+            "description": "Required. The specification of the runtime."
+          },
+          "version": {
+            "description": "Optional. The version of the runtime image.\n\nSee [Colab Runtime Version\nFAQ](https://research.google.com/colaboratory/runtime-version-faq.html) for\nsupported runtime versions. If omitted (empty), the latest runtime image is\nused.",
+            "type": "string"
+          }
+        },
+        "required": ["runtimeSpec"],
+        "type": "object"
+      },
+      "RuntimeSpec": {
+        "description": "A specification of a runtime.",
+        "properties": {
+          "eligible": {
+            "description": "Output only. Whether the requesting user is eligible for the runtime spec.",
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Key"
+              }
+            ],
+            "description": "Required. The key of the runtime spec."
+          }
+        },
+        "required": ["key"],
+        "type": "object"
+      },
+      "Shape": {
+        "enum": ["SHAPE_UNSPECIFIED", "SHAPE_STANDARD", "SHAPE_HIGHMEM"],
+        "type": "string",
+        "x-google-enum-descriptions": [
+          "Default value. This value is unused.",
+          "Standard shape.",
+          "High memory shape."
+        ]
+      },
+      "Status": {
+        "description": "The `Status` type defines a logical error model that is suitable for\ndifferent programming environments, including REST APIs and RPC APIs. It is\nused by [gRPC](https://github.com/grpc). Each `Status` message contains\nthree pieces of data: error code, error message, and error details.\n\nYou can find out more about this error model and how to work with it in the\n[API Design Guide](https://cloud.google.com/apis/design/errors).",
+        "properties": {
+          "code": {
+            "description": "The status code, which should be an enum value of google.rpc.Code.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "details": {
+            "description": "A list of messages that carry the error details.  There is a common set of\nmessage types for APIs to use.",
+            "items": {
+              "additionalProperties": {
+                "description": "Properties of the object. Contains field @type with type URL."
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "message": {
+            "description": "A developer-facing error message, which should be in English. Any\nuser-facing error message should be localized and sent in the\ngoogle.rpc.Status.details field, or localized by the client.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Subscription": {
+        "description": "Colab user subscription information.",
+        "properties": {
+          "name": {
+            "description": "Identifier. Name of the subscription. This will always be \"subscription\".",
+            "type": "string",
+            "x-google-identifier": true
+          },
+          "tier": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionTier"
+              }
+            ],
+            "description": "Required. User's Colab subscription tier."
+          }
+        },
+        "required": ["tier"],
+        "type": "object"
+      },
+      "SubscriptionTier": {
+        "enum": [
+          "SUBSCRIPTION_TIER_UNSPECIFIED",
+          "SUBSCRIPTION_TIER_FREE",
+          "SUBSCRIPTION_TIER_PRO",
+          "SUBSCRIPTION_TIER_PRO_PLUS"
+        ],
+        "type": "string",
+        "x-google-enum-descriptions": [
+          "Default value. This value is unused.",
+          "User is not subscribed to any paid tier.",
+          "User is subscribed to Colab Pro.",
+          "User is subscribed to Colab Pro+."
+        ]
+      },
+      "Variant": {
+        "enum": [
+          "VARIANT_UNSPECIFIED",
+          "VARIANT_CPU",
+          "VARIANT_GPU",
+          "VARIANT_TPU"
+        ],
+        "type": "string",
+        "x-google-enum-descriptions": [
+          "Default value. This value is unused.",
+          "CPU variant.",
+          "GPU variant.",
+          "TPU variant."
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearer_auth": {
+        "description": "Http bearer authentication.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "google_oauth_code": {
+        "description": "Google Oauth 2.0 authorizationCode authentication flow.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+            "refreshUrl": "https://oauth2.googleapis.com/token",
+            "scopes": {
+              "https://www.googleapis.com/auth/colaboratory": "Read, write, and delete your Colab resources",
+              "https://www.googleapis.com/auth/colaboratory.readonly": "Read-only access to your Colab resources"
+            },
+            "tokenUrl": "https://oauth2.googleapis.com/token"
+          }
+        },
+        "type": "oauth2"
+      },
+      "google_oauth_implicit": {
+        "description": "Google Oauth 2.0 implicit authentication flow.",
+        "flows": {
+          "implicit": {
+            "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+            "scopes": {
+              "https://www.googleapis.com/auth/colaboratory": "Read, write, and delete your Colab resources",
+              "https://www.googleapis.com/auth/colaboratory.readonly": "Read-only access to your Colab resources"
+            }
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "Find more info here.",
+    "url": "https://developers.google.com/colab"
+  },
+  "info": {
+    "description": "colaboratory.googleapis.com API.",
+    "title": "Colab API",
+    "version": "v1beta",
+    "x-google-revision": "20260714"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1beta/runtimes": {
+      "get": {
+        "description": "Lists Colab runtimes assigned to the requesting user.",
+        "operationId": "ListRuntimes",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRuntimesResponse"
+                }
+              }
+            },
+            "description": "Successful operation"
+          }
+        },
+        "security": [
+          {
+            "google_oauth_implicit": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "google_oauth_code": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": ["colaboratory"]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/alt"
+        },
+        {
+          "$ref": "#/components/parameters/callback"
+        },
+        {
+          "$ref": "#/components/parameters/prettyPrint"
+        },
+        {
+          "$ref": "#/components/parameters/_.xgafv"
+        }
+      ],
+      "post": {
+        "description": "Creates a Colab runtime assignment.\n\nWhen runtime creation is refused with a `FAILED_PRECONDITION` error, a more\nspecific error reason will be returned in the\ndetails of the Operation\nerror wrapped in\ngoogle.rpc.ErrorInfo.",
+        "operationId": "CreateRuntime",
+        "parameters": [
+          {
+            "description": "Optional. A unique identifier for this request.\n\nThis request is only idempotent if a `request_id` is provided.\nSee https://google.aip.dev/155 for more details.\n\nIf provided, the request ID must be in UUID4 format per\nhttps://linter.aip.dev/155/request-id-format.",
+            "in": "query",
+            "name": "requestId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. A unique identifier for the runtime. If not supplied, a random UUID will be\ngenerated. If a runtime with the given ID owned by the requesting user\nalready exists, a completed Operation with an ALREADY_EXISTS error will be\nreturned.\nSee https://google.aip.dev/133#user-specified-ids for more details.\n\nThe ID must conform to https://datatracker.ietf.org/doc/html/rfc1034,\nspecifically:\n- 1 to 63 characters\n- Lower-case letters, digits, and hyphens\n- Start with a letter\n- End with a letter or digit",
+            "in": "query",
+            "name": "runtimeId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Runtime"
+              }
+            }
+          },
+          "description": "Required. Specifications for the runtime to assign."
+        },
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRuntimeOperation"
+                }
+              }
+            },
+            "description": "Successful operation"
+          }
+        },
+        "security": [
+          {
+            "google_oauth_implicit": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "google_oauth_code": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": ["colaboratory"],
+        "x-google-lro": "true"
+      }
+    },
+    "/v1beta/runtimes/{runtime}": {
+      "delete": {
+        "description": "Deletes a Colab runtime assignment.",
+        "operationId": "DeleteRuntime",
+        "parameters": [
+          {
+            "description": "Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.",
+            "in": "path",
+            "name": "runtime",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Empty"
+                }
+              }
+            },
+            "description": "Successful operation"
+          }
+        },
+        "security": [
+          {
+            "google_oauth_implicit": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "google_oauth_code": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": ["colaboratory"]
+      },
+      "get": {
+        "description": "Gets a Colab runtime assigned to the requesting user.",
+        "operationId": "GetRuntime",
+        "parameters": [
+          {
+            "description": "Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.",
+            "in": "path",
+            "name": "runtime",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Runtime"
+                }
+              }
+            },
+            "description": "Successful operation"
+          }
+        },
+        "security": [
+          {
+            "google_oauth_implicit": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "google_oauth_code": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": ["colaboratory"]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/alt"
+        },
+        {
+          "$ref": "#/components/parameters/callback"
+        },
+        {
+          "$ref": "#/components/parameters/prettyPrint"
+        },
+        {
+          "$ref": "#/components/parameters/_.xgafv"
+        }
+      ]
+    },
+    "/v1beta/runtimespecs": {
+      "get": {
+        "description": "Lists Colab runtime specs available to the requesting user.",
+        "operationId": "ListRuntimeSpecs",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRuntimeSpecsResponse"
+                }
+              }
+            },
+            "description": "Successful operation"
+          }
+        },
+        "security": [
+          {
+            "google_oauth_implicit": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "google_oauth_code": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": ["colaboratory"]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/alt"
+        },
+        {
+          "$ref": "#/components/parameters/callback"
+        },
+        {
+          "$ref": "#/components/parameters/prettyPrint"
+        },
+        {
+          "$ref": "#/components/parameters/_.xgafv"
+        }
+      ]
+    },
+    "/v1beta/subscription": {
+      "get": {
+        "description": "Gets the subscription of the requesting user.",
+        "operationId": "GetSubscription",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description": "Successful operation"
+          }
+        },
+        "security": [
+          {
+            "google_oauth_implicit": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "google_oauth_code": [
+              "https://www.googleapis.com/auth/colaboratory",
+              "https://www.googleapis.com/auth/colaboratory.readonly"
+            ]
+          },
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": ["colaboratory"]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/alt"
+        },
+        {
+          "$ref": "#/components/parameters/callback"
+        },
+        {
+          "$ref": "#/components/parameters/prettyPrint"
+        },
+        {
+          "$ref": "#/components/parameters/_.xgafv"
+        }
+      ]
+    }
+  },
+  "servers": [
+    {
+      "description": "Global Endpoint",
+      "url": "https://colaboratory.googleapis.com"
+    }
+  ]
+}

@@ -18,13 +18,13 @@ import {
 } from '../test/helpers/jupyter';
 import { TestUri } from '../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
-import { Variant } from './api';
-import { ColabClient } from './client';
+import { ColabClient } from './client/v1';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from './headers';
 import { ServerKeepAliveController } from './keep-alive';
+import { Variant } from './types';
 
 const NOW = new Date();
 const ONE_SECOND_MS = 1000;
