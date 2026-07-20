@@ -761,10 +761,11 @@ export class AssignmentManager implements Disposable {
               `Listing sessions timeout exceeded for endpoint ${a.endpoint}`,
             );
             try {
-              if (a.runtimeProxyInfo) {
+              const rp = a.runtimeProxyInfo;
+              if (rp) {
                 const jupyterClient = ProxiedJupyterClient.withStaticConnection(
-                  a.runtimeProxyInfo.url,
-                  a.runtimeProxyInfo.token,
+                  rp.url,
+                  rp.token,
                 );
                 const sessions = await Promise.race([
                   jupyterClient.sessions.list({ signal }),
