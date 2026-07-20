@@ -68,10 +68,21 @@ describe('ProxiedJupyterClient', () => {
   });
 
   const clients = [
-    ['static', () => ProxiedJupyterClient.withStaticConnection(DEFAULT_SERVER)],
+    [
+      'static',
+      () =>
+        ProxiedJupyterClient.withStaticConnection(
+          DEFAULT_SERVER.connectionInformation.baseUrl,
+          DEFAULT_SERVER.connectionInformation.token,
+        ),
+    ],
     [
       'refreshing',
-      () => ProxiedJupyterClient.withStaticConnection(DEFAULT_SERVER),
+      () =>
+        ProxiedJupyterClient.withRefreshingConnection(
+          DEFAULT_SERVER,
+          new TestEventEmitter<AssignmentChangeEvent>().event,
+        ),
     ],
   ] as const;
   for (const factoryFn of clients) {

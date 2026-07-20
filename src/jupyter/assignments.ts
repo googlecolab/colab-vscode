@@ -30,7 +30,6 @@ import {
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
-  ColabRequestError,
   DenylistedError,
   InsufficientQuotaError,
   NotFoundError,
@@ -44,6 +43,7 @@ import {
 import { Shape, SubscriptionTier, Variant } from '../colab/types';
 import { waitForTimeout } from '../common/async';
 import { log } from '../common/logging';
+import { FetchError as JupyterFetchError } from '../jupyter/client/generated';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { ProxiedJupyterClient } from './client';
@@ -755,31 +755,34 @@ export class AssignmentManager implements Disposable {
           .map(async (a): Promise<UnownedServer | undefined> => {
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.
-            let label: string;
+            let label = UNKNOWN_REMOTE_SERVER_NAME;
             const timeout = waitForTimeout(
               LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
               `Listing sessions timeout exceeded for endpoint ${a.endpoint}`,
             );
             try {
-              const sessions = await Promise.race([
-                this.colabClient.listSessions(a.endpoint, signal),
-                timeout.promise,
-              ]);
-              label =
-                sessions.length === 1 && sessions[0].name?.length
-                  ? sessions[0].name
-                  : UNKNOWN_REMOTE_SERVER_NAME;
+              if (a.runtimeProxyInfo) {
+                const jupyterClient = ProxiedJupyterClient.withStaticConnection(
+                  a.runtimeProxyInfo.url,
+                  a.runtimeProxyInfo.token,
+                );
+                const sessions = await Promise.race([
+                  jupyterClient.sessions.list({ signal }),
+                  timeout.promise,
+                ]);
+                if (sessions.length === 1 && sessions[0].name?.length) {
+                  label = sessions[0].name;
+                }
+              }
             } catch (error: unknown) {
               // The assignment may have been removed (e.g. via Colab web UI
               // or another VS Code instance sharing the account) between
-              // listing assignments and listing its sessions. Drop it from
-              // the result rather than failing the entire call.
-              if (
-                error instanceof ColabRequestError &&
-                error.response.status === 404
-              ) {
+              // listing assignments and listing its sessions, resulting in a
+              // network error, i.e. FetchError. Drop it from the result rather
+              // than failing the entire call.
+              if (error instanceof JupyterFetchError) {
                 log.trace(
-                  `Dropping orphan assignment ${a.endpoint} - sessions endpoint returned 404`,
+                  `Dropping orphan assignment ${a.endpoint} - sessions.list resulted in a network error`,
                   error,
                 );
                 return undefined;
@@ -790,7 +793,6 @@ export class AssignmentManager implements Disposable {
                 `Failed to list sessions for assignment ${a.endpoint}, falling back to placeholder label`,
                 error,
               );
-              label = UNKNOWN_REMOTE_SERVER_NAME;
             } finally {
               timeout.dispose();
             }
@@ -885,9 +887,13 @@ export class AssignmentManager implements Disposable {
     // attached in VS Code. However, we don't want to fail the entire
     // unassignServer call because the unassign API call will eventually garbage
     // collect and clean up the sessions too.
-    const client = ProxiedJupyterClient.withStaticConnection(server);
+    const c = server.connectionInformation;
+    const jupyterClient = ProxiedJupyterClient.withStaticConnection(
+      c.baseUrl,
+      c.token,
+    );
     return Promise.allSettled(
-      await client.sessions
+      await jupyterClient.sessions
         .list({ signal })
         .catch((err: unknown) => {
           // Swallow the sessions.list error as this is best-effort.
@@ -897,7 +903,10 @@ export class AssignmentManager implements Disposable {
         .then((sessions) =>
           sessions.map((session) =>
             session.id
-              ? client.sessions.delete({ session: session.id }, { signal })
+              ? jupyterClient.sessions.delete(
+                  { session: session.id },
+                  { signal },
+                )
               : Promise.resolve(),
           ),
         ),

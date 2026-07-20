@@ -5,6 +5,7 @@
  */
 
 import vscode, { QuickPickItem } from 'vscode';
+import { log } from '../../common/logging';
 import { MultiStepInput } from '../../common/multi-step-quickpick';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
@@ -143,6 +144,7 @@ export async function removeServer(
     source ?? CommandSource.COMMAND_SOURCE_COMMAND_PALETTE,
   );
   const allServers = await assignmentManager.getServers('all');
+  log.trace(`removeServer: getServers('all') resolved:`, allServers);
   const vsCodeServers = allServers.assigned;
   const nonVsCodeServers = allServers.unowned;
   if (vsCodeServers.length === 0 && nonVsCodeServers.length === 0) {
