@@ -110,16 +110,18 @@ export class ProxiedJupyterClient implements JupyterClient {
 
   /**
    * Initializes a {@link ProxiedJupyterClient} with static connection
-   * information corresponding to the provided server. In other words, the proxy
+   * URL and proxy token of the provided server. In other words, the same proxy
    * token is used on all requests and is not refreshed.
    *
-   * @param server - The Colab server to connect to.
+   * @param url - The Colab server URL to connect to.
+   * @param proxyToken - The Colab runtime proxy token.
    * @returns a {@link ProxiedJupyterClient} to the specified server.
    */
-  static withStaticConnection(server: ColabAssignedServer): JupyterClient {
-    return new ProxiedJupyterClient(server.connectionInformation.baseUrl, () =>
-      Promise.resolve(server.connectionInformation.token),
-    );
+  static withStaticConnection(
+    url: string | Uri,
+    proxyToken: string,
+  ): JupyterClient {
+    return new ProxiedJupyterClient(url, () => Promise.resolve(proxyToken));
   }
 
   /**

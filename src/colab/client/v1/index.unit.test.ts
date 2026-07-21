@@ -9,7 +9,6 @@ import { expect } from 'chai';
 import fetch, { Response } from 'node-fetch';
 import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
-import { Session } from '../../../jupyter/client/generated';
 import { ColabAssignedServer } from '../../../jupyter/servers';
 import { TestUri } from '../../../test/helpers/uri';
 import { uuidToWebSafeBase64 } from '../../../utils/uuid';
@@ -750,59 +749,6 @@ describe('ColabClient', () => {
         };
         await expect(response).to.eventually.deep.equal(newConnectionInfo);
       });
-    });
-
-    it('successfully lists sessions by assignment endpoint', async () => {
-      const last_activity = new Date().toISOString();
-      const mockResponseSession = {
-        id: 'mock-session-id',
-        kernel: {
-          id: 'mock-kernel-id',
-          name: 'mock-kernel-name',
-          last_activity,
-          execution_state: 'idle',
-          connections: 1,
-        },
-        name: 'mock-session-name',
-        path: '/mock-path',
-        type: 'notebook',
-      };
-      const expectedSession: Session = {
-        id: 'mock-session-id',
-        kernel: {
-          id: 'mock-kernel-id',
-          name: 'mock-kernel-name',
-          lastActivity: last_activity,
-          executionState: 'idle',
-          connections: 1,
-        },
-        name: 'mock-session-name',
-        path: '/mock-path',
-        type: 'notebook',
-      };
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: COLAB_HOST,
-            path: `/tun/m/${assignedServer.endpoint}/api/sessions`,
-            otherHeaders: {
-              [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
-            },
-            withAuthUser: false,
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify([mockResponseSession])), {
-            status: 200,
-          }),
-        );
-
-      await expect(
-        client.listSessions(assignedServer.endpoint),
-      ).to.eventually.deep.equal([expectedSession]);
-
-      sinon.assert.calledOnce(fetchStub);
     });
 
     it('successfully gets resources by server', async () => {

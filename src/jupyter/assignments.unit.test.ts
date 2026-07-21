@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
-import fetch, { Headers, Request, Response } from 'node-fetch';
+import fetch, { Headers, Request } from 'node-fetch';
 import sinon, {
   SinonFakeTimers,
   SinonStubbedFunction,
@@ -27,7 +27,6 @@ import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/o
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
-  ColabRequestError,
   DenylistedError,
   InsufficientQuotaError,
   NotFoundError,
@@ -39,6 +38,10 @@ import {
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
 import { Shape, SubscriptionTier, Variant } from '../colab/types';
+import {
+  FetchError as JupyterFetchError,
+  ResponseError as JupyterResponseError,
+} from '../jupyter/client/generated';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
 import { TestEventEmitter } from '../test/helpers/events';
@@ -110,6 +113,9 @@ describe('AssignmentManager', () => {
   let serverStorage: ServerStorage;
   let assignmentChangeListener: sinon.SinonStub<[AssignmentChangeEvent], void>;
   let assignmentManager: AssignmentManager;
+  let jupyterStaticConnectionStub: sinon.SinonStubbedFunction<
+    typeof ProxiedJupyterClient.withStaticConnection
+  >;
 
   /**
    * Set up the stubs to return the given assignments from both the Colab client
@@ -161,6 +167,10 @@ describe('AssignmentManager', () => {
     );
     assignmentChangeListener = sinon.stub();
     assignmentManager.onDidAssignmentsChange(assignmentChangeListener);
+    jupyterStaticConnectionStub = sinon.stub(
+      ProxiedJupyterClient,
+      'withStaticConnection',
+    );
   });
 
   afterEach(() => {
@@ -545,6 +555,89 @@ describe('AssignmentManager', () => {
   });
 
   describe('getServers', () => {
+    const TEST_SESSION_NAME = 'test-session-name';
+    const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
+
+    const assignmentWithName = {
+      ...defaultAssignment,
+      endpoint: 'test-endpoint-with-name',
+      runtimeProxyInfo: {
+        ...defaultAssignment.runtimeProxyInfo,
+        url: 'https://test.url.with.session.name',
+      },
+    };
+    const assignmentWithoutName = {
+      ...defaultAssignment,
+      endpoint: 'test-endpoint-without-name',
+      runtimeProxyInfo: {
+        ...defaultAssignment.runtimeProxyInfo,
+        url: 'https://test.url.without.session.name',
+      },
+    };
+    const assignmentWithoutSession = {
+      ...defaultAssignment,
+      endpoint: 'test-endpoint-without-session',
+      runtimeProxyInfo: {
+        ...defaultAssignment.runtimeProxyInfo,
+        url: 'https://test.url.without.session',
+      },
+    };
+    const defaultSession = {
+      id: '',
+      path: '',
+      type: '',
+      kernel: {
+        lastActivity: '',
+        executionState: '',
+        id: '',
+        name: '',
+        connections: 1,
+      },
+    };
+
+    let jupyterStubWithSessionName: JupyterClientStub;
+    let jupyterStubWithoutSessionName: JupyterClientStub;
+    let jupyterStubWithoutSession: JupyterClientStub;
+
+    beforeEach(() => {
+      jupyterStubWithSessionName = createJupyterClientStub();
+      jupyterStaticConnectionStub
+        .withArgs(
+          assignmentWithName.runtimeProxyInfo.url,
+          assignmentWithName.runtimeProxyInfo.token,
+        )
+        .returns(jupyterStubWithSessionName);
+      jupyterStubWithSessionName.sessions.list.resolves([
+        {
+          ...defaultSession,
+          name: TEST_SESSION_NAME,
+        },
+      ]);
+
+      jupyterStubWithoutSessionName = createJupyterClientStub();
+      jupyterStaticConnectionStub
+        .withArgs(
+          assignmentWithoutName.runtimeProxyInfo.url,
+          assignmentWithoutName.runtimeProxyInfo.token,
+        )
+        .returns(jupyterStubWithoutSessionName);
+      jupyterStubWithoutSessionName.sessions.list.resolves([
+        {
+          ...defaultSession,
+          name: UNKNOWN_REMOTE_SERVER_NAME,
+        },
+      ]);
+
+      jupyterStubWithoutSession = createJupyterClientStub();
+      jupyterStaticConnectionStub
+        .withArgs(
+          assignmentWithoutSession.runtimeProxyInfo.url,
+          assignmentWithoutSession.runtimeProxyInfo.token,
+        )
+        .returns(jupyterStubWithoutSession);
+      jupyterStubWithoutSession.sessions.list.resolves([]);
+    });
+
     it('throws after being disposed', async () => {
       assignmentManager.dispose();
 
@@ -725,40 +818,6 @@ describe('AssignmentManager', () => {
       });
     });
 
-    const endpointWithName = 'test-endpoint-with-name';
-    const endpointWithoutName = 'test-endpoint-without-name';
-    const endpointWithoutSession = 'test-endpoint-without-session';
-    const assignmentWithName = {
-      endpoint: endpointWithName,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      accelerator: '',
-    };
-    const assignmentWithoutName = {
-      endpoint: endpointWithoutName,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      accelerator: '',
-    };
-    const assignmentWithoutSession = {
-      endpoint: endpointWithoutSession,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      accelerator: '',
-    };
-    const defaultSession = {
-      id: '',
-      path: '',
-      type: '',
-      kernel: {
-        lastActivity: '',
-        executionState: '',
-        id: '',
-        name: '',
-        connections: 1,
-      },
-    };
-
     describe('from external', () => {
       it('returns unowned servers', async () => {
         // Given 3 total assignments
@@ -767,19 +826,10 @@ describe('AssignmentManager', () => {
           assignmentWithoutName,
           assignmentWithoutSession,
         ]);
-        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-          {
-            ...defaultSession,
-            name: 'test-session-name',
-          },
-        ]);
-        colabClientStub.listSessions
-          .withArgs(endpointWithoutSession)
-          .resolves([]);
         // One of the assignments was assigned within VS Code extension
         const assignedServer = {
           ...defaultServer,
-          endpoint: endpointWithoutName,
+          endpoint: assignmentWithoutName.endpoint,
         };
         await serverStorage.store([assignedServer]);
 
@@ -789,21 +839,21 @@ describe('AssignmentManager', () => {
         // Then only 2 unowned external servers are returned
         expect(results).to.deep.equal([
           {
-            label: 'test-session-name',
-            endpoint: endpointWithName,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: TEST_SESSION_NAME,
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
           {
-            label: 'Untitled',
-            endpoint: endpointWithoutSession,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: UNKNOWN_REMOTE_SERVER_NAME,
+            endpoint: assignmentWithoutSession.endpoint,
+            variant: assignmentWithoutSession.variant,
+            accelerator: assignmentWithoutSession.accelerator,
           },
         ]);
       });
 
-      it('drops orphan unowned servers whose sessions endpoint returns 404', async () => {
+      it('drops orphan unowned servers whose Jupyter client throws a FetchError', async () => {
         // Simulates a race where the orphan assignment is deleted (e.g. via
         // Colab web or another VS Code instance sharing the account) between
         // listing assignments and listing its sessions.
@@ -811,108 +861,53 @@ describe('AssignmentManager', () => {
           assignmentWithName,
           assignmentWithoutSession,
         ]);
-        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-          {
-            ...defaultSession,
-            name: 'test-session-name',
-          },
-        ]);
-        colabClientStub.listSessions
-          .withArgs(endpointWithoutSession)
-          .rejects(
-            new ColabRequestError(
-              new Request('https://example.com'),
-              new Response(undefined, { status: 404 }),
-            ),
-          );
+        jupyterStubWithoutSession.sessions.list.rejects(
+          new JupyterFetchError(new Error('network error')),
+        );
 
         const results = await assignmentManager.getServers('external');
 
         expect(results).to.deep.equal([
           {
-            label: 'test-session-name',
-            endpoint: endpointWithName,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: TEST_SESSION_NAME,
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
         ]);
       });
 
-      it('falls back to placeholder label when listing sessions throws a non-404', async () => {
+      it('falls back to placeholder label when sessions.list throws a non-FetchError', async () => {
         colabClientStub.listAssignments.resolves([
           assignmentWithName,
           assignmentWithoutSession,
         ]);
-        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-          {
-            ...defaultSession,
-            name: 'test-session-name',
-          },
-        ]);
-        colabClientStub.listSessions
-          .withArgs(endpointWithoutSession)
-          .rejects(
-            new ColabRequestError(
-              new Request('https://example.com'),
-              new Response(undefined, { status: 500 }),
-            ),
-          );
+        jupyterStubWithoutSession.sessions.list.rejects(
+          new JupyterResponseError(new Response(undefined, { status: 500 })),
+        );
 
         const results = await assignmentManager.getServers('external');
 
         expect(results).to.deep.equal([
           {
-            label: 'test-session-name',
-            endpoint: endpointWithName,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: TEST_SESSION_NAME,
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
           {
-            label: 'Untitled',
-            endpoint: endpointWithoutSession,
-            variant: Variant.DEFAULT,
-            accelerator: '',
-          },
-        ]);
-      });
-
-      it('falls back to placeholder label when listing sessions throws a non-ColabRequestError', async () => {
-        colabClientStub.listAssignments.resolves([
-          assignmentWithName,
-          assignmentWithoutSession,
-        ]);
-        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-          {
-            ...defaultSession,
-            name: 'test-session-name',
-          },
-        ]);
-        colabClientStub.listSessions
-          .withArgs(endpointWithoutSession)
-          .rejects(new Error('network kaput'));
-
-        const results = await assignmentManager.getServers('external');
-
-        expect(results).to.deep.equal([
-          {
-            label: 'test-session-name',
-            endpoint: endpointWithName,
-            variant: Variant.DEFAULT,
-            accelerator: '',
-          },
-          {
-            label: 'Untitled',
-            endpoint: endpointWithoutSession,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: UNKNOWN_REMOTE_SERVER_NAME,
+            endpoint: assignmentWithoutSession.endpoint,
+            variant: assignmentWithoutSession.variant,
+            accelerator: assignmentWithoutSession.accelerator,
           },
         ]);
       });
     });
 
-    it('falls back to placeholder label when listing sessions times out', async () => {
+    it('falls back to placeholder label when sessions.list times out', async () => {
       colabClientStub.listAssignments.resolves([assignmentWithName]);
-      colabClientStub.listSessions.callsFake(async () => {
+      jupyterStubWithSessionName.sessions.list.callsFake(async () => {
         // Block listSessions to trigger the timeout.
         await new Promise((resolve) =>
           setTimeout(resolve, LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
@@ -930,10 +925,10 @@ describe('AssignmentManager', () => {
 
       await expect(resultsPromise).to.eventually.deep.equal([
         {
-          label: 'Untitled',
-          endpoint: endpointWithName,
-          variant: Variant.DEFAULT,
-          accelerator: '',
+          label: UNKNOWN_REMOTE_SERVER_NAME,
+          endpoint: assignmentWithName.endpoint,
+          variant: assignmentWithName.variant,
+          accelerator: assignmentWithName.accelerator,
         },
       ]);
     });
@@ -946,19 +941,10 @@ describe('AssignmentManager', () => {
           assignmentWithoutName,
           assignmentWithoutSession,
         ]);
-        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-          {
-            ...defaultSession,
-            name: 'test-session-name',
-          },
-        ]);
-        colabClientStub.listSessions
-          .withArgs(endpointWithoutSession)
-          .resolves([]);
         // One of the assignments was assigned within VS Code extension
         const assignedServer = {
           ...defaultServer,
-          endpoint: endpointWithoutName,
+          endpoint: assignmentWithoutName.endpoint,
         };
         await serverStorage.store([assignedServer]);
 
@@ -971,16 +957,16 @@ describe('AssignmentManager', () => {
         ]);
         expect(results.unowned).to.deep.equal([
           {
-            label: 'test-session-name',
-            endpoint: endpointWithName,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: TEST_SESSION_NAME,
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
           {
-            label: 'Untitled',
-            endpoint: endpointWithoutSession,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            label: UNKNOWN_REMOTE_SERVER_NAME,
+            endpoint: assignmentWithoutSession.endpoint,
+            variant: assignmentWithoutSession.variant,
+            accelerator: assignmentWithoutSession.accelerator,
           },
         ]);
       });
@@ -991,21 +977,6 @@ describe('AssignmentManager', () => {
           assignmentWithoutName,
           assignmentWithoutSession,
         ]);
-        colabClientStub.listSessions.withArgs(endpointWithName).resolves([
-          {
-            ...defaultSession,
-            name: 'test-session-name',
-          },
-        ]);
-        colabClientStub.listSessions.withArgs(endpointWithoutName).resolves([
-          {
-            ...defaultSession,
-            name: '',
-          },
-        ]);
-        colabClientStub.listSessions
-          .withArgs(endpointWithoutSession)
-          .resolves([]);
         await serverStorage.store([]);
 
         const results = await assignmentManager.getServers('all');
@@ -1014,22 +985,22 @@ describe('AssignmentManager', () => {
           assigned: [],
           unowned: [
             {
-              label: 'test-session-name',
-              endpoint: endpointWithName,
-              variant: Variant.DEFAULT,
-              accelerator: '',
+              label: TEST_SESSION_NAME,
+              endpoint: assignmentWithName.endpoint,
+              variant: assignmentWithName.variant,
+              accelerator: assignmentWithName.accelerator,
             },
             {
-              label: 'Untitled',
-              endpoint: endpointWithoutName,
-              variant: Variant.DEFAULT,
-              accelerator: '',
+              label: UNKNOWN_REMOTE_SERVER_NAME,
+              endpoint: assignmentWithoutName.endpoint,
+              variant: assignmentWithoutName.variant,
+              accelerator: assignmentWithoutName.accelerator,
             },
             {
-              label: 'Untitled',
-              endpoint: endpointWithoutSession,
-              variant: Variant.DEFAULT,
-              accelerator: '',
+              label: UNKNOWN_REMOTE_SERVER_NAME,
+              endpoint: assignmentWithoutSession.endpoint,
+              variant: assignmentWithoutSession.variant,
+              accelerator: assignmentWithoutSession.accelerator,
             },
           ],
         });
@@ -1043,15 +1014,15 @@ describe('AssignmentManager', () => {
         ]);
         const assignedServer1 = {
           ...defaultServer,
-          endpoint: endpointWithName,
+          endpoint: assignmentWithName.endpoint,
         };
         const assignedServer2 = {
           ...defaultServer,
-          endpoint: endpointWithoutName,
+          endpoint: assignmentWithoutName.endpoint,
         };
         const assignedServer3 = {
           ...defaultServer,
-          endpoint: endpointWithoutSession,
+          endpoint: assignmentWithoutSession.endpoint,
         };
         await serverStorage.store([
           assignedServer1,
@@ -1073,7 +1044,7 @@ describe('AssignmentManager', () => {
         colabClientStub.listAssignments.resolves([assignmentWithName]);
         const assignedServer = {
           ...defaultServer,
-          endpoint: endpointWithName,
+          endpoint: assignmentWithName.endpoint,
         };
         const noLongerAssignedServer = {
           ...defaultServer,
@@ -1641,9 +1612,11 @@ describe('AssignmentManager', () => {
       beforeEach(async () => {
         await serverStorage.store([defaultServer]);
         jupyterStub = createJupyterClientStub();
-        sinon
-          .stub(ProxiedJupyterClient, 'withStaticConnection')
-          .withArgs(defaultServer)
+        jupyterStaticConnectionStub
+          .withArgs(
+            defaultServer.connectionInformation.baseUrl,
+            defaultServer.connectionInformation.token,
+          )
           .returns(jupyterStub);
       });
 

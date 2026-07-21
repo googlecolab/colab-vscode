@@ -149,8 +149,12 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
     assignment: ColabAssignedServer,
     signal: AbortSignal,
   ): Promise<void> {
-    const client = ProxiedJupyterClient.withStaticConnection(assignment);
-    const kernels = await client.kernels.list({ signal });
+    const c = assignment.connectionInformation;
+    const jupyterClient = ProxiedJupyterClient.withStaticConnection(
+      c.baseUrl,
+      c.token,
+    );
+    const kernels = await jupyterClient.kernels.list({ signal });
     if (await this.shouldKeepAlive(assignment, kernels)) {
       await this.colabClient.sendKeepAlive(assignment.endpoint, signal);
     }
