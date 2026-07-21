@@ -555,47 +555,31 @@ describe('AssignmentManager', () => {
   });
 
   describe('getServers', () => {
-    const ENDPOINT_WITH_SESSION_NAME = 'test-endpoint-with-name';
-    const ENDPOINT_WITHOUT_SESSION_NAME = 'test-endpoint-without-name';
-    const ENDPOINT_WITHOUT_SESSION = 'test-endpoint-without-session';
-    const URL_WITH_SESSION_NAME = 'https://test.url.with.session.name';
-    const URL_WITHOUT_SESSION_NAME = 'https://test.url.without.session.name';
-    const URL_WITHOUT_SESSION = 'https://test.url.without.session';
-    const PROXY_TOKEN = 'test-proxy-token';
     const TEST_SESSION_NAME = 'test-session-name';
     const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
 
     const assignmentWithName = {
-      endpoint: ENDPOINT_WITH_SESSION_NAME,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      accelerator: '',
+      ...defaultAssignment,
+      endpoint: 'test-endpoint-with-name',
       runtimeProxyInfo: {
-        url: URL_WITH_SESSION_NAME,
-        token: PROXY_TOKEN,
-        tokenExpiresInSeconds: 3600,
+        ...defaultAssignment.runtimeProxyInfo,
+        url: 'https://test.url.with.session.name',
       },
     };
     const assignmentWithoutName = {
-      endpoint: ENDPOINT_WITHOUT_SESSION_NAME,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      accelerator: '',
+      ...defaultAssignment,
+      endpoint: 'test-endpoint-without-name',
       runtimeProxyInfo: {
-        url: URL_WITHOUT_SESSION_NAME,
-        token: PROXY_TOKEN,
-        tokenExpiresInSeconds: 3600,
+        ...defaultAssignment.runtimeProxyInfo,
+        url: 'https://test.url.without.session.name',
       },
     };
     const assignmentWithoutSession = {
-      endpoint: ENDPOINT_WITHOUT_SESSION,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      accelerator: '',
+      ...defaultAssignment,
+      endpoint: 'test-endpoint-without-session',
       runtimeProxyInfo: {
-        url: URL_WITHOUT_SESSION,
-        token: PROXY_TOKEN,
-        tokenExpiresInSeconds: 3600,
+        ...defaultAssignment.runtimeProxyInfo,
+        url: 'https://test.url.without.session',
       },
     };
     const defaultSession = {
@@ -618,7 +602,10 @@ describe('AssignmentManager', () => {
     beforeEach(() => {
       jupyterStubWithSessionName = createJupyterClientStub();
       jupyterStaticConnectionStub
-        .withArgs(URL_WITH_SESSION_NAME, PROXY_TOKEN)
+        .withArgs(
+          assignmentWithName.runtimeProxyInfo.url,
+          assignmentWithName.runtimeProxyInfo.token,
+        )
         .returns(jupyterStubWithSessionName);
       jupyterStubWithSessionName.sessions.list.resolves([
         {
@@ -629,7 +616,10 @@ describe('AssignmentManager', () => {
 
       jupyterStubWithoutSessionName = createJupyterClientStub();
       jupyterStaticConnectionStub
-        .withArgs(URL_WITHOUT_SESSION_NAME, PROXY_TOKEN)
+        .withArgs(
+          assignmentWithoutName.runtimeProxyInfo.url,
+          assignmentWithoutName.runtimeProxyInfo.token,
+        )
         .returns(jupyterStubWithoutSessionName);
       jupyterStubWithoutSessionName.sessions.list.resolves([
         {
@@ -640,7 +630,10 @@ describe('AssignmentManager', () => {
 
       jupyterStubWithoutSession = createJupyterClientStub();
       jupyterStaticConnectionStub
-        .withArgs(URL_WITHOUT_SESSION, PROXY_TOKEN)
+        .withArgs(
+          assignmentWithoutSession.runtimeProxyInfo.url,
+          assignmentWithoutSession.runtimeProxyInfo.token,
+        )
         .returns(jupyterStubWithoutSession);
       jupyterStubWithoutSession.sessions.list.resolves([]);
     });
@@ -836,7 +829,7 @@ describe('AssignmentManager', () => {
         // One of the assignments was assigned within VS Code extension
         const assignedServer = {
           ...defaultServer,
-          endpoint: ENDPOINT_WITHOUT_SESSION_NAME,
+          endpoint: assignmentWithoutName.endpoint,
         };
         await serverStorage.store([assignedServer]);
 
@@ -847,15 +840,15 @@ describe('AssignmentManager', () => {
         expect(results).to.deep.equal([
           {
             label: TEST_SESSION_NAME,
-            endpoint: ENDPOINT_WITH_SESSION_NAME,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
           {
             label: UNKNOWN_REMOTE_SERVER_NAME,
-            endpoint: ENDPOINT_WITHOUT_SESSION,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithoutSession.endpoint,
+            variant: assignmentWithoutSession.variant,
+            accelerator: assignmentWithoutSession.accelerator,
           },
         ]);
       });
@@ -877,9 +870,9 @@ describe('AssignmentManager', () => {
         expect(results).to.deep.equal([
           {
             label: TEST_SESSION_NAME,
-            endpoint: ENDPOINT_WITH_SESSION_NAME,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
         ]);
       });
@@ -898,15 +891,15 @@ describe('AssignmentManager', () => {
         expect(results).to.deep.equal([
           {
             label: TEST_SESSION_NAME,
-            endpoint: ENDPOINT_WITH_SESSION_NAME,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
           {
             label: UNKNOWN_REMOTE_SERVER_NAME,
-            endpoint: ENDPOINT_WITHOUT_SESSION,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithoutSession.endpoint,
+            variant: assignmentWithoutSession.variant,
+            accelerator: assignmentWithoutSession.accelerator,
           },
         ]);
       });
@@ -933,9 +926,9 @@ describe('AssignmentManager', () => {
       await expect(resultsPromise).to.eventually.deep.equal([
         {
           label: UNKNOWN_REMOTE_SERVER_NAME,
-          endpoint: ENDPOINT_WITH_SESSION_NAME,
-          variant: Variant.DEFAULT,
-          accelerator: '',
+          endpoint: assignmentWithName.endpoint,
+          variant: assignmentWithName.variant,
+          accelerator: assignmentWithName.accelerator,
         },
       ]);
     });
@@ -951,7 +944,7 @@ describe('AssignmentManager', () => {
         // One of the assignments was assigned within VS Code extension
         const assignedServer = {
           ...defaultServer,
-          endpoint: ENDPOINT_WITHOUT_SESSION_NAME,
+          endpoint: assignmentWithoutName.endpoint,
         };
         await serverStorage.store([assignedServer]);
 
@@ -965,15 +958,15 @@ describe('AssignmentManager', () => {
         expect(results.unowned).to.deep.equal([
           {
             label: TEST_SESSION_NAME,
-            endpoint: ENDPOINT_WITH_SESSION_NAME,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithName.endpoint,
+            variant: assignmentWithName.variant,
+            accelerator: assignmentWithName.accelerator,
           },
           {
             label: UNKNOWN_REMOTE_SERVER_NAME,
-            endpoint: ENDPOINT_WITHOUT_SESSION,
-            variant: Variant.DEFAULT,
-            accelerator: '',
+            endpoint: assignmentWithoutSession.endpoint,
+            variant: assignmentWithoutSession.variant,
+            accelerator: assignmentWithoutSession.accelerator,
           },
         ]);
       });
@@ -993,21 +986,21 @@ describe('AssignmentManager', () => {
           unowned: [
             {
               label: TEST_SESSION_NAME,
-              endpoint: ENDPOINT_WITH_SESSION_NAME,
-              variant: Variant.DEFAULT,
-              accelerator: '',
+              endpoint: assignmentWithName.endpoint,
+              variant: assignmentWithName.variant,
+              accelerator: assignmentWithName.accelerator,
             },
             {
               label: UNKNOWN_REMOTE_SERVER_NAME,
-              endpoint: ENDPOINT_WITHOUT_SESSION_NAME,
-              variant: Variant.DEFAULT,
-              accelerator: '',
+              endpoint: assignmentWithoutName.endpoint,
+              variant: assignmentWithoutName.variant,
+              accelerator: assignmentWithoutName.accelerator,
             },
             {
               label: UNKNOWN_REMOTE_SERVER_NAME,
-              endpoint: ENDPOINT_WITHOUT_SESSION,
-              variant: Variant.DEFAULT,
-              accelerator: '',
+              endpoint: assignmentWithoutSession.endpoint,
+              variant: assignmentWithoutSession.variant,
+              accelerator: assignmentWithoutSession.accelerator,
             },
           ],
         });
@@ -1021,15 +1014,15 @@ describe('AssignmentManager', () => {
         ]);
         const assignedServer1 = {
           ...defaultServer,
-          endpoint: ENDPOINT_WITH_SESSION_NAME,
+          endpoint: assignmentWithName.endpoint,
         };
         const assignedServer2 = {
           ...defaultServer,
-          endpoint: ENDPOINT_WITHOUT_SESSION_NAME,
+          endpoint: assignmentWithoutName.endpoint,
         };
         const assignedServer3 = {
           ...defaultServer,
-          endpoint: ENDPOINT_WITHOUT_SESSION,
+          endpoint: assignmentWithoutSession.endpoint,
         };
         await serverStorage.store([
           assignedServer1,
@@ -1051,7 +1044,7 @@ describe('AssignmentManager', () => {
         colabClientStub.listAssignments.resolves([assignmentWithName]);
         const assignedServer = {
           ...defaultServer,
-          endpoint: ENDPOINT_WITH_SESSION_NAME,
+          endpoint: assignmentWithName.endpoint,
         };
         const noLongerAssignedServer = {
           ...defaultServer,

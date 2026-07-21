@@ -762,18 +762,25 @@ export class AssignmentManager implements Disposable {
             );
             try {
               const rp = a.runtimeProxyInfo;
-              if (rp) {
-                const jupyterClient = ProxiedJupyterClient.withStaticConnection(
-                  rp.url,
-                  rp.token,
-                );
-                const sessions = await Promise.race([
-                  jupyterClient.sessions.list({ signal }),
-                  timeout.promise,
-                ]);
-                if (sessions.length === 1 && sessions[0].name?.length) {
-                  label = sessions[0].name;
-                }
+              if (!rp) {
+                return {
+                  label,
+                  endpoint: a.endpoint,
+                  variant: a.variant,
+                  accelerator: a.accelerator,
+                };
+              }
+
+              const jupyterClient = ProxiedJupyterClient.withStaticConnection(
+                rp.url,
+                rp.token,
+              );
+              const sessions = await Promise.race([
+                jupyterClient.sessions.list({ signal }),
+                timeout.promise,
+              ]);
+              if (sessions.length === 1 && sessions[0].name?.length) {
+                label = sessions[0].name;
               }
             } catch (error: unknown) {
               // The assignment may have been removed (e.g. via Colab web UI
