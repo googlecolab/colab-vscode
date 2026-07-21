@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
 import { AssignmentManager } from '../jupyter/assignments';
-import { JupyterClient, ProxiedJupyterClient } from '../jupyter/client';
+import { ProxiedJupyterClient } from '../jupyter/client';
 import { Kernel } from '../jupyter/client/generated';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { TestCancellationTokenSource } from '../test/helpers/cancellation';
@@ -76,9 +76,8 @@ describe('ServerKeepAliveController', () => {
   let clock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
   let colabClientStub: SinonStubbedInstance<ColabClient>;
-  let jupyterClientFactoryStub: sinon.SinonStub<
-    [server: ColabAssignedServer],
-    JupyterClient
+  let jupyterClientFactoryStub: sinon.SinonStubbedFunction<
+    typeof ProxiedJupyterClient.withStaticConnection
   >;
   let defaultServerJupyterStub: JupyterClientStub;
   let assignmentStub: SinonStubbedInstance<AssignmentManager>;
@@ -101,7 +100,10 @@ describe('ServerKeepAliveController', () => {
     );
     defaultServerJupyterStub = createJupyterClientStub();
     jupyterClientFactoryStub
-      .withArgs(DEFAULT_SERVER)
+      .withArgs(
+        DEFAULT_SERVER.connectionInformation.baseUrl,
+        DEFAULT_SERVER.connectionInformation.token,
+      )
       .returns(defaultServerJupyterStub);
     assignmentStub = sinon.createStubInstance(AssignmentManager);
     keepAlive = new ServerKeepAliveController(
@@ -424,6 +426,11 @@ describe('ServerKeepAliveController', () => {
           ...DEFAULT_SERVER,
           id: randomUUID(),
           endpoint: `m-s-${n.toString()}`,
+          connectionInformation: {
+            ...DEFAULT_SERVER.connectionInformation,
+            baseUrl: TestUri.parse(`https://example${n.toString()}.com`),
+            token: `test-token-${n.toString()}`,
+          },
         };
         return { server, kernel: createKernel(server, activity) };
       }
@@ -456,7 +463,12 @@ describe('ServerKeepAliveController', () => {
         const servers = [active1, active2, idle1, idle2];
         for (const { server, kernel } of servers) {
           const jupyterStub = createJupyterClientStub();
-          jupyterClientFactoryStub.withArgs(server).returns(jupyterStub);
+          jupyterClientFactoryStub
+            .withArgs(
+              server.connectionInformation.baseUrl,
+              server.connectionInformation.token,
+            )
+            .returns(jupyterStub);
           jupyterStub.kernels.list.resolves([kernel]);
         }
         // Type assertion needed due to overloading on getServers

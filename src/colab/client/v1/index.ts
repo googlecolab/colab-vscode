@@ -16,7 +16,6 @@ import {
   createAuthMiddleware,
   createErrorMiddleware,
 } from '../../../common/middleware';
-import { Session } from '../../../jupyter/client/generated';
 import { ColabAssignedServer } from '../../../jupyter/servers';
 import { uuidToWebSafeBase64 } from '../../../utils/uuid';
 import {
@@ -52,7 +51,6 @@ import {
   ListedAssignment,
   RuntimeProxyToken,
   RuntimeProxyTokenSchema,
-  SessionSchema,
   CredentialsPropagationResult,
   CredentialsPropagationResultSchema,
   ExperimentStateSchema,
@@ -318,34 +316,6 @@ export class ColabClient {
       ListedAssignmentsSchema,
     );
     return response.assignments;
-  }
-
-  /**
-   * Lists all sessions for a given server by its endpoint.
-   *
-   * @param endpoint - The assignment endpoint to list sessions for.
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The list of sessions.
-   */
-  async listSessions(
-    endpoint: string,
-    signal?: AbortSignal,
-  ): Promise<Session[]> {
-    const url = new URL(
-      `${TUN_ENDPOINT}/${endpoint}/api/sessions`,
-      this.colabDomain,
-    );
-    const headers = { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value };
-
-    return await this.issueRequest(
-      url,
-      {
-        method: 'GET',
-        headers,
-        signal,
-      },
-      z.array(SessionSchema),
-    );
   }
 
   /**

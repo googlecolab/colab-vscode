@@ -24,10 +24,7 @@
  */
 
 import { z } from 'zod';
-import {
-  Session as GeneratedSession,
-  Kernel as GeneratedKernel,
-} from '../../../jupyter/client/generated';
+import { Kernel as GeneratedKernel } from '../../../jupyter/client/generated';
 import { Shape, SubscriptionTier, Variant } from '../../types';
 
 export enum SubscriptionState {
@@ -395,21 +392,6 @@ export const KernelSchema: z.ZodType<GeneratedKernel> = z
   }));
 /** A Colab Jupyter kernel. */
 export type Kernel = z.infer<typeof KernelSchema>;
-
-/** A session to a Colab Jupyter kernel returned from the Colab API. */
-export const SessionSchema: z.ZodType<GeneratedSession> = z.object({
-  /** The UUID of the session. */
-  id: z.string(),
-  /** The kernel associated with the session. */
-  kernel: KernelSchema,
-  /** The name of the session. */
-  name: z.string(),
-  /** The path to the session. */
-  path: z.string(),
-  /** The session type. */
-  type: z.string(),
-});
-export type Session = z.infer<typeof SessionSchema>;
 
 /** Information about memory usage on a Colab runtime. */
 export const MemorySchema = z
