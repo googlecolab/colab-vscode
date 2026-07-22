@@ -1344,7 +1344,7 @@ describe('throwIfOperationError', () => {
   const OPERATION_NAME = 'operations/test-operation-id';
   const ERROR_MESSAGE = 'test error message';
 
-  it('does nothing if operation does not contain an error', () => {
+  it('does not throw if operation does not contain an error', () => {
     const nonErrorOperation: Operation = {
       name: OPERATION_NAME,
       done: true,
@@ -1353,9 +1353,9 @@ describe('throwIfOperationError', () => {
       },
     };
 
-    throwIfOperationError(nonErrorOperation);
-
-    // No error is thrown. We are good!
+    expect(() => {
+      throwIfOperationError(nonErrorOperation);
+    }).to.not.throw;
   });
 
   it('throws TooManyAssignmentsError if TOO_MANY_ACTIVE_RUNTIMES', () => {
@@ -1365,13 +1365,7 @@ describe('throwIfOperationError', () => {
       error: {
         code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
-        details: [
-          // Intentionally add an unrelated detail here to ensure that it will
-          // be ignored
-          { unrelatedKey: 'unrelated value' },
-          // This will be identified as the ErrorInfo containing the reason
-          { reason: 'TOO_MANY_ACTIVE_RUNTIMES' },
-        ],
+        details: [{ reason: 'TOO_MANY_ACTIVE_RUNTIMES' }],
       },
     };
 
@@ -1387,13 +1381,7 @@ describe('throwIfOperationError', () => {
       error: {
         code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
-        details: [
-          // Intentionally add an unrelated detail here to ensure that it will
-          // be ignored
-          { unrelatedKey: 'unrelated value' },
-          // This will be identified as the ErrorInfo containing the reason
-          { reason: 'DENYLISTED' },
-        ],
+        details: [{ reason: 'DENYLISTED' }],
       },
     };
 
@@ -1409,13 +1397,7 @@ describe('throwIfOperationError', () => {
       error: {
         code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
-        details: [
-          // Intentionally add an unrelated detail here to ensure that it will
-          // be ignored
-          { unrelatedKey: 'unrelated value' },
-          // This will be identified as the ErrorInfo containing the reason
-          { reason: 'QUOTA_EXCEEDED_USAGE_TIME' },
-        ],
+        details: [{ reason: 'QUOTA_EXCEEDED_USAGE_TIME' }],
       },
     };
 
@@ -1434,13 +1416,7 @@ describe('throwIfOperationError', () => {
       error: {
         code: status.FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
-        details: [
-          // Intentionally add an unrelated detail here to ensure that it will
-          // be ignored
-          { unrelatedKey: 'unrelated value' },
-          // This will be identified as the ErrorInfo containing the reason
-          { reason: 'ANY_RANDOM_REASON' },
-        ],
+        details: [{ reason: 'ANY_RANDOM_REASON' }],
       },
     };
 
@@ -1473,13 +1449,7 @@ describe('throwIfOperationError', () => {
         error: {
           code,
           message: ERROR_MESSAGE,
-          details: [
-            // Intentionally add an unrelated detail here to ensure that it will
-            // be ignored
-            { unrelatedKey: 'unrelated value' },
-            // This will be identified as the ErrorInfo containing the reason
-            { reason: 'ANY_RANDOM_REASON' },
-          ],
+          details: [{ reason: 'ANY_RANDOM_REASON' }],
         },
       };
 
@@ -1509,5 +1479,27 @@ describe('throwIfOperationError', () => {
       LongRunningOperationError,
       `Operation ${OPERATION_NAME} failed with error ${String(code)}: ${ERROR_MESSAGE} (reason: UNKNOWN)`,
     );
+  });
+
+  it('ignores unrelated error details', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: status.UNKNOWN,
+        message: ERROR_MESSAGE,
+        details: [
+          // Intentionally add an unrelated detail here to ensure that it will
+          // be ignored
+          { unrelatedKey: 'unrelated value' },
+          // This will be identified as the ErrorInfo containing the reason
+          { reason: 'ANY_RANDOM_REASON' },
+        ],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(/(reason: ANY_RANDOM_REASON)/);
   });
 });
