@@ -134,6 +134,13 @@ const defaultRuntime: Runtime = {
   },
   version: defaultServerDescriptor.version,
 };
+const defaultRawRuntime = {
+  ...defaultRuntime,
+  connectionInfo: {
+    ...defaultRuntime.connectionInfo,
+    expireTime: defaultRuntime.connectionInfo?.expireTime.toISOString(),
+  },
+};
 
 const defaultServerV2: ColabAssignedServer = {
   ...defaultServer,
@@ -1815,7 +1822,7 @@ describe('AssignmentManager', () => {
             .resolves({
               name: `operations/${OPERATION_ID}`,
               done: true,
-              response: defaultRuntime,
+              response: defaultRawRuntime,
             });
 
           vsCodeStub.window.withProgress
