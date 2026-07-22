@@ -1038,7 +1038,8 @@ enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
-const WAIT_OPERATION_TIMEOUT = '120s';
+// Internal CreateAssignment RPC deadline of 180s + network buffer
+const WAIT_OPERATION_TIMEOUT = '200s';
 const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';

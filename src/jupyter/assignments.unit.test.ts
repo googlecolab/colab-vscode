@@ -1790,7 +1790,7 @@ describe('AssignmentManager', () => {
 
       describe('when a server is assigned in a long-running operation', () => {
         const OPERATION_ID = randomUUID();
-        const WAIT_OPERATION_TIMEOUT = '120s';
+        const WAIT_OPERATION_TIMEOUT = '200s';
 
         beforeEach(() => {
           (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
