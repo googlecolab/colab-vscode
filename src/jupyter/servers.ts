@@ -81,8 +81,6 @@ export const DEFAULT_CPU_SERVER: ColabServerDescriptor = {
 
 /** A Colab server assigned outside and not owned by VS Code. */
 export interface UnownedServer extends ColabServerDescriptor {
-  /** The server's unique identifier. */
-  readonly id: string;
   /** The server endpoint. */
   readonly endpoint: string;
 }

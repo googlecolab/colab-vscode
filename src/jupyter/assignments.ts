@@ -1148,10 +1148,8 @@ function toUnownedServer(
   runtime: Runtime | ListedAssignment,
 ): UnownedServer {
   if (instanceOfRuntime(runtime)) {
-    assert(runtime.name);
     assert(runtime.connectionInfo);
     return {
-      id: trimPrefix(runtime.name, 'runtimes/'),
       label,
       endpoint: runtime.connectionInfo.endpoint,
       variant: normalizeVariant(runtime.runtimeSpec.variant),
@@ -1161,7 +1159,6 @@ function toUnownedServer(
     };
   }
   return {
-    id: runtime.notebookIdHash,
     label,
     endpoint: runtime.endpoint,
     variant: runtime.variant,
