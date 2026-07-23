@@ -1355,7 +1355,7 @@ describe('throwIfOperationError', () => {
 
     expect(() => {
       throwIfOperationError(nonErrorOperation);
-    }).to.not.throw;
+    }).to.not.throw();
   });
 
   it('throws TooManyAssignmentsError if TOO_MANY_ACTIVE_RUNTIMES', () => {

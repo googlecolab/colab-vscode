@@ -419,7 +419,7 @@ export class AssignmentManager implements Disposable {
         assert(assignmentOrRuntime.name);
         const runtimeId = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
         const c = assignmentOrRuntime.connectionInfo;
-        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}}`);
+        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}`);
         server = this.toAssignedServer(
           {
             id: runtimeId,
