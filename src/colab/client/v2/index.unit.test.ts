@@ -4,12 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { status } from '@grpc/grpc-js';
 import { expect } from 'chai';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import * as sinon from 'sinon';
 import { SinonStubbedFunction } from 'sinon';
 import { telemetry } from '../../../telemetry';
+import {
+  AcceleratorUnavailableError,
+  DenylistedError,
+  InsufficientQuotaError,
+  LongRunningOperationError,
+  TooManyAssignmentsError,
+} from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import {
   Shape as CommonShape,
@@ -23,12 +31,16 @@ import {
   SubscriptionTier,
   Variant,
 } from './generated/colab';
+import { Operation } from './generated/operations';
 import {
   ColabApiClient,
   createColabApiClient,
+  denormalizeShape,
+  denormalizeVariant,
   normalizeShape,
   normalizeSubscriptionTier,
   normalizeVariant,
+  throwIfOperationError,
 } from '.';
 
 const COLAB_API_HOST = 'colab.example.com';
@@ -1278,5 +1290,216 @@ describe('normalizeShape', () => {
     expect(() => normalizeShape(Shape.ShapeUnspecified)).to.throw(
       /Unknown shape:/,
     );
+  });
+});
+
+describe('denormalizeVariant', () => {
+  const tests = [
+    {
+      input: CommonVariant.DEFAULT,
+      expected: Variant.VariantCpu,
+    },
+    {
+      input: CommonVariant.GPU,
+      expected: Variant.VariantGpu,
+    },
+    {
+      input: CommonVariant.TPU,
+      expected: Variant.VariantTpu,
+    },
+  ];
+  tests.forEach(({ input, expected }) => {
+    it(`returns ${expected} from ${input}`, () => {
+      expect(denormalizeVariant(input)).to.equal(expected);
+    });
+  });
+});
+
+describe('denormalizeShape', () => {
+  const tests = [
+    {
+      name: 'undefined value',
+      input: undefined,
+      expected: Shape.ShapeStandard,
+    },
+    {
+      name: 'STANDARD',
+      input: CommonShape.STANDARD,
+      expected: Shape.ShapeStandard,
+    },
+    {
+      name: 'HIGHMEM',
+      input: CommonShape.HIGHMEM,
+      expected: Shape.ShapeHighmem,
+    },
+  ];
+  tests.forEach(({ name, input, expected }) => {
+    it(`returns ${expected} from ${name}`, () => {
+      expect(denormalizeShape(input)).to.equal(expected);
+    });
+  });
+});
+
+describe('throwIfOperationError', () => {
+  const OPERATION_NAME = 'operations/test-operation-id';
+  const ERROR_MESSAGE = 'test error message';
+
+  it('does not throw if operation does not contain an error', () => {
+    const nonErrorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      response: {
+        name: 'runtimes/1',
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(nonErrorOperation);
+    }).to.not.throw();
+  });
+
+  it('throws TooManyAssignmentsError if TOO_MANY_ACTIVE_RUNTIMES', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: status.FAILED_PRECONDITION,
+        message: ERROR_MESSAGE,
+        details: [{ reason: 'TOO_MANY_ACTIVE_RUNTIMES' }],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(TooManyAssignmentsError, ERROR_MESSAGE);
+  });
+
+  it('throws DenylistedError if DENYLISTED', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: status.FAILED_PRECONDITION,
+        message: ERROR_MESSAGE,
+        details: [{ reason: 'DENYLISTED' }],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(DenylistedError, /This account has been blocked/);
+  });
+
+  it('throws InsufficientQuotaError if QUOTA_EXCEEDED_USAGE_TIME', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: status.FAILED_PRECONDITION,
+        message: ERROR_MESSAGE,
+        details: [{ reason: 'QUOTA_EXCEEDED_USAGE_TIME' }],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(
+      InsufficientQuotaError,
+      'You have insufficient quota to assign this server.',
+    );
+  });
+
+  it('throws AcceleratorUnavailableError if other reason with accelerator', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: status.FAILED_PRECONDITION,
+        message: ERROR_MESSAGE,
+        details: [{ reason: 'ANY_RANDOM_REASON' }],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation, 'T4');
+    }).to.throw(AcceleratorUnavailableError, /T4/);
+  });
+
+  const tests = [
+    {
+      name: 'failed precondition without accelerator',
+      code: status.FAILED_PRECONDITION,
+    },
+    {
+      name: 'failed precondition with NONE accelerator',
+      code: status.FAILED_PRECONDITION,
+      accelerator: 'NONE',
+    },
+    {
+      name: 'other error code with accelerator',
+      code: status.ALREADY_EXISTS,
+      accelerator: 'T4',
+    },
+  ];
+  tests.forEach(({ name, code, accelerator }) => {
+    it(`throws LongRunningOperationError if ${name}`, () => {
+      const errorOperation: Operation = {
+        name: OPERATION_NAME,
+        done: true,
+        error: {
+          code,
+          message: ERROR_MESSAGE,
+          details: [{ reason: 'ANY_RANDOM_REASON' }],
+        },
+      };
+
+      expect(() => {
+        throwIfOperationError(errorOperation, accelerator);
+      }).to.throw(
+        LongRunningOperationError,
+        `Operation ${OPERATION_NAME} failed with error ${String(code)}: ${ERROR_MESSAGE} (reason: ANY_RANDOM_REASON)`,
+      );
+    });
+  });
+
+  it(`throws LongRunningOperationError if no error details`, () => {
+    const code = status.FAILED_PRECONDITION;
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code,
+        message: ERROR_MESSAGE,
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(
+      LongRunningOperationError,
+      `Operation ${OPERATION_NAME} failed with error ${String(code)}: ${ERROR_MESSAGE} (reason: UNKNOWN)`,
+    );
+  });
+
+  it('ignores unrelated error details', () => {
+    const errorOperation: Operation = {
+      name: OPERATION_NAME,
+      done: true,
+      error: {
+        code: status.UNKNOWN,
+        message: ERROR_MESSAGE,
+        details: [
+          // Intentionally add an unrelated detail here to ensure that it will
+          // be ignored
+          { unrelatedKey: 'unrelated value' },
+          // This will be identified as the ErrorInfo containing the reason
+          { reason: 'ANY_RANDOM_REASON' },
+        ],
+      },
+    };
+
+    expect(() => {
+      throwIfOperationError(errorOperation);
+    }).to.throw(/(reason: ANY_RANDOM_REASON)/);
   });
 });

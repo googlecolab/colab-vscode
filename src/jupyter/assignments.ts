@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import assert from 'assert';
 import { randomUUID, UUID } from 'crypto';
 import fetch, {
   Headers,
@@ -24,9 +25,18 @@ import {
 } from '../colab/client/v1/api';
 import {
   ColabApiClient,
+  denormalizeShape,
+  denormalizeVariant,
   normalizeShape,
   normalizeVariant,
+  throwIfOperationError,
 } from '../colab/client/v2';
+import {
+  ConnectionInfo,
+  CreateRuntimeOperationFromJSON,
+  Runtime,
+  instanceOfRuntime,
+} from '../colab/client/v2/generated/colab';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
@@ -34,6 +44,7 @@ import {
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
+  WaitOperationTimeoutError,
 } from '../colab/errors';
 import { getFlag } from '../colab/experiment-state';
 import {
@@ -349,23 +360,36 @@ export class AssignmentManager implements Disposable {
     const { label, variant, accelerator, shape, version } = descriptor;
     let outcome = AssignmentOutcome.ASSIGNMENT_OUTCOME_UNSPECIFIED;
     let hadFallback = false;
+    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
     try {
-      let assignment: Assignment;
+      let assignmentOrRuntime: Assignment | Runtime;
       try {
         if (isColabServerDescriptorWithAccelerator(descriptor)) {
-          assignment = await this.assignWithFallback(
-            id,
+          assignmentOrRuntime = await this.assignWithFallback(
             descriptor,
-            /* fallbacks= */ undefined,
+            /* id= */ enablePublicApi ? undefined : id,
+            /* fallback= */ undefined,
             signal,
           );
-          hadFallback = assignment.accelerator !== descriptor.accelerator;
+          if (instanceOfRuntime(assignmentOrRuntime)) {
+            hadFallback =
+              assignmentOrRuntime.runtimeSpec.accelerator !==
+              descriptor.accelerator;
+          } else {
+            hadFallback =
+              assignmentOrRuntime.accelerator !== descriptor.accelerator;
+          }
         } else {
-          ({ assignment } = await this.colabClient.assign(
-            id,
-            { variant, accelerator, shape, version },
-            signal,
-          ));
+          if (enablePublicApi) {
+            assignmentOrRuntime = await this.createRuntime(descriptor, signal);
+          } else {
+            ({ assignment: assignmentOrRuntime } =
+              await this.colabClient.assign(
+                id,
+                { variant, accelerator, shape, version },
+                signal,
+              ));
+          }
         }
       } catch (error) {
         log.trace(`Failed assigning server ${id}`, error);
@@ -389,17 +413,39 @@ export class AssignmentManager implements Disposable {
         }
         throw error;
       }
-      const server = this.toAssignedServer(
-        {
-          id,
-          label,
-          variant: assignment.variant,
-          accelerator: assignment.accelerator,
-        },
-        assignment.endpoint,
-        assignment.runtimeProxyInfo,
-        new Date(),
-      );
+
+      let server: ColabAssignedServer;
+      if (instanceOfRuntime(assignmentOrRuntime)) {
+        assert(assignmentOrRuntime.name);
+        const runtimeId = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
+        const c = assignmentOrRuntime.connectionInfo;
+        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}`);
+        server = this.toAssignedServer(
+          {
+            id: runtimeId,
+            label,
+            variant: normalizeVariant(assignmentOrRuntime.runtimeSpec.variant),
+            accelerator: assignmentOrRuntime.runtimeSpec.accelerator,
+            shape: normalizeShape(assignmentOrRuntime.runtimeSpec.shape),
+            version: assignmentOrRuntime.version,
+          },
+          c.endpoint,
+          c,
+          new Date(),
+        );
+      } else {
+        server = this.toAssignedServer(
+          {
+            id,
+            label,
+            variant: assignmentOrRuntime.variant,
+            accelerator: assignmentOrRuntime.accelerator,
+          },
+          assignmentOrRuntime.endpoint,
+          assignmentOrRuntime.runtimeProxyInfo,
+          new Date(),
+        );
+      }
       await this.storage.store([server]);
       this.assignmentChange.fire({
         added: [server],
@@ -478,7 +524,7 @@ export class AssignmentManager implements Disposable {
    * ID.
    */
   async refreshConnection(
-    id: UUID,
+    id: string,
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     this.guardDisposed();
@@ -505,6 +551,7 @@ export class AssignmentManager implements Disposable {
     });
     return updatedServer;
   }
+
   /**
    * Unassigns the given server.
    *
@@ -630,21 +677,29 @@ export class AssignmentManager implements Disposable {
   }
 
   private async assignWithFallback(
-    id: UUID,
     descriptor: ColabServerDescriptorWithAccelerator,
+    id?: UUID,
     fallback?: {
       toAttempt: string[];
       attempted: string[];
     },
     signal?: AbortSignal,
-  ): Promise<Assignment> {
+  ): Promise<Assignment | Runtime> {
     const { variant, accelerator, shape, version } = descriptor;
     try {
-      const { assignment } = await this.colabClient.assign(
-        id,
-        { variant, accelerator, shape, version },
-        signal,
-      );
+      let assignment: Assignment | Runtime;
+      if (id) {
+        // Take the old v1 route if an `id` is passed in.
+        ({ assignment } = await this.colabClient.assign(
+          id,
+          { variant, accelerator, shape, version },
+          signal,
+        ));
+      } else {
+        // Otherwise, take the new v2 route.
+        assignment = await this.createRuntime(descriptor, signal);
+      }
+
       const original = fallback?.attempted
         ? fallback.attempted[0]
         : accelerator;
@@ -695,8 +750,8 @@ export class AssignmentManager implements Disposable {
         `Assignment failed with unavailable accelerator ${accelerator}, retrying with ${newFallback.toAttempt[0]}`,
       );
       return this.assignWithFallback(
-        id,
         { ...descriptor, accelerator: newFallback.toAttempt[0] },
+        id,
         newFallback,
         signal,
       );
@@ -706,7 +761,7 @@ export class AssignmentManager implements Disposable {
   private toAssignedServer(
     server: ColabJupyterServer,
     endpoint: string,
-    connectionInfo: RuntimeProxyToken,
+    connectionInfo: RuntimeProxyToken | ConnectionInfo,
     dateAssigned: Date,
   ): ColabAssignedServer {
     const { url, token } = connectionInfo;
@@ -715,18 +770,17 @@ export class AssignmentManager implements Disposable {
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
     headers[COLAB_CLIENT_AGENT_HEADER.key] = COLAB_CLIENT_AGENT_HEADER.value;
 
+    const tokenExpiry =
+      'expireTime' in connectionInfo
+        ? connectionInfo.expireTime
+        : new Date(Date.now() + connectionInfo.tokenExpiresInSeconds * 1000);
     const colabServer: ColabAssignedServer = {
-      id: server.id,
-      label: server.label,
-      variant: server.variant,
-      accelerator: server.accelerator,
-      endpoint: endpoint,
+      ...server,
+      endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(url),
         token,
-        tokenExpiry: new Date(
-          Date.now() + connectionInfo.tokenExpiresInSeconds * 1000,
-        ),
+        tokenExpiry,
         headers,
         fetch: colabProxyFetch(token),
       },
@@ -923,12 +977,69 @@ export class AssignmentManager implements Disposable {
       log.warn('Error occurred while deleting sessions:', err);
     });
   }
+
+  private async createRuntime(
+    descriptor: ColabServerDescriptor,
+    signal?: AbortSignal,
+  ): Promise<Runtime> {
+    const requestId = randomUUID();
+    let createRuntimeOperation = await this.colabApiClient.colab.createRuntime(
+      {
+        runtime: {
+          runtimeSpec: {
+            variant: denormalizeVariant(descriptor.variant),
+            accelerator: descriptor.accelerator ?? 'NONE',
+            shape: denormalizeShape(descriptor.shape),
+          },
+          version: descriptor.version,
+        },
+        requestId,
+      },
+      { signal },
+    );
+
+    if (createRuntimeOperation.done) {
+      throwIfOperationError(createRuntimeOperation, descriptor.accelerator);
+      assert(createRuntimeOperation.response);
+      return createRuntimeOperation.response;
+    }
+
+    assert(createRuntimeOperation.name);
+    const operationId = trimPrefix(createRuntimeOperation.name, 'operations/');
+    const operation = await this.vs.window.withProgress(
+      {
+        location: this.vs.ProgressLocation.Notification,
+        title: 'Assigning server...',
+        cancellable: false,
+      },
+      () => {
+        return this.colabApiClient.operations.waitOperation(
+          { operationsId: operationId, timeout: WAIT_OPERATION_TIMEOUT },
+          { signal },
+        );
+      },
+    );
+
+    createRuntimeOperation = CreateRuntimeOperationFromJSON(operation);
+    if (!createRuntimeOperation.done) {
+      throw new WaitOperationTimeoutError(operationId, WAIT_OPERATION_TIMEOUT);
+    }
+
+    throwIfOperationError(createRuntimeOperation, descriptor.accelerator);
+    assert(
+      createRuntimeOperation.response,
+      `Runtime response is missing in operation: ${operationId}`,
+    );
+    return createRuntimeOperation.response;
+  }
 }
 
 enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
+// Internal CreateAssignment RPC deadline of 180s + network buffer
+const WAIT_OPERATION_TIMEOUT = '200s';
 const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';
@@ -1019,4 +1130,11 @@ function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
     return AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED;
   }
   return AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE;
+}
+
+function trimPrefix(str: string, prefix: string): string {
+  if (str.startsWith(prefix)) {
+    return str.slice(prefix.length);
+  }
+  return str;
 }

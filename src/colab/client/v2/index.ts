@@ -4,8 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { status } from '@grpc/grpc-js';
 import { log } from '../../../common/logging';
 import { telemetry } from '../../../telemetry';
+import {
+  AcceleratorUnavailableError,
+  DenylistedError,
+  InsufficientQuotaError,
+  LongRunningOperationError,
+  TooManyAssignmentsError,
+} from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import {
   Shape as CommonShape,
@@ -16,6 +24,7 @@ import {
   ColaboratoryApi,
   Configuration as ColabConfig,
   ErrorContext,
+  ErrorInfo,
   FetchParams,
   Middleware,
   RequestContext,
@@ -25,6 +34,7 @@ import {
   Variant,
 } from './generated/colab';
 import {
+  Operation,
   ColaboratoryApi as OperationsApi,
   Configuration as OperationsConfig,
 } from './generated/operations';
@@ -100,6 +110,23 @@ export function normalizeVariant(variant: Variant): CommonVariant {
 }
 
 /**
+ * Converts the common {@link CommonVariant} to the API {@link Variant}.
+ *
+ * @param variant - Common variant.
+ * @returns API variant value for Colab public API.
+ */
+export function denormalizeVariant(variant: CommonVariant): Variant {
+  switch (variant) {
+    case CommonVariant.GPU:
+      return Variant.VariantGpu;
+    case CommonVariant.TPU:
+      return Variant.VariantTpu;
+    default:
+      return Variant.VariantCpu;
+  }
+}
+
+/**
  * Normalizes the API {@link Shape} to the common {@link CommonShape}.
  *
  * @param shape - Shape returned from public Colab API.
@@ -113,6 +140,73 @@ export function normalizeShape(shape: Shape): CommonShape {
       return CommonShape.HIGHMEM;
     default:
       throw new Error(`Unknown shape: ${shape}`);
+  }
+}
+
+/**
+ * Converts the common {@link CommonShape} to the API {@link Shape}.
+ *
+ * @param shape - Common shape.
+ * @returns API shape value for Colab public API.
+ */
+export function denormalizeShape(shape?: CommonShape): Shape {
+  return shape === CommonShape.HIGHMEM
+    ? Shape.ShapeHighmem
+    : Shape.ShapeStandard;
+}
+
+/**
+ * Throws if the operation contains an error.
+ *
+ * @param operation - Operation to parse error from.
+ * @param accelerator - Requested accelerator, if any.
+ * @throws AcceleratorUnavailableError if the requested machine accelerator is
+ * unavailable.
+ * @throws DenylistedError if the user has been banned.
+ * @throws InsufficientQuotaError if the user lacks the quota to assign a
+ * runtime.
+ * @throws TooManyAssignmentsError if the user has too many assignments.
+ * @throws LongRunningOperationError if the operation contains any other error.
+ */
+export function throwIfOperationError(
+  operation: Operation,
+  accelerator?: string,
+): void {
+  if (operation.error) {
+    const code = operation.error.code;
+    let reason: string | undefined;
+    for (const detail of operation.error.details ?? []) {
+      if (isErrorInfo(detail)) {
+        reason = detail.reason;
+        switch (reason) {
+          case 'TOO_MANY_ACTIVE_RUNTIMES':
+            throw new TooManyAssignmentsError(operation.error.message);
+          case 'DENYLISTED':
+            throw new DenylistedError(
+              'This account has been blocked from accessing Colab servers due to suspected abusive activity. This does not impact access to other Google products. Review the [usage limitations](https://research.google.com/colaboratory/faq.html#limitations-and-restrictions).',
+            );
+          case 'QUOTA_EXCEEDED_USAGE_TIME':
+            throw new InsufficientQuotaError(
+              'You have insufficient quota to assign this server.',
+            );
+          default:
+            if (
+              code === status.FAILED_PRECONDITION &&
+              accelerator &&
+              accelerator !== 'NONE'
+            ) {
+              throw new AcceleratorUnavailableError(accelerator);
+            }
+        }
+        break;
+      }
+    }
+    throw new LongRunningOperationError(
+      operation.name,
+      code,
+      operation.error.message,
+      reason,
+    );
   }
 }
 
@@ -188,4 +282,13 @@ class ErrorMiddleware implements Middleware {
     );
     return Promise.resolve();
   }
+}
+
+function isErrorInfo(obj: unknown): obj is ErrorInfo {
+  return (
+    !!obj &&
+    typeof obj === 'object' &&
+    'reason' in obj &&
+    typeof obj.reason === 'string'
+  );
 }

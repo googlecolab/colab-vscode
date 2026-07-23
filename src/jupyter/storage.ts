@@ -4,21 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from 'crypto';
 import vscode from 'vscode';
 import { z } from 'zod';
 import { Variant } from '../colab/types';
 import { PROVIDER_ID } from '../config/constants';
-import { isUUID } from '../utils/uuid';
 import { ColabAssignedServer } from './servers';
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
 const AssignedServers = z.array(
   z.object({
-    id: z
-      .string()
-      .refine(isUUID, 'String must be a valid UUID.')
-      .transform((s) => s as UUID),
+    id: z.string(),
     label: z.string().nonempty(),
     variant: z.enum(Variant),
     accelerator: z.string().optional(),
@@ -91,7 +86,7 @@ export class ServerStorage {
    * @param id - The ID of the server to retrieve.
    * @returns The assigned server if found, otherwise undefined.
    */
-  async get(id: UUID): Promise<ColabAssignedServer | undefined> {
+  async get(id: string): Promise<ColabAssignedServer | undefined> {
     const servers = await this.list();
     return servers.find((server) => server.id === id);
   }
@@ -141,7 +136,7 @@ export class ServerStorage {
    * @returns true if a server was stored and has been removed, or false if the
    * server does not exist.
    */
-  async remove(serverId: UUID): Promise<boolean> {
+  async remove(serverId: string): Promise<boolean> {
     const existingServersJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
     const serversById = mapServersById(existingServersJson);
     if (!serversById.delete(serverId)) {

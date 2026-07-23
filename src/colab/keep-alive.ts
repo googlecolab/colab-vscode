@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from 'crypto';
 import { Disposable } from 'vscode';
 import vscode from 'vscode';
 import { log } from '../common/logging';
@@ -57,8 +56,8 @@ const ACTIVE_KERNEL_STATES = new Set([
  * explicitly extends their lifetime.
  */
 export class ServerKeepAliveController implements Toggleable, Disposable {
-  private readonly extendedKeepAlive = new Map<UUID, Date>();
-  private readonly tombstones = new Set<UUID>();
+  private readonly extendedKeepAlive = new Map<string, Date>();
+  private readonly tombstones = new Set<string>();
   private readonly runner: SequentialTaskRunner;
   private isDisposed = false;
 
