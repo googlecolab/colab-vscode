@@ -32,8 +32,8 @@ import {
   throwIfOperationError,
 } from '../colab/client/v2';
 import {
-  CreateRuntimeOperation,
   ConnectionInfo,
+  CreateRuntimeOperationFromJSON,
   Runtime,
   instanceOfRuntime,
 } from '../colab/client/v2/generated/colab';
@@ -450,7 +450,7 @@ export class AssignmentManager implements Disposable {
         assert(assignmentOrRuntime.name);
         const runtimeId = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
         const c = assignmentOrRuntime.connectionInfo;
-        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}}`);
+        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}`);
         server = this.toAssignedServer(
           {
             id: runtimeId,
@@ -1013,7 +1013,7 @@ export class AssignmentManager implements Disposable {
     signal?: AbortSignal,
   ): Promise<Runtime> {
     const requestId = randomUUID();
-    let operation = await this.colabApiClient.colab.createRuntime(
+    let createRuntimeOperation = await this.colabApiClient.colab.createRuntime(
       {
         runtime: {
           runtimeSpec: {
@@ -1028,15 +1028,15 @@ export class AssignmentManager implements Disposable {
       { signal },
     );
 
-    if (operation.done) {
-      throwIfOperationError(operation, descriptor.accelerator);
-      assert(operation.response);
-      return operation.response;
+    if (createRuntimeOperation.done) {
+      throwIfOperationError(createRuntimeOperation, descriptor.accelerator);
+      assert(createRuntimeOperation.response);
+      return createRuntimeOperation.response;
     }
 
-    assert(operation.name);
-    const operationId = trimPrefix(operation.name, 'operations/');
-    operation = (await this.vs.window.withProgress(
+    assert(createRuntimeOperation.name);
+    const operationId = trimPrefix(createRuntimeOperation.name, 'operations/');
+    const operation = await this.vs.window.withProgress(
       {
         location: this.vs.ProgressLocation.Notification,
         title: 'Assigning server...',
@@ -1048,17 +1048,19 @@ export class AssignmentManager implements Disposable {
           { signal },
         );
       },
-    )) as CreateRuntimeOperation;
-    if (!operation.done) {
+    );
+
+    createRuntimeOperation = CreateRuntimeOperationFromJSON(operation);
+    if (!createRuntimeOperation.done) {
       throw new WaitOperationTimeoutError(operationId, WAIT_OPERATION_TIMEOUT);
     }
 
-    throwIfOperationError(operation, descriptor.accelerator);
+    throwIfOperationError(createRuntimeOperation, descriptor.accelerator);
     assert(
-      operation.response,
+      createRuntimeOperation.response,
       `Runtime response is missing in operation: ${operationId}`,
     );
-    return operation.response;
+    return createRuntimeOperation.response;
   }
 }
 
@@ -1066,7 +1068,8 @@ enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
-const WAIT_OPERATION_TIMEOUT = '120s';
+// Internal CreateAssignment RPC deadline of 180s + network buffer
+const WAIT_OPERATION_TIMEOUT = '200s';
 const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 
 const LEARN_MORE = 'Learn More';

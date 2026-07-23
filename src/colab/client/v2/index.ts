@@ -160,6 +160,13 @@ export function denormalizeShape(shape?: CommonShape): Shape {
  *
  * @param operation - Operation to parse error from.
  * @param accelerator - Requested accelerator, if any.
+ * @throws AcceleratorUnavailableError if the requested machine accelerator is
+ * unavailable.
+ * @throws DenylistedError if the user has been banned.
+ * @throws InsufficientQuotaError if the user lacks the quota to assign a
+ * runtime.
+ * @throws TooManyAssignmentsError if the user has too many assignments.
+ * @throws LongRunningOperationError if the operation contains any other error.
  */
 export function throwIfOperationError(
   operation: Operation,

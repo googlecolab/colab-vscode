@@ -38,6 +38,7 @@ import {
   InsufficientQuotaError,
   NotFoundError,
   TooManyAssignmentsError,
+  WaitOperationTimeoutError,
 } from '../colab/errors';
 import { TEST_ONLY as EXPERIMENT_TEST } from '../colab/experiment-state';
 import {
@@ -133,6 +134,13 @@ const defaultRuntime: Runtime = {
     endpoint: 'm-s-foo',
   },
   version: defaultServerDescriptor.version,
+};
+const defaultRawRuntime = {
+  ...defaultRuntime,
+  connectionInfo: {
+    ...defaultRuntime.connectionInfo,
+    expireTime: defaultRuntime.connectionInfo?.expireTime.toISOString(),
+  },
 };
 
 const defaultServerV2: ColabAssignedServer = {
@@ -1783,7 +1791,7 @@ describe('AssignmentManager', () => {
 
       describe('when a server is assigned in a long-running operation', () => {
         const OPERATION_ID = randomUUID();
-        const WAIT_OPERATION_TIMEOUT = '120s';
+        const WAIT_OPERATION_TIMEOUT = '200s';
 
         beforeEach(() => {
           (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
@@ -1804,19 +1812,6 @@ describe('AssignmentManager', () => {
               name: `operations/${OPERATION_ID}`,
               done: false,
             });
-          (colabApiClientStub.operations.waitOperation as sinon.SinonStub)
-            .withArgs(
-              sinon.match(
-                (req: WaitOperationRequest) =>
-                  req.operationsId === OPERATION_ID &&
-                  req.timeout === WAIT_OPERATION_TIMEOUT,
-              ),
-            )
-            .resolves({
-              name: `operations/${OPERATION_ID}`,
-              done: true,
-              response: defaultRuntime,
-            });
 
           vsCodeStub.window.withProgress
             .withArgs(
@@ -1834,12 +1829,50 @@ describe('AssignmentManager', () => {
         });
 
         it('stores and returns the server with progress', async () => {
+          (colabApiClientStub.operations.waitOperation as sinon.SinonStub)
+            .withArgs(
+              sinon.match(
+                (req: WaitOperationRequest) =>
+                  req.operationsId === OPERATION_ID &&
+                  req.timeout === WAIT_OPERATION_TIMEOUT,
+              ),
+            )
+            .resolves({
+              name: `operations/${OPERATION_ID}`,
+              done: true,
+              response: defaultRawRuntime,
+            });
+
           const assignedServer = await assignmentManager.assignServer(
             defaultServerDescriptor,
           );
 
           expect(stripNetworkOverride(assignedServer)).to.deep.equal(
             defaultServerV2,
+          );
+          sinon.assert.calledOnce(vsCodeStub.window.withProgress);
+        });
+
+        it('throws WaitOperationTimeoutError if the operation is still not done after wait', async () => {
+          (colabApiClientStub.operations.waitOperation as sinon.SinonStub)
+            .withArgs(
+              sinon.match(
+                (req: WaitOperationRequest) =>
+                  req.operationsId === OPERATION_ID &&
+                  req.timeout === WAIT_OPERATION_TIMEOUT,
+              ),
+            )
+            .resolves({
+              name: `operations/${OPERATION_ID}`,
+              done: false,
+            });
+
+          const promise = assignmentManager.assignServer(
+            defaultServerDescriptor,
+          );
+
+          await expect(promise).to.eventually.be.rejectedWith(
+            WaitOperationTimeoutError,
           );
           sinon.assert.calledOnce(vsCodeStub.window.withProgress);
         });
