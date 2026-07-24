@@ -3007,102 +3007,184 @@ describe('AssignmentManager', () => {
   });
 
   describe('latestOrAutoAssignServer', () => {
-    it('throws after being disposed', async () => {
-      assignmentManager.dispose();
+    const tests = [
+      { name: 'with Public API enabled', enablePublicApi: true },
+      { name: 'with Public API disabled', enablePublicApi: false },
+    ];
+    tests.forEach(({ name, enablePublicApi }) => {
+      describe(name, () => {
+        beforeEach(() => {
+          EXPERIMENT_TEST.setFlagForTest(
+            ExperimentFlag.EnablePublicApi,
+            enablePublicApi,
+          );
+        });
 
-      await expect(
-        assignmentManager.latestOrAutoAssignServer(),
-      ).to.be.rejectedWith(/disposed/);
-    });
+        it('throws after being disposed', async () => {
+          assignmentManager.dispose();
 
-    it('assigns a new default server when none have been assigned', async () => {
-      colabClientStub.listAssignments.resolves([]);
-      const defaultCpuAssignment = {
-        ...defaultAssignment,
-        variant: Variant.DEFAULT,
-        accelerator: 'NONE',
-      };
-      const defaultCpuServer = {
-        ...defaultServer,
-        variant: Variant.DEFAULT,
-        accelerator: 'NONE',
-        label: 'Colab CPU',
-      };
-      colabClientStub.assign
-        .withArgs(sinon.match(isUUID), {
-          variant: Variant.DEFAULT,
-          accelerator: undefined,
-          shape: undefined,
-          version: undefined,
-        })
-        .resolves({ assignment: defaultCpuAssignment, isNew: true });
+          await expect(
+            assignmentManager.latestOrAutoAssignServer(),
+          ).to.be.rejectedWith(/disposed/);
+        });
 
-      const server = await assignmentManager.latestOrAutoAssignServer();
+        it('assigns a new default server when none have been assigned', async () => {
+          if (enablePublicApi) {
+            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
+              { runtimes: [] },
+            );
+            const defaultCpuRuntime: Runtime = {
+              ...defaultRuntime,
+              runtimeSpec: {
+                ...defaultRuntime.runtimeSpec,
+                variant: ApiVariant.VariantCpu,
+                accelerator: 'NONE',
+              },
+            };
+            (
+              colabApiClientStub.colab.createRuntime as sinon.SinonStub
+            ).resolves({
+              done: true,
+              response: defaultCpuRuntime,
+            });
+          } else {
+            colabClientStub.listAssignments.resolves([]);
+            const defaultCpuAssignment = {
+              ...defaultAssignment,
+              variant: Variant.DEFAULT,
+              accelerator: 'NONE',
+            };
+            colabClientStub.assign
+              .withArgs(sinon.match(isUUID), {
+                variant: Variant.DEFAULT,
+                accelerator: undefined,
+                shape: undefined,
+                version: undefined,
+              })
+              .resolves({ assignment: defaultCpuAssignment, isNew: true });
+          }
 
-      const { id: _g, ...got } = stripNetworkOverride(server);
-      const { id: _w, ...want } = defaultCpuServer;
-      expect(got).to.deep.equal(want);
-    });
+          const server = await assignmentManager.latestOrAutoAssignServer();
 
-    it('reconciles servers before resolving', async () => {
-      const deadServer = defaultServer;
-      const olderActiveServer: ColabAssignedServer = {
-        ...defaultServer,
-        id: randomUUID(),
-        endpoint: 'm-s-bar',
-        label: 'Older server',
-        dateAssigned: new Date(NOW.getTime() - 10000),
-      };
-      const olderActiveAssignment: Assignment = {
-        ...defaultAssignment,
-        endpoint: olderActiveServer.endpoint,
-      };
-      colabClientStub.listAssignments.resolves([olderActiveAssignment]);
-      await serverStorage.store([deadServer, olderActiveServer]);
+          const defaultCpuServer = {
+            ...(enablePublicApi ? defaultServerV2 : defaultServer),
+            variant: Variant.DEFAULT,
+            accelerator: 'NONE',
+            label: 'Colab CPU',
+          };
+          const { id: _g, ...got } = stripNetworkOverride(server);
+          const { id: _w, ...want } = defaultCpuServer;
+          expect(got).to.deep.equal(want);
+        });
 
-      const server = await assignmentManager.latestOrAutoAssignServer();
+        it('reconciles servers before resolving', async () => {
+          const deadServer = defaultServerV2;
+          const olderActiveServer: ColabAssignedServer = {
+            ...defaultServerV2,
+            id: randomUUID(),
+            endpoint: 'm-s-bar',
+            label: 'Older server',
+            dateAssigned: new Date(NOW.getTime() - 10000),
+          };
+          if (enablePublicApi) {
+            const olderActiveRuntime: Runtime = {
+              ...defaultRuntime,
+              connectionInfo: {
+                ...defaultRuntime.connectionInfo,
+                endpoint: olderActiveServer.endpoint,
+              },
+            };
+            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
+              { runtimes: [olderActiveRuntime] },
+            );
+          } else {
+            const olderActiveAssignment: Assignment = {
+              ...defaultAssignment,
+              endpoint: olderActiveServer.endpoint,
+            };
+            colabClientStub.listAssignments.resolves([olderActiveAssignment]);
+          }
+          await serverStorage.store([deadServer, olderActiveServer]);
 
-      expect(stripNetworkOverride(server)).to.deep.equal(olderActiveServer);
+          const server = await assignmentManager.latestOrAutoAssignServer();
+
+          expect(stripNetworkOverride(server)).to.deep.equal(olderActiveServer);
+        });
+      });
     });
   });
 
   describe('latestServer', () => {
-    it('throws after being disposed', async () => {
-      assignmentManager.dispose();
+    const tests = [
+      { name: 'with Public API enabled', enablePublicApi: true },
+      { name: 'with Public API disabled', enablePublicApi: false },
+    ];
+    tests.forEach(({ name, enablePublicApi }) => {
+      describe(name, () => {
+        beforeEach(() => {
+          EXPERIMENT_TEST.setFlagForTest(
+            ExperimentFlag.EnablePublicApi,
+            enablePublicApi,
+          );
+        });
 
-      await expect(assignmentManager.latestServer()).to.be.rejectedWith(
-        /disposed/,
-      );
-    });
+        it('throws after being disposed', async () => {
+          assignmentManager.dispose();
 
-    it('returns undefined when none have been assigned', async () => {
-      colabClientStub.listAssignments.resolves([]);
+          await expect(assignmentManager.latestServer()).to.be.rejectedWith(
+            /disposed/,
+          );
+        });
 
-      const server = await assignmentManager.latestServer();
-      expect(server).to.equal(undefined);
-    });
+        it('returns undefined when none have been assigned', async () => {
+          if (enablePublicApi) {
+            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
+              { runtimes: [] },
+            );
+          } else {
+            colabClientStub.listAssignments.resolves([]);
+          }
 
-    it('reconciles servers before resolving', async () => {
-      const deadServer = defaultServer;
-      const olderActiveServer: ColabAssignedServer = {
-        ...defaultServer,
-        id: randomUUID(),
-        endpoint: 'm-s-bar',
-        label: 'Older server',
-        dateAssigned: new Date(NOW.getTime() - 10000),
-      };
-      const olderActiveAssignment: Assignment = {
-        ...defaultAssignment,
-        endpoint: olderActiveServer.endpoint,
-      };
-      colabClientStub.listAssignments.resolves([olderActiveAssignment]);
-      await serverStorage.store([deadServer, olderActiveServer]);
+          const server = await assignmentManager.latestServer();
+          expect(server).to.equal(undefined);
+        });
 
-      const server = await assignmentManager.latestServer();
+        it('reconciles servers before resolving', async () => {
+          const deadServer = defaultServerV2;
+          const olderActiveServer: ColabAssignedServer = {
+            ...defaultServerV2,
+            id: randomUUID(),
+            endpoint: 'm-s-bar',
+            label: 'Older server',
+            dateAssigned: new Date(NOW.getTime() - 10000),
+          };
+          if (enablePublicApi) {
+            const olderActiveRuntime: Runtime = {
+              ...defaultRuntime,
+              connectionInfo: {
+                ...defaultRuntime.connectionInfo,
+                endpoint: olderActiveServer.endpoint,
+              },
+            };
+            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
+              { runtimes: [olderActiveRuntime] },
+            );
+          } else {
+            const olderActiveAssignment: Assignment = {
+              ...defaultAssignment,
+              endpoint: olderActiveServer.endpoint,
+            };
+            colabClientStub.listAssignments.resolves([olderActiveAssignment]);
+          }
+          await serverStorage.store([deadServer, olderActiveServer]);
 
-      expect(server ? stripNetworkOverride(server) : null).to.deep.equal(
-        olderActiveServer,
-      );
+          const server = await assignmentManager.latestServer();
+
+          expect(server ? stripNetworkOverride(server) : null).to.deep.equal(
+            olderActiveServer,
+          );
+        });
+      });
     });
   });
 
