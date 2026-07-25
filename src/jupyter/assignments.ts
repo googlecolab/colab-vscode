@@ -57,6 +57,7 @@ import { log } from '../common/logging';
 import { FetchError as JupyterFetchError } from '../jupyter/client/generated';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
+import { isUUID } from '../utils/uuid';
 import { ProxiedJupyterClient } from './client';
 import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
@@ -542,10 +543,25 @@ export class AssignmentManager implements Disposable {
     if (!server) {
       throw new NotFoundError('Server is not assigned');
     }
-    const newConnectionInfo = await this.colabClient.refreshConnection(
-      server.endpoint,
-      signal,
-    );
+
+    let newConnectionInfo: RuntimeProxyToken | ConnectionInfo;
+    // If the id is in UUID format, it means the server was assigned by the old
+    // v1 client. Use the v1 client to refresh the connection in this case.
+    if (isUUID(id)) {
+      newConnectionInfo = await this.colabClient.refreshConnection(
+        server.endpoint,
+        signal,
+      );
+    } else {
+      // Otherwise, use the new v2 client to get a fresh connection info.
+      const runtime = await this.colabApiClient.colab.getRuntime(
+        { runtime: id },
+        { signal },
+      );
+      assert(runtime.connectionInfo);
+      newConnectionInfo = runtime.connectionInfo;
+    }
+
     const updatedServer = this.toAssignedServer(
       server,
       server.endpoint,
