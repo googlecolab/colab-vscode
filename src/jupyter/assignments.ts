@@ -619,7 +619,15 @@ export class AssignmentManager implements Disposable {
   ): Promise<void> {
     this.guardDisposed();
     if (!isColabAssignedServer(server)) {
-      await this.colabClient.unassign(server.endpoint, signal);
+      const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
+      if (enablePublicApi) {
+        await this.colabApiClient.colab.deleteRuntime(
+          { runtime: server.id },
+          { signal },
+        );
+      } else {
+        await this.colabClient.unassign(server.endpoint, signal);
+      }
       return;
     }
 
@@ -628,7 +636,19 @@ export class AssignmentManager implements Disposable {
       return;
     }
     await this.deleteSessions(server, signal);
-    await this.colabClient.unassign(server.endpoint, signal);
+
+    // If the id is in UUID format, it means the server was assigned by the old
+    // v1 client. Use the v1 client to unassign in this case.
+    if (isUUID(server.id)) {
+      await this.colabClient.unassign(server.endpoint, signal);
+    } else {
+      // Otherwise, use the new v2 client to delete the runtime.
+      await this.colabApiClient.colab.deleteRuntime(
+        { runtime: server.id },
+        { signal },
+      );
+    }
+
     const removed = await this.storage.remove(server.id);
     if (!removed) {
       return;
@@ -1164,8 +1184,10 @@ function toUnownedServer(
   runtime: Runtime | ListedAssignment,
 ): UnownedServer {
   if (instanceOfRuntime(runtime)) {
+    assert(runtime.name);
     assert(runtime.connectionInfo);
     return {
+      id: trimPrefix(runtime.name, 'runtimes/'),
       label,
       endpoint: runtime.connectionInfo.endpoint,
       variant: normalizeVariant(runtime.runtimeSpec.variant),
@@ -1174,7 +1196,9 @@ function toUnownedServer(
       version: runtime.version,
     };
   }
+  assert(runtime.notebookIdHash);
   return {
+    id: runtime.notebookIdHash,
     label,
     endpoint: runtime.endpoint,
     variant: runtime.variant,
