@@ -580,7 +580,10 @@ export class AssignmentManager implements Disposable {
         { runtime: id },
         { signal },
       );
-      assert(runtime.connectionInfo);
+      assert(
+        runtime.connectionInfo,
+        `ConnectionInfo missing in runtime: ${id}`,
+      );
       newConnectionInfo = runtime.connectionInfo;
     }
 
