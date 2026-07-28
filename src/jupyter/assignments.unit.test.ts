@@ -32,7 +32,6 @@ import {
   Runtime,
   Shape as ApiShape,
   Variant as ApiVariant,
-  GetRuntimeRequest,
 } from '../colab/client/v2/generated/colab';
 import {
   ColaboratoryApi as OperationsApi,
@@ -3192,17 +3191,31 @@ describe('AssignmentManager', () => {
   describe('refreshConnection', () => {
     const tests = [
       {
-        name: 'with Public API disabled',
+        name: 'with Public API disabled and v1 server',
         enablePublicApi: false,
+        isV1Server: true,
         server: defaultServer,
       },
       {
-        name: 'with Public API enabled',
+        name: 'with Public API disabled but v2 server',
+        enablePublicApi: false,
+        isV1Server: false,
+        server: defaultServerV2,
+      },
+      {
+        name: 'with Public API enabled but v1 server',
         enablePublicApi: true,
+        isV1Server: true,
+        server: defaultServer,
+      },
+      {
+        name: 'with Public API enabled and v2 server',
+        enablePublicApi: true,
+        isV1Server: false,
         server: defaultServerV2,
       },
     ];
-    tests.forEach(({ name, enablePublicApi, server }) => {
+    tests.forEach(({ name, enablePublicApi, isV1Server, server }) => {
       describe(name, () => {
         beforeEach(() => {
           EXPERIMENT_TEST.setFlagForTest(
@@ -3234,34 +3247,45 @@ describe('AssignmentManager', () => {
               (
                 colabApiClientStub.colab.listRuntimes as sinon.SinonStub
               ).resolves({ runtimes: [defaultRuntime] });
-              (colabApiClientStub.colab.getRuntime as sinon.SinonStub)
-                .withArgs(
-                  sinon.match(
-                    (req: GetRuntimeRequest) => req.runtime === server.id,
-                  ),
-                  sinon.match.any,
-                )
-                .resolves({
-                  ...defaultRuntime,
-                  connectionInfo: {
-                    ...defaultRuntime.connectionInfo,
-                    token: newToken,
-                  },
-                });
             } else {
               colabClientStub.listAssignments.resolves([defaultAssignment]);
-              colabClientStub.refreshConnection
-                .withArgs(server.endpoint)
-                .resolves({
-                  ...defaultAssignment.runtimeProxyInfo,
-                  token: newToken,
-                });
             }
+            (colabApiClientStub.colab.getRuntime as sinon.SinonStub)
+              .withArgs(
+                sinon.match({ runtime: defaultServerV2.id }),
+                sinon.match.any,
+              )
+              .resolves({
+                ...defaultRuntime,
+                connectionInfo: {
+                  ...defaultRuntime.connectionInfo,
+                  token: newToken,
+                  expireTime: new Date(NOW.getTime() + TOKEN_EXPIRY_MS * 2),
+                },
+              });
+            colabClientStub.refreshConnection
+              .withArgs(defaultServer.endpoint)
+              .resolves({
+                ...defaultAssignment.runtimeProxyInfo,
+                token: newToken,
+              });
             await serverStorage.store([server]);
 
+            fakeClock.now = NOW.getTime() + TOKEN_EXPIRY_MS;
             refreshedServer = await assignmentManager.refreshConnection(
               server.id,
             );
+            if (isV1Server) {
+              sinon.assert.calledOnce(colabClientStub.refreshConnection);
+              sinon.assert.notCalled(
+                colabApiClientStub.colab.getRuntime as sinon.SinonStub,
+              );
+            } else {
+              sinon.assert.notCalled(colabClientStub.refreshConnection);
+              sinon.assert.calledOnce(
+                colabApiClientStub.colab.getRuntime as sinon.SinonStub,
+              );
+            }
           });
 
           it('stores and returns the server with updated connection info', () => {
@@ -3275,6 +3299,7 @@ describe('AssignmentManager', () => {
                     COLAB_CLIENT_AGENT_HEADER.value,
                 },
                 token: newToken,
+                tokenExpiry: new Date(NOW.getTime() + TOKEN_EXPIRY_MS * 2),
               },
             };
             expect(stripNetworkOverride(refreshedServer)).to.deep.equal(
