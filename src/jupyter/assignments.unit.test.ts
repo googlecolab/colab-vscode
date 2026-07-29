@@ -3254,6 +3254,29 @@ describe('AssignmentManager', () => {
     });
   });
 
+  function forEachPublicApiFlag(body: (enablePublicApi: boolean) => void) {
+    for (const enablePublicApi of [true, false]) {
+      describe(`with Public API ${enablePublicApi ? 'enabled' : 'disabled'}`, () => {
+        beforeEach(() => {
+          EXPERIMENT_TEST.setFlagForTest(
+            ExperimentFlag.EnablePublicApi,
+            enablePublicApi,
+          );
+        });
+
+        afterEach(() => {
+          if (enablePublicApi) {
+            sinon.assert.notCalled(colabClientStub.listAssignments);
+          } else {
+            sinon.assert.notCalled(listRuntimesStub);
+          }
+        });
+
+        body(enablePublicApi);
+      });
+    }
+  }
+
   function stubLive(enablePublicApi: boolean, ...fixtures: LiveFixture[]) {
     if (enablePublicApi) {
       listRuntimesStub.resolves({ runtimes: fixtures.map((f) => f.runtime) });
@@ -3285,19 +3308,4 @@ function stripNetworkOverrides(
   servers: ColabAssignedServer[],
 ): ColabAssignedServer[] {
   return servers.map(stripNetworkOverride);
-}
-
-function forEachPublicApiFlag(body: (enablePublicApi: boolean) => void) {
-  for (const enablePublicApi of [true, false]) {
-    describe(`with Public API ${enablePublicApi ? 'enabled' : 'disabled'}`, () => {
-      beforeEach(() => {
-        EXPERIMENT_TEST.setFlagForTest(
-          ExperimentFlag.EnablePublicApi,
-          enablePublicApi,
-        );
-      });
-
-      body(enablePublicApi);
-    });
-  }
 }
