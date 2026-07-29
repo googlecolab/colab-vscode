@@ -17,6 +17,7 @@ import { ColabClient } from '../colab/client/v1';
 import {
   Assignment,
   ExperimentFlag,
+  ListedAssignment,
   RuntimeProxyToken,
   SubscriptionState,
   UserInfo,
@@ -33,10 +34,7 @@ import {
   Shape as ApiShape,
   Variant as ApiVariant,
 } from '../colab/client/v2/generated/colab';
-import {
-  ColaboratoryApi as OperationsApi,
-  WaitOperationRequest,
-} from '../colab/client/v2/generated/operations';
+import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   AcceleratorUnavailableError,
@@ -84,23 +82,28 @@ const defaultAssignmentDescriptor: ColabServerDescriptor = {
   label: 'Colab GPU A100',
   variant: Variant.GPU,
   accelerator: 'A100',
+  shape: Shape.STANDARD,
+  version: '2026.04',
 };
 
-const defaultAssignment: Assignment & { runtimeProxyInfo: RuntimeProxyToken } =
-  {
-    accelerator: 'A100',
-    endpoint: 'm-s-foo',
-    idleTimeoutSec: 30,
-    subscriptionState: SubscriptionState.UNSUBSCRIBED,
-    subscriptionTier: SubscriptionTier.NONE,
-    variant: Variant.GPU,
-    machineShape: Shape.STANDARD,
-    runtimeProxyInfo: {
-      token: 'mock-token',
-      tokenExpiresInSeconds: TOKEN_EXPIRY_MS / 1000,
-      url: 'https://example.com',
-    },
-  };
+const defaultAssignment: Assignment & {
+  runtimeProxyInfo: RuntimeProxyToken;
+  runtimeVersionLabel?: string;
+} = {
+  accelerator: 'A100',
+  endpoint: 'm-s-foo',
+  idleTimeoutSec: 30,
+  subscriptionState: SubscriptionState.UNSUBSCRIBED,
+  subscriptionTier: SubscriptionTier.NONE,
+  variant: Variant.GPU,
+  machineShape: Shape.STANDARD,
+  runtimeProxyInfo: {
+    token: 'mock-token',
+    tokenExpiresInSeconds: TOKEN_EXPIRY_MS / 1000,
+    url: 'https://example.com',
+  },
+  runtimeVersionLabel: defaultAssignmentDescriptor.version,
+};
 
 const defaultServer: ColabAssignedServer = {
   ...defaultAssignmentDescriptor,
@@ -119,12 +122,6 @@ const defaultServer: ColabAssignedServer = {
   dateAssigned: NOW,
 };
 
-const defaultServerDescriptor: ColabServerDescriptor = {
-  ...defaultAssignmentDescriptor,
-  shape: Shape.STANDARD,
-  version: '2026.04',
-};
-
 const defaultRuntimeId = `r-${randomUUID()}`;
 const defaultRuntime = {
   name: `runtimes/${defaultRuntimeId}`,
@@ -139,8 +136,8 @@ const defaultRuntime = {
     expireTime: new Date(NOW.getTime() + TOKEN_EXPIRY_MS),
     endpoint: 'm-s-foo',
   },
-  version: defaultServerDescriptor.version,
-};
+  version: defaultAssignmentDescriptor.version,
+} satisfies Runtime;
 const defaultRawRuntime = {
   ...defaultRuntime,
   connectionInfo: {
@@ -151,8 +148,13 @@ const defaultRawRuntime = {
 
 const defaultServerV2: ColabAssignedServer = {
   ...defaultServer,
-  ...defaultServerDescriptor,
+  ...defaultAssignmentDescriptor,
   id: defaultRuntimeId,
+};
+
+const defaultLiveFixtures: LiveFixture = {
+  runtime: defaultRuntime,
+  assignment: defaultAssignment,
 };
 
 describe('AssignmentManager', () => {
@@ -166,6 +168,10 @@ describe('AssignmentManager', () => {
   let jupyterStaticConnectionStub: sinon.SinonStubbedFunction<
     typeof ProxiedJupyterClient.withStaticConnection
   >;
+
+  let createRuntimeStub: sinon.SinonStub;
+  let listRuntimesStub: sinon.SinonStub;
+  let waitOperationStub: sinon.SinonStub;
 
   /**
    * Set up the stubs to return the given assignments from both the Colab client
@@ -212,7 +218,7 @@ describe('AssignmentManager', () => {
    * Colab client.
    */
   async function setupRuntimes(servers: ColabServerDescriptor[]) {
-    (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves({
+    listRuntimesStub.resolves({
       runtimes: servers.map(
         (s): Runtime => ({
           ...defaultRuntime,
@@ -261,6 +267,12 @@ describe('AssignmentManager', () => {
       ProxiedJupyterClient,
       'withStaticConnection',
     );
+
+    createRuntimeStub = colabApiClientStub.colab
+      .createRuntime as sinon.SinonStub;
+    listRuntimesStub = colabApiClientStub.colab.listRuntimes as sinon.SinonStub;
+    waitOperationStub = colabApiClientStub.operations
+      .waitOperation as sinon.SinonStub;
   });
 
   afterEach(() => {
@@ -418,60 +430,201 @@ describe('AssignmentManager', () => {
   });
 
   describe('reconcileAssignedServers', () => {
-    const tests = [
-      { name: 'with Public API enabled', enablePublicApi: true },
-      { name: 'with Public API disabled', enablePublicApi: false },
-    ];
-    tests.forEach(({ name, enablePublicApi }) => {
-      describe(name, () => {
+    forEachPublicApiFlag((enablePublicApi) => {
+      it('throws after being disposed', async () => {
+        assignmentManager.dispose();
+
+        await expect(
+          assignmentManager.reconcileAssignedServers(),
+        ).to.be.rejectedWith(/disposed/);
+      });
+
+      it('does nothing when there are no stored servers', async () => {
+        await assignmentManager.reconcileAssignedServers();
+
+        sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
+        sinon.assert.notCalled(assignmentChangeListener);
+        sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
+      });
+
+      it('does nothing when no servers need reconciling', async () => {
+        await serverStorage.store([defaultServerV2]);
+        stubLive(enablePublicApi, defaultLiveFixtures);
+
+        await assignmentManager.reconcileAssignedServers();
+
+        sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
+        sinon.assert.notCalled(assignmentChangeListener);
+        sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
+      });
+
+      it('reconciles a single assigned server when it is the only one', async () => {
+        await serverStorage.store([defaultServerV2]);
+        stubLive(enablePublicApi);
+
+        await assignmentManager.reconcileAssignedServers();
+
+        await expect(assignmentManager.getServers('extension')).to.eventually.be
+          .empty;
+        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+          added: [],
+          removed: [{ server: defaultServerV2, userInitiated: false }],
+          changed: [],
+        });
+        sinon.assert.calledOnceWithMatch(
+          vsCodeStub.window.showInformationMessage,
+          sinon.match(/notebooks Colab GPU A100 was/),
+        );
+      });
+
+      describe('with multiple servers', () => {
+        let servers: [ColabAssignedServer, ColabAssignedServer];
+        let liveFixtures: [LiveFixture, LiveFixture];
+        const secondRuntimeId = `r-${randomUUID()}`;
+
         beforeEach(() => {
-          EXPERIMENT_TEST.setFlagForTest(
-            ExperimentFlag.EnablePublicApi,
-            enablePublicApi,
+          servers = [
+            defaultServerV2,
+            {
+              ...defaultServerV2,
+              label: 'Second Server',
+              id: secondRuntimeId,
+              endpoint: 'm-s-bar',
+              connectionInformation: {
+                ...defaultServerV2.connectionInformation,
+                baseUrl: vsCodeStub.Uri.parse('https://example2.com'),
+              },
+            },
+          ];
+          liveFixtures = [
+            defaultLiveFixtures,
+            {
+              runtime: {
+                ...defaultRuntime,
+                name: `runtimes/${secondRuntimeId}`,
+                connectionInfo: {
+                  ...defaultRuntime.connectionInfo,
+                  endpoint: servers[1].endpoint,
+                },
+              },
+              assignment: {
+                ...defaultAssignment,
+                endpoint: 'm-s-bar',
+                runtimeProxyInfo: {
+                  ...defaultAssignment.runtimeProxyInfo,
+                  url: servers[1].connectionInformation.baseUrl.toString(),
+                },
+              },
+            },
+          ];
+        });
+
+        it('reconciles a single assigned server when there are others', async () => {
+          await serverStorage.store(servers);
+          stubLive(enablePublicApi, liveFixtures[0]);
+
+          await assignmentManager.reconcileAssignedServers();
+
+          const serversAfter = await assignmentManager.getServers('extension');
+          expect(stripNetworkOverrides(serversAfter)).to.deep.equal([
+            servers[0],
+          ]);
+          sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+            added: [],
+            removed: [{ server: servers[1], userInitiated: false }],
+            changed: [],
+          });
+          sinon.assert.calledOnceWithMatch(
+            vsCodeStub.window.showInformationMessage,
+            sinon.match(/notebooks Second Server was/),
           );
         });
 
-        it('throws after being disposed', async () => {
-          assignmentManager.dispose();
-
-          await expect(
-            assignmentManager.reconcileAssignedServers(),
-          ).to.be.rejectedWith(/disposed/);
-        });
-
-        it('does nothing when there are no stored servers', async () => {
-          await assignmentManager.reconcileAssignedServers();
-
-          sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
-          sinon.assert.notCalled(assignmentChangeListener);
-          sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
-        });
-
-        it('does nothing when no servers need reconciling', async () => {
-          await serverStorage.store([defaultServerV2]);
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [defaultRuntime] },
-            );
-          } else {
-            colabClientStub.listAssignments.resolves([defaultAssignment]);
-          }
+        it('reconciles multiple assigned servers when all need reconciling', async () => {
+          const threeServers = [
+            ...servers,
+            { ...defaultServerV2, label: 'Third Server' },
+          ];
+          await serverStorage.store(threeServers);
+          stubLive(enablePublicApi);
 
           await assignmentManager.reconcileAssignedServers();
 
-          sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
-          sinon.assert.notCalled(assignmentChangeListener);
-          sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
+          await expect(assignmentManager.getServers('extension')).to.eventually
+            .be.empty;
+          sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+            added: [],
+            removed: threeServers.map((s) => ({
+              server: s,
+              userInitiated: false,
+            })),
+            changed: [],
+          });
+          sinon.assert.calledOnceWithMatch(
+            vsCodeStub.window.showInformationMessage,
+            sinon.match(
+              /notebooks Colab GPU A100, Second Server and Third Server were/,
+            ),
+          );
         });
 
-        it('reconciles a single assigned server when it is the only one', async () => {
-          await serverStorage.store([defaultServerV2]);
+        it('reconciles multiple assigned servers when some need reconciling', async () => {
+          const thirdServer: ColabAssignedServer = {
+            ...defaultServerV2,
+            label: 'Third Server',
+            id: randomUUID(),
+            endpoint: 'm-s-baz',
+            connectionInformation: {
+              ...defaultServerV2.connectionInformation,
+              baseUrl: vsCodeStub.Uri.parse('https://example3.com'),
+            },
+          };
+          const twoServers = servers;
+          const threeServers = [...twoServers, thirdServer];
+          await serverStorage.store(threeServers);
+          stubLive(enablePublicApi, ...liveFixtures);
+
+          await assignmentManager.reconcileAssignedServers();
+
+          const serversAfter = await assignmentManager.getServers('extension');
+          expect(stripNetworkOverrides(serversAfter)).to.deep.equal([
+            servers[0],
+            servers[1],
+          ]);
+          sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+            added: [],
+            removed: [{ server: thirdServer, userInitiated: false }],
+            changed: [],
+          });
+          sinon.assert.calledOnceWithMatch(
+            vsCodeStub.window.showInformationMessage,
+            sinon.match(/notebooks Third Server was/),
+          );
+        });
+
+        it('reconciles ignoring assignments originating out of VS Code', async () => {
+          await serverStorage.store(servers);
           if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [] },
-            );
+            const colabRuntime: Runtime = {
+              ...defaultRuntime,
+              name: `runtimes/r-${randomUUID()}`,
+              connectionInfo: {
+                ...defaultRuntime.connectionInfo,
+                url: 'https://not-from-vs-code.com',
+                endpoint: 'm-s-baz',
+              },
+            };
+            listRuntimesStub.resolves({ runtimes: [colabRuntime] });
           } else {
-            colabClientStub.listAssignments.resolves([]);
+            const colabAssignment: Assignment = {
+              ...defaultAssignment,
+              endpoint: 'm-s-baz',
+              runtimeProxyInfo: {
+                ...defaultAssignment.runtimeProxyInfo,
+                url: 'https://not-from-vs-code.com',
+              },
+            };
+            colabClientStub.listAssignments.resolves([colabAssignment]);
           }
 
           await assignmentManager.reconcileAssignedServers();
@@ -480,299 +633,74 @@ describe('AssignmentManager', () => {
             .be.empty;
           sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
             added: [],
-            removed: [{ server: defaultServerV2, userInitiated: false }],
+            removed: servers.map((s) => ({
+              server: s,
+              userInitiated: false,
+            })),
             changed: [],
           });
           sinon.assert.calledOnceWithMatch(
             vsCodeStub.window.showInformationMessage,
-            sinon.match(/notebooks Colab GPU A100 was/),
+            sinon.match(/notebooks Colab GPU A100 and Second Server were/),
           );
-        });
-
-        describe('with multiple servers', () => {
-          let servers: [ColabAssignedServer, ColabAssignedServer];
-          let assignments: [Assignment, Assignment];
-          let runtimes: [Runtime, Runtime];
-          const secondRuntimeId = `r-${randomUUID()}`;
-
-          beforeEach(() => {
-            servers = [
-              defaultServerV2,
-              {
-                ...defaultServerV2,
-                label: 'Second Server',
-                id: secondRuntimeId,
-                endpoint: 'm-s-bar',
-                connectionInformation: {
-                  ...defaultServerV2.connectionInformation,
-                  baseUrl: vsCodeStub.Uri.parse('https://example2.com'),
-                },
-              },
-            ];
-            assignments = [
-              defaultAssignment,
-              {
-                ...defaultAssignment,
-                endpoint: 'm-s-bar',
-                runtimeProxyInfo: {
-                  ...defaultAssignment.runtimeProxyInfo,
-                  url: servers[1].connectionInformation.baseUrl.toString(),
-                },
-              },
-            ];
-            runtimes = [
-              defaultRuntime,
-              {
-                ...defaultRuntime,
-                name: `runtimes/${secondRuntimeId}`,
-                connectionInfo: {
-                  ...defaultRuntime.connectionInfo,
-                  endpoint: servers[1].endpoint,
-                },
-              },
-            ];
-          });
-
-          it('reconciles a single assigned server when there are others', async () => {
-            await serverStorage.store(servers);
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({ runtimes: [runtimes[0]] });
-            } else {
-              colabClientStub.listAssignments.resolves([assignments[0]]);
-            }
-
-            await assignmentManager.reconcileAssignedServers();
-
-            const serversAfter =
-              await assignmentManager.getServers('extension');
-            expect(stripNetworkOverrides(serversAfter)).to.deep.equal([
-              servers[0],
-            ]);
-            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-              added: [],
-              removed: [{ server: servers[1], userInitiated: false }],
-              changed: [],
-            });
-            sinon.assert.calledOnceWithMatch(
-              vsCodeStub.window.showInformationMessage,
-              sinon.match(/notebooks Second Server was/),
-            );
-          });
-
-          it('reconciles multiple assigned servers when all need reconciling', async () => {
-            const threeServers = [
-              ...servers,
-              { ...defaultServerV2, label: 'Third Server' },
-            ];
-            await serverStorage.store(threeServers);
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({ runtimes: [] });
-            } else {
-              colabClientStub.listAssignments.resolves([]);
-            }
-
-            await assignmentManager.reconcileAssignedServers();
-
-            await expect(assignmentManager.getServers('extension')).to
-              .eventually.be.empty;
-            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-              added: [],
-              removed: threeServers.map((s) => ({
-                server: s,
-                userInitiated: false,
-              })),
-              changed: [],
-            });
-            sinon.assert.calledOnceWithMatch(
-              vsCodeStub.window.showInformationMessage,
-              sinon.match(
-                /notebooks Colab GPU A100, Second Server and Third Server were/,
-              ),
-            );
-          });
-
-          it('reconciles multiple assigned servers when some need reconciling', async () => {
-            const thirdServer: ColabAssignedServer = {
-              ...defaultServerV2,
-              label: 'Third Server',
-              id: randomUUID(),
-              endpoint: 'm-s-baz',
-              connectionInformation: {
-                ...defaultServerV2.connectionInformation,
-                baseUrl: vsCodeStub.Uri.parse('https://example3.com'),
-              },
-            };
-            const twoServers = servers;
-            const threeServers = [...twoServers, thirdServer];
-            await serverStorage.store(threeServers);
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({ runtimes });
-            } else {
-              colabClientStub.listAssignments.resolves(assignments);
-            }
-
-            await assignmentManager.reconcileAssignedServers();
-
-            const serversAfter =
-              await assignmentManager.getServers('extension');
-            expect(stripNetworkOverrides(serversAfter)).to.deep.equal([
-              servers[0],
-              servers[1],
-            ]);
-            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-              added: [],
-              removed: [{ server: thirdServer, userInitiated: false }],
-              changed: [],
-            });
-            sinon.assert.calledOnceWithMatch(
-              vsCodeStub.window.showInformationMessage,
-              sinon.match(/notebooks Third Server was/),
-            );
-          });
-
-          it('reconciles ignoring assignments originating out of VS Code', async () => {
-            await serverStorage.store(servers);
-            if (enablePublicApi) {
-              const colabRuntime: Runtime = {
-                ...defaultRuntime,
-                name: `runtimes/r-${randomUUID()}`,
-                connectionInfo: {
-                  ...defaultRuntime.connectionInfo,
-                  url: 'https://not-from-vs-code.com',
-                  endpoint: 'm-s-baz',
-                },
-              };
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({ runtimes: [colabRuntime] });
-            } else {
-              const colabAssignment: Assignment = {
-                ...defaultAssignment,
-                endpoint: 'm-s-baz',
-                runtimeProxyInfo: {
-                  ...defaultAssignment.runtimeProxyInfo,
-                  url: 'https://not-from-vs-code.com',
-                },
-              };
-              colabClientStub.listAssignments.resolves([colabAssignment]);
-            }
-
-            await assignmentManager.reconcileAssignedServers();
-
-            await expect(assignmentManager.getServers('extension')).to
-              .eventually.be.empty;
-            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-              added: [],
-              removed: servers.map((s) => ({
-                server: s,
-                userInitiated: false,
-              })),
-              changed: [],
-            });
-            sinon.assert.calledOnceWithMatch(
-              vsCodeStub.window.showInformationMessage,
-              sinon.match(/notebooks Colab GPU A100 and Second Server were/),
-            );
-          });
         });
       });
     });
   });
 
   describe('hasAssignedServers', () => {
-    const tests = [
-      { name: 'with Public API enabled', enablePublicApi: true },
-      { name: 'with Public API disabled', enablePublicApi: false },
-    ];
-    tests.forEach(({ name, enablePublicApi }) => {
-      describe(name, () => {
-        beforeEach(() => {
-          EXPERIMENT_TEST.setFlagForTest(
-            ExperimentFlag.EnablePublicApi,
-            enablePublicApi,
-          );
-        });
+    forEachPublicApiFlag((enablePublicApi) => {
+      it('throws after being disposed', async () => {
+        assignmentManager.dispose();
 
-        it('throws after being disposed', async () => {
-          assignmentManager.dispose();
+        await expect(assignmentManager.hasAssignedServer()).to.be.rejectedWith(
+          /disposed/,
+        );
+      });
 
-          await expect(
-            assignmentManager.hasAssignedServer(),
-          ).to.be.rejectedWith(/disposed/);
-        });
+      it('returns false when no servers are assigned', async () => {
+        stubLive(enablePublicApi);
 
-        it('returns false when no servers are assigned', async () => {
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [] },
-            );
-          } else {
-            colabClientStub.listAssignments.resolves([]);
-          }
+        await expect(assignmentManager.hasAssignedServer()).to.eventually.be
+          .false;
+      });
 
-          await expect(assignmentManager.hasAssignedServer()).to.eventually.be
-            .false;
-        });
+      it('returns true when at least one server is assigned', async () => {
+        if (enablePublicApi) {
+          await setupRuntimes([defaultAssignmentDescriptor]);
+        } else {
+          await setupAssignments([defaultAssignmentDescriptor]);
+        }
 
-        it('returns true when at least one server is assigned', async () => {
-          await serverStorage.store([defaultServerV2]);
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [defaultRuntime] },
-            );
-            await setupRuntimes([defaultAssignmentDescriptor]);
-          } else {
-            colabClientStub.listAssignments.resolves([defaultAssignment]);
-            await setupAssignments([defaultAssignmentDescriptor]);
-          }
+        await expect(assignmentManager.hasAssignedServer()).to.eventually.be
+          .true;
+      });
 
-          await expect(assignmentManager.hasAssignedServer()).to.eventually.be
-            .true;
-        });
-
-        it('returns true when multiple servers are assigned', async () => {
-          const secondEndpoint = 'm-s-foo';
-          const secondRuntimeId = `r-${randomUUID()}`;
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              {
-                runtimes: [
-                  defaultRuntime,
-                  {
-                    ...defaultRuntime,
-                    name: `runtimes/${secondRuntimeId}`,
-                    connectionInfo: {
-                      ...defaultRuntime.connectionInfo,
-                      endpoint: secondEndpoint,
-                    },
-                  },
-                ],
-              },
-            );
-          } else {
-            colabClientStub.listAssignments.resolves([
-              defaultAssignment,
-              { ...defaultAssignment, endpoint: secondEndpoint },
-            ]);
-          }
-          await serverStorage.store([
-            defaultServerV2,
-            {
-              ...defaultServerV2,
-              id: secondRuntimeId,
+      it('returns true when multiple servers are assigned', async () => {
+        const secondEndpoint = 'm-s-foo-2';
+        const secondRuntimeId = `r-${randomUUID()}`;
+        stubLive(enablePublicApi, defaultLiveFixtures, {
+          runtime: {
+            ...defaultRuntime,
+            name: `runtimes/${secondRuntimeId}`,
+            connectionInfo: {
+              ...defaultRuntime.connectionInfo,
               endpoint: secondEndpoint,
             },
-          ]);
-
-          await expect(assignmentManager.hasAssignedServer()).to.eventually.be
-            .true;
+          },
+          assignment: { ...defaultAssignment, endpoint: secondEndpoint },
         });
+        await serverStorage.store([
+          defaultServerV2,
+          {
+            ...defaultServerV2,
+            id: secondRuntimeId,
+            endpoint: secondEndpoint,
+          },
+        ]);
+
+        await expect(assignmentManager.hasAssignedServer()).to.eventually.be
+          .true;
       });
     });
   });
@@ -814,7 +742,7 @@ describe('AssignmentManager', () => {
         url: 'https://test.url.with.session.name',
         endpoint: 'test-endpoint-with-name',
       },
-    };
+    } satisfies Runtime;
     const runtimeWithoutName = {
       ...defaultRuntime,
       name: `runtimes/r-${randomUUID()}`,
@@ -823,7 +751,7 @@ describe('AssignmentManager', () => {
         url: 'https://test.url.without.session.name',
         endpoint: 'test-endpoint-without-name',
       },
-    };
+    } satisfies Runtime;
     const runtimeWithoutSession = {
       ...defaultRuntime,
       name: `runtimes/r-${randomUUID()}`,
@@ -832,7 +760,12 @@ describe('AssignmentManager', () => {
         url: 'https://test.url.without.session',
         endpoint: 'test-endpoint-without-session',
       },
-    };
+    } satisfies Runtime;
+    const runtimeWithoutConnectionInfo = {
+      ...defaultRuntime,
+      name: `runtimes/r-${randomUUID()}`,
+      connectionInfo: undefined,
+    } satisfies Runtime;
 
     const defaultSession = {
       id: '',
@@ -845,6 +778,19 @@ describe('AssignmentManager', () => {
         name: '',
         connections: 1,
       },
+    };
+
+    const fixturesWithName: LiveFixture = {
+      runtime: runtimeWithName,
+      assignment: assignmentWithName,
+    };
+    const fixturesWithoutName: LiveFixture = {
+      runtime: runtimeWithoutName,
+      assignment: assignmentWithoutName,
+    };
+    const fixturesWithoutSession: LiveFixture = {
+      runtime: runtimeWithoutSession,
+      assignment: assignmentWithoutSession,
     };
 
     let jupyterStubWithSessionName: JupyterClientStub;
@@ -890,630 +836,533 @@ describe('AssignmentManager', () => {
       jupyterStubWithoutSession.sessions.list.resolves([]);
     });
 
-    const tests = [
-      { name: 'with Public API enabled', enablePublicApi: true },
-      { name: 'with Public API disabled', enablePublicApi: false },
-    ];
-    tests.forEach(({ name, enablePublicApi }) => {
-      describe(name, () => {
-        beforeEach(() => {
-          EXPERIMENT_TEST.setFlagForTest(
-            ExperimentFlag.EnablePublicApi,
-            enablePublicApi,
-          );
+    forEachPublicApiFlag((enablePublicApi) => {
+      it('throws after being disposed', async () => {
+        assignmentManager.dispose();
+
+        await expect(assignmentManager.getServers('all')).to.be.rejectedWith(
+          /disposed/,
+        );
+      });
+
+      describe('from extension', () => {
+        it('returns an empty list when no servers are assigned', async () => {
+          const servers = await assignmentManager.getServers('extension');
+
+          expect(servers).to.deep.equal([]);
         });
 
-        it('throws after being disposed', async () => {
-          assignmentManager.dispose();
+        describe('when a server is assigned', () => {
+          beforeEach(async () => {
+            stubLive(enablePublicApi, defaultLiveFixtures);
+            await serverStorage.store([defaultServerV2]);
+          });
 
-          await expect(assignmentManager.getServers('all')).to.be.rejectedWith(
-            /disposed/,
-          );
-        });
-
-        describe('from extension', () => {
-          it('returns an empty list when no servers are assigned', async () => {
+          it('returns the assigned server when there is one', async () => {
             const servers = await assignmentManager.getServers('extension');
 
-            expect(servers).to.deep.equal([]);
+            expect(stripNetworkOverrides(servers)).to.deep.equal([
+              defaultServerV2,
+            ]);
           });
 
-          describe('when a server is assigned', () => {
-            beforeEach(async () => {
-              if (enablePublicApi) {
-                (
-                  colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-                ).resolves({ runtimes: [defaultRuntime] });
-              } else {
-                colabClientStub.listAssignments.resolves([defaultAssignment]);
-              }
-              await serverStorage.store([defaultServerV2]);
-            });
-
-            it('returns the assigned server when there is one', async () => {
-              const servers = await assignmentManager.getServers('extension');
-
-              expect(stripNetworkOverrides(servers)).to.deep.equal([
-                defaultServerV2,
-              ]);
-            });
-
-            it('returns multiple assigned servers when there are some', async () => {
-              const storedServers = [defaultServerV2, defaultServerV2];
-              await serverStorage.store(storedServers);
-
-              const servers = await assignmentManager.getServers('extension');
-
-              expect(stripNetworkOverrides(servers)).to.deep.equal(
-                storedServers,
-              );
-            });
-
-            it('reconciles assigned servers before returning', async () => {
-              if (enablePublicApi) {
-                (
-                  colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-                ).resolves({ runtimes: [defaultRuntime] });
-              } else {
-                colabClientStub.listAssignments.resolves([defaultAssignment]);
-              }
-              const noLongerAssignedServer = {
-                ...defaultServerV2,
-                endpoint: 'no-longer-assigned',
-              };
-              await serverStorage.store([
-                defaultServerV2,
-                noLongerAssignedServer,
-              ]);
-
-              const results = await assignmentManager.getServers('extension');
-
-              expect(stripNetworkOverrides(results)).to.deep.equal([
-                defaultServerV2,
-              ]);
-            });
-
-            it('includes a fetch implementation that attaches Colab connection info', async () => {
-              const servers = await assignmentManager.getServers('extension');
-              assert.lengthOf(servers, 1);
-              const server = servers[0];
-              assert.isDefined(server.connectionInformation.fetch);
-              const fetchStub = sinon.stub(fetch, 'default');
-
-              await server.connectionInformation.fetch('https://example.com');
-
-              sinon.assert.calledOnceWithMatch(
-                fetchStub,
-                'https://example.com',
-                {
-                  headers: new Headers({
-                    [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                      server.connectionInformation.token,
-                    [COLAB_CLIENT_AGENT_HEADER.key]:
-                      COLAB_CLIENT_AGENT_HEADER.value,
-                  }),
-                },
-              );
-            });
-
-            it('preserves request headers when wrapping a Request object', async () => {
-              const servers = await assignmentManager.getServers('extension');
-              assert.lengthOf(servers, 1);
-              const server = servers[0];
-              assert.isDefined(server.connectionInformation.fetch);
-              const fetchStub = sinon.stub(fetch, 'default');
-              const request = new Request('https://example.com', {
-                headers: {
-                  Accept: 'application/json',
-                  'X-Test': 'existing-value',
-                },
-              });
-
-              await server.connectionInformation.fetch(request);
-
-              sinon.assert.calledOnceWithMatch(
-                fetchStub,
-                sinon.match.instanceOf(Request),
-                {
-                  headers: new Headers({
-                    Accept: 'application/json',
-                    'X-Test': 'existing-value',
-                    [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                      server.connectionInformation.token,
-                    [COLAB_CLIENT_AGENT_HEADER.key]:
-                      COLAB_CLIENT_AGENT_HEADER.value,
-                  }),
-                },
-              );
-            });
-
-            it('allows init headers to override request headers', async () => {
-              const servers = await assignmentManager.getServers('extension');
-              assert.lengthOf(servers, 1);
-              const server = servers[0];
-              assert.isDefined(server.connectionInformation.fetch);
-              const fetchStub = sinon.stub(fetch, 'default');
-              const request = new Request('https://example.com', {
-                headers: {
-                  Accept: 'text/plain',
-                  'X-Test': 'request-value',
-                },
-              });
-
-              await server.connectionInformation.fetch(request, {
-                headers: {
-                  Accept: 'application/json',
-                  'X-Test': 'init-value',
-                },
-              });
-
-              sinon.assert.calledOnceWithMatch(
-                fetchStub,
-                sinon.match.instanceOf(Request),
-                {
-                  headers: new Headers({
-                    Accept: 'application/json',
-                    'X-Test': 'init-value',
-                    [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                      server.connectionInformation.token,
-                    [COLAB_CLIENT_AGENT_HEADER.key]:
-                      COLAB_CLIENT_AGENT_HEADER.value,
-                  }),
-                },
-              );
-            });
-
-            it('overrides caller-supplied Colab proxy headers', async () => {
-              const servers = await assignmentManager.getServers('extension');
-              assert.lengthOf(servers, 1);
-              const server = servers[0];
-              assert.isDefined(server.connectionInformation.fetch);
-              const fetchStub = sinon.stub(fetch, 'default');
-              const request = new Request('https://example.com', {
-                headers: {
-                  [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                    'spoofed-request-token',
-                  [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-request-agent',
-                },
-              });
-
-              await server.connectionInformation.fetch(request, {
-                headers: {
-                  [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-init-token',
-                  [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-init-agent',
-                },
-              });
-
-              sinon.assert.calledOnceWithMatch(
-                fetchStub,
-                sinon.match.instanceOf(Request),
-                {
-                  headers: new Headers({
-                    [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-                      server.connectionInformation.token,
-                    [COLAB_CLIENT_AGENT_HEADER.key]:
-                      COLAB_CLIENT_AGENT_HEADER.value,
-                  }),
-                },
-              );
-            });
-
-            it('includes a custom WebSocket implementation', async () => {
-              const servers = await assignmentManager.getServers('extension');
-              assert.lengthOf(servers, 1);
-              const server = servers[0];
-              assert.isDefined(server.connectionInformation.WebSocket);
-            });
-          });
-        });
-
-        describe('from external', () => {
-          it('returns unowned servers', async () => {
-            // Given 3 total assignments
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({
-                runtimes: [
-                  runtimeWithName,
-                  runtimeWithoutName,
-                  runtimeWithoutSession,
-                ],
-              });
-            } else {
-              colabClientStub.listAssignments.resolves([
-                assignmentWithName,
-                assignmentWithoutName,
-                assignmentWithoutSession,
-              ]);
-            }
-            // One of the assignments was assigned within VS Code extension
-            const assignedServer = {
-              ...defaultServerV2,
-              endpoint: assignmentWithoutName.endpoint,
-            };
-            await serverStorage.store([assignedServer]);
-
-            // When we get servers from external
-            const results = await assignmentManager.getServers('external');
-
-            // Then only 2 unowned external servers are returned
-            if (enablePublicApi) {
-              expect(results).to.deep.equal([
-                {
-                  ...defaultServerDescriptor,
-                  label: TEST_SESSION_NAME,
-                  endpoint: runtimeWithName.connectionInfo.endpoint,
-                },
-                {
-                  ...defaultServerDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-                },
-              ]);
-            } else {
-              expect(results).to.deep.equal([
-                {
-                  label: TEST_SESSION_NAME,
-                  endpoint: assignmentWithName.endpoint,
-                  variant: assignmentWithName.variant,
-                  accelerator: assignmentWithName.accelerator,
-                },
-                {
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: assignmentWithoutSession.endpoint,
-                  variant: assignmentWithoutSession.variant,
-                  accelerator: assignmentWithoutSession.accelerator,
-                },
-              ]);
-            }
-          });
-
-          it('drops orphan unowned servers whose Jupyter client throws a FetchError', async () => {
-            // Simulates a race where the orphan assignment is deleted (e.g. via
-            // Colab web or another VS Code instance sharing the account)
-            // between listing assignments and listing its sessions.
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({
-                runtimes: [runtimeWithName, runtimeWithoutSession],
-              });
-            } else {
-              colabClientStub.listAssignments.resolves([
-                assignmentWithName,
-                assignmentWithoutSession,
-              ]);
-            }
-            jupyterStubWithoutSession.sessions.list.rejects(
-              new JupyterFetchError(new Error('network error')),
-            );
-
-            const results = await assignmentManager.getServers('external');
-
-            if (enablePublicApi) {
-              expect(results).to.deep.equal([
-                {
-                  ...defaultServerDescriptor,
-                  label: TEST_SESSION_NAME,
-                  endpoint: runtimeWithName.connectionInfo.endpoint,
-                },
-              ]);
-            } else {
-              expect(results).to.deep.equal([
-                {
-                  label: TEST_SESSION_NAME,
-                  endpoint: assignmentWithName.endpoint,
-                  variant: assignmentWithName.variant,
-                  accelerator: assignmentWithName.accelerator,
-                },
-              ]);
-            }
-          });
-
-          it('falls back to placeholder label when sessions.list throws a non-FetchError', async () => {
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({
-                runtimes: [runtimeWithName, runtimeWithoutSession],
-              });
-            } else {
-              colabClientStub.listAssignments.resolves([
-                assignmentWithName,
-                assignmentWithoutSession,
-              ]);
-            }
-            jupyterStubWithoutSession.sessions.list.rejects(
-              new JupyterResponseError(
-                new Response(undefined, { status: 500 }),
-              ),
-            );
-
-            const results = await assignmentManager.getServers('external');
-
-            if (enablePublicApi) {
-              expect(results).to.deep.equal([
-                {
-                  ...defaultServerDescriptor,
-                  label: TEST_SESSION_NAME,
-                  endpoint: runtimeWithName.connectionInfo.endpoint,
-                },
-                {
-                  ...defaultServerDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-                },
-              ]);
-            } else {
-              expect(results).to.deep.equal([
-                {
-                  label: TEST_SESSION_NAME,
-                  endpoint: assignmentWithName.endpoint,
-                  variant: assignmentWithName.variant,
-                  accelerator: assignmentWithName.accelerator,
-                },
-                {
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: assignmentWithoutSession.endpoint,
-                  variant: assignmentWithoutSession.variant,
-                  accelerator: assignmentWithoutSession.accelerator,
-                },
-              ]);
-            }
-          });
-        });
-
-        it('falls back to placeholder label when sessions.list times out', async () => {
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [runtimeWithName] },
-            );
-          } else {
-            colabClientStub.listAssignments.resolves([assignmentWithName]);
-          }
-          jupyterStubWithSessionName.sessions.list.callsFake(async () => {
-            // Block listSessions to trigger the timeout.
-            await new Promise((resolve) =>
-              setTimeout(resolve, LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
-            );
-            return [
-              {
-                ...defaultSession,
-                name: 'test-session-name-that-does-not-matter',
-              },
+          it('returns multiple assigned servers when there are some', async () => {
+            const storedServers = [
+              { ...defaultServer, id: randomUUID() },
+              { ...defaultServerV2, id: `r-${randomUUID()}` },
             ];
-          });
+            await serverStorage.store(storedServers);
 
-          const resultsPromise = assignmentManager.getServers('external');
-          await fakeClock.tickAsync(LIST_UNOWNED_SESSIONS_TIMEOUT_MS);
+            const servers = await assignmentManager.getServers('extension');
 
-          if (enablePublicApi) {
-            await expect(resultsPromise).to.eventually.deep.equal([
-              {
-                ...defaultServerDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: runtimeWithName.connectionInfo.endpoint,
-              },
-            ]);
-          } else {
-            await expect(resultsPromise).to.eventually.deep.equal([
-              {
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: assignmentWithName.endpoint,
-                variant: assignmentWithName.variant,
-                accelerator: assignmentWithName.accelerator,
-              },
-            ]);
-          }
-        });
-
-        describe('from all', () => {
-          it('returns both assigned and unowned servers', async () => {
-            // Given 3 total assignments
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({
-                runtimes: [
-                  runtimeWithName,
-                  runtimeWithoutName,
-                  runtimeWithoutSession,
-                ],
-              });
-            } else {
-              colabClientStub.listAssignments.resolves([
-                assignmentWithName,
-                assignmentWithoutName,
-                assignmentWithoutSession,
-              ]);
-            }
-            // One of the assignments was assigned within VS Code extension
-            const assignedServer = {
-              ...defaultServerV2,
-              endpoint: runtimeWithoutName.connectionInfo.endpoint,
-            };
-            await serverStorage.store([assignedServer]);
-
-            // When we get servers from all
-            const results = await assignmentManager.getServers('all');
-
-            // Then 1 assigned server and 2 unowned servers are returned
-            expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
-              assignedServer,
-            ]);
-
-            if (enablePublicApi) {
-              expect(results.unowned).to.deep.equal([
-                {
-                  ...defaultServerDescriptor,
-                  label: TEST_SESSION_NAME,
-                  endpoint: runtimeWithName.connectionInfo.endpoint,
-                },
-                {
-                  ...defaultServerDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-                },
-              ]);
-            } else {
-              expect(results.unowned).to.deep.equal([
-                {
-                  label: TEST_SESSION_NAME,
-                  endpoint: assignmentWithName.endpoint,
-                  variant: assignmentWithName.variant,
-                  accelerator: assignmentWithName.accelerator,
-                },
-                {
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: assignmentWithoutSession.endpoint,
-                  variant: assignmentWithoutSession.variant,
-                  accelerator: assignmentWithoutSession.accelerator,
-                },
-              ]);
-            }
-          });
-
-          it('returns only unowned servers when no server is assigned in VS Code', async () => {
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({
-                runtimes: [
-                  runtimeWithName,
-                  runtimeWithoutName,
-                  runtimeWithoutSession,
-                ],
-              });
-            } else {
-              colabClientStub.listAssignments.resolves([
-                assignmentWithName,
-                assignmentWithoutName,
-                assignmentWithoutSession,
-              ]);
-            }
-            await serverStorage.store([]);
-
-            const results = await assignmentManager.getServers('all');
-
-            if (enablePublicApi) {
-              expect(results).to.deep.equal({
-                assigned: [],
-                unowned: [
-                  {
-                    ...defaultServerDescriptor,
-                    label: TEST_SESSION_NAME,
-                    endpoint: runtimeWithName.connectionInfo.endpoint,
-                  },
-                  {
-                    ...defaultServerDescriptor,
-                    label: UNKNOWN_REMOTE_SERVER_NAME,
-                    endpoint: runtimeWithoutName.connectionInfo.endpoint,
-                  },
-                  {
-                    ...defaultServerDescriptor,
-                    label: UNKNOWN_REMOTE_SERVER_NAME,
-                    endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-                  },
-                ],
-              });
-            } else {
-              expect(results).to.deep.equal({
-                assigned: [],
-                unowned: [
-                  {
-                    label: TEST_SESSION_NAME,
-                    endpoint: assignmentWithName.endpoint,
-                    variant: assignmentWithName.variant,
-                    accelerator: assignmentWithName.accelerator,
-                  },
-                  {
-                    label: UNKNOWN_REMOTE_SERVER_NAME,
-                    endpoint: assignmentWithoutName.endpoint,
-                    variant: assignmentWithoutName.variant,
-                    accelerator: assignmentWithoutName.accelerator,
-                  },
-                  {
-                    label: UNKNOWN_REMOTE_SERVER_NAME,
-                    endpoint: assignmentWithoutSession.endpoint,
-                    variant: assignmentWithoutSession.variant,
-                    accelerator: assignmentWithoutSession.accelerator,
-                  },
-                ],
-              });
-            }
-          });
-
-          it('returns only assigned servers when no server is unowned', async () => {
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({
-                runtimes: [
-                  runtimeWithName,
-                  runtimeWithoutName,
-                  runtimeWithoutSession,
-                ],
-              });
-            } else {
-              colabClientStub.listAssignments.resolves([
-                assignmentWithName,
-                assignmentWithoutName,
-                assignmentWithoutSession,
-              ]);
-            }
-            const assignedServer1 = {
-              ...defaultServerV2,
-              endpoint: runtimeWithName.connectionInfo.endpoint,
-            };
-            const assignedServer2 = {
-              ...defaultServerV2,
-              endpoint: runtimeWithoutName.connectionInfo.endpoint,
-            };
-            const assignedServer3 = {
-              ...defaultServerV2,
-              endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-            };
-            await serverStorage.store([
-              assignedServer1,
-              assignedServer2,
-              assignedServer3,
-            ]);
-
-            const results = await assignmentManager.getServers('all');
-
-            expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
-              assignedServer1,
-              assignedServer2,
-              assignedServer3,
-            ]);
-            expect(results.unowned).to.be.empty;
+            expect(stripNetworkOverrides(servers)).to.deep.equal(storedServers);
           });
 
           it('reconciles assigned servers before returning', async () => {
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({ runtimes: [runtimeWithName] });
-            } else {
-              colabClientStub.listAssignments.resolves([assignmentWithName]);
-            }
-            const assignedServer = {
-              ...defaultServerV2,
-              endpoint: runtimeWithName.connectionInfo.endpoint,
-            };
+            stubLive(enablePublicApi, defaultLiveFixtures);
             const noLongerAssignedServer = {
               ...defaultServerV2,
               endpoint: 'no-longer-assigned',
             };
-            await serverStorage.store([assignedServer, noLongerAssignedServer]);
+            await serverStorage.store([
+              defaultServerV2,
+              noLongerAssignedServer,
+            ]);
 
-            const results = await assignmentManager.getServers('all');
+            const results = await assignmentManager.getServers('extension');
 
-            expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
-              assignedServer,
+            expect(stripNetworkOverrides(results)).to.deep.equal([
+              defaultServerV2,
             ]);
           });
+
+          it('includes a fetch implementation that attaches Colab connection info', async () => {
+            const servers = await assignmentManager.getServers('extension');
+            assert.lengthOf(servers, 1);
+            const server = servers[0];
+            assert.isDefined(server.connectionInformation.fetch);
+            const fetchStub = sinon.stub(fetch, 'default');
+
+            await server.connectionInformation.fetch('https://example.com');
+
+            sinon.assert.calledOnceWithMatch(fetchStub, 'https://example.com', {
+              headers: new Headers({
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  server.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            });
+          });
+
+          it('preserves request headers when wrapping a Request object', async () => {
+            const servers = await assignmentManager.getServers('extension');
+            assert.lengthOf(servers, 1);
+            const server = servers[0];
+            assert.isDefined(server.connectionInformation.fetch);
+            const fetchStub = sinon.stub(fetch, 'default');
+            const request = new Request('https://example.com', {
+              headers: {
+                Accept: 'application/json',
+                'X-Test': 'existing-value',
+              },
+            });
+
+            await server.connectionInformation.fetch(request);
+
+            sinon.assert.calledOnceWithMatch(
+              fetchStub,
+              sinon.match.instanceOf(Request),
+              {
+                headers: new Headers({
+                  Accept: 'application/json',
+                  'X-Test': 'existing-value',
+                  [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                    server.connectionInformation.token,
+                  [COLAB_CLIENT_AGENT_HEADER.key]:
+                    COLAB_CLIENT_AGENT_HEADER.value,
+                }),
+              },
+            );
+          });
+
+          it('allows init headers to override request headers', async () => {
+            const servers = await assignmentManager.getServers('extension');
+            assert.lengthOf(servers, 1);
+            const server = servers[0];
+            assert.isDefined(server.connectionInformation.fetch);
+            const fetchStub = sinon.stub(fetch, 'default');
+            const request = new Request('https://example.com', {
+              headers: {
+                Accept: 'text/plain',
+                'X-Test': 'request-value',
+              },
+            });
+
+            await server.connectionInformation.fetch(request, {
+              headers: {
+                Accept: 'application/json',
+                'X-Test': 'init-value',
+              },
+            });
+
+            sinon.assert.calledOnceWithMatch(
+              fetchStub,
+              sinon.match.instanceOf(Request),
+              {
+                headers: new Headers({
+                  Accept: 'application/json',
+                  'X-Test': 'init-value',
+                  [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                    server.connectionInformation.token,
+                  [COLAB_CLIENT_AGENT_HEADER.key]:
+                    COLAB_CLIENT_AGENT_HEADER.value,
+                }),
+              },
+            );
+          });
+
+          it('overrides caller-supplied Colab proxy headers', async () => {
+            const servers = await assignmentManager.getServers('extension');
+            assert.lengthOf(servers, 1);
+            const server = servers[0];
+            assert.isDefined(server.connectionInformation.fetch);
+            const fetchStub = sinon.stub(fetch, 'default');
+            const request = new Request('https://example.com', {
+              headers: {
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-request-token',
+                [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-request-agent',
+              },
+            });
+
+            await server.connectionInformation.fetch(request, {
+              headers: {
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-init-token',
+                [COLAB_CLIENT_AGENT_HEADER.key]: 'spoofed-init-agent',
+              },
+            });
+
+            sinon.assert.calledOnceWithMatch(
+              fetchStub,
+              sinon.match.instanceOf(Request),
+              {
+                headers: new Headers({
+                  [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                    server.connectionInformation.token,
+                  [COLAB_CLIENT_AGENT_HEADER.key]:
+                    COLAB_CLIENT_AGENT_HEADER.value,
+                }),
+              },
+            );
+          });
+
+          it('includes a custom WebSocket implementation', async () => {
+            const servers = await assignmentManager.getServers('extension');
+            assert.lengthOf(servers, 1);
+            const server = servers[0];
+            assert.isDefined(server.connectionInformation.WebSocket);
+          });
+        });
+
+        if (enablePublicApi) {
+          it('filters out server without connection info', async () => {
+            listRuntimesStub.resolves({
+              runtimes: [runtimeWithoutConnectionInfo],
+            });
+            await serverStorage.store([defaultServerV2]);
+
+            await expect(assignmentManager.getServers('extension')).to
+              .eventually.be.empty;
+          });
+        }
+      });
+
+      describe('from external', () => {
+        it('returns unowned servers', async () => {
+          // Given 3 total assignments
+          stubLive(
+            enablePublicApi,
+            fixturesWithName,
+            fixturesWithoutName,
+            fixturesWithoutSession,
+          );
+          // One of the assignments was assigned within VS Code extension
+          const assignedServer = {
+            ...defaultServerV2,
+            endpoint: assignmentWithoutName.endpoint,
+          };
+          await serverStorage.store([assignedServer]);
+
+          // When we get servers from external
+          const results = await assignmentManager.getServers('external');
+
+          // Then only 2 unowned external servers are returned
+          if (enablePublicApi) {
+            expect(results).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: runtimeWithName.connectionInfo.endpoint,
+              },
+              {
+                ...defaultAssignmentDescriptor,
+                label: UNKNOWN_REMOTE_SERVER_NAME,
+                endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+              },
+            ]);
+          } else {
+            expect(results).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: assignmentWithName.endpoint,
+              },
+              {
+                ...defaultAssignmentDescriptor,
+                label: UNKNOWN_REMOTE_SERVER_NAME,
+                endpoint: assignmentWithoutSession.endpoint,
+              },
+            ]);
+          }
+        });
+
+        it('drops orphan unowned servers whose Jupyter client throws a FetchError', async () => {
+          // Simulates a race where the orphan assignment is deleted (e.g. via
+          // Colab web or another VS Code instance sharing the account)
+          // between listing assignments and listing its sessions.
+          stubLive(enablePublicApi, fixturesWithName, fixturesWithoutSession);
+          jupyterStubWithoutSession.sessions.list.rejects(
+            new JupyterFetchError(new Error('network error')),
+          );
+
+          const results = await assignmentManager.getServers('external');
+
+          if (enablePublicApi) {
+            expect(results).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: runtimeWithName.connectionInfo.endpoint,
+              },
+            ]);
+          } else {
+            expect(results).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: assignmentWithName.endpoint,
+              },
+            ]);
+          }
+        });
+
+        it('falls back to placeholder label when sessions.list throws a non-FetchError', async () => {
+          stubLive(enablePublicApi, fixturesWithName, fixturesWithoutSession);
+          jupyterStubWithoutSession.sessions.list.rejects(
+            new JupyterResponseError(new Response(undefined, { status: 500 })),
+          );
+
+          const results = await assignmentManager.getServers('external');
+
+          if (enablePublicApi) {
+            expect(results).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: runtimeWithName.connectionInfo.endpoint,
+              },
+              {
+                ...defaultAssignmentDescriptor,
+                label: UNKNOWN_REMOTE_SERVER_NAME,
+                endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+              },
+            ]);
+          } else {
+            expect(results).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: assignmentWithName.endpoint,
+              },
+              {
+                ...defaultAssignmentDescriptor,
+                label: UNKNOWN_REMOTE_SERVER_NAME,
+                endpoint: assignmentWithoutSession.endpoint,
+              },
+            ]);
+          }
+        });
+
+        if (enablePublicApi) {
+          it('filters out server without connection info', async () => {
+            listRuntimesStub.resolves({
+              runtimes: [runtimeWithoutConnectionInfo],
+            });
+
+            await expect(assignmentManager.getServers('external')).to.eventually
+              .be.empty;
+          });
+        }
+      });
+
+      it('falls back to placeholder label when sessions.list times out', async () => {
+        stubLive(enablePublicApi, fixturesWithName);
+        jupyterStubWithSessionName.sessions.list.callsFake(async () => {
+          // Block listSessions to trigger the timeout.
+          await new Promise((resolve) =>
+            setTimeout(resolve, LIST_UNOWNED_SESSIONS_TIMEOUT_MS + 100),
+          );
+          return [
+            {
+              ...defaultSession,
+              name: 'test-session-name-that-does-not-matter',
+            },
+          ];
+        });
+
+        const resultsPromise = assignmentManager.getServers('external');
+        await fakeClock.tickAsync(LIST_UNOWNED_SESSIONS_TIMEOUT_MS);
+
+        if (enablePublicApi) {
+          await expect(resultsPromise).to.eventually.deep.equal([
+            {
+              ...defaultAssignmentDescriptor,
+              label: UNKNOWN_REMOTE_SERVER_NAME,
+              endpoint: runtimeWithName.connectionInfo.endpoint,
+            },
+          ]);
+        } else {
+          await expect(resultsPromise).to.eventually.deep.equal([
+            {
+              ...defaultAssignmentDescriptor,
+              label: UNKNOWN_REMOTE_SERVER_NAME,
+              endpoint: assignmentWithName.endpoint,
+            },
+          ]);
+        }
+      });
+
+      describe('from all', () => {
+        it('returns both assigned and unowned servers', async () => {
+          // Given 3 total assignments
+          stubLive(
+            enablePublicApi,
+            fixturesWithName,
+            fixturesWithoutName,
+            fixturesWithoutSession,
+          );
+          // One of the assignments was assigned within VS Code extension
+          const assignedServer = {
+            ...defaultServerV2,
+            endpoint: runtimeWithoutName.connectionInfo.endpoint,
+          };
+          await serverStorage.store([assignedServer]);
+
+          // When we get servers from all
+          const results = await assignmentManager.getServers('all');
+
+          // Then 1 assigned server and 2 unowned servers are returned
+          expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
+            assignedServer,
+          ]);
+
+          if (enablePublicApi) {
+            expect(results.unowned).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: runtimeWithName.connectionInfo.endpoint,
+              },
+              {
+                ...defaultAssignmentDescriptor,
+                label: UNKNOWN_REMOTE_SERVER_NAME,
+                endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+              },
+            ]);
+          } else {
+            expect(results.unowned).to.deep.equal([
+              {
+                ...defaultAssignmentDescriptor,
+                label: TEST_SESSION_NAME,
+                endpoint: assignmentWithName.endpoint,
+              },
+              {
+                ...defaultAssignmentDescriptor,
+                label: UNKNOWN_REMOTE_SERVER_NAME,
+                endpoint: assignmentWithoutSession.endpoint,
+              },
+            ]);
+          }
+        });
+
+        it('returns only unowned servers when no server is assigned in VS Code', async () => {
+          stubLive(
+            enablePublicApi,
+            fixturesWithName,
+            fixturesWithoutName,
+            fixturesWithoutSession,
+          );
+          await serverStorage.store([]);
+
+          const results = await assignmentManager.getServers('all');
+
+          if (enablePublicApi) {
+            expect(results).to.deep.equal({
+              assigned: [],
+              unowned: [
+                {
+                  ...defaultAssignmentDescriptor,
+                  label: TEST_SESSION_NAME,
+                  endpoint: runtimeWithName.connectionInfo.endpoint,
+                },
+                {
+                  ...defaultAssignmentDescriptor,
+                  label: UNKNOWN_REMOTE_SERVER_NAME,
+                  endpoint: runtimeWithoutName.connectionInfo.endpoint,
+                },
+                {
+                  ...defaultAssignmentDescriptor,
+                  label: UNKNOWN_REMOTE_SERVER_NAME,
+                  endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+                },
+              ],
+            });
+          } else {
+            expect(results).to.deep.equal({
+              assigned: [],
+              unowned: [
+                {
+                  ...defaultAssignmentDescriptor,
+                  label: TEST_SESSION_NAME,
+                  endpoint: assignmentWithName.endpoint,
+                },
+                {
+                  ...defaultAssignmentDescriptor,
+                  label: UNKNOWN_REMOTE_SERVER_NAME,
+                  endpoint: assignmentWithoutName.endpoint,
+                },
+                {
+                  ...defaultAssignmentDescriptor,
+                  label: UNKNOWN_REMOTE_SERVER_NAME,
+                  endpoint: assignmentWithoutSession.endpoint,
+                },
+              ],
+            });
+          }
+        });
+
+        it('returns only assigned servers when no server is unowned', async () => {
+          stubLive(
+            enablePublicApi,
+            fixturesWithName,
+            fixturesWithoutName,
+            fixturesWithoutSession,
+          );
+          const assignedServer1 = {
+            ...defaultServerV2,
+            endpoint: runtimeWithName.connectionInfo.endpoint,
+          };
+          const assignedServer2 = {
+            ...defaultServerV2,
+            endpoint: runtimeWithoutName.connectionInfo.endpoint,
+          };
+          const assignedServer3 = {
+            ...defaultServerV2,
+            endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+          };
+          await serverStorage.store([
+            assignedServer1,
+            assignedServer2,
+            assignedServer3,
+          ]);
+
+          const results = await assignmentManager.getServers('all');
+
+          expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
+            assignedServer1,
+            assignedServer2,
+            assignedServer3,
+          ]);
+          expect(results.unowned).to.be.empty;
+        });
+
+        it('reconciles assigned servers before returning', async () => {
+          stubLive(enablePublicApi, fixturesWithName);
+          const assignedServer = {
+            ...defaultServerV2,
+            endpoint: runtimeWithName.connectionInfo.endpoint,
+          };
+          const noLongerAssignedServer = {
+            ...defaultServerV2,
+            endpoint: 'no-longer-assigned',
+          };
+          await serverStorage.store([assignedServer, noLongerAssignedServer]);
+
+          const results = await assignmentManager.getServers('all');
+
+          expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
+            assignedServer,
+          ]);
         });
       });
     });
@@ -1549,6 +1398,8 @@ describe('AssignmentManager', () => {
           label: storedServers[0].label,
           variant: storedServers[0].variant,
           accelerator: storedServers[0].accelerator,
+          shape: storedServers[0].shape,
+          version: storedServers[0].version,
           dateAssigned: storedServers[0].dateAssigned,
           endpoint: storedServers[0].endpoint,
         },
@@ -1557,6 +1408,8 @@ describe('AssignmentManager', () => {
           label: storedServers[1].label,
           variant: storedServers[1].variant,
           accelerator: storedServers[1].accelerator,
+          shape: storedServers[1].shape,
+          version: storedServers[1].version,
           dateAssigned: storedServers[1].dateAssigned,
           endpoint: storedServers[1].endpoint,
         },
@@ -1630,8 +1483,8 @@ describe('AssignmentManager', () => {
             .withArgs(sinon.match(isUUID), {
               variant: defaultServer.variant,
               accelerator: defaultServer.accelerator,
-              shape: undefined,
-              version: undefined,
+              shape: defaultServer.shape,
+              version: defaultServer.version,
             })
             .resolves({ assignment: defaultAssignment, isNew: false });
           colabClientStub.listAssignments.resolves([defaultAssignment]);
@@ -1892,10 +1745,10 @@ describe('AssignmentManager', () => {
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: Variant.GPU,
-              accelerator: 'A100',
-              shape: '',
-              version: '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: false,
             },
           );
@@ -1912,17 +1765,17 @@ describe('AssignmentManager', () => {
           });
           colabClientStub.assign
             .withArgs(sinon.match(isUUID), {
-              variant: Variant.GPU,
+              variant: defaultAssignmentDescriptor.variant,
               accelerator: 'A100',
-              shape: undefined,
-              version: undefined,
+              shape: defaultAssignmentDescriptor.shape,
+              version: defaultAssignmentDescriptor.version,
             })
             .rejects(new AcceleratorUnavailableError('A100'))
             .withArgs(sinon.match(isUUID), {
-              variant: Variant.GPU,
+              variant: defaultAssignmentDescriptor.variant,
               accelerator: 'T4',
-              shape: undefined,
-              version: undefined,
+              shape: defaultAssignmentDescriptor.shape,
+              version: defaultAssignmentDescriptor.version,
             })
             .resolves({
               assignment: { ...defaultAssignment, accelerator: 'T4' },
@@ -1935,10 +1788,10 @@ describe('AssignmentManager', () => {
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: Variant.GPU,
-              accelerator: 'A100',
-              shape: '',
-              version: '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: true,
             },
           );
@@ -1965,10 +1818,10 @@ describe('AssignmentManager', () => {
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_ALL_ACCELERATORS_UNAVAILABLE,
             {
-              variant: Variant.GPU,
-              accelerator: 'A100',
-              shape: '',
-              version: '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: true,
             },
           );
@@ -2005,10 +1858,10 @@ describe('AssignmentManager', () => {
             ).to.be.rejected;
 
             sinon.assert.calledOnceWithExactly(logStub, outcome, {
-              variant: Variant.GPU,
-              accelerator: 'A100',
-              shape: '',
-              version: '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
+              shape: 'STANDARD',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: false,
             });
           });
@@ -2030,8 +1883,8 @@ describe('AssignmentManager', () => {
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: Variant.GPU,
-              accelerator: 'A100',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
               shape: 'HIGHMEM',
               version: 'v1',
               hadFallback: false,
@@ -2076,7 +1929,7 @@ describe('AssignmentManager', () => {
       });
 
       it('throws an error when the assignment does not include a URL to connect to', () => {
-        (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+        createRuntimeStub
           .withArgs(
             sinon.match((req: CreateRuntimeRequest) => {
               const spec = req.runtime?.runtimeSpec;
@@ -2107,7 +1960,7 @@ describe('AssignmentManager', () => {
       });
 
       it('throws an error when the assignment does not include a token to connect with', () => {
-        (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+        createRuntimeStub
           .withArgs(
             sinon.match((req: CreateRuntimeRequest) => {
               const spec = req.runtime?.runtimeSpec;
@@ -2141,7 +1994,7 @@ describe('AssignmentManager', () => {
         let assignedServer: ColabAssignedServer;
 
         beforeEach(async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+          createRuntimeStub
             .withArgs(
               sinon.match((req: CreateRuntimeRequest) => {
                 const spec = req.runtime?.runtimeSpec;
@@ -2163,7 +2016,7 @@ describe('AssignmentManager', () => {
           await serverStorage.store([defaultServerV2]);
 
           assignedServer = await assignmentManager.assignServer(
-            defaultServerDescriptor,
+            defaultAssignmentDescriptor,
           );
         });
 
@@ -2208,7 +2061,7 @@ describe('AssignmentManager', () => {
         const WAIT_OPERATION_TIMEOUT = '200s';
 
         beforeEach(() => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+          createRuntimeStub
             .withArgs(
               sinon.match((req: CreateRuntimeRequest) => {
                 const spec = req.runtime?.runtimeSpec;
@@ -2243,13 +2096,12 @@ describe('AssignmentManager', () => {
         });
 
         it('stores and returns the server with progress', async () => {
-          (colabApiClientStub.operations.waitOperation as sinon.SinonStub)
+          waitOperationStub
             .withArgs(
-              sinon.match(
-                (req: WaitOperationRequest) =>
-                  req.operationsId === OPERATION_ID &&
-                  req.timeout === WAIT_OPERATION_TIMEOUT,
-              ),
+              sinon.match({
+                operationsId: OPERATION_ID,
+                timeout: WAIT_OPERATION_TIMEOUT,
+              }),
             )
             .resolves({
               name: `operations/${OPERATION_ID}`,
@@ -2258,7 +2110,7 @@ describe('AssignmentManager', () => {
             });
 
           const assignedServer = await assignmentManager.assignServer(
-            defaultServerDescriptor,
+            defaultAssignmentDescriptor,
           );
 
           expect(stripNetworkOverride(assignedServer)).to.deep.equal(
@@ -2268,13 +2120,12 @@ describe('AssignmentManager', () => {
         });
 
         it('throws WaitOperationTimeoutError if the operation is still not done after wait', async () => {
-          (colabApiClientStub.operations.waitOperation as sinon.SinonStub)
+          waitOperationStub
             .withArgs(
-              sinon.match(
-                (req: WaitOperationRequest) =>
-                  req.operationsId === OPERATION_ID &&
-                  req.timeout === WAIT_OPERATION_TIMEOUT,
-              ),
+              sinon.match({
+                operationsId: OPERATION_ID,
+                timeout: WAIT_OPERATION_TIMEOUT,
+              }),
             )
             .resolves({
               name: `operations/${OPERATION_ID}`,
@@ -2282,7 +2133,7 @@ describe('AssignmentManager', () => {
             });
 
           const promise = assignmentManager.assignServer(
-            defaultServerDescriptor,
+            defaultAssignmentDescriptor,
           );
 
           await expect(promise).to.eventually.be.rejectedWith(
@@ -2294,7 +2145,7 @@ describe('AssignmentManager', () => {
 
       describe('with too many assigned servers', () => {
         beforeEach(() => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             error: {
               code: 9,
@@ -2305,7 +2156,7 @@ describe('AssignmentManager', () => {
 
         it('notifies the user', async () => {
           await expect(
-            assignmentManager.assignServer(defaultServerDescriptor),
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
           ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
           sinon.assert.calledOnceWithMatch(
@@ -2320,7 +2171,7 @@ describe('AssignmentManager', () => {
           );
 
           await expect(
-            assignmentManager.assignServer(defaultServerDescriptor),
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
           ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
 
           sinon.assert.calledOnceWithExactly(
@@ -2333,7 +2184,7 @@ describe('AssignmentManager', () => {
 
       describe('with insufficient quota', () => {
         beforeEach(() => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             error: {
               code: 9,
@@ -2344,7 +2195,7 @@ describe('AssignmentManager', () => {
 
         it('notifies the user', async () => {
           await expect(
-            assignmentManager.assignServer(defaultServerDescriptor),
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
           ).to.eventually.be.rejectedWith(InsufficientQuotaError);
 
           sinon.assert.calledOnceWithMatch(
@@ -2360,7 +2211,7 @@ describe('AssignmentManager', () => {
           );
 
           await expect(
-            assignmentManager.assignServer(defaultServerDescriptor),
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
           ).to.eventually.be.rejectedWith(InsufficientQuotaError);
 
           sinon.assert.calledOnceWithMatch(
@@ -2377,7 +2228,7 @@ describe('AssignmentManager', () => {
 
       describe('when the user is banned', () => {
         beforeEach(() => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             error: {
               code: 9,
@@ -2388,7 +2239,7 @@ describe('AssignmentManager', () => {
 
         it('notifies the user', async () => {
           await expect(
-            assignmentManager.assignServer(defaultServerDescriptor),
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
           ).to.eventually.be.rejectedWith(DenylistedError);
 
           sinon.assert.calledOnceWithMatch(
@@ -2448,7 +2299,7 @@ describe('AssignmentManager', () => {
               },
             ],
           });
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+          createRuntimeStub
             .withArgs(
               sinon.match((req: CreateRuntimeRequest) => {
                 const spec = req.runtime?.runtimeSpec;
@@ -2467,7 +2318,7 @@ describe('AssignmentManager', () => {
         });
 
         it('falls back to the next available accelerator', async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+          createRuntimeStub
             .withArgs(
               sinon.match((req: CreateRuntimeRequest) => {
                 const spec = req.runtime?.runtimeSpec;
@@ -2501,7 +2352,7 @@ describe('AssignmentManager', () => {
         });
 
         it('falls back multiple times to the next available accelerator', async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+          createRuntimeStub
             .withArgs(
               sinon.match((req: CreateRuntimeRequest) => {
                 const spec = req.runtime?.runtimeSpec;
@@ -2551,7 +2402,7 @@ describe('AssignmentManager', () => {
         });
 
         it('throws an error if all fallbacks fail', async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             error: {
               code: 9,
@@ -2588,21 +2439,21 @@ describe('AssignmentManager', () => {
         });
 
         it('logs OUTCOME_SUCCEEDED with the requested configuration', async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             response: defaultRuntime,
           });
 
-          await assignmentManager.assignServer(defaultServerDescriptor);
+          await assignmentManager.assignServer(defaultAssignmentDescriptor);
 
           sinon.assert.calledOnceWithExactly(
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: defaultServerDescriptor.variant,
-              accelerator: defaultServerDescriptor.accelerator ?? '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
               shape: 'STANDARD',
-              version: defaultServerDescriptor.version ?? '',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: false,
             },
           );
@@ -2631,7 +2482,7 @@ describe('AssignmentManager', () => {
               },
             ],
           });
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub)
+          createRuntimeStub
             .withArgs(
               sinon.match((req: CreateRuntimeRequest) => {
                 const spec = req.runtime?.runtimeSpec;
@@ -2666,16 +2517,16 @@ describe('AssignmentManager', () => {
               },
             });
 
-          await assignmentManager.assignServer(defaultServerDescriptor);
+          await assignmentManager.assignServer(defaultAssignmentDescriptor);
 
           sinon.assert.calledOnceWithExactly(
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
             {
-              variant: defaultServerDescriptor.variant,
-              accelerator: defaultServerDescriptor.accelerator ?? '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
               shape: 'STANDARD',
-              version: defaultServerDescriptor.version ?? '',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: true,
             },
           );
@@ -2704,7 +2555,7 @@ describe('AssignmentManager', () => {
               },
             ],
           });
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             error: {
               code: 9,
@@ -2712,17 +2563,18 @@ describe('AssignmentManager', () => {
             },
           });
 
-          await expect(assignmentManager.assignServer(defaultServerDescriptor))
-            .to.be.rejected;
+          await expect(
+            assignmentManager.assignServer(defaultAssignmentDescriptor),
+          ).to.be.rejected;
 
           sinon.assert.calledOnceWithExactly(
             logStub,
             AssignmentOutcome.ASSIGNMENT_OUTCOME_ALL_ACCELERATORS_UNAVAILABLE,
             {
-              variant: defaultServerDescriptor.variant,
-              accelerator: defaultServerDescriptor.accelerator ?? '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
               shape: 'STANDARD',
-              version: defaultServerDescriptor.version ?? '',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: true,
             },
           );
@@ -2756,9 +2608,7 @@ describe('AssignmentManager', () => {
         ];
         for (const { label, code, reason, outcome } of errorOutcomeCases) {
           it(`logs ${label}`, async () => {
-            (
-              colabApiClientStub.colab.createRuntime as sinon.SinonStub
-            ).resolves({
+            createRuntimeStub.resolves({
               done: true,
               error: {
                 code,
@@ -2767,21 +2617,21 @@ describe('AssignmentManager', () => {
             });
 
             await expect(
-              assignmentManager.assignServer(defaultServerDescriptor),
+              assignmentManager.assignServer(defaultAssignmentDescriptor),
             ).to.be.rejected;
 
             sinon.assert.calledOnceWithExactly(logStub, outcome, {
-              variant: defaultServerDescriptor.variant,
-              accelerator: defaultServerDescriptor.accelerator ?? '',
+              variant: defaultAssignmentDescriptor.variant,
+              accelerator: defaultAssignmentDescriptor.accelerator ?? '',
               shape: 'STANDARD',
-              version: defaultServerDescriptor.version ?? '',
+              version: defaultAssignmentDescriptor.version ?? '',
               hadFallback: false,
             });
           });
         }
 
         it('logs an empty accelerator for the default CPU descriptor', async () => {
-          (colabApiClientStub.colab.createRuntime as sinon.SinonStub).resolves({
+          createRuntimeStub.resolves({
             done: true,
             response: {
               ...defaultRuntime,
@@ -2976,6 +2826,8 @@ describe('AssignmentManager', () => {
             label: defaultServer.label,
             variant: defaultServer.variant,
             accelerator: defaultServer.accelerator,
+            shape: defaultServer.shape,
+            version: defaultServer.version,
             endpoint: defaultServer.endpoint,
             dateAssigned: defaultServer.dateAssigned,
           },
@@ -3007,183 +2859,144 @@ describe('AssignmentManager', () => {
   });
 
   describe('latestOrAutoAssignServer', () => {
-    const tests = [
-      { name: 'with Public API enabled', enablePublicApi: true },
-      { name: 'with Public API disabled', enablePublicApi: false },
-    ];
-    tests.forEach(({ name, enablePublicApi }) => {
-      describe(name, () => {
-        beforeEach(() => {
-          EXPERIMENT_TEST.setFlagForTest(
-            ExperimentFlag.EnablePublicApi,
-            enablePublicApi,
-          );
-        });
+    forEachPublicApiFlag((enablePublicApi) => {
+      it('throws after being disposed', async () => {
+        assignmentManager.dispose();
 
-        it('throws after being disposed', async () => {
-          assignmentManager.dispose();
+        await expect(
+          assignmentManager.latestOrAutoAssignServer(),
+        ).to.be.rejectedWith(/disposed/);
+      });
 
-          await expect(
-            assignmentManager.latestOrAutoAssignServer(),
-          ).to.be.rejectedWith(/disposed/);
-        });
-
-        it('assigns a new default server when none have been assigned', async () => {
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [] },
-            );
-            const defaultCpuRuntime: Runtime = {
-              ...defaultRuntime,
-              runtimeSpec: {
-                ...defaultRuntime.runtimeSpec,
-                variant: ApiVariant.VariantCpu,
-                accelerator: 'NONE',
-              },
-            };
-            (
-              colabApiClientStub.colab.createRuntime as sinon.SinonStub
-            ).resolves({
-              done: true,
-              response: defaultCpuRuntime,
-            });
-          } else {
-            colabClientStub.listAssignments.resolves([]);
-            const defaultCpuAssignment = {
-              ...defaultAssignment,
-              variant: Variant.DEFAULT,
+      it('assigns a new default server when none have been assigned', async () => {
+        if (enablePublicApi) {
+          listRuntimesStub.resolves({ runtimes: [] });
+          const defaultCpuRuntime: Runtime = {
+            ...defaultRuntime,
+            runtimeSpec: {
+              ...defaultRuntime.runtimeSpec,
+              variant: ApiVariant.VariantCpu,
               accelerator: 'NONE',
-            };
-            colabClientStub.assign
-              .withArgs(sinon.match(isUUID), {
-                variant: Variant.DEFAULT,
-                accelerator: undefined,
-                shape: undefined,
-                version: undefined,
-              })
-              .resolves({ assignment: defaultCpuAssignment, isNew: true });
-          }
-
-          const server = await assignmentManager.latestOrAutoAssignServer();
-
-          const defaultCpuServer = {
-            ...(enablePublicApi ? defaultServerV2 : defaultServer),
+            },
+            version: undefined,
+          };
+          createRuntimeStub.resolves({
+            done: true,
+            response: defaultCpuRuntime,
+          });
+        } else {
+          colabClientStub.listAssignments.resolves([]);
+          const defaultCpuAssignment = {
+            ...defaultAssignment,
             variant: Variant.DEFAULT,
             accelerator: 'NONE',
-            label: 'Colab CPU',
           };
-          const { id: _g, ...got } = stripNetworkOverride(server);
-          const { id: _w, ...want } = defaultCpuServer;
-          expect(got).to.deep.equal(want);
-        });
+          colabClientStub.assign
+            .withArgs(sinon.match(isUUID), {
+              variant: Variant.DEFAULT,
+              accelerator: undefined,
+              shape: undefined,
+              version: undefined,
+            })
+            .resolves({ assignment: defaultCpuAssignment, isNew: true });
+        }
 
-        it('reconciles servers before resolving', async () => {
-          const deadServer = defaultServerV2;
-          const olderActiveServer: ColabAssignedServer = {
-            ...defaultServerV2,
-            id: randomUUID(),
-            endpoint: 'm-s-bar',
-            label: 'Older server',
-            dateAssigned: new Date(NOW.getTime() - 10000),
-          };
-          if (enablePublicApi) {
-            const olderActiveRuntime: Runtime = {
-              ...defaultRuntime,
-              connectionInfo: {
-                ...defaultRuntime.connectionInfo,
-                endpoint: olderActiveServer.endpoint,
-              },
-            };
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [olderActiveRuntime] },
-            );
-          } else {
-            const olderActiveAssignment: Assignment = {
-              ...defaultAssignment,
+        const server = await assignmentManager.latestOrAutoAssignServer();
+
+        const defaultCpuServer = {
+          ...(enablePublicApi ? defaultServerV2 : defaultServer),
+          variant: Variant.DEFAULT,
+          accelerator: 'NONE',
+          label: 'Colab CPU',
+          version: undefined,
+        };
+        const { id: gotId, ...got } = stripNetworkOverride(server);
+        const { id: wantId, ...want } = defaultCpuServer;
+        expect(got).to.deep.equal(want);
+        if (enablePublicApi) {
+          expect(gotId).to.equal(wantId);
+        }
+      });
+
+      it('reconciles servers before resolving', async () => {
+        const deadServer = defaultServerV2;
+        const olderActiveServer: ColabAssignedServer = {
+          ...defaultServerV2,
+          id: randomUUID(),
+          endpoint: 'm-s-bar',
+          label: 'Older server',
+          dateAssigned: new Date(NOW.getTime() - 10000),
+        };
+        const olderActiveFixtures = {
+          runtime: {
+            ...defaultRuntime,
+            connectionInfo: {
+              ...defaultRuntime.connectionInfo,
               endpoint: olderActiveServer.endpoint,
-            };
-            colabClientStub.listAssignments.resolves([olderActiveAssignment]);
-          }
-          await serverStorage.store([deadServer, olderActiveServer]);
+            },
+          },
+          assignment: {
+            ...defaultAssignment,
+            endpoint: olderActiveServer.endpoint,
+          },
+        };
+        stubLive(enablePublicApi, olderActiveFixtures);
+        await serverStorage.store([deadServer, olderActiveServer]);
 
-          const server = await assignmentManager.latestOrAutoAssignServer();
+        const server = await assignmentManager.latestOrAutoAssignServer();
 
-          expect(stripNetworkOverride(server)).to.deep.equal(olderActiveServer);
-        });
+        expect(stripNetworkOverride(server)).to.deep.equal(olderActiveServer);
       });
     });
   });
 
   describe('latestServer', () => {
-    const tests = [
-      { name: 'with Public API enabled', enablePublicApi: true },
-      { name: 'with Public API disabled', enablePublicApi: false },
-    ];
-    tests.forEach(({ name, enablePublicApi }) => {
-      describe(name, () => {
-        beforeEach(() => {
-          EXPERIMENT_TEST.setFlagForTest(
-            ExperimentFlag.EnablePublicApi,
-            enablePublicApi,
-          );
-        });
+    forEachPublicApiFlag((enablePublicApi) => {
+      it('throws after being disposed', async () => {
+        assignmentManager.dispose();
 
-        it('throws after being disposed', async () => {
-          assignmentManager.dispose();
+        await expect(assignmentManager.latestServer()).to.be.rejectedWith(
+          /disposed/,
+        );
+      });
 
-          await expect(assignmentManager.latestServer()).to.be.rejectedWith(
-            /disposed/,
-          );
-        });
+      it('returns undefined when none have been assigned', async () => {
+        stubLive(enablePublicApi);
 
-        it('returns undefined when none have been assigned', async () => {
-          if (enablePublicApi) {
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [] },
-            );
-          } else {
-            colabClientStub.listAssignments.resolves([]);
-          }
+        const server = await assignmentManager.latestServer();
+        expect(server).to.equal(undefined);
+      });
 
-          const server = await assignmentManager.latestServer();
-          expect(server).to.equal(undefined);
-        });
-
-        it('reconciles servers before resolving', async () => {
-          const deadServer = defaultServerV2;
-          const olderActiveServer: ColabAssignedServer = {
-            ...defaultServerV2,
-            id: randomUUID(),
-            endpoint: 'm-s-bar',
-            label: 'Older server',
-            dateAssigned: new Date(NOW.getTime() - 10000),
-          };
-          if (enablePublicApi) {
-            const olderActiveRuntime: Runtime = {
-              ...defaultRuntime,
-              connectionInfo: {
-                ...defaultRuntime.connectionInfo,
-                endpoint: olderActiveServer.endpoint,
-              },
-            };
-            (colabApiClientStub.colab.listRuntimes as sinon.SinonStub).resolves(
-              { runtimes: [olderActiveRuntime] },
-            );
-          } else {
-            const olderActiveAssignment: Assignment = {
-              ...defaultAssignment,
+      it('reconciles servers before resolving', async () => {
+        const deadServer = defaultServerV2;
+        const olderActiveServer: ColabAssignedServer = {
+          ...defaultServerV2,
+          id: randomUUID(),
+          endpoint: 'm-s-bar',
+          label: 'Older server',
+          dateAssigned: new Date(NOW.getTime() - 10000),
+        };
+        const olderActiveFixtures = {
+          runtime: {
+            ...defaultRuntime,
+            connectionInfo: {
+              ...defaultRuntime.connectionInfo,
               endpoint: olderActiveServer.endpoint,
-            };
-            colabClientStub.listAssignments.resolves([olderActiveAssignment]);
-          }
-          await serverStorage.store([deadServer, olderActiveServer]);
+            },
+          },
+          assignment: {
+            ...defaultAssignment,
+            endpoint: olderActiveServer.endpoint,
+          },
+        };
+        stubLive(enablePublicApi, olderActiveFixtures);
+        await serverStorage.store([deadServer, olderActiveServer]);
 
-          const server = await assignmentManager.latestServer();
+        const server = await assignmentManager.latestServer();
 
-          expect(server ? stripNetworkOverride(server) : null).to.deep.equal(
-            olderActiveServer,
-          );
-        });
+        expect(server ? stripNetworkOverride(server) : null).to.deep.equal(
+          olderActiveServer,
+        );
       });
     });
   });
@@ -3440,7 +3253,22 @@ describe('AssignmentManager', () => {
       sinon.assert.notCalled(vsCodeStub.env.openExternal);
     });
   });
+
+  function stubLive(enablePublicApi: boolean, ...fixtures: LiveFixture[]) {
+    if (enablePublicApi) {
+      listRuntimesStub.resolves({ runtimes: fixtures.map((f) => f.runtime) });
+    } else {
+      colabClientStub.listAssignments.resolves(
+        fixtures.map((f) => f.assignment),
+      );
+    }
+  }
 });
+
+interface LiveFixture {
+  runtime: Runtime;
+  assignment: ListedAssignment;
+}
 
 function stripNetworkOverride(
   server: ColabAssignedServer,
@@ -3457,4 +3285,19 @@ function stripNetworkOverrides(
   servers: ColabAssignedServer[],
 ): ColabAssignedServer[] {
   return servers.map(stripNetworkOverride);
+}
+
+function forEachPublicApiFlag(body: (enablePublicApi: boolean) => void) {
+  for (const enablePublicApi of [true, false]) {
+    describe(`with Public API ${enablePublicApi ? 'enabled' : 'disabled'}`, () => {
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(
+          ExperimentFlag.EnablePublicApi,
+          enablePublicApi,
+        );
+      });
+
+      body(enablePublicApi);
+    });
+  }
 }
