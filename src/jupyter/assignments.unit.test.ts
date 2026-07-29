@@ -1073,7 +1073,7 @@ describe('AssignmentManager', () => {
           // One of the assignments was assigned within VS Code extension
           const assignedServer = {
             ...defaultServerV2,
-            endpoint: assignmentWithoutName.endpoint,
+            endpoint: runtimeWithoutName.connectionInfo.endpoint,
           };
           await serverStorage.store([assignedServer]);
 
