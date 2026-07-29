@@ -175,6 +175,7 @@ describe('AssignmentManager', () => {
     typeof ProxiedJupyterClient.withStaticConnection
   >;
 
+  let listRuntimeSpecsStub: sinon.SinonStub;
   let createRuntimeStub: sinon.SinonStub;
   let listRuntimesStub: sinon.SinonStub;
   let waitOperationStub: sinon.SinonStub;
@@ -274,6 +275,8 @@ describe('AssignmentManager', () => {
       'withStaticConnection',
     );
 
+    listRuntimeSpecsStub = colabApiClientStub.colab
+      .listRuntimeSpecs as sinon.SinonStub;
     createRuntimeStub = colabApiClientStub.colab
       .createRuntime as sinon.SinonStub;
     listRuntimesStub = colabApiClientStub.colab.listRuntimes as sinon.SinonStub;
@@ -395,32 +398,30 @@ describe('AssignmentManager', () => {
 
       beforeEach(() => {
         EXPERIMENT_TEST.setFlagForTest(ExperimentFlag.EnablePublicApi, true);
-        (colabApiClientStub.colab.listRuntimeSpecs as sinon.SinonStub).resolves(
-          {
-            runtimeSpecs: [
-              {
-                key: defaultCpuSpec,
-                eligible: true,
+        listRuntimeSpecsStub.resolves({
+          runtimeSpecs: [
+            {
+              key: defaultCpuSpec,
+              eligible: true,
+            },
+            {
+              key: defaultGpuSpec,
+              eligible: true,
+            },
+            {
+              key: defaultTpuSpec,
+              eligible: true,
+            },
+            {
+              key: {
+                variant: 'VARIANT_GPU',
+                shape: 'SHAPE_HIGHMEM',
+                accelerator: 'DOES_NOT_MATTER',
               },
-              {
-                key: defaultGpuSpec,
-                eligible: true,
-              },
-              {
-                key: defaultTpuSpec,
-                eligible: true,
-              },
-              {
-                key: {
-                  variant: 'VARIANT_GPU',
-                  shape: 'SHAPE_HIGHMEM',
-                  accelerator: 'DOES_NOT_MATTER',
-                },
-                eligible: false,
-              },
-            ],
-          },
-        );
+              eligible: false,
+            },
+          ],
+        });
       });
 
       it('returns the eligible server specs', async () => {
@@ -2275,9 +2276,7 @@ describe('AssignmentManager', () => {
 
       describe('with an accelerator that is unavailable', () => {
         beforeEach(() => {
-          (
-            colabApiClientStub.colab.listRuntimeSpecs as sinon.SinonStub
-          ).resolves({
+          listRuntimeSpecsStub.resolves({
             runtimeSpecs: [
               {
                 key: {
@@ -2484,9 +2483,7 @@ describe('AssignmentManager', () => {
         });
 
         it('logs hadFallback=true when a fallback succeeds', async () => {
-          (
-            colabApiClientStub.colab.listRuntimeSpecs as sinon.SinonStub
-          ).resolves({
+          listRuntimeSpecsStub.resolves({
             runtimeSpecs: [
               {
                 key: {
@@ -2557,9 +2554,7 @@ describe('AssignmentManager', () => {
         });
 
         it('logs OUTCOME_ALL_ACCELERATORS_UNAVAILABLE when fallbacks are exhausted', async () => {
-          (
-            colabApiClientStub.colab.listRuntimeSpecs as sinon.SinonStub
-          ).resolves({
+          listRuntimeSpecsStub.resolves({
             runtimeSpecs: [
               {
                 key: {
