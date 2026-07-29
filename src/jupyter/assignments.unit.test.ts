@@ -157,6 +157,12 @@ const defaultLiveFixtures: LiveFixture = {
   assignment: defaultAssignment,
 };
 
+const runtimeWithoutConnectionInfo = {
+  ...defaultRuntime,
+  name: `runtimes/r-${randomUUID()}`,
+  connectionInfo: undefined,
+} satisfies Runtime;
+
 describe('AssignmentManager', () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
@@ -477,6 +483,29 @@ describe('AssignmentManager', () => {
         );
       });
 
+      if (enablePublicApi) {
+        it('prunes server without connection info', async () => {
+          await serverStorage.store([defaultServerV2]);
+          listRuntimesStub.resolves({
+            runtimes: [runtimeWithoutConnectionInfo],
+          });
+
+          await assignmentManager.reconcileAssignedServers();
+
+          await expect(assignmentManager.getServers('extension')).to.eventually
+            .be.empty;
+          sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+            added: [],
+            removed: [{ server: defaultServerV2, userInitiated: false }],
+            changed: [],
+          });
+          sinon.assert.calledOnceWithMatch(
+            vsCodeStub.window.showInformationMessage,
+            sinon.match(/notebooks Colab GPU A100 was/),
+          );
+        });
+      }
+
       describe('with multiple servers', () => {
         let servers: [ColabAssignedServer, ColabAssignedServer];
         let liveFixtures: [LiveFixture, LiveFixture];
@@ -760,11 +789,6 @@ describe('AssignmentManager', () => {
         url: 'https://test.url.without.session',
         endpoint: 'test-endpoint-without-session',
       },
-    } satisfies Runtime;
-    const runtimeWithoutConnectionInfo = {
-      ...defaultRuntime,
-      name: `runtimes/r-${randomUUID()}`,
-      connectionInfo: undefined,
     } satisfies Runtime;
 
     const defaultSession = {
