@@ -184,6 +184,7 @@ describe('AssignmentManager', () => {
 
   let listRuntimeSpecsStub: sinon.SinonStub;
   let createRuntimeStub: sinon.SinonStub;
+  let deleteRuntimeStub: sinon.SinonStub;
   let getRuntimeStub: sinon.SinonStub;
   let listRuntimesStub: sinon.SinonStub;
   let waitOperationStub: sinon.SinonStub;
@@ -287,6 +288,8 @@ describe('AssignmentManager', () => {
       .listRuntimeSpecs as sinon.SinonStub;
     createRuntimeStub = colabApiClientStub.colab
       .createRuntime as sinon.SinonStub;
+    deleteRuntimeStub = colabApiClientStub.colab
+      .deleteRuntime as sinon.SinonStub;
     getRuntimeStub = colabApiClientStub.colab.getRuntime as sinon.SinonStub;
     listRuntimesStub = colabApiClientStub.colab.listRuntimes as sinon.SinonStub;
     waitOperationStub = colabApiClientStub.operations
@@ -2697,200 +2700,266 @@ describe('AssignmentManager', () => {
   });
 
   describe('unassignServer', () => {
-    it('throws after being disposed', async () => {
-      assignmentManager.dispose();
-
-      await expect(
-        assignmentManager.unassignServer(defaultServer),
-      ).to.be.rejectedWith(/disposed/);
-    });
-
-    it('does nothing when the server does not exist', async () => {
-      await assignmentManager.unassignServer(defaultServer);
-
-      sinon.assert.notCalled(colabClientStub.unassign);
-      sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
-      sinon.assert.notCalled(assignmentChangeListener);
-    });
-
-    describe('when a server created in VS Code exists', () => {
-      let jupyterStub: JupyterClientStub;
-
-      beforeEach(async () => {
-        await serverStorage.store([defaultServer]);
-        jupyterStub = createJupyterClientStub();
-        jupyterStaticConnectionStub
-          .withArgs(
-            defaultServer.connectionInformation.baseUrl,
-            defaultServer.connectionInformation.token,
-          )
-          .returns(jupyterStub);
-      });
-
-      it('deletes sessions', async () => {
-        const session1 = {
-          id: 'mock-session-id-1',
-          kernel: {
-            id: 'mock-kernel-id',
-            name: 'mock-kernel-name',
-            lastActivity: new Date().toISOString(),
-            executionState: 'idle',
-            connections: 1,
-          },
-          name: 'mock-session-name',
-          path: 'mock-path',
-          type: 'notebook',
-        };
-        const session2 = {
-          ...session1,
-          id: 'mock-session-id-2',
-        };
-        jupyterStub.sessions.list.resolves([session1, session2]);
-
-        await assignmentManager.unassignServer(defaultServer);
-
-        sinon.assert.calledTwice(jupyterStub.sessions.delete);
-        sinon.assert.calledWith(jupyterStub.sessions.delete, {
-          session: session1.id,
-        });
-        sinon.assert.calledWith(jupyterStub.sessions.delete, {
-          session: session2.id,
-        });
-      });
-
-      it('does not delete sessions when there are none', async () => {
-        jupyterStub.sessions.list.resolves([]);
-
-        await assignmentManager.unassignServer(defaultServer);
-
-        sinon.assert.notCalled(jupyterStub.sessions.delete);
-      });
-
-      it('unassigns the server', async () => {
-        jupyterStub.sessions.list.resolves([]);
-
-        await assignmentManager.unassignServer(defaultServer);
-
-        const serversAfter = await assignmentManager.getServers('extension');
-        expect(serversAfter).to.be.empty;
-        sinon.assert.calledOnceWithMatch(
-          colabClientStub.unassign,
-          defaultServer.endpoint,
-        );
-        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-          added: [],
-          removed: [{ server: defaultServer, userInitiated: true }],
-          changed: [],
-        });
-        sinon.assert.calledOnceWithMatch(
-          vsCodeStub.window.showInformationMessage,
-          sinon.match(/notebooks Colab GPU A100 was/),
-        );
-      });
-
-      it('unassigns the server even if listing session fails', async () => {
-        jupyterStub.sessions.list.rejects(new Error('list failed'));
-
-        await assignmentManager.unassignServer(defaultServer);
-
-        const serversAfter = await assignmentManager.getServers('extension');
-        expect(serversAfter).to.be.empty;
-        sinon.assert.calledOnceWithMatch(
-          colabClientStub.unassign,
-          defaultServer.endpoint,
-        );
-        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-          added: [],
-          removed: [{ server: defaultServer, userInitiated: true }],
-          changed: [],
-        });
-        sinon.assert.calledOnceWithMatch(
-          vsCodeStub.window.showInformationMessage,
-          sinon.match(/notebooks Colab GPU A100 was/),
-        );
-      });
-
-      it('unassigns the server even if deleting session fails', async () => {
-        const session = {
-          id: 'mock-session-id-1',
-          kernel: {
-            id: 'mock-kernel-id',
-            name: 'mock-kernel-name',
-            lastActivity: new Date().toISOString(),
-            executionState: 'idle',
-            connections: 1,
-          },
-          name: 'mock-session-name',
-          path: 'mock-path',
-          type: 'notebook',
-        };
-        jupyterStub.sessions.list.resolves([session]);
-        jupyterStub.sessions.delete.rejects(new Error('delete failed'));
-
-        await assignmentManager.unassignServer(defaultServer);
-
-        const serversAfter = await assignmentManager.getServers('extension');
-        expect(serversAfter).to.be.empty;
-        sinon.assert.calledOnceWithMatch(
-          colabClientStub.unassign,
-          defaultServer.endpoint,
-        );
-        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-          added: [],
-          removed: [{ server: defaultServer, userInitiated: true }],
-          changed: [],
-        });
-        sinon.assert.calledOnceWithMatch(
-          vsCodeStub.window.showInformationMessage,
-          sinon.match(/notebooks Colab GPU A100 was/),
-        );
-      });
-
-      it('keeps the server tracked if remote unassign fails', async () => {
-        jupyterStub.sessions.list.resolves([]);
-        colabClientStub.unassign.rejects(new Error('unassign failed'));
+    forEachPublicApiFlag((enablePublicApi) => {
+      it('throws after being disposed', async () => {
+        assignmentManager.dispose();
 
         await expect(
           assignmentManager.unassignServer(defaultServer),
-        ).to.be.rejectedWith('unassign failed');
+        ).to.be.rejectedWith(/disposed/);
+      });
 
-        const serversAfter =
-          await assignmentManager.getLastKnownAssignedServers();
-        expect(serversAfter).to.deep.equal([
-          {
-            id: defaultServer.id,
-            label: defaultServer.label,
-            variant: defaultServer.variant,
-            accelerator: defaultServer.accelerator,
-            shape: defaultServer.shape,
-            version: defaultServer.version,
-            endpoint: defaultServer.endpoint,
-            dateAssigned: defaultServer.dateAssigned,
-          },
-        ]);
-        sinon.assert.calledOnceWithMatch(
-          colabClientStub.unassign,
-          defaultServer.endpoint,
-        );
+      it('does nothing when the server does not exist', async () => {
+        await assignmentManager.unassignServer(defaultServer);
+
+        sinon.assert.notCalled(deleteRuntimeStub);
+        sinon.assert.notCalled(colabClientStub.unassign);
+        sinon.assert.notCalled(vsCodeStub.commands.executeCommand);
         sinon.assert.notCalled(assignmentChangeListener);
       });
-    });
 
-    describe('when an unowned server exists', () => {
-      it('unassigns the server', async () => {
-        const remoteServer = {
-          id: 'test-id',
-          endpoint: 'test-endpoint',
-          label: 'name',
-          variant: Variant.DEFAULT,
-        };
+      const tests = [
+        { server: defaultServer, isV1Server: true },
+        { server: defaultServerV2, isV1Server: false },
+      ];
+      tests.forEach(({ server, isV1Server }) => {
+        describe(`when a ${isV1Server ? 'v1' : 'v2'} server created in VS Code exists`, () => {
+          let jupyterStub: JupyterClientStub;
 
-        await assignmentManager.unassignServer(remoteServer);
+          beforeEach(async () => {
+            await serverStorage.store([server]);
+            jupyterStub = createJupyterClientStub();
+            jupyterStaticConnectionStub
+              .withArgs(
+                server.connectionInformation.baseUrl,
+                server.connectionInformation.token,
+              )
+              .returns(jupyterStub);
+          });
 
-        sinon.assert.calledOnceWithMatch(
-          colabClientStub.unassign,
-          remoteServer.endpoint,
-        );
+          afterEach(() => {
+            if (isV1Server) {
+              sinon.assert.notCalled(deleteRuntimeStub);
+            } else {
+              sinon.assert.notCalled(colabClientStub.unassign);
+            }
+          });
+
+          it('deletes sessions', async () => {
+            const session1 = {
+              id: 'mock-session-id-1',
+              kernel: {
+                id: 'mock-kernel-id',
+                name: 'mock-kernel-name',
+                lastActivity: new Date().toISOString(),
+                executionState: 'idle',
+                connections: 1,
+              },
+              name: 'mock-session-name',
+              path: 'mock-path',
+              type: 'notebook',
+            };
+            const session2 = {
+              ...session1,
+              id: 'mock-session-id-2',
+            };
+            jupyterStub.sessions.list.resolves([session1, session2]);
+
+            await assignmentManager.unassignServer(server);
+
+            sinon.assert.calledTwice(jupyterStub.sessions.delete);
+            sinon.assert.calledWith(jupyterStub.sessions.delete, {
+              session: session1.id,
+            });
+            sinon.assert.calledWith(jupyterStub.sessions.delete, {
+              session: session2.id,
+            });
+          });
+
+          it('does not delete sessions when there are none', async () => {
+            jupyterStub.sessions.list.resolves([]);
+
+            await assignmentManager.unassignServer(server);
+
+            sinon.assert.notCalled(jupyterStub.sessions.delete);
+          });
+
+          it('unassigns the server', async () => {
+            jupyterStub.sessions.list.resolves([]);
+
+            await assignmentManager.unassignServer(server);
+
+            const serversAfter =
+              await assignmentManager.getServers('extension');
+            expect(serversAfter).to.be.empty;
+            if (isV1Server) {
+              sinon.assert.calledOnceWithMatch(
+                colabClientStub.unassign,
+                server.endpoint,
+              );
+            } else {
+              sinon.assert.alwaysCalledWithMatch(
+                deleteRuntimeStub,
+                sinon.match({ runtime: server.id }),
+                sinon.match.any,
+              );
+            }
+            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+              added: [],
+              removed: [{ server, userInitiated: true }],
+              changed: [],
+            });
+            sinon.assert.calledOnceWithMatch(
+              vsCodeStub.window.showInformationMessage,
+              sinon.match(/notebooks Colab GPU A100 was/),
+            );
+          });
+
+          it('unassigns the server even if listing session fails', async () => {
+            jupyterStub.sessions.list.rejects(new Error('list failed'));
+
+            await assignmentManager.unassignServer(server);
+
+            const serversAfter =
+              await assignmentManager.getServers('extension');
+            expect(serversAfter).to.be.empty;
+            if (isV1Server) {
+              sinon.assert.calledOnceWithMatch(
+                colabClientStub.unassign,
+                server.endpoint,
+              );
+            } else {
+              sinon.assert.alwaysCalledWithMatch(
+                deleteRuntimeStub,
+                sinon.match({ runtime: server.id }),
+                sinon.match.any,
+              );
+            }
+            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+              added: [],
+              removed: [{ server, userInitiated: true }],
+              changed: [],
+            });
+            sinon.assert.calledOnceWithMatch(
+              vsCodeStub.window.showInformationMessage,
+              sinon.match(/notebooks Colab GPU A100 was/),
+            );
+          });
+
+          it('unassigns the server even if deleting session fails', async () => {
+            const session = {
+              id: 'mock-session-id-1',
+              kernel: {
+                id: 'mock-kernel-id',
+                name: 'mock-kernel-name',
+                lastActivity: new Date().toISOString(),
+                executionState: 'idle',
+                connections: 1,
+              },
+              name: 'mock-session-name',
+              path: 'mock-path',
+              type: 'notebook',
+            };
+            jupyterStub.sessions.list.resolves([session]);
+            jupyterStub.sessions.delete.rejects(new Error('delete failed'));
+
+            await assignmentManager.unassignServer(server);
+
+            const serversAfter =
+              await assignmentManager.getServers('extension');
+            expect(serversAfter).to.be.empty;
+            if (isV1Server) {
+              sinon.assert.calledOnceWithMatch(
+                colabClientStub.unassign,
+                server.endpoint,
+              );
+            } else {
+              sinon.assert.alwaysCalledWithMatch(
+                deleteRuntimeStub,
+                sinon.match({ runtime: server.id }),
+                sinon.match.any,
+              );
+            }
+            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+              added: [],
+              removed: [{ server, userInitiated: true }],
+              changed: [],
+            });
+            sinon.assert.calledOnceWithMatch(
+              vsCodeStub.window.showInformationMessage,
+              sinon.match(/notebooks Colab GPU A100 was/),
+            );
+          });
+
+          it('keeps the server tracked if remote unassign fails', async () => {
+            jupyterStub.sessions.list.resolves([]);
+            if (isV1Server) {
+              colabClientStub.unassign.rejects(new Error('unassign failed'));
+            } else {
+              deleteRuntimeStub.rejects(new Error('unassign failed'));
+            }
+
+            await expect(
+              assignmentManager.unassignServer(server),
+            ).to.be.rejectedWith('unassign failed');
+
+            const serversAfter =
+              await assignmentManager.getLastKnownAssignedServers();
+            expect(serversAfter).to.deep.equal([
+              {
+                id: server.id,
+                label: server.label,
+                variant: server.variant,
+                accelerator: server.accelerator,
+                shape: server.shape,
+                version: server.version,
+                endpoint: server.endpoint,
+                dateAssigned: server.dateAssigned,
+              },
+            ]);
+            if (isV1Server) {
+              sinon.assert.calledOnceWithMatch(
+                colabClientStub.unassign,
+                server.endpoint,
+              );
+            } else {
+              sinon.assert.alwaysCalledWithMatch(
+                deleteRuntimeStub,
+                sinon.match({ runtime: server.id }),
+                sinon.match.any,
+              );
+            }
+            sinon.assert.notCalled(assignmentChangeListener);
+          });
+        });
+      });
+
+      describe('when an unowned server exists', () => {
+        it('unassigns the server', async () => {
+          const remoteServer = {
+            id: 'test-id',
+            endpoint: 'test-endpoint',
+            label: 'name',
+            variant: Variant.DEFAULT,
+          };
+
+          await assignmentManager.unassignServer(remoteServer);
+
+          if (enablePublicApi) {
+            sinon.assert.calledOnceWithMatch(
+              deleteRuntimeStub,
+              sinon.match({ runtime: remoteServer.id }),
+              sinon.match.any,
+            );
+            sinon.assert.notCalled(colabClientStub.unassign);
+          } else {
+            sinon.assert.calledOnceWithMatch(
+              colabClientStub.unassign,
+              remoteServer.endpoint,
+            );
+            sinon.assert.notCalled(deleteRuntimeStub);
+          }
+        });
       });
     });
   });
