@@ -181,6 +181,7 @@ describe('AssignmentManager', () => {
 
   let listRuntimeSpecsStub: sinon.SinonStub;
   let createRuntimeStub: sinon.SinonStub;
+  let getRuntimeStub: sinon.SinonStub;
   let listRuntimesStub: sinon.SinonStub;
   let waitOperationStub: sinon.SinonStub;
 
@@ -283,6 +284,7 @@ describe('AssignmentManager', () => {
       .listRuntimeSpecs as sinon.SinonStub;
     createRuntimeStub = colabApiClientStub.colab
       .createRuntime as sinon.SinonStub;
+    getRuntimeStub = colabApiClientStub.colab.getRuntime as sinon.SinonStub;
     listRuntimesStub = colabApiClientStub.colab.listRuntimes as sinon.SinonStub;
     waitOperationStub = colabApiClientStub.operations
       .waitOperation as sinon.SinonStub;
@@ -3112,6 +3114,20 @@ describe('AssignmentManager', () => {
           );
         });
 
+        afterEach(() => {
+          if (isV1Server) {
+            sinon.assert.notCalled(getRuntimeStub);
+          } else {
+            sinon.assert.notCalled(colabClientStub.refreshConnection);
+          }
+
+          if (enablePublicApi) {
+            sinon.assert.notCalled(colabClientStub.listAssignments);
+          } else {
+            sinon.assert.notCalled(listRuntimesStub);
+          }
+        });
+
         it('throws after being disposed', async () => {
           assignmentManager.dispose();
 
@@ -3131,14 +3147,8 @@ describe('AssignmentManager', () => {
           let refreshedServer: ColabAssignedServer;
 
           beforeEach(async () => {
-            if (enablePublicApi) {
-              (
-                colabApiClientStub.colab.listRuntimes as sinon.SinonStub
-              ).resolves({ runtimes: [defaultRuntime] });
-            } else {
-              colabClientStub.listAssignments.resolves([defaultAssignment]);
-            }
-            (colabApiClientStub.colab.getRuntime as sinon.SinonStub)
+            stubLive(enablePublicApi, defaultLiveFixtures);
+            getRuntimeStub
               .withArgs(
                 sinon.match({ runtime: defaultServerV2.id }),
                 sinon.match.any,
@@ -3163,17 +3173,6 @@ describe('AssignmentManager', () => {
             refreshedServer = await assignmentManager.refreshConnection(
               server.id,
             );
-            if (isV1Server) {
-              sinon.assert.calledOnce(colabClientStub.refreshConnection);
-              sinon.assert.notCalled(
-                colabApiClientStub.colab.getRuntime as sinon.SinonStub,
-              );
-            } else {
-              sinon.assert.notCalled(colabClientStub.refreshConnection);
-              sinon.assert.calledOnce(
-                colabApiClientStub.colab.getRuntime as sinon.SinonStub,
-              );
-            }
           });
 
           it('stores and returns the server with updated connection info', () => {

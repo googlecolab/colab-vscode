@@ -265,14 +265,6 @@ describe('ColabJupyterServerProvider', () => {
   });
 
   describe('resolveJupyterServer', () => {
-    it('throws when the server ID is not a UUID', async () => {
-      const server = { ...DEFAULT_SERVER, id: 'not-a-uuid' };
-
-      await expect(
-        serverProvider.resolveJupyterServer(server, cancellationToken),
-      ).to.eventually.be.rejectedWith(/expected UUID/);
-    });
-
     it('returns the assigned server with refreshed connection info', async () => {
       const refreshedServer: ColabAssignedServer = {
         ...DEFAULT_SERVER,

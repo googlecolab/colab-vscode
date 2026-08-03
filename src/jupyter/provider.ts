@@ -38,7 +38,6 @@ import { InputFlowAction } from '../common/multi-step-quickpick';
 import { telemetry } from '../telemetry';
 import { CommandSource } from '../telemetry/api';
 import { trackErrors } from '../telemetry/decorators';
-import { isUUID } from '../utils/uuid';
 import { AssignmentChangeEvent, AssignmentManager } from './assignments';
 
 /**
@@ -146,9 +145,6 @@ export class ColabJupyterServerProvider
     server: JupyterServer,
     _token: CancellationToken,
   ): Promise<JupyterServer> {
-    if (!isUUID(server.id)) {
-      throw new Error('Unexpected server ID format, expected UUID');
-    }
     try {
       return await this.assignmentManager.refreshConnection(server.id);
     } catch (e: unknown) {

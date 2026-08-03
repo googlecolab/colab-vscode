@@ -561,7 +561,7 @@ export class AssignmentManager implements Disposable {
       );
       assert(
         runtime.connectionInfo,
-        `ConnectionInfo missing in runtime: ${id}`,
+        `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`,
       );
       newConnectionInfo = runtime.connectionInfo;
     }
@@ -1044,6 +1044,9 @@ export class AssignmentManager implements Disposable {
     descriptor: ColabServerDescriptor,
     signal?: AbortSignal,
   ): Promise<Runtime> {
+    // We set a requestId to ensure idempotency. However, we should *not* set
+    // a runtimeId explicitly because the rest of the code relies on the
+    // auto-generated runtimeId from the server to be non-UUID format.
     const requestId = randomUUID();
     let createRuntimeOperation = await this.colabApiClient.colab.createRuntime(
       {
