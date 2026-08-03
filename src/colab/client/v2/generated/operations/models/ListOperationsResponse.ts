@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * colaboratory.googleapis.com API.
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
  *
  * The version of the OpenAPI document: v1
  * 
@@ -40,15 +40,6 @@ export interface ListOperationsResponse {
      * @memberof ListOperationsResponse
      */
     operations?: Array<Operation>;
-    /**
-     * Unordered list. Unreachable resources. Populated when the request sets
-     * `ListOperationsRequest.return_partial_success` and reads across
-     * collections. For example, when attempting to list all resources across all
-     * supported locations.
-     * @type {Array<string>}
-     * @memberof ListOperationsResponse
-     */
-    unreachable?: Array<string>;
 }
 
 /**
@@ -70,7 +61,6 @@ export function ListOperationsResponseFromJSONTyped(json: any, ignoreDiscriminat
         
         'nextPageToken': json['nextPageToken'] == null ? undefined : json['nextPageToken'],
         'operations': json['operations'] == null ? undefined : ((json['operations'] as Array<any>).map(OperationFromJSON)),
-        'unreachable': json['unreachable'] == null ? undefined : json['unreachable'],
     };
 }
 
@@ -87,7 +77,6 @@ export function ListOperationsResponseToJSONTyped(value?: ListOperationsResponse
         
         'nextPageToken': value['nextPageToken'],
         'operations': value['operations'] == null ? undefined : ((value['operations'] as Array<any>).map(OperationToJSON)),
-        'unreachable': value['unreachable'],
     };
 }
 
