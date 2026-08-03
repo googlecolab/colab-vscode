@@ -71,6 +71,7 @@ import {
   ColabAssignedServer,
   ColabServerDescriptor,
   DEFAULT_CPU_SERVER,
+  UnownedServer,
 } from './servers';
 import { ServerStorage } from './storage';
 
@@ -89,6 +90,7 @@ const defaultAssignmentDescriptor: ColabServerDescriptor = {
 const defaultAssignment: Assignment & {
   runtimeProxyInfo: RuntimeProxyToken;
   runtimeVersionLabel?: string;
+  notebookIdHash: string;
 } = {
   accelerator: 'A100',
   endpoint: 'm-s-foo',
@@ -103,6 +105,7 @@ const defaultAssignment: Assignment & {
     url: 'https://example.com',
   },
   runtimeVersionLabel: '2026.04',
+  notebookIdHash: 'mock-notebook-id-hash',
 };
 
 const defaultServer: ColabAssignedServer = {
@@ -752,6 +755,7 @@ describe('AssignmentManager', () => {
     const assignmentWithName = {
       ...defaultAssignment,
       endpoint: 'test-endpoint-with-session-name',
+      notebookIdHash: 'test-notebook-id-hash-with-session-name',
       runtimeProxyInfo: {
         ...defaultAssignment.runtimeProxyInfo,
         url: 'https://test.url.with.session.name',
@@ -760,6 +764,7 @@ describe('AssignmentManager', () => {
     const assignmentWithoutName = {
       ...defaultAssignment,
       endpoint: 'test-endpoint-without-session-name',
+      notebookIdHash: 'test-notebook-id-hash-without-session-name',
       runtimeProxyInfo: {
         ...defaultAssignment.runtimeProxyInfo,
         url: 'https://test.url.without.session.name',
@@ -768,11 +773,31 @@ describe('AssignmentManager', () => {
     const assignmentWithoutSession = {
       ...defaultAssignment,
       endpoint: 'test-endpoint-without-session',
+      notebookIdHash: 'test-notebook-id-hash-without-session',
       runtimeProxyInfo: {
         ...defaultAssignment.runtimeProxyInfo,
         url: 'https://test.url.without.session',
       },
     };
+
+    const serverV1WithName = {
+      ...defaultAssignmentDescriptor,
+      label: TEST_SESSION_NAME,
+      id: assignmentWithName.notebookIdHash,
+      endpoint: assignmentWithName.endpoint,
+    } satisfies UnownedServer;
+    const serverV1WithoutName = {
+      ...defaultAssignmentDescriptor,
+      label: UNKNOWN_REMOTE_SERVER_NAME,
+      id: assignmentWithoutName.notebookIdHash,
+      endpoint: assignmentWithoutName.endpoint,
+    } satisfies UnownedServer;
+    const serverV1WithoutSession = {
+      ...defaultAssignmentDescriptor,
+      label: UNKNOWN_REMOTE_SERVER_NAME,
+      id: assignmentWithoutSession.notebookIdHash,
+      endpoint: assignmentWithoutSession.endpoint,
+    } satisfies UnownedServer;
 
     const runtimeWithSessionName = {
       ...defaultRuntime,
@@ -801,6 +826,25 @@ describe('AssignmentManager', () => {
         endpoint: 'test-endpoint-without-session',
       },
     } satisfies Runtime;
+
+    const serverV2WithName = {
+      ...defaultAssignmentDescriptor,
+      label: TEST_SESSION_NAME,
+      id: trimPrefix(runtimeWithSessionName.name, 'runtimes/'),
+      endpoint: runtimeWithSessionName.connectionInfo.endpoint,
+    } satisfies UnownedServer;
+    const serverV2WithoutName = {
+      ...defaultAssignmentDescriptor,
+      label: UNKNOWN_REMOTE_SERVER_NAME,
+      id: trimPrefix(runtimeWithoutSessionName.name, 'runtimes/'),
+      endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
+    } satisfies UnownedServer;
+    const serverV2WithoutSession = {
+      ...defaultAssignmentDescriptor,
+      label: UNKNOWN_REMOTE_SERVER_NAME,
+      id: trimPrefix(runtimeWithoutSession.name, 'runtimes/'),
+      endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+    } satisfies UnownedServer;
 
     const defaultSession = {
       id: '',
@@ -870,19 +914,6 @@ describe('AssignmentManager', () => {
         .returns(jupyterStubWithoutSession);
       jupyterStubWithoutSession.sessions.list.resolves([]);
     });
-
-    const tests = [
-      { name: 'with Public API enabled', enablePublicApi: true },
-      { name: 'with Public API disabled', enablePublicApi: false },
-    ];
-    tests.forEach(({ name, enablePublicApi }) => {
-      describe(name, () => {
-        beforeEach(() => {
-          EXPERIMENT_TEST.setFlagForTest(
-            ExperimentFlag.EnablePublicApi,
-            enablePublicApi,
-          );
-        });
 
     forEachPublicApiFlag((enablePublicApi) => {
       it('throws after being disposed', async () => {
@@ -1114,29 +1145,13 @@ describe('AssignmentManager', () => {
           // Then only 2 unowned external servers are returned
           if (enablePublicApi) {
             expect(results).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-              },
-              {
-                ...defaultAssignmentDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-              },
+              serverV2WithName,
+              serverV2WithoutSession,
             ]);
           } else {
             expect(results).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: assignmentWithName.endpoint,
-              },
-              {
-                ...defaultAssignmentDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: assignmentWithoutSession.endpoint,
-              },
+              serverV1WithName,
+              serverV1WithoutSession,
             ]);
           }
         });
@@ -1153,21 +1168,9 @@ describe('AssignmentManager', () => {
           const results = await assignmentManager.getServers('external');
 
           if (enablePublicApi) {
-            expect(results).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-              },
-            ]);
+            expect(results).to.deep.equal([serverV2WithName]);
           } else {
-            expect(results).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: assignmentWithName.endpoint,
-              },
-            ]);
+            expect(results).to.deep.equal([serverV1WithName]);
           }
         });
 
@@ -1181,29 +1184,13 @@ describe('AssignmentManager', () => {
 
           if (enablePublicApi) {
             expect(results).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-              },
-              {
-                ...defaultAssignmentDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-              },
+              serverV2WithName,
+              serverV2WithoutSession,
             ]);
           } else {
             expect(results).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: assignmentWithName.endpoint,
-              },
-              {
-                ...defaultAssignmentDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: assignmentWithoutSession.endpoint,
-              },
+              serverV1WithName,
+              serverV1WithoutSession,
             ]);
           }
         });
@@ -1223,6 +1210,7 @@ describe('AssignmentManager', () => {
             ).to.eventually.deep.equal([
               {
                 ...defaultAssignmentDescriptor,
+                id: trimPrefix(defaultRuntime.name, 'runtimes/'),
                 label: UNKNOWN_REMOTE_SERVER_NAME,
                 endpoint: defaultRuntime.connectionInfo.endpoint,
               },
@@ -1252,17 +1240,15 @@ describe('AssignmentManager', () => {
         if (enablePublicApi) {
           await expect(resultsPromise).to.eventually.deep.equal([
             {
-              ...defaultAssignmentDescriptor,
+              ...serverV2WithName,
               label: UNKNOWN_REMOTE_SERVER_NAME,
-              endpoint: runtimeWithSessionName.connectionInfo.endpoint,
             },
           ]);
         } else {
           await expect(resultsPromise).to.eventually.deep.equal([
             {
-              ...defaultAssignmentDescriptor,
+              ...serverV1WithName,
               label: UNKNOWN_REMOTE_SERVER_NAME,
-              endpoint: assignmentWithName.endpoint,
             },
           ]);
         }
@@ -1294,29 +1280,13 @@ describe('AssignmentManager', () => {
 
           if (enablePublicApi) {
             expect(results.unowned).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-              },
-              {
-                ...defaultAssignmentDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-              },
+              serverV2WithName,
+              serverV2WithoutSession,
             ]);
           } else {
             expect(results.unowned).to.deep.equal([
-              {
-                ...defaultAssignmentDescriptor,
-                label: TEST_SESSION_NAME,
-                endpoint: assignmentWithName.endpoint,
-              },
-              {
-                ...defaultAssignmentDescriptor,
-                label: UNKNOWN_REMOTE_SERVER_NAME,
-                endpoint: assignmentWithoutSession.endpoint,
-              },
+              serverV1WithName,
+              serverV1WithoutSession,
             ]);
           }
         });
@@ -1336,42 +1306,18 @@ describe('AssignmentManager', () => {
             expect(results).to.deep.equal({
               assigned: [],
               unowned: [
-                {
-                  ...defaultAssignmentDescriptor,
-                  label: TEST_SESSION_NAME,
-                  endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-                },
-                {
-                  ...defaultAssignmentDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
-                },
-                {
-                  ...defaultAssignmentDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-                },
+                serverV2WithName,
+                serverV2WithoutName,
+                serverV2WithoutSession,
               ],
             });
           } else {
             expect(results).to.deep.equal({
               assigned: [],
               unowned: [
-                {
-                  ...defaultAssignmentDescriptor,
-                  label: TEST_SESSION_NAME,
-                  endpoint: assignmentWithName.endpoint,
-                },
-                {
-                  ...defaultAssignmentDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: assignmentWithoutName.endpoint,
-                },
-                {
-                  ...defaultAssignmentDescriptor,
-                  label: UNKNOWN_REMOTE_SERVER_NAME,
-                  endpoint: assignmentWithoutSession.endpoint,
-                },
+                serverV1WithName,
+                serverV1WithoutName,
+                serverV1WithoutSession,
               ],
             });
           }
@@ -2933,6 +2879,7 @@ describe('AssignmentManager', () => {
     describe('when an unowned server exists', () => {
       it('unassigns the server', async () => {
         const remoteServer = {
+          id: 'test-id',
           endpoint: 'test-endpoint',
           label: 'name',
           variant: Variant.DEFAULT,
@@ -3468,4 +3415,11 @@ function stripNetworkOverrides(
   servers: ColabAssignedServer[],
 ): ColabAssignedServer[] {
   return servers.map(stripNetworkOverride);
+}
+
+function trimPrefix(str: string, prefix: string): string {
+  if (str.startsWith(prefix)) {
+    return str.slice(prefix.length);
+  }
+  return str;
 }

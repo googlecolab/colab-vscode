@@ -325,6 +325,7 @@ describe('Server Commands', () => {
       it('lists mixed servers with a separator', async () => {
         const additionalVsCodeServer = { ...defaultServer, label: 'bar' };
         const nonVsCodeServer = {
+          id: 'test-id',
           label: 'test.ipynb',
           endpoint: 'test-endpoint',
           variant: Variant.DEFAULT,
@@ -383,6 +384,7 @@ describe('Server Commands', () => {
 
       it('lists Colab web servers without separator', async () => {
         const nonVsCodeServer = {
+          id: 'test-id',
           label: 'test.ipynb',
           endpoint: 'test-endpoint',
           variant: Variant.DEFAULT,
