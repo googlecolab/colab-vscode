@@ -23,12 +23,14 @@ import {
 import {
   ColaboratoryApi,
   Configuration as ColabConfig,
+  ConnectionInfo,
   ErrorContext,
   ErrorInfo,
   FetchParams,
   Middleware,
   RequestContext,
   ResponseContext,
+  Runtime,
   Shape,
   SubscriptionTier,
   Variant,
@@ -38,6 +40,12 @@ import {
   ColaboratoryApi as OperationsApi,
   Configuration as OperationsConfig,
 } from './generated/operations';
+
+/** A runtime that has been asserted with a name and connection info. */
+export type AssertedRuntime = Runtime & {
+  name: string;
+  connectionInfo: ConnectionInfo;
+};
 
 /** A client to interact with public Colab API. */
 export interface ColabApiClient {

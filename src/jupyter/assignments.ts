@@ -24,6 +24,7 @@ import {
   ExperimentFlag,
 } from '../colab/client/v1/api';
 import {
+  AssertedRuntime,
   ColabApiClient,
   denormalizeShape,
   denormalizeVariant,
@@ -69,11 +70,6 @@ import {
   UnownedServer,
 } from './servers';
 import { ServerStorage } from './storage';
-
-type AssertedRuntime = Runtime & {
-  name: string;
-  connectionInfo: ConnectionInfo;
-};
 
 /**
  * An {@link vscode.Event} which fires when a {@link ColabAssignedServer} is
