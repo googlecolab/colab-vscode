@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { SecretStorage } from 'vscode';
-import { Variant } from '../colab/types';
+import { Shape, Variant } from '../colab/types';
 import { PROVIDER_ID } from '../config/constants';
 import { SecretStorageFake } from '../test/helpers/secret-storage';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
@@ -34,6 +34,8 @@ describe('ServerStorage', () => {
       label: 'foo',
       variant: Variant.DEFAULT,
       accelerator: undefined,
+      shape: Shape.STANDARD,
+      version: '2026.04',
       endpoint: 'm-s-foo',
       connectionInformation: {
         baseUrl: vsCodeStub.Uri.parse('https://example.com'),
