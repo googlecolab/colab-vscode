@@ -6,7 +6,7 @@
 
 import vscode from 'vscode';
 import { z } from 'zod';
-import { Variant } from '../colab/types';
+import { Shape, Variant } from '../colab/types';
 import { PROVIDER_ID } from '../config/constants';
 import { ColabAssignedServer } from './servers';
 
@@ -17,6 +17,8 @@ const AssignedServers = z.array(
     label: z.string().nonempty(),
     variant: z.enum(Variant),
     accelerator: z.string().optional(),
+    shape: z.enum(Shape).optional(),
+    version: z.string().optional(),
     endpoint: z.string().nonempty(),
     connectionInformation: z.object({
       baseUrl: z.string().nonempty(),
@@ -67,6 +69,8 @@ export class ServerStorage {
       label: server.label,
       variant: server.variant,
       accelerator: server.accelerator,
+      shape: server.shape,
+      version: server.version,
       endpoint: server.endpoint,
       connectionInformation: {
         baseUrl: this.vs.Uri.parse(server.connectionInformation.baseUrl),
@@ -113,6 +117,8 @@ export class ServerStorage {
         label: server.label,
         variant: server.variant,
         accelerator: server.accelerator,
+        shape: server.shape,
+        version: server.version,
         endpoint: server.endpoint,
         connectionInformation: {
           baseUrl: server.connectionInformation.baseUrl.toString(),
