@@ -1244,6 +1244,10 @@ describe('normalizeSubscriptionTier', () => {
 describe('normalizeVariant', () => {
   const tests = [
     {
+      input: Variant.VariantUnspecified,
+      expected: CommonVariant.DEFAULT,
+    },
+    {
       input: Variant.VariantCpu,
       expected: CommonVariant.DEFAULT,
     },
@@ -1261,16 +1265,14 @@ describe('normalizeVariant', () => {
       expect(normalizeVariant(input)).to.equal(expected);
     });
   });
-
-  it('throws an error if unspecified', () => {
-    expect(() => normalizeVariant(Variant.VariantUnspecified)).to.throw(
-      /Unknown variant:/,
-    );
-  });
 });
 
 describe('normalizeShape', () => {
   const tests = [
+    {
+      input: Shape.ShapeUnspecified,
+      expected: CommonShape.STANDARD,
+    },
     {
       input: Shape.ShapeStandard,
       expected: CommonShape.STANDARD,
@@ -1284,12 +1286,6 @@ describe('normalizeShape', () => {
     it(`normalizes ${input}`, () => {
       expect(normalizeShape(input)).to.equal(expected);
     });
-  });
-
-  it('throws an error if unspecified', () => {
-    expect(() => normalizeShape(Shape.ShapeUnspecified)).to.throw(
-      /Unknown shape:/,
-    );
   });
 });
 

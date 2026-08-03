@@ -105,7 +105,10 @@ export function normalizeVariant(variant: Variant): CommonVariant {
     case Variant.VariantTpu:
       return CommonVariant.TPU;
     default:
-      throw new Error(`Unknown variant: ${variant}`);
+      // This should never happen on server side, but we log a warning and
+      // handle it gracefully just in case it does.
+      log.warn(`Unknown variant: ${variant}; defaulting to DEFAULT`);
+      return CommonVariant.DEFAULT;
   }
 }
 
@@ -130,7 +133,7 @@ export function denormalizeVariant(variant: CommonVariant): Variant {
  * Normalizes the API {@link Shape} to the common {@link CommonShape}.
  *
  * @param shape - Shape returned from public Colab API.
- * @returns Normalized common variant value.
+ * @returns Normalized common shape value.
  */
 export function normalizeShape(shape: Shape): CommonShape {
   switch (shape) {
@@ -139,7 +142,10 @@ export function normalizeShape(shape: Shape): CommonShape {
     case Shape.ShapeHighmem:
       return CommonShape.HIGHMEM;
     default:
-      throw new Error(`Unknown shape: ${shape}`);
+      // This should never happen on server side, but we log a warning and
+      // handle it gracefully just in case it does.
+      log.warn(`Unknown shape: ${shape}; defaulting to STANDARD`);
+      return CommonShape.STANDARD;
   }
 }
 

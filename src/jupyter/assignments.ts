@@ -70,6 +70,11 @@ import {
 } from './servers';
 import { ServerStorage } from './storage';
 
+type AssertedRuntime = Runtime & {
+  name: string;
+  connectionInfo: ConnectionInfo;
+};
+
 /**
  * An {@link vscode.Event} which fires when a {@link ColabAssignedServer} is
  * added, removed, or changed.
@@ -805,7 +810,7 @@ export class AssignmentManager implements Disposable {
   }
 
   private async getUnownedServers(
-    allAssignments: ListedAssignment[] | Runtime[],
+    allAssignments: ListedAssignment[] | AssertedRuntime[],
     storedServers: ColabAssignedServer[],
     signal?: AbortSignal,
   ): Promise<UnownedServer[]> {
@@ -824,6 +829,10 @@ export class AssignmentManager implements Disposable {
               LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
               `Listing sessions timeout exceeded for endpoint ${endpoint}`,
             );
+
+            if (!instanceOfRuntime(a) && !a.runtimeProxyInfo) {
+              return toUnownedServer(label, a);
+            }
             try {
               let connectionInfo:
                 | ConnectionInfo
@@ -988,19 +997,38 @@ export class AssignmentManager implements Disposable {
 
   private async listLiveAssignments(
     signal?: AbortSignal,
-  ): Promise<Runtime[] | ListedAssignment[]> {
+  ): Promise<AssertedRuntime[] | ListedAssignment[]> {
     const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
     if (!enablePublicApi) {
       return this.colabClient.listAssignments(signal);
     }
-    return (
+
+    const runtimes =
       (
         await this.colabApiClient.colab.listRuntimes(
           /* requestParameters= */ {},
           { signal },
         )
-      ).runtimes ?? []
-    ).filter((r) => r.connectionInfo);
+      ).runtimes ?? [];
+    const assertedRuntimes: AssertedRuntime[] = [];
+    for (const runtime of runtimes) {
+      if (!runtime.name) {
+        log.warn(
+          'Dropping runtime from listRuntimes response because it is missing name',
+          runtime,
+        );
+        continue;
+      }
+      if (!runtime.connectionInfo) {
+        log.warn(
+          'Dropping runtime from listRuntimes response because it is missing connection info',
+          runtime,
+        );
+        continue;
+      }
+      assertedRuntimes.push(runtime as AssertedRuntime);
+    }
+    return assertedRuntimes;
   }
 
   private async createRuntime(
@@ -1148,13 +1176,9 @@ function isColabServerDescriptorWithAccelerator(
 
 function toUnownedServer(
   label: string,
-  assignmentOrRuntime: Runtime | ListedAssignment,
+  assignmentOrRuntime: AssertedRuntime | ListedAssignment,
 ): UnownedServer {
   if (instanceOfRuntime(assignmentOrRuntime)) {
-    assert(
-      assignmentOrRuntime.connectionInfo,
-      `${MISSING_CONNECTION_INFO_ERR_MSG}: ${assignmentOrRuntime.name ?? ''}`,
-    );
     return {
       label,
       endpoint: assignmentOrRuntime.connectionInfo.endpoint,
@@ -1174,15 +1198,12 @@ function toUnownedServer(
   };
 }
 
-function getEndpoint(assignmentOrRuntime: Runtime | ListedAssignment): string {
-  if (instanceOfRuntime(assignmentOrRuntime)) {
-    assert(
-      assignmentOrRuntime.connectionInfo,
-      `${MISSING_CONNECTION_INFO_ERR_MSG}: ${assignmentOrRuntime.name ?? ''}`,
-    );
-    return assignmentOrRuntime.connectionInfo.endpoint;
-  }
-  return assignmentOrRuntime.endpoint;
+function getEndpoint(
+  assignmentOrRuntime: AssertedRuntime | ListedAssignment,
+): string {
+  return instanceOfRuntime(assignmentOrRuntime)
+    ? assignmentOrRuntime.connectionInfo.endpoint
+    : assignmentOrRuntime.endpoint;
 }
 
 function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
