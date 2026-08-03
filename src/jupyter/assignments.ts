@@ -845,23 +845,17 @@ export class AssignmentManager implements Disposable {
               `Listing sessions timeout exceeded for endpoint ${endpoint}`,
             );
 
-            if (!instanceOfRuntime(a) && !a.runtimeProxyInfo) {
-              return toUnownedServer(label, a);
-            }
-            try {
-              let connectionInfo:
-                | ConnectionInfo
-                | RuntimeProxyToken
-                | undefined;
-              if (instanceOfRuntime(a)) {
-                connectionInfo = a.connectionInfo;
-              } else {
-                connectionInfo = a.runtimeProxyInfo;
-              }
-              if (!connectionInfo) {
+            let connectionInfo: ConnectionInfo | RuntimeProxyToken;
+            if (instanceOfRuntime(a)) {
+              connectionInfo = a.connectionInfo;
+            } else {
+              if (!a.runtimeProxyInfo) {
                 return toUnownedServer(label, a);
               }
+              connectionInfo = a.runtimeProxyInfo;
+            }
 
+            try {
               const jupyterClient = ProxiedJupyterClient.withStaticConnection(
                 connectionInfo.url,
                 connectionInfo.token,
