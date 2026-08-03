@@ -181,6 +181,7 @@ describe('AssignmentManager', () => {
 
   let listRuntimeSpecsStub: sinon.SinonStub;
   let createRuntimeStub: sinon.SinonStub;
+  let getRuntimeStub: sinon.SinonStub;
   let listRuntimesStub: sinon.SinonStub;
   let waitOperationStub: sinon.SinonStub;
 
@@ -283,6 +284,7 @@ describe('AssignmentManager', () => {
       .listRuntimeSpecs as sinon.SinonStub;
     createRuntimeStub = colabApiClientStub.colab
       .createRuntime as sinon.SinonStub;
+    getRuntimeStub = colabApiClientStub.colab.getRuntime as sinon.SinonStub;
     listRuntimesStub = colabApiClientStub.colab.listRuntimes as sinon.SinonStub;
     waitOperationStub = colabApiClientStub.operations
       .waitOperation as sinon.SinonStub;
@@ -3077,82 +3079,150 @@ describe('AssignmentManager', () => {
   });
 
   describe('refreshConnection', () => {
-    it('throws after being disposed', async () => {
-      assignmentManager.dispose();
+    const tests = [
+      {
+        name: 'with Public API disabled and v1 server',
+        enablePublicApi: false,
+        isV1Server: true,
+        server: defaultServer,
+      },
+      {
+        name: 'with Public API disabled but v2 server',
+        enablePublicApi: false,
+        isV1Server: false,
+        server: defaultServerV2,
+      },
+      {
+        name: 'with Public API enabled but v1 server',
+        enablePublicApi: true,
+        isV1Server: true,
+        server: defaultServer,
+      },
+      {
+        name: 'with Public API enabled and v2 server',
+        enablePublicApi: true,
+        isV1Server: false,
+        server: defaultServerV2,
+      },
+    ];
+    tests.forEach(({ name, enablePublicApi, isV1Server, server }) => {
+      describe(name, () => {
+        beforeEach(() => {
+          EXPERIMENT_TEST.setFlagForTest(
+            ExperimentFlag.EnablePublicApi,
+            enablePublicApi,
+          );
+        });
 
-      await expect(
-        assignmentManager.refreshConnection(randomUUID()),
-      ).to.be.rejectedWith(/disposed/);
-    });
+        afterEach(() => {
+          if (isV1Server) {
+            sinon.assert.notCalled(getRuntimeStub);
+          } else {
+            sinon.assert.notCalled(colabClientStub.refreshConnection);
+          }
 
-    it("throws a not found error when refreshing a server that's not tracked", async () => {
-      await expect(
-        assignmentManager.refreshConnection(defaultServer.id),
-      ).to.eventually.be.rejectedWith(NotFoundError);
-    });
+          if (enablePublicApi) {
+            sinon.assert.notCalled(colabClientStub.listAssignments);
+          } else {
+            sinon.assert.notCalled(listRuntimesStub);
+          }
+        });
 
-    describe('with a refreshed connection', () => {
-      const newToken = 'new-token';
-      let refreshedServer: ColabAssignedServer;
+        it('throws after being disposed', async () => {
+          assignmentManager.dispose();
 
-      beforeEach(async () => {
-        colabClientStub.listAssignments.resolves([defaultAssignment]);
-        await serverStorage.store([defaultServer]);
-        colabClientStub.refreshConnection
-          .withArgs(defaultServer.endpoint)
-          .resolves({
-            ...defaultAssignment.runtimeProxyInfo,
-            token: newToken,
+          await expect(
+            assignmentManager.refreshConnection(server.id),
+          ).to.be.rejectedWith(/disposed/);
+        });
+
+        it("throws a not found error when refreshing a server that's not tracked", async () => {
+          await expect(
+            assignmentManager.refreshConnection(server.id),
+          ).to.eventually.be.rejectedWith(NotFoundError);
+        });
+
+        describe('with a refreshed connection', () => {
+          const newToken = 'new-token';
+          let refreshedServer: ColabAssignedServer;
+
+          beforeEach(async () => {
+            stubLive(enablePublicApi, defaultLiveFixtures);
+            getRuntimeStub
+              .withArgs(
+                sinon.match({ runtime: defaultServerV2.id }),
+                sinon.match.any,
+              )
+              .resolves({
+                ...defaultRuntime,
+                connectionInfo: {
+                  ...defaultRuntime.connectionInfo,
+                  token: newToken,
+                  expireTime: new Date(NOW.getTime() + TOKEN_EXPIRY_MS * 2),
+                },
+              });
+            colabClientStub.refreshConnection
+              .withArgs(defaultServer.endpoint)
+              .resolves({
+                ...defaultAssignment.runtimeProxyInfo,
+                token: newToken,
+              });
+            await serverStorage.store([server]);
+
+            fakeClock.now = NOW.getTime() + TOKEN_EXPIRY_MS;
+            refreshedServer = await assignmentManager.refreshConnection(
+              server.id,
+            );
           });
 
-        refreshedServer = await assignmentManager.refreshConnection(
-          defaultServer.id,
-        );
-      });
+          it('stores and returns the server with updated connection info', () => {
+            const expectedServer: ColabAssignedServer = {
+              ...server,
+              connectionInformation: {
+                ...server.connectionInformation,
+                headers: {
+                  [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
+                  [COLAB_CLIENT_AGENT_HEADER.key]:
+                    COLAB_CLIENT_AGENT_HEADER.value,
+                },
+                token: newToken,
+                tokenExpiry: new Date(NOW.getTime() + TOKEN_EXPIRY_MS * 2),
+              },
+            };
+            expect(stripNetworkOverride(refreshedServer)).to.deep.equal(
+              expectedServer,
+            );
+          });
 
-      it('stores and returns the server with updated connection info', () => {
-        const expectedServer: ColabAssignedServer = {
-          ...defaultServer,
-          connectionInformation: {
-            ...defaultServer.connectionInformation,
-            headers: {
-              [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: newToken,
-              [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-            },
-            token: newToken,
-          },
-        };
-        expect(stripNetworkOverride(refreshedServer)).to.deep.equal(
-          expectedServer,
-        );
-      });
+          it('includes a fetch implementation that attaches Colab connection info', async () => {
+            assert.isDefined(refreshedServer.connectionInformation.fetch);
+            const fetchStub = sinon.stub(fetch, 'default');
 
-      it('includes a fetch implementation that attaches Colab connection info', async () => {
-        assert.isDefined(refreshedServer.connectionInformation.fetch);
-        const fetchStub = sinon.stub(fetch, 'default');
+            await refreshedServer.connectionInformation.fetch(
+              'https://example.com',
+            );
 
-        await refreshedServer.connectionInformation.fetch(
-          'https://example.com',
-        );
+            sinon.assert.calledOnceWithMatch(fetchStub, 'https://example.com', {
+              headers: new Headers({
+                [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
+                  refreshedServer.connectionInformation.token,
+                [COLAB_CLIENT_AGENT_HEADER.key]:
+                  COLAB_CLIENT_AGENT_HEADER.value,
+              }),
+            });
+          });
 
-        sinon.assert.calledOnceWithMatch(fetchStub, 'https://example.com', {
-          headers: new Headers({
-            [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]:
-              refreshedServer.connectionInformation.token,
-            [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,
-          }),
-        });
-      });
+          it('includes a custom WebSocket implementation', () => {
+            assert.isDefined(refreshedServer.connectionInformation.WebSocket);
+          });
 
-      it('includes a custom WebSocket implementation', () => {
-        assert.isDefined(refreshedServer.connectionInformation.WebSocket);
-      });
-
-      it('emits an assignment change event', () => {
-        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-          added: [],
-          removed: [],
-          changed: [refreshedServer],
+          it('emits an assignment change event', () => {
+            sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+              added: [],
+              removed: [],
+              changed: [refreshedServer],
+            });
+          });
         });
       });
     });

@@ -58,6 +58,7 @@ import { log } from '../common/logging';
 import { FetchError as JupyterFetchError } from '../jupyter/client/generated';
 import { telemetry } from '../telemetry';
 import { AssignmentOutcome, CommandSource } from '../telemetry/api';
+import { isUUID } from '../utils/uuid';
 import { ProxiedJupyterClient } from './client';
 import { colabProxyWebSocket } from './colab-proxy-websocket';
 import {
@@ -543,10 +544,28 @@ export class AssignmentManager implements Disposable {
     if (!server) {
       throw new NotFoundError('Server is not assigned');
     }
-    const newConnectionInfo = await this.colabClient.refreshConnection(
-      server.endpoint,
-      signal,
-    );
+
+    let newConnectionInfo: RuntimeProxyToken | ConnectionInfo;
+    // If the id is in UUID format, it means the server was assigned by the old
+    // v1 client. Use the v1 client to refresh the connection in this case.
+    if (isUUID(id)) {
+      newConnectionInfo = await this.colabClient.refreshConnection(
+        server.endpoint,
+        signal,
+      );
+    } else {
+      // Otherwise, use the new v2 client to get a fresh connection info.
+      const runtime = await this.colabApiClient.colab.getRuntime(
+        { runtime: id },
+        { signal },
+      );
+      assert(
+        runtime.connectionInfo,
+        `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`,
+      );
+      newConnectionInfo = runtime.connectionInfo;
+    }
+
     const updatedServer = this.toAssignedServer(
       server,
       server.endpoint,
@@ -826,23 +845,17 @@ export class AssignmentManager implements Disposable {
               `Listing sessions timeout exceeded for endpoint ${endpoint}`,
             );
 
-            if (!instanceOfRuntime(a) && !a.runtimeProxyInfo) {
-              return toUnownedServer(label, a);
-            }
-            try {
-              let connectionInfo:
-                | ConnectionInfo
-                | RuntimeProxyToken
-                | undefined;
-              if (instanceOfRuntime(a)) {
-                connectionInfo = a.connectionInfo;
-              } else {
-                connectionInfo = a.runtimeProxyInfo;
-              }
-              if (!connectionInfo) {
+            let connectionInfo: ConnectionInfo | RuntimeProxyToken;
+            if (instanceOfRuntime(a)) {
+              connectionInfo = a.connectionInfo;
+            } else {
+              if (!a.runtimeProxyInfo) {
                 return toUnownedServer(label, a);
               }
+              connectionInfo = a.runtimeProxyInfo;
+            }
 
+            try {
               const jupyterClient = ProxiedJupyterClient.withStaticConnection(
                 connectionInfo.url,
                 connectionInfo.token,
@@ -1031,6 +1044,9 @@ export class AssignmentManager implements Disposable {
     descriptor: ColabServerDescriptor,
     signal?: AbortSignal,
   ): Promise<Runtime> {
+    // We set a requestId to ensure idempotency. However, we should *not* set
+    // a runtimeId explicitly because the rest of the code relies on the
+    // auto-generated runtimeId from the server to be non-UUID format.
     const requestId = randomUUID();
     let createRuntimeOperation = await this.colabApiClient.colab.createRuntime(
       {
