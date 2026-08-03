@@ -24,6 +24,7 @@ import {
   ExperimentFlag,
 } from '../colab/client/v1/api';
 import {
+  AssertedRuntime,
   ColabApiClient,
   denormalizeShape,
   denormalizeVariant,
@@ -222,19 +223,7 @@ export class AssignmentManager implements Disposable {
       return;
     }
 
-    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
-    let live: ListedAssignment[] | Runtime[];
-    if (enablePublicApi) {
-      live =
-        (
-          await this.colabApiClient.colab.listRuntimes(
-            /* requestParameters= */ {},
-            { signal },
-          )
-        ).runtimes ?? [];
-    } else {
-      live = await this.colabClient.listAssignments(signal);
-    }
+    const live = await this.listLiveAssignments(signal);
     await this.reconcileStoredServers(
       stored,
       live.map((a) => getEndpoint(a)),
@@ -299,19 +288,7 @@ export class AssignmentManager implements Disposable {
       return storedServers;
     }
 
-    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
-    let allAssignments: ListedAssignment[] | Runtime[];
-    if (enablePublicApi) {
-      allAssignments =
-        (
-          await this.colabApiClient.colab.listRuntimes(
-            /* requestParameters= */ {},
-            { signal },
-          )
-        ).runtimes ?? [];
-    } else {
-      allAssignments = await this.colabClient.listAssignments(signal);
-    }
+    const allAssignments = await this.listLiveAssignments(signal);
 
     if (from === 'extension' || from === 'all') {
       storedServers = (
@@ -448,10 +425,10 @@ export class AssignmentManager implements Disposable {
 
       let server: ColabAssignedServer;
       if (instanceOfRuntime(assignmentOrRuntime)) {
-        assert(assignmentOrRuntime.name);
+        assert(assignmentOrRuntime.name, MISSING_RUNTIME_NAME_ERR_MSG);
         const runtimeId = trimPrefix(assignmentOrRuntime.name, 'runtimes/');
         const c = assignmentOrRuntime.connectionInfo;
-        assert(c, `ConnectionInfo is missing in runtime: ${runtimeId}`);
+        assert(c, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${runtimeId}`);
         server = this.toAssignedServer(
           {
             id: runtimeId,
@@ -472,6 +449,8 @@ export class AssignmentManager implements Disposable {
             label,
             variant: assignmentOrRuntime.variant,
             accelerator: assignmentOrRuntime.accelerator,
+            shape: assignmentOrRuntime.machineShape,
+            version,
           },
           assignmentOrRuntime.endpoint,
           assignmentOrRuntime.runtimeProxyInfo,
@@ -582,7 +561,7 @@ export class AssignmentManager implements Disposable {
       );
       assert(
         runtime.connectionInfo,
-        `ConnectionInfo missing in runtime: ${id}`,
+        `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`,
       );
       newConnectionInfo = runtime.connectionInfo;
     }
@@ -866,7 +845,7 @@ export class AssignmentManager implements Disposable {
   }
 
   private async getUnownedServers(
-    allAssignments: ListedAssignment[] | Runtime[],
+    allAssignments: ListedAssignment[] | AssertedRuntime[],
     storedServers: ColabAssignedServer[],
     signal?: AbortSignal,
   ): Promise<UnownedServer[]> {
@@ -885,20 +864,18 @@ export class AssignmentManager implements Disposable {
               LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
               `Listing sessions timeout exceeded for endpoint ${endpoint}`,
             );
-            try {
-              let connectionInfo:
-                | ConnectionInfo
-                | RuntimeProxyToken
-                | undefined;
-              if (instanceOfRuntime(a)) {
-                connectionInfo = a.connectionInfo;
-              } else {
-                connectionInfo = a.runtimeProxyInfo;
-              }
-              if (!connectionInfo) {
+
+            let connectionInfo: ConnectionInfo | RuntimeProxyToken;
+            if (instanceOfRuntime(a)) {
+              connectionInfo = a.connectionInfo;
+            } else {
+              if (!a.runtimeProxyInfo) {
                 return toUnownedServer(label, a);
               }
+              connectionInfo = a.runtimeProxyInfo;
+            }
 
+            try {
               const jupyterClient = ProxiedJupyterClient.withStaticConnection(
                 connectionInfo.url,
                 connectionInfo.token,
@@ -1047,10 +1024,49 @@ export class AssignmentManager implements Disposable {
     });
   }
 
+  private async listLiveAssignments(
+    signal?: AbortSignal,
+  ): Promise<AssertedRuntime[] | ListedAssignment[]> {
+    const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
+    if (!enablePublicApi) {
+      return this.colabClient.listAssignments(signal);
+    }
+
+    const runtimes =
+      (
+        await this.colabApiClient.colab.listRuntimes(
+          /* requestParameters= */ {},
+          { signal },
+        )
+      ).runtimes ?? [];
+    const assertedRuntimes: AssertedRuntime[] = [];
+    for (const runtime of runtimes) {
+      if (!runtime.name) {
+        log.warn(
+          'Dropping runtime from listRuntimes response because it is missing name',
+          runtime,
+        );
+        continue;
+      }
+      if (!runtime.connectionInfo) {
+        log.warn(
+          'Dropping runtime from listRuntimes response because it is missing connection info',
+          runtime,
+        );
+        continue;
+      }
+      assertedRuntimes.push(runtime as AssertedRuntime);
+    }
+    return assertedRuntimes;
+  }
+
   private async createRuntime(
     descriptor: ColabServerDescriptor,
     signal?: AbortSignal,
   ): Promise<Runtime> {
+    // We set a requestId to ensure idempotency. However, we should *not* set
+    // a runtimeId explicitly because the rest of the code relies on the
+    // auto-generated runtimeId from the server to be non-UUID format.
     const requestId = randomUUID();
     let createRuntimeOperation = await this.colabApiClient.colab.createRuntime(
       {
@@ -1069,11 +1085,14 @@ export class AssignmentManager implements Disposable {
 
     if (createRuntimeOperation.done) {
       throwIfOperationError(createRuntimeOperation, descriptor.accelerator);
-      assert(createRuntimeOperation.response);
+      assert(
+        createRuntimeOperation.response,
+        MISSING_OPERATION_RESPONSE_ERR_MSG,
+      );
       return createRuntimeOperation.response;
     }
 
-    assert(createRuntimeOperation.name);
+    assert(createRuntimeOperation.name, MISSING_OPERATION_NAME_ERR_MSG);
     const operationId = trimPrefix(createRuntimeOperation.name, 'operations/');
     const operation = await this.vs.window.withProgress(
       {
@@ -1097,7 +1116,7 @@ export class AssignmentManager implements Disposable {
     throwIfOperationError(createRuntimeOperation, descriptor.accelerator);
     assert(
       createRuntimeOperation.response,
-      `Runtime response is missing in operation: ${operationId}`,
+      `${MISSING_OPERATION_RESPONSE_ERR_MSG}: ${operationId}`,
     );
     return createRuntimeOperation.response;
   }
@@ -1114,6 +1133,11 @@ const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
 const LEARN_MORE = 'Learn More';
 
 const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
+
+const MISSING_RUNTIME_NAME_ERR_MSG = 'Name missing in runtime';
+const MISSING_CONNECTION_INFO_ERR_MSG = 'ConnectionInfo missing in runtime';
+const MISSING_OPERATION_NAME_ERR_MSG = 'Name missing in operation';
+const MISSING_OPERATION_RESPONSE_ERR_MSG = 'Response missing in operation';
 
 class AllAcceleratorsUnavailableError extends Error {
   constructor(
@@ -1184,37 +1208,34 @@ function isColabServerDescriptorWithAccelerator(
 
 function toUnownedServer(
   label: string,
-  runtime: Runtime | ListedAssignment,
+  assignmentOrRuntime: AssertedRuntime | ListedAssignment,
 ): UnownedServer {
-  if (instanceOfRuntime(runtime)) {
-    assert(runtime.name);
-    assert(runtime.connectionInfo);
+  if (instanceOfRuntime(assignmentOrRuntime)) {
     return {
-      id: trimPrefix(runtime.name, 'runtimes/'),
       label,
-      endpoint: runtime.connectionInfo.endpoint,
-      variant: normalizeVariant(runtime.runtimeSpec.variant),
-      accelerator: runtime.runtimeSpec.accelerator,
-      shape: normalizeShape(runtime.runtimeSpec.shape),
-      version: runtime.version,
+      endpoint: assignmentOrRuntime.connectionInfo.endpoint,
+      variant: normalizeVariant(assignmentOrRuntime.runtimeSpec.variant),
+      accelerator: assignmentOrRuntime.runtimeSpec.accelerator,
+      shape: normalizeShape(assignmentOrRuntime.runtimeSpec.shape),
+      version: assignmentOrRuntime.version,
     };
   }
-  assert(runtime.notebookIdHash);
   return {
-    id: runtime.notebookIdHash,
     label,
-    endpoint: runtime.endpoint,
-    variant: runtime.variant,
-    accelerator: runtime.accelerator,
+    endpoint: assignmentOrRuntime.endpoint,
+    variant: assignmentOrRuntime.variant,
+    accelerator: assignmentOrRuntime.accelerator,
+    shape: assignmentOrRuntime.machineShape,
+    version: assignmentOrRuntime.runtimeVersionLabel,
   };
 }
 
-function getEndpoint(runtime: Runtime | ListedAssignment | Assignment): string {
-  if (instanceOfRuntime(runtime)) {
-    assert(runtime.connectionInfo);
-    return runtime.connectionInfo.endpoint;
-  }
-  return runtime.endpoint;
+function getEndpoint(
+  assignmentOrRuntime: AssertedRuntime | ListedAssignment,
+): string {
+  return instanceOfRuntime(assignmentOrRuntime)
+    ? assignmentOrRuntime.connectionInfo.endpoint
+    : assignmentOrRuntime.endpoint;
 }
 
 function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
