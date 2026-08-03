@@ -39,7 +39,7 @@ export interface Checkpoints {
  */
 export function instanceOfCheckpoints(value: object): value is Checkpoints {
     if (!('id' in value) || value['id'] === undefined) return false;
-    if ((!('lastModified' in value) && !('last_modified' in value)) || (value['lastModified'] === undefined && value['last_modified'] === undefined)) return false;
+    if ((!('lastModified' in (value as Record<string, any>)) && !('last_modified' in (value as Record<string, any>))) || ((value as Record<string, any>)['lastModified'] === undefined && (value as Record<string, any>)['last_modified'] === undefined)) return false;
     return true;
 }
 

@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * colaboratory.googleapis.com API.
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
  *
  * The version of the OpenAPI document: v1
  * 
@@ -368,9 +368,14 @@ export function mapValues(data: any, fn: (item: any) => any) {
     return result;
 }
 
+// Pass-through serializer for `any`-typed properties in form data. See #1877.
+export function anyToJSON(value: any): any {
+    return value;
+}
+
 export function canConsumeForm(consumes: Consume[]): boolean {
     for (const consume of consumes) {
-        if ('multipart/form-data' === consume.contentType) {
+        if (consume.contentType?.startsWith('multipart/form-data') == true) {
             return true;
         }
     }

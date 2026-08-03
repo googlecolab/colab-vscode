@@ -137,8 +137,16 @@
             "description": "The `text/plain` representation of the last expression's value, if the\nexecution ended on an expression. Empty otherwise.",
             "type": "string"
           },
+          "richOutputs": {
+            "description": "The rich (non-text) outputs captured for this execution, one entry per rich\noutput in emission order, reported from the runtime's actual write ledger\n(the capture preamble records what it wrote, including drops) rather than\nreconstructed from a naming convention. Each entry carries its MIME\nrepresentations and whether it was written (with a reason when not).",
+            "items": {
+              "$ref": "#/components/schemas/RichOutput"
+            },
+            "type": "array"
+          },
           "richOutputsDropped": {
-            "description": "Whether the execution produced rich (non-text) outputs that this tool does\nnot surface (e.g. images, Plotly/Vega figures, widgets). Always false for\nexecutions that produced only text.",
+            "deprecated": true,
+            "description": "Deprecated: use `rich_outputs`. This tool never inlines rich output bytes,\nso this is true whenever the execution produced any rich (non-text) output\n(e.g. images, Plotly/Vega figures, widgets) and false for text-only\nexecutions. When rich-output capture is enabled, that same set is reported\nstructurally in `rich_outputs`, so a non-empty `rich_outputs` is the\nequivalent signal. Still populated for backward compatibility.",
             "type": "boolean"
           },
           "session": {
@@ -169,14 +177,6 @@
               "$ref": "#/components/schemas/Operation"
             },
             "type": "array"
-          },
-          "unreachable": {
-            "description": "Unordered list. Unreachable resources. Populated when the request sets\n`ListOperationsRequest.return_partial_success` and reads across\ncollections. For example, when attempting to list all resources across all\nsupported locations.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "x-google-unordered-list": true
           }
         },
         "type": "object"
@@ -207,6 +207,41 @@
           }
         ],
         "description": "This resource represents a long-running operation that is the result of a\nnetwork API call.",
+        "type": "object"
+      },
+      "RichOutput": {
+        "description": "A single rich (non-text) output the runtime captured for this execution.",
+        "properties": {
+          "errorInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ErrorInfo"
+              }
+            ],
+            "description": "Why the output was not written, set iff it was dropped."
+          },
+          "filePath": {
+            "description": "Absolute `/content/...` path to the nbformat bundle written on the\nruntime's filesystem, e.g.\n`/content/.dsm_outputs/{execution_msg_id}/out-000.json`. Set iff the\noutput was written. Keys only, never bytes; the bytes can be fetched\nfrom the live runtime out of band.",
+            "type": "string"
+          },
+          "index": {
+            "description": "0-based index of this output among the execution's rich outputs, in\nemission order. Dense and monotonic: a dropped output still occupies its\nindex, so later indices never shift. This is the stable identifier for a\ndropped output, which has no `file_path`.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "mimeTypes": {
+            "description": "The rich MIME representations this output carries, in the kernel's\nemission order, e.g. [\"image/png\", \"text/html\"]. These are alternative\nrenderings of the SAME output; a client picks the one it can render and\nreads it from the bundle at `file_path` (i.e. data[mime]). Excludes the\nalways-present \"text/plain\" fallback (still present in the bundle) and\nColab's internal intrinsic type. Non-empty even for a dropped output\n(whose bundle was never written), so a client can tell what was lost.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sizeBytes": {
+            "description": "Size in bytes of the nbformat bundle file at `file_path` as written on\nthe runtime's disk. This is the base64-inflated on-disk bundle size (i.e.\nhow many bytes a fetch transfers), NOT the decoded asset size. A hint so\na client can decide whether to fetch. Set only for a written output; 0\n(omitted) for a dropped one.",
+            "format": "int64",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "Status": {
@@ -276,10 +311,10 @@
     "url": "https://developers.google.com/colab"
   },
   "info": {
-    "description": "colaboratory.googleapis.com API.",
+    "description": "The Colab API lets you programmatically manage Colab runtimes.\n\nThe API is currently in beta and available on an allowlist basis. If you're interested in\nintegrating with us, please share your use cases with colaboratory-team@google.com to request\naccess. We look forward to working with you!",
     "title": "Colab API",
     "version": "v1",
-    "x-google-revision": "20260714"
+    "x-google-revision": "20260802"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -288,14 +323,6 @@
         "description": "Lists operations that match the specified filter in the request. If the\nserver doesn't support this method, it returns `UNIMPLEMENTED`.",
         "operationId": "ListOperations",
         "parameters": [
-          {
-            "description": "The standard list filter.",
-            "in": "query",
-            "name": "filter",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "description": "The standard list page size.",
             "in": "query",
@@ -311,14 +338,6 @@
             "name": "pageToken",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "When set to `true`, operations that are reachable are returned as normal,\nand those that are unreachable are returned in the\nListOperationsResponse.unreachable\nfield.\n\nThis can only be `true` when reading across collections. For example, when\n`parent` is set to `\"projects/example/locations/-\"`.\n\nThis field is not supported by default and will result in an\n`UNIMPLEMENTED` error if set unless explicitly documented otherwise in\nservice or product specific documentation.",
-            "in": "query",
-            "name": "returnPartialSuccess",
-            "schema": {
-              "type": "boolean"
             }
           }
         ],

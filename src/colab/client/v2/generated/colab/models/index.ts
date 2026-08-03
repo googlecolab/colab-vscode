@@ -12,6 +12,7 @@ export * from './ListRuntimeSpecsResponse';
 export * from './ListRuntimesResponse';
 export * from './ModelError';
 export * from './Operation';
+export * from './RichOutput';
 export * from './Runtime';
 export * from './RuntimeSpec';
 export * from './Shape';
