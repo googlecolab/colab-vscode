@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * colaboratory.googleapis.com API.
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -14,6 +14,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { RichOutput } from './RichOutput';
+import {
+    RichOutputFromJSON,
+    RichOutputFromJSONTyped,
+    RichOutputToJSON,
+    RichOutputToJSONTyped,
+} from './RichOutput';
+
 /**
  * The result of an `ExecuteCode` call, returned as the terminal
  * `structured_content` of the response stream.
@@ -58,11 +66,25 @@ export interface ExecuteCodeResult {
      */
     result?: string;
     /**
-     * Whether the execution produced rich (non-text) outputs that this tool does
-     * not surface (e.g. images, Plotly/Vega figures, widgets). Always false for
-     * executions that produced only text.
+     * The rich (non-text) outputs captured for this execution, one entry per rich
+     * output in emission order, reported from the runtime's actual write ledger
+     * (the capture preamble records what it wrote, including drops) rather than
+     * reconstructed from a naming convention. Each entry carries its MIME
+     * representations and whether it was written (with a reason when not).
+     * @type {Array<RichOutput>}
+     * @memberof ExecuteCodeResult
+     */
+    richOutputs?: Array<RichOutput>;
+    /**
+     * Deprecated: use `rich_outputs`. This tool never inlines rich output bytes,
+     * so this is true whenever the execution produced any rich (non-text) output
+     * (e.g. images, Plotly/Vega figures, widgets) and false for text-only
+     * executions. When rich-output capture is enabled, that same set is reported
+     * structurally in `rich_outputs`, so a non-empty `rich_outputs` is the
+     * equivalent signal. Still populated for backward compatibility.
      * @type {boolean}
      * @memberof ExecuteCodeResult
+     * @deprecated
      */
     richOutputsDropped?: boolean;
     /**
@@ -108,6 +130,7 @@ export function ExecuteCodeResultFromJSONTyped(json: any, ignoreDiscriminator: b
         'executionId': json['executionId'] == null ? undefined : json['executionId'],
         'outputTruncated': json['outputTruncated'] == null ? undefined : json['outputTruncated'],
         'result': json['result'] == null ? undefined : json['result'],
+        'richOutputs': json['richOutputs'] == null ? undefined : ((json['richOutputs'] as Array<any>).map(RichOutputFromJSON)),
         'richOutputsDropped': json['richOutputsDropped'] == null ? undefined : json['richOutputsDropped'],
         'session': json['session'] == null ? undefined : json['session'],
         'stderr': json['stderr'] == null ? undefined : json['stderr'],
@@ -131,6 +154,7 @@ export function ExecuteCodeResultToJSONTyped(value?: ExecuteCodeResult | null, i
         'executionId': value['executionId'],
         'outputTruncated': value['outputTruncated'],
         'result': value['result'],
+        'richOutputs': value['richOutputs'] == null ? undefined : ((value['richOutputs'] as Array<any>).map(RichOutputToJSON)),
         'richOutputsDropped': value['richOutputsDropped'],
         'session': value['session'],
         'stderr': value['stderr'],

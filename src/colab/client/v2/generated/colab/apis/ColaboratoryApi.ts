@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * colaboratory.googleapis.com API.
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -100,8 +100,8 @@ export interface ColaboratoryApiInterface {
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
      * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {string} [requestId] Optional. A unique identifier for this request.  This request is only idempotent if a &#x60;request_id&#x60; is provided. See https://google.aip.dev/155 for more details.  If provided, the request ID must be in UUID4 format per https://linter.aip.dev/155/request-id-format.
-     * @param {string} [runtimeId] Optional. A unique identifier for the runtime. If not supplied, a random UUID will be generated. If a runtime with the given ID owned by the requesting user already exists, a completed Operation with an ALREADY_EXISTS error will be returned. See https://google.aip.dev/133#user-specified-ids for more details.  The ID must conform to https://datatracker.ietf.org/doc/html/rfc1034, specifically: - 1 to 63 characters - Lower-case letters, digits, and hyphens - Start with a letter - End with a letter or digit
+     * @param {string} [requestId] Optional. A unique identifier for this request.  This request is only idempotent if a &#x60;request_id&#x60; is provided. See [AIP-155](https://google.aip.dev/155) for more details.  If provided, the request ID must be in UUID4 format per https://linter.aip.dev/155/request-id-format.
+     * @param {string} [runtimeId] Optional. A unique identifier for the runtime. If not supplied, a random ID will be generated. If a runtime with the given ID owned by the requesting user already exists, a completed Operation with an [&#x60;ALREADY_EXISTS&#x60; (code: 6)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L84) error will be returned. See [AIP-133](https://google.aip.dev/133#user-specified-ids) for more details.  The ID must conform to [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034), specifically:  - 1 to 63 characters  - Lower-case letters, digits, and hyphens  - Start with a letter  - End with a letter or digit
      * @param {Runtime} [runtime] Required. Specifications for the runtime to assign.
      * @throws {RequiredError}
      * @memberof ColaboratoryApiInterface
@@ -109,13 +109,13 @@ export interface ColaboratoryApiInterface {
     createRuntimeRequestOpts(requestParameters: CreateRuntimeRequest): Promise<runtime.RequestOpts>;
 
     /**
-     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a [`FAILED_PRECONDITION` (code: 9)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L128) error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
      * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {string} [requestId] Optional. A unique identifier for this request.  This request is only idempotent if a &#x60;request_id&#x60; is provided. See https://google.aip.dev/155 for more details.  If provided, the request ID must be in UUID4 format per https://linter.aip.dev/155/request-id-format.
-     * @param {string} [runtimeId] Optional. A unique identifier for the runtime. If not supplied, a random UUID will be generated. If a runtime with the given ID owned by the requesting user already exists, a completed Operation with an ALREADY_EXISTS error will be returned. See https://google.aip.dev/133#user-specified-ids for more details.  The ID must conform to https://datatracker.ietf.org/doc/html/rfc1034, specifically: - 1 to 63 characters - Lower-case letters, digits, and hyphens - Start with a letter - End with a letter or digit
+     * @param {string} [requestId] Optional. A unique identifier for this request.  This request is only idempotent if a &#x60;request_id&#x60; is provided. See [AIP-155](https://google.aip.dev/155) for more details.  If provided, the request ID must be in UUID4 format per https://linter.aip.dev/155/request-id-format.
+     * @param {string} [runtimeId] Optional. A unique identifier for the runtime. If not supplied, a random ID will be generated. If a runtime with the given ID owned by the requesting user already exists, a completed Operation with an [&#x60;ALREADY_EXISTS&#x60; (code: 6)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L84) error will be returned. See [AIP-133](https://google.aip.dev/133#user-specified-ids) for more details.  The ID must conform to [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034), specifically:  - 1 to 63 characters  - Lower-case letters, digits, and hyphens  - Start with a letter  - End with a letter or digit
      * @param {Runtime} [runtime] Required. Specifications for the runtime to assign.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -124,7 +124,7 @@ export interface ColaboratoryApiInterface {
     createRuntimeRaw(requestParameters: CreateRuntimeRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CreateRuntimeOperation>>;
 
     /**
-     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a [`FAILED_PRECONDITION` (code: 9)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L128) error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      */
     createRuntime(requestParameters: CreateRuntimeRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CreateRuntimeOperation>;
 
@@ -323,12 +323,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
         }
 
 
@@ -344,7 +344,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
     }
 
     /**
-     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a [`FAILED_PRECONDITION` (code: 9)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L128) error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      */
     async createRuntimeRaw(requestParameters: CreateRuntimeRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<CreateRuntimeOperation>> {
         const requestOptions = await this.createRuntimeRequestOpts(requestParameters);
@@ -354,7 +354,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
     }
 
     /**
-     * Creates a Colab runtime assignment.  When runtime creation is refused with a `FAILED_PRECONDITION` error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
+     * Creates a Colab runtime assignment.  When runtime creation is refused with a [`FAILED_PRECONDITION` (code: 9)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L128) error, a more specific error reason will be returned in the details of the Operation error wrapped in google.rpc.ErrorInfo.
      */
     async createRuntime(requestParameters: CreateRuntimeRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<CreateRuntimeOperation> {
         const response = await this.createRuntimeRaw(requestParameters, initOverrides);
@@ -402,12 +402,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
         }
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_code", ["https://www.googleapis.com/auth/colaboratory"]);
         }
 
         if (this.configuration && this.configuration.accessToken) {
             // oauth required
-            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory", "https://www.googleapis.com/auth/colaboratory.readonly"]);
+            headerParameters["Authorization"] = await this.configuration.accessToken("google_oauth_implicit", ["https://www.googleapis.com/auth/colaboratory"]);
         }
 
 

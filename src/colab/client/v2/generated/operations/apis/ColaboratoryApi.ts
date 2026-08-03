@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * colaboratory.googleapis.com API.
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
  *
  * The version of the OpenAPI document: v1
  * 
@@ -38,10 +38,8 @@ export interface ListOperationsRequest {
     $callback?: string;
     $prettyPrint?: boolean;
     $xgafv?: ListOperationsXgafvEnum;
-    filter?: string;
     pageSize?: number;
     pageToken?: string;
-    returnPartialSuccess?: boolean;
 }
 
 export interface WaitOperationRequest {
@@ -96,10 +94,8 @@ export interface ColaboratoryApiInterface {
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
      * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {string} [filter] The standard list filter.
      * @param {number} [pageSize] The standard list page size.
      * @param {string} [pageToken] The standard list page token.
-     * @param {boolean} [returnPartialSuccess] When set to &#x60;true&#x60;, operations that are reachable are returned as normal, and those that are unreachable are returned in the ListOperationsResponse.unreachable field.  This can only be &#x60;true&#x60; when reading across collections. For example, when &#x60;parent&#x60; is set to &#x60;\&quot;projects/example/locations/-\&quot;&#x60;.  This field is not supported by default and will result in an &#x60;UNIMPLEMENTED&#x60; error if set unless explicitly documented otherwise in service or product specific documentation.
      * @throws {RequiredError}
      * @memberof ColaboratoryApiInterface
      */
@@ -111,10 +107,8 @@ export interface ColaboratoryApiInterface {
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
      * @param {'1' | '2'} [$xgafv] V1 error format.
-     * @param {string} [filter] The standard list filter.
      * @param {number} [pageSize] The standard list page size.
      * @param {string} [pageToken] The standard list page token.
-     * @param {boolean} [returnPartialSuccess] When set to &#x60;true&#x60;, operations that are reachable are returned as normal, and those that are unreachable are returned in the ListOperationsResponse.unreachable field.  This can only be &#x60;true&#x60; when reading across collections. For example, when &#x60;parent&#x60; is set to &#x60;\&quot;projects/example/locations/-\&quot;&#x60;.  This field is not supported by default and will result in an &#x60;UNIMPLEMENTED&#x60; error if set unless explicitly documented otherwise in service or product specific documentation.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof ColaboratoryApiInterface
@@ -266,20 +260,12 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
             queryParameters['$.xgafv'] = requestParameters['$xgafv'];
         }
 
-        if (requestParameters['filter'] != null) {
-            queryParameters['filter'] = requestParameters['filter'];
-        }
-
         if (requestParameters['pageSize'] != null) {
             queryParameters['pageSize'] = requestParameters['pageSize'];
         }
 
         if (requestParameters['pageToken'] != null) {
             queryParameters['pageToken'] = requestParameters['pageToken'];
-        }
-
-        if (requestParameters['returnPartialSuccess'] != null) {
-            queryParameters['returnPartialSuccess'] = requestParameters['returnPartialSuccess'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
