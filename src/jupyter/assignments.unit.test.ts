@@ -749,7 +749,7 @@ describe('AssignmentManager', () => {
 
     const assignmentWithName = {
       ...defaultAssignment,
-      endpoint: 'test-endpoint-with-name',
+      endpoint: 'test-endpoint-with-session-name',
       runtimeProxyInfo: {
         ...defaultAssignment.runtimeProxyInfo,
         url: 'https://test.url.with.session.name',
@@ -757,7 +757,7 @@ describe('AssignmentManager', () => {
     };
     const assignmentWithoutName = {
       ...defaultAssignment,
-      endpoint: 'test-endpoint-without-name',
+      endpoint: 'test-endpoint-without-session-name',
       runtimeProxyInfo: {
         ...defaultAssignment.runtimeProxyInfo,
         url: 'https://test.url.without.session.name',
@@ -772,13 +772,13 @@ describe('AssignmentManager', () => {
       },
     };
 
-    const runtimeWithName = {
+    const runtimeWithSessionName = {
       ...defaultRuntime,
       name: `runtimes/r-${randomUUID()}`,
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.with.session.name',
-        endpoint: 'test-endpoint-with-name',
+        endpoint: 'test-endpoint-with-session-name',
       },
     } satisfies Runtime;
     const runtimeWithoutSessionName = {
@@ -787,7 +787,7 @@ describe('AssignmentManager', () => {
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.without.session.name',
-        endpoint: 'test-endpoint-without-name',
+        endpoint: 'test-endpoint-without-session-name',
       },
     } satisfies Runtime;
     const runtimeWithoutSession = {
@@ -814,7 +814,7 @@ describe('AssignmentManager', () => {
     };
 
     const fixturesWithName: LiveFixture = {
-      runtime: runtimeWithName,
+      runtime: runtimeWithSessionName,
       assignment: assignmentWithName,
     };
     const fixturesWithoutName: LiveFixture = {
@@ -834,8 +834,8 @@ describe('AssignmentManager', () => {
       jupyterStubWithSessionName = createJupyterClientStub();
       jupyterStaticConnectionStub
         .withArgs(
-          runtimeWithName.connectionInfo.url,
-          runtimeWithName.connectionInfo.token,
+          runtimeWithSessionName.connectionInfo.url,
+          runtimeWithSessionName.connectionInfo.token,
         )
         .returns(jupyterStubWithSessionName);
       jupyterStubWithSessionName.sessions.list.resolves([
@@ -1102,7 +1102,7 @@ describe('AssignmentManager', () => {
               {
                 ...defaultAssignmentDescriptor,
                 label: TEST_SESSION_NAME,
-                endpoint: runtimeWithName.connectionInfo.endpoint,
+                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
               },
               {
                 ...defaultAssignmentDescriptor,
@@ -1142,7 +1142,7 @@ describe('AssignmentManager', () => {
               {
                 ...defaultAssignmentDescriptor,
                 label: TEST_SESSION_NAME,
-                endpoint: runtimeWithName.connectionInfo.endpoint,
+                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
               },
             ]);
           } else {
@@ -1169,7 +1169,7 @@ describe('AssignmentManager', () => {
               {
                 ...defaultAssignmentDescriptor,
                 label: TEST_SESSION_NAME,
-                endpoint: runtimeWithName.connectionInfo.endpoint,
+                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
               },
               {
                 ...defaultAssignmentDescriptor,
@@ -1239,7 +1239,7 @@ describe('AssignmentManager', () => {
             {
               ...defaultAssignmentDescriptor,
               label: UNKNOWN_REMOTE_SERVER_NAME,
-              endpoint: runtimeWithName.connectionInfo.endpoint,
+              endpoint: runtimeWithSessionName.connectionInfo.endpoint,
             },
           ]);
         } else {
@@ -1282,7 +1282,7 @@ describe('AssignmentManager', () => {
               {
                 ...defaultAssignmentDescriptor,
                 label: TEST_SESSION_NAME,
-                endpoint: runtimeWithName.connectionInfo.endpoint,
+                endpoint: runtimeWithSessionName.connectionInfo.endpoint,
               },
               {
                 ...defaultAssignmentDescriptor,
@@ -1324,7 +1324,7 @@ describe('AssignmentManager', () => {
                 {
                   ...defaultAssignmentDescriptor,
                   label: TEST_SESSION_NAME,
-                  endpoint: runtimeWithName.connectionInfo.endpoint,
+                  endpoint: runtimeWithSessionName.connectionInfo.endpoint,
                 },
                 {
                   ...defaultAssignmentDescriptor,
@@ -1371,7 +1371,7 @@ describe('AssignmentManager', () => {
           );
           const assignedServer1 = {
             ...defaultServerV2,
-            endpoint: runtimeWithName.connectionInfo.endpoint,
+            endpoint: runtimeWithSessionName.connectionInfo.endpoint,
           };
           const assignedServer2 = {
             ...defaultServerV2,
@@ -1401,7 +1401,7 @@ describe('AssignmentManager', () => {
           stubLive(enablePublicApi, fixturesWithName);
           const assignedServer = {
             ...defaultServerV2,
-            endpoint: runtimeWithName.connectionInfo.endpoint,
+            endpoint: runtimeWithSessionName.connectionInfo.endpoint,
           };
           const noLongerAssignedServer = {
             ...defaultServerV2,
