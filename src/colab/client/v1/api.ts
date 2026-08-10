@@ -328,6 +328,13 @@ export const ListedAssignmentSchema = z.object({
   runtimeProxyInfo: RuntimeProxyTokenSchema.optional(),
   /** Runtime version label. */
   runtimeVersionLabel: z.string().optional(),
+  /**
+   * Notebook ID hash.
+   *
+   * This should always be present, but added as a optional field to avoid
+   * breaking changes.
+   */
+  notebookIdHash: z.string().optional(),
 });
 /** An abbreviated, listed assignment in Colab. */
 export type ListedAssignment = z.infer<typeof ListedAssignmentSchema>;
