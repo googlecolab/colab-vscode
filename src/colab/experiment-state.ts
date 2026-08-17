@@ -156,9 +156,7 @@ function setFlagForTest(
  *
  * @param ids - The experiment IDs to override.
  */
-function setExperimentIdsForTest(
-  ids: readonly number[],
-): void {
+function setExperimentIdsForTest(ids: readonly number[]): void {
   experimentIds = ids;
 }
 
