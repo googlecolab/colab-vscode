@@ -97,7 +97,7 @@ describe('ResourceTreeProvider', () => {
   });
 
   afterEach(() => {
-    FLAGS_TEST_ONLY.resetFlagsForTest();
+    FLAGS_TEST_ONLY.resetExperimentsForTest();
     tree.dispose();
     sinon.restore();
   });

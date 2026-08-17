@@ -59,7 +59,7 @@ describe('ClearcutClient', () => {
 
   afterEach(() => {
     sinon.restore();
-    FLAGS_TEST_ONLY.resetFlagsForTest();
+    FLAGS_TEST_ONLY.resetExperimentsForTest();
   });
 
   describe('log', () => {

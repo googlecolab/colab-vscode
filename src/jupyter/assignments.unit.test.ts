@@ -297,7 +297,7 @@ describe('AssignmentManager', () => {
   });
 
   afterEach(() => {
-    EXPERIMENT_TEST.resetFlagsForTest();
+    EXPERIMENT_TEST.resetExperimentsForTest();
     fakeClock.restore();
     sinon.restore();
   });

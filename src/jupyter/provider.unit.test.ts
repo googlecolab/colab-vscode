@@ -183,7 +183,7 @@ describe('ColabJupyterServerProvider', () => {
   });
 
   afterEach(() => {
-    EXPERIMENT_TEST.resetFlagsForTest();
+    EXPERIMENT_TEST.resetExperimentsForTest();
     sinon.restore();
   });
 

@@ -71,7 +71,7 @@ describe('ServerPicker', () => {
 
   afterEach(() => {
     sinon.restore();
-    TEST_ONLY.resetFlagsForTest();
+    TEST_ONLY.resetExperimentsForTest();
   });
 
   describe('prompt', () => {

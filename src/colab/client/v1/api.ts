@@ -599,6 +599,7 @@ export const ExperimentStateSchema = z.object({
       return new Map(entries) as Map<ExperimentFlag, ExperimentFlagValue>;
     })
     .optional(),
+  selectedIds: z.array(z.int32()).optional(),
 });
 /** The experiment state response. */
 export type ExperimentState = z.infer<typeof ExperimentStateSchema>;

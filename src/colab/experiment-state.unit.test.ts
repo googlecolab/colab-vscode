@@ -11,6 +11,7 @@ import { ColabClient } from './client/v1';
 import { ExperimentFlag, ExperimentFlagValue } from './client/v1/api';
 import {
   ExperimentStateProvider,
+  getExperimentIds,
   getFlag,
   TEST_ONLY,
 } from './experiment-state';
@@ -47,9 +48,15 @@ describe('ExperimentStateProvider', () => {
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
   });
 
+  it('initializes with no experiment IDs', () => {
+    expect(getExperimentIds()).to.be.empty;
+  });
+
   it('fetches experiment state with auth when turned on', async () => {
+    const expectedExperimentIds = [1, 2, 3];
     const getExperimentStateRanPromise = stubGetExperimentStateResponse(
       new Map([[ExperimentFlag.RuntimeVersionNames, true]]),
+      expectedExperimentIds,
     );
 
     provider.on();
@@ -61,11 +68,14 @@ describe('ExperimentStateProvider', () => {
       sinon.match.any,
     );
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.true;
+    expect(getExperimentIds()).to.deep.equal(expectedExperimentIds);
   });
 
   it('fetches experiment state without auth when turned off', async () => {
+    const expectedExperimentIds = [1, 2];
     const getExperimentStateRanPromise = stubGetExperimentStateResponse(
       new Map([[ExperimentFlag.RuntimeVersionNames, false]]),
+      expectedExperimentIds,
     );
 
     provider.off();
@@ -77,6 +87,7 @@ describe('ExperimentStateProvider', () => {
       sinon.match.any,
     );
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.be.false;
+    expect(getExperimentIds()).to.deep.equal(expectedExperimentIds);
   });
 
   it('handles errors when fetching experiment state', async () => {
@@ -103,6 +114,18 @@ describe('ExperimentStateProvider', () => {
 
     await expect(getExperimentStateRanPromise).to.eventually.be.fulfilled;
     expect(getFlag(ExperimentFlag.RuntimeVersionNames)).to.deep.equal([]);
+  });
+
+  it('returns empty experiment IDs when no IDs are returned', async () => {
+    const getExperimentStateRanPromise = stubGetExperimentStateResponse(
+      // Ensure flags are empty
+      new Map(),
+    );
+
+    provider.on();
+
+    await expect(getExperimentStateRanPromise).to.eventually.be.fulfilled;
+    expect(getExperimentIds()).to.be.empty;
   });
 
   it('updates flags when state changes', async () => {
@@ -209,11 +232,12 @@ describe('ExperimentStateProvider', () => {
 
   function stubGetExperimentStateResponse(
     experiments: Map<ExperimentFlag, ExperimentFlagValue>,
+    selectedIds?: number[],
   ): Promise<void> {
     const runGetExperimentState = new Deferred<void>();
     colabClientStub.getExperimentState.callsFake(async () => {
       runGetExperimentState.resolve();
-      return Promise.resolve({ experiments });
+      return Promise.resolve({ experiments, selectedIds });
     });
     return runGetExperimentState.promise;
   }

@@ -9,6 +9,7 @@ import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
+import { TEST_ONLY as EXPERIMENTS_TEST_ONLY } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -57,6 +58,7 @@ describe('Telemetry Module', () => {
   });
 
   afterEach(() => {
+    EXPERIMENTS_TEST_ONLY.resetExperimentsForTest();
     sinon.restore();
     disposeTelemetry?.dispose();
   });
@@ -133,12 +135,17 @@ describe('Telemetry Module', () => {
 
   describe('log interfaces', () => {
     const PLATFORM = 'darwin';
-    let baseLog: ColabLogEventBase & { timestamp: string };
+    const EXPERIMENT_IDS = [1, 2, 3] as const;
+    let baseLog: ColabLogEventBase & {
+      timestamp: string;
+      experiment_ids: readonly number[];
+    };
     let logStub: SinonSpy;
 
     beforeEach(() => {
       logStub = sinon.stub(ClearcutClient.prototype, 'log');
       sinon.stub(process, 'platform').get(() => PLATFORM);
+      EXPERIMENTS_TEST_ONLY.setExperimentIdsForTest(EXPERIMENT_IDS);
       baseLog = {
         app_name: 'VS Code',
         extension_version: VERSION_COLAB,
@@ -148,6 +155,7 @@ describe('Telemetry Module', () => {
         ui_kind: 'UI_KIND_DESKTOP',
         vscode_version: VERSION_VSCODE,
         timestamp: new Date(NOW).toISOString(),
+        experiment_ids: EXPERIMENT_IDS,
       };
       disposeTelemetry = initializeTelemetry(vs.asVsCode());
     });
