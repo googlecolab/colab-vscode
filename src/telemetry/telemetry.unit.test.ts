@@ -9,7 +9,7 @@ import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
-import { TEST_ONLY as EXPERIMENTS_TEST_ONLY } from '../colab/experiment-state';
+import { TEST_ONLY as EXPERIMENT_TEST_ONLY } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -58,7 +58,7 @@ describe('Telemetry Module', () => {
   });
 
   afterEach(() => {
-    EXPERIMENTS_TEST_ONLY.resetExperimentsForTest();
+    EXPERIMENT_TEST_ONLY.resetExperimentsForTest();
     sinon.restore();
     disposeTelemetry?.dispose();
   });
@@ -145,7 +145,7 @@ describe('Telemetry Module', () => {
     beforeEach(() => {
       logStub = sinon.stub(ClearcutClient.prototype, 'log');
       sinon.stub(process, 'platform').get(() => PLATFORM);
-      EXPERIMENTS_TEST_ONLY.setExperimentIdsForTest(EXPERIMENT_IDS);
+      EXPERIMENT_TEST_ONLY.setExperimentIdsForTest(EXPERIMENT_IDS);
       baseLog = {
         app_name: 'VS Code',
         extension_version: VERSION_COLAB,
