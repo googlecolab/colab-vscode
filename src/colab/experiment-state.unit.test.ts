@@ -118,7 +118,6 @@ describe('ExperimentStateProvider', () => {
 
   it('returns empty experiment IDs when no IDs are returned', async () => {
     const getExperimentStateRanPromise = stubGetExperimentStateResponse(
-      // Ensure flags are empty
       new Map(),
     );
 
