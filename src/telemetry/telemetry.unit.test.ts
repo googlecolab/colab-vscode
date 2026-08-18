@@ -491,7 +491,7 @@ describe('Telemetry Module', () => {
       EXPERIMENT_TEST_ONLY.setExperimentIdsForTest([1, 2]);
       telemetry.logAutoConnect();
       EXPERIMENT_TEST_ONLY.setExperimentIdsForTest([2, 3, 4]);
-      telemetry.logAutoConnect();
+      telemetry.logRemoveServer();
 
       const calls = logStub.getCalls();
       expect(calls).to.have.lengthOf(3);
