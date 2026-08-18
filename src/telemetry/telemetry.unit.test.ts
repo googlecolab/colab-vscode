@@ -135,7 +135,6 @@ describe('Telemetry Module', () => {
 
   describe('log interfaces', () => {
     const PLATFORM = 'darwin';
-    const EXPERIMENT_IDS = [1, 2, 3] as const;
     let baseLog: ColabLogEventBase & {
       timestamp: string;
       experiment_ids: readonly number[];
@@ -145,7 +144,6 @@ describe('Telemetry Module', () => {
     beforeEach(() => {
       logStub = sinon.stub(ClearcutClient.prototype, 'log');
       sinon.stub(process, 'platform').get(() => PLATFORM);
-      EXPERIMENT_TEST_ONLY.setExperimentIdsForTest(EXPERIMENT_IDS);
       baseLog = {
         app_name: 'VS Code',
         extension_version: VERSION_COLAB,
@@ -155,7 +153,7 @@ describe('Telemetry Module', () => {
         ui_kind: 'UI_KIND_DESKTOP',
         vscode_version: VERSION_VSCODE,
         timestamp: new Date(NOW).toISOString(),
-        experiment_ids: EXPERIMENT_IDS,
+        experiment_ids: [],
       };
       disposeTelemetry = initializeTelemetry(vs.asVsCode());
     });
@@ -484,6 +482,31 @@ describe('Telemetry Module', () => {
           uploaded_bytes: 1024,
         },
       });
+    });
+
+    it('logs experiment IDs when available', () => {
+      // Changes experiment IDs between calls to ensure that the correct IDs are
+      // logged.
+      telemetry.logActivation();
+      EXPERIMENT_TEST_ONLY.setExperimentIdsForTest([1, 2]);
+      telemetry.logAutoConnect();
+      EXPERIMENT_TEST_ONLY.setExperimentIdsForTest([2, 3, 4]);
+      telemetry.logAutoConnect();
+
+      const calls = logStub.getCalls();
+      expect(calls).to.have.lengthOf(3);
+      sinon.assert.calledWithMatch(
+        calls[0],
+        sinon.match({ experiment_ids: [] }),
+      );
+      sinon.assert.calledWithMatch(
+        calls[1],
+        sinon.match({ experiment_ids: [1, 2] }),
+      );
+      sinon.assert.calledWithMatch(
+        calls[2],
+        sinon.match({ experiment_ids: [2, 3, 4] }),
+      );
     });
   });
 });
