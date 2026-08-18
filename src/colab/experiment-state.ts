@@ -122,11 +122,16 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
         requireAccessToken,
         signal,
       );
+      experimentIds = result.selectedIds ?? [];
+      log.trace(
+        `Selected experiment IDs updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
+        experimentIds,
+      );
+
       if (result.experiments) {
         flags = result.experiments;
-        experimentIds = result.selectedIds ?? [];
         log.trace(
-          `Experiment state updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
+          `Experiment flags updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
           Object.fromEntries(flags),
         );
       }
