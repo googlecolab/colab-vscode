@@ -53,6 +53,20 @@ describe('ExperimentStateProvider', () => {
   });
 
   const TEST_FLAG_NAME = ExperimentFlag.RuntimeVersionNames;
+  const authStates = [
+    {
+      withAuth: true,
+      trigger: (provider: ExperimentStateProvider) => {
+        provider.on();
+      },
+    },
+    {
+      withAuth: false,
+      trigger: (provider: ExperimentStateProvider) => {
+        provider.off();
+      },
+    },
+  ];
   const tests = [
     {
       name: 'fetches flags with undefined selected IDs',
@@ -86,46 +100,26 @@ describe('ExperimentStateProvider', () => {
     },
   ];
 
-  describe('when auth turned on', () => {
-    tests.forEach((t) => {
-      it(t.name, async () => {
-        const getExperimentStateRanPromise = stubGetExperimentStateResponse(
-          t.experiments,
-          t.selectedIds,
-        );
+  authStates.forEach(({ withAuth, trigger }) => {
+    describe(`when auth turned ${withAuth ? 'on' : 'off'}`, () => {
+      tests.forEach((t) => {
+        it(t.name, async () => {
+          const getExperimentStateRanPromise = stubGetExperimentStateResponse(
+            t.experiments,
+            t.selectedIds,
+          );
 
-        provider.on();
+          trigger(provider);
 
-        await expect(getExperimentStateRanPromise).to.eventually.be.fulfilled;
-        sinon.assert.calledOnceWithExactly(
-          colabClientStub.getExperimentState,
-          true,
-          sinon.match.any,
-        );
-        expect(getFlag(TEST_FLAG_NAME)).to.deep.equal(t.expectedFlagValue);
-        expect(getExperimentIds()).to.deep.equal(t.expectedExperimentIds);
-      });
-    });
-  });
-
-  describe('when auth turned off', () => {
-    tests.forEach((t) => {
-      it(t.name, async () => {
-        const getExperimentStateRanPromise = stubGetExperimentStateResponse(
-          t.experiments,
-          t.selectedIds,
-        );
-
-        provider.off();
-
-        await expect(getExperimentStateRanPromise).to.eventually.be.fulfilled;
-        sinon.assert.calledOnceWithExactly(
-          colabClientStub.getExperimentState,
-          false,
-          sinon.match.any,
-        );
-        expect(getFlag(TEST_FLAG_NAME)).to.deep.equal(t.expectedFlagValue);
-        expect(getExperimentIds()).to.deep.equal(t.expectedExperimentIds);
+          await expect(getExperimentStateRanPromise).to.eventually.be.fulfilled;
+          sinon.assert.calledOnceWithExactly(
+            colabClientStub.getExperimentState,
+            withAuth,
+            sinon.match.any,
+          );
+          expect(getFlag(TEST_FLAG_NAME)).to.deep.equal(t.expectedFlagValue);
+          expect(getExperimentIds()).to.deep.equal(t.expectedExperimentIds);
+        });
       });
     });
   });
