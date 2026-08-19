@@ -7,6 +7,7 @@ import assert from 'assert';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
+import { getExperimentIds } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
@@ -217,6 +218,7 @@ function log(event: ColabEvent) {
     ...baseLog,
     ...event,
     timestamp: new Date().toISOString(),
+    experiment_ids: getExperimentIds(),
   });
 }
 

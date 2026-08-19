@@ -28,6 +28,7 @@ const DEFAULT_LOG: ColabLogEvent = {
   timestamp: new Date(NOW).toISOString(),
   ui_kind: 'UI_KIND_DESKTOP',
   vscode_version: '1.108.1',
+  experiment_ids: [],
 };
 const LOG_RESPONSE_FLUSH_INTERVAL = 15 * 60 * 1000;
 const LOG_RESPONSE = {
@@ -59,7 +60,7 @@ describe('ClearcutClient', () => {
 
   afterEach(() => {
     sinon.restore();
-    FLAGS_TEST_ONLY.resetFlagsForTest();
+    FLAGS_TEST_ONLY.resetExperimentsForTest();
   });
 
   describe('log', () => {

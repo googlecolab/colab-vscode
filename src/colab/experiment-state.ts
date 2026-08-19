@@ -25,6 +25,15 @@ export function getFlag(flag: ExperimentFlag): ExperimentFlagValue {
   return flags.get(flag) ?? EXPERIMENT_FLAG_DEFAULT_VALUES[flag];
 }
 
+/**
+ * Gets the list of selected experiment IDs.
+ *
+ * @returns A list of experiment IDs.
+ */
+export function getExperimentIds(): readonly number[] {
+  return experimentIds;
+}
+
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes.
 const REFRESH_TIMEOUT_MS = 30 * 1000; // 30 seconds.
 
@@ -44,6 +53,7 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
   constructor(private readonly client: ColabClient) {
     // Reset experiment flags.
     flags = new Map<ExperimentFlag, ExperimentFlagValue>();
+    experimentIds = [];
     this.refreshPoller = new SequentialTaskRunner(
       {
         intervalTimeoutMs: REFRESH_INTERVAL_MS,
@@ -112,10 +122,16 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
         requireAccessToken,
         signal,
       );
+      experimentIds = result.selectedIds ?? [];
+      log.trace(
+        `Selected experiment IDs updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
+        experimentIds,
+      );
+
       if (result.experiments) {
         flags = result.experiments;
         log.trace(
-          `Experiment state updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
+          `Experiment flags updated while ${requireAccessToken ? 'authorized' : 'not authorized'}:`,
           Object.fromEntries(flags),
         );
       }
@@ -140,9 +156,19 @@ function setFlagForTest(
   flags = newFlags;
 }
 
-/** Resets the experiment flags for testing. */
-function resetFlagsForTest(): void {
+/**
+ * Sets the selected experiment IDs for testing.
+ *
+ * @param ids - The experiment IDs to override.
+ */
+function setExperimentIdsForTest(ids: readonly number[]): void {
+  experimentIds = ids;
+}
+
+/** Resets the experiment flags and selected experiment IDs for testing. */
+function resetExperimentsForTest(): void {
   flags = new Map();
+  experimentIds = [];
 }
 
 let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
@@ -150,8 +176,11 @@ let flags: ReadonlyMap<ExperimentFlag, ExperimentFlagValue> = new Map<
   ExperimentFlagValue
 >();
 
+let experimentIds: readonly number[] = [];
+
 export const TEST_ONLY = {
   setFlagForTest,
-  resetFlagsForTest,
+  setExperimentIdsForTest,
+  resetExperimentsForTest,
   REFRESH_INTERVAL_MS,
 };

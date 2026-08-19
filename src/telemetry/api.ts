@@ -17,6 +17,8 @@ export type ColabLogEvent = ColabLogEventBase &
   ColabEvent & {
     /** The timestamp of the event as an ISO string. */
     timestamp: string;
+    /** The selected experiment IDs for the event. */
+    experiment_ids: readonly number[];
   };
 
 /**

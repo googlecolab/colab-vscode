@@ -9,6 +9,7 @@ import sinon, { SinonSpy, SinonFakeTimers } from 'sinon';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
+import { TEST_ONLY as EXPERIMENT_TEST_ONLY } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -57,6 +58,7 @@ describe('Telemetry Module', () => {
   });
 
   afterEach(() => {
+    EXPERIMENT_TEST_ONLY.resetExperimentsForTest();
     sinon.restore();
     disposeTelemetry?.dispose();
   });
@@ -133,7 +135,10 @@ describe('Telemetry Module', () => {
 
   describe('log interfaces', () => {
     const PLATFORM = 'darwin';
-    let baseLog: ColabLogEventBase & { timestamp: string };
+    let baseLog: ColabLogEventBase & {
+      timestamp: string;
+      experiment_ids: readonly number[];
+    };
     let logStub: SinonSpy;
 
     beforeEach(() => {
@@ -148,6 +153,7 @@ describe('Telemetry Module', () => {
         ui_kind: 'UI_KIND_DESKTOP',
         vscode_version: VERSION_VSCODE,
         timestamp: new Date(NOW).toISOString(),
+        experiment_ids: [],
       };
       disposeTelemetry = initializeTelemetry(vs.asVsCode());
     });
@@ -476,6 +482,31 @@ describe('Telemetry Module', () => {
           uploaded_bytes: 1024,
         },
       });
+    });
+
+    it('logs experiment IDs when available', () => {
+      // Changes experiment IDs between calls to ensure that the correct IDs are
+      // logged.
+      telemetry.logActivation();
+      EXPERIMENT_TEST_ONLY.setExperimentIdsForTest([1, 2]);
+      telemetry.logAutoConnect();
+      EXPERIMENT_TEST_ONLY.setExperimentIdsForTest([2, 3, 4]);
+      telemetry.logRemoveServer();
+
+      const calls = logStub.getCalls();
+      expect(calls).to.have.lengthOf(3);
+      sinon.assert.calledWithMatch(
+        calls[0],
+        sinon.match({ experiment_ids: [] }),
+      );
+      sinon.assert.calledWithMatch(
+        calls[1],
+        sinon.match({ experiment_ids: [1, 2] }),
+      );
+      sinon.assert.calledWithMatch(
+        calls[2],
+        sinon.match({ experiment_ids: [2, 3, 4] }),
+      );
     });
   });
 });
