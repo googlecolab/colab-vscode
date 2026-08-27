@@ -604,18 +604,7 @@ export class AssignmentManager implements Disposable {
     if (!isColabAssignedServer(server)) {
       const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
       if (enablePublicApi) {
-        try {
-          await this.colabApiClient.colab.deleteRuntime(
-            { runtime: server.id },
-            { signal },
-          );
-        } catch (error: unknown) {
-          const isNotFound =
-            error instanceof ResponseError && error.response.status === 404;
-          if (!isNotFound) {
-            throw error;
-          }
-        }
+        await this.deleteRuntime(server.id, signal);
       } else {
         await this.colabClient.unassign(server.endpoint, signal);
       }
@@ -634,10 +623,7 @@ export class AssignmentManager implements Disposable {
       await this.colabClient.unassign(server.endpoint, signal);
     } else {
       // Otherwise, use the new v2 client to delete the runtime.
-      await this.colabApiClient.colab.deleteRuntime(
-        { runtime: server.id },
-        { signal },
-      );
+      await this.deleteRuntime(server.id, signal);
     }
 
     const removed = await this.storage.remove(server.id);
@@ -1128,6 +1114,26 @@ export class AssignmentManager implements Disposable {
       `${MISSING_OPERATION_RESPONSE_ERR_MSG}: ${operationId}`,
     );
     return createRuntimeOperation.response;
+  }
+
+  /**
+   * Deletes a runtime, treating an already-deleted runtime as success.
+   *
+   * @param id - The ID of the runtime to delete.
+   * @param signal - The cancellation signal.
+   */
+  private async deleteRuntime(id: string, signal?: AbortSignal): Promise<void> {
+    try {
+      await this.colabApiClient.colab.deleteRuntime(
+        { runtime: id },
+        { signal },
+      );
+    } catch (error: unknown) {
+      if (!(error instanceof ResponseError && error.response.status === 404)) {
+        throw error;
+      }
+      log.trace(`Runtime ${id} was already deleted`, error);
+    }
   }
 }
 
