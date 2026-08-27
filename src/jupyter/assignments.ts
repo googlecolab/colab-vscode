@@ -36,6 +36,7 @@ import {
   ConnectionInfo,
   CreateRuntimeOperationFromJSON,
   Runtime,
+  ResponseError,
   instanceOfRuntime,
 } from '../colab/client/v2/generated/colab';
 import { REMOVE_SERVER } from '../colab/commands/constants';
@@ -603,10 +604,18 @@ export class AssignmentManager implements Disposable {
     if (!isColabAssignedServer(server)) {
       const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
       if (enablePublicApi) {
-        await this.colabApiClient.colab.deleteRuntime(
-          { runtime: server.id },
-          { signal },
-        );
+        try {
+          await this.colabApiClient.colab.deleteRuntime(
+            { runtime: server.id },
+            { signal },
+          );
+        } catch (error: unknown) {
+          const isNotFound =
+            error instanceof ResponseError && error.response.status === 404;
+          if (!isNotFound) {
+            throw error;
+          }
+        }
       } else {
         await this.colabClient.unassign(server.endpoint, signal);
       }
