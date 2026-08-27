@@ -30,6 +30,7 @@ import {
 import {
   ColaboratoryApi,
   CreateRuntimeRequest,
+  ResponseError,
   Runtime,
   Shape as ApiShape,
   Variant as ApiVariant,
@@ -2931,6 +2932,42 @@ describe('AssignmentManager', () => {
             }
             sinon.assert.notCalled(assignmentChangeListener);
           });
+
+          if (!isV1Server) {
+            it('stops tracking the server when the runtime is already gone', async () => {
+              jupyterStub.sessions.list.resolves([]);
+              deleteRuntimeStub.rejects(
+                new ResponseError(new Response(null, { status: 404 })),
+              );
+
+              await assignmentManager.unassignServer(server);
+
+              const serversAfter =
+                await assignmentManager.getLastKnownAssignedServers();
+              expect(serversAfter).to.be.empty;
+              sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
+                added: [],
+                removed: [{ server, userInitiated: true }],
+                changed: [],
+              });
+            });
+
+            it('keeps the server tracked on a non-404 response error', async () => {
+              jupyterStub.sessions.list.resolves([]);
+              deleteRuntimeStub.rejects(
+                new ResponseError(new Response(null, { status: 500 }), '☢️'),
+              );
+
+              await expect(
+                assignmentManager.unassignServer(server),
+              ).to.be.rejectedWith('☢️');
+
+              const serversAfter =
+                await assignmentManager.getLastKnownAssignedServers();
+              expect(serversAfter).to.have.lengthOf(1);
+              sinon.assert.notCalled(assignmentChangeListener);
+            });
+          }
         });
       });
 
@@ -2960,6 +2997,58 @@ describe('AssignmentManager', () => {
             sinon.assert.notCalled(deleteRuntimeStub);
           }
         });
+
+        if (enablePublicApi) {
+          it('ignores a 404 from deleteRuntime', async () => {
+            const remoteServer = {
+              id: 'test-id',
+              endpoint: 'test-endpoint',
+              label: 'name',
+              variant: Variant.DEFAULT,
+            };
+            deleteRuntimeStub.rejects(
+              new ResponseError(new Response(null, { status: 404 })),
+            );
+
+            await assignmentManager.unassignServer(remoteServer);
+
+            sinon.assert.calledOnceWithMatch(
+              deleteRuntimeStub,
+              sinon.match({ runtime: remoteServer.id }),
+              sinon.match.any,
+            );
+          });
+
+          it('rethrows non-404 errors from deleteRuntime', async () => {
+            const remoteServer = {
+              id: 'test-id',
+              endpoint: 'test-endpoint',
+              label: 'name',
+              variant: Variant.DEFAULT,
+            };
+            deleteRuntimeStub.rejects(
+              new ResponseError(new Response(null, { status: 500 }), '☢️'),
+            );
+
+            await expect(
+              assignmentManager.unassignServer(remoteServer),
+            ).to.be.rejectedWith('☢️');
+          });
+
+          it('rethrows non-response errors from deleteRuntime', async () => {
+            const remoteServer = {
+              id: 'test-id',
+              endpoint: 'test-endpoint',
+              label: 'name',
+              variant: Variant.DEFAULT,
+            };
+            deleteRuntimeStub.rejects(new Error('💩'));
+
+            await expect(
+              assignmentManager.unassignServer(remoteServer),
+            ).to.be.rejectedWith('💩');
+          });
+        }
       });
     });
   });
