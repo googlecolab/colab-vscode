@@ -9,6 +9,7 @@ import {
   OverrunPolicy,
   SequentialTaskRunner,
   StartMode,
+  TimeoutError,
 } from '../../common/task-runner';
 import { Toggleable } from '../../common/toggleable';
 import { AssignmentChangeEvent } from '../../jupyter/assignments';
@@ -17,6 +18,36 @@ import { ConsumptionUserInfo } from '../client/v1/api';
 
 const POLL_INTERVAL_MS = 1000 * 60; // 1 minute.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
+/**
+ * Ceiling on the consecutive intervals skipped while backing off, so a user who
+ * is simply offline issues ~4 requests an hour rather than 60.
+ */
+const MAX_BACKOFF_INTERVALS = 15;
+
+/**
+ * Number of poll intervals to sit out after a run of failures.
+ *
+ * @param failures - Consecutive failures so far, at least one.
+ * @returns The number of intervals to skip before trying again.
+ */
+function backoffIntervals(failures: number): number {
+  const base = Math.min(2 ** (failures - 1), MAX_BACKOFF_INTERVALS);
+  const jittered = Math.round(base * (0.5 + Math.random()));
+  return Math.min(Math.max(jittered, 1), MAX_BACKOFF_INTERVALS);
+}
+
+/**
+ * Reports whether a failed poll says anything about the network.
+ *
+ * The runner aborts polls it has superseded or disposed, which is routine. A
+ * timeout is different: the request really is hanging and we should back off.
+ *
+ * @param signal - The signal the poll ran under.
+ * @returns True when the failure should count towards the backoff.
+ */
+function countsAsFailure(signal?: AbortSignal): boolean {
+  return !signal?.aborted || signal.reason instanceof TimeoutError;
+}
 
 /**
  * Periodically polls for CCU info changes and emits an event on updates.
@@ -30,6 +61,8 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   private readonly runner: SequentialTaskRunner;
   private assignmentListener?: Disposable;
   private consumptionUserInfo?: ConsumptionUserInfo;
+  private consecutiveFailures = 0;
+  private intervalsToSkip = 0;
   private isDisposed = false;
 
   /**
@@ -80,9 +113,11 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   on(): void {
     this.guardDisposed();
     this.runner.start(StartMode.Immediately);
-    this.assignmentListener ??= this.assignmentChange(
-      this.runner.runNow.bind(this.runner),
-    );
+    this.assignmentListener ??= this.assignmentChange(() => {
+      // Assignment changes move CCU rates, so we bail on the backoff.
+      this.intervalsToSkip = 0;
+      this.runner.runNow();
+    });
   }
 
   /**
@@ -91,6 +126,8 @@ export class ConsumptionPoller implements Toggleable, Disposable {
   off(): void {
     this.guardDisposed();
     this.runner.stop();
+    this.consecutiveFailures = 0;
+    this.intervalsToSkip = 0;
     if (this.assignmentListener) {
       this.assignmentListener.dispose();
       this.assignmentListener = undefined;
@@ -114,8 +151,23 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     if (this.isDisposed) {
       return;
     }
-    const consumptionUserInfo =
-      await this.client.getConsumptionUserInfo(signal);
+    if (this.intervalsToSkip > 0) {
+      this.intervalsToSkip--;
+      return;
+    }
+
+    let consumptionUserInfo: ConsumptionUserInfo;
+    try {
+      consumptionUserInfo = await this.client.getConsumptionUserInfo(signal);
+    } catch (err: unknown) {
+      if (countsAsFailure(signal)) {
+        this.consecutiveFailures++;
+        this.intervalsToSkip = backoffIntervals(this.consecutiveFailures);
+      }
+      throw err;
+    }
+    this.consecutiveFailures = 0;
+
     if (
       JSON.stringify(consumptionUserInfo) ===
       JSON.stringify(this.consumptionUserInfo)
@@ -131,4 +183,5 @@ export class ConsumptionPoller implements Toggleable, Disposable {
 export const TEST_ONLY = {
   POLL_INTERVAL_MS,
   TASK_TIMEOUT_MS,
+  MAX_BACKOFF_INTERVALS,
 };

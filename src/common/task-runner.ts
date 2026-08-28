@@ -346,7 +346,14 @@ class NonGracefulAbandonError extends Error {
   }
 }
 
-class TimeoutError extends Error {
+/** The reason a task's signal is aborted when it outruns its timeout. */
+export class TimeoutError extends Error {
+  /**
+   * Initializes a new instance.
+   *
+   * @param taskName - The name of the task that timed out.
+   * @param afterMs - The timeout the task exceeded.
+   */
   constructor(taskName: string, afterMs: number) {
     super(`Task "${taskName}" timed out after ${afterMs.toString()}ms`);
     this.name = 'TimeoutError';
