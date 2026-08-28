@@ -12,6 +12,7 @@ import {
   DenylistedError,
   InsufficientQuotaError,
   LongRunningOperationError,
+  redactUrl,
   TooManyAssignmentsError,
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
@@ -26,6 +27,7 @@ import {
   Middleware,
   RequestContext,
   ResponseContext,
+  ResponseError,
   Runtime,
   Shape,
   Variant,
@@ -51,6 +53,10 @@ export interface ColabApiClient {
 
   /**
    * A client instance to access the Operations APIs.
+   *
+   * Non-ok responses reject with the {@link ResponseError } declared by
+   * `generated/colab`, not the one `generated/operations` declares: one
+   * middleware serves both, and it throws. Match on the former.
    */
   operations: OperationsApi;
 }
@@ -248,23 +254,28 @@ class AuthMiddleware implements Middleware {
 class ErrorMiddleware implements Middleware {
   constructor(private readonly onAuthError?: () => Promise<void>) {}
 
+  // Throws rather than reporting: the caller's error boundary reports it, and
+  // doing both would double-count one failure. Throwing also runs before the
+  // generated `request()` can throw its own `ResponseError`, whose message
+  // carries neither the status nor the URL.
   async post(context: ResponseContext): Promise<void> {
-    if (!context.response.ok) {
-      if (context.response.status === 401 && this.onAuthError) {
-        await this.onAuthError();
-      }
-      telemetry.logError(context.response);
-      log.warn(
-        `Error response received by ${context.init.method ?? ''} ${context.url}:`,
-        context.response,
-      );
+    if (context.response.ok) {
+      return;
     }
+
+    if (context.response.status === 401 && this.onAuthError) {
+      await this.onAuthError();
+    }
+
+    const summary = `Error response ${String(context.response.status)} received by ${context.init.method ?? ''} ${redactUrl(context.url)}`;
+    log.warn(summary);
+    throw new ResponseError(context.response, summary);
   }
 
   onError(context: ErrorContext): Promise<void> {
     telemetry.logError(context.error);
     log.error(
-      `Error thrown during request ${context.init.method ?? ''} ${context.url}:`,
+      `Error thrown during request ${context.init.method ?? ''} ${redactUrl(context.url)}:`,
       context.error,
     );
     return Promise.resolve();
