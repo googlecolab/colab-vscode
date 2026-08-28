@@ -152,7 +152,7 @@ export class ConnectionRefresher implements Disposable {
     }
     this.isDisposed = true;
     this.abortController.abort(
-      new Error(`${this.constructor.name} is being disposed`),
+      new Error('ConnectionRefresher is being disposed'),
     );
     for (const { timeout } of this.refreshes.values()) {
       clearTimeout(timeout);
