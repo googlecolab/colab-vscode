@@ -612,5 +612,30 @@ describe('SequentialTaskRunner', () => {
         new RegExp(`Error.*Task "${testTask.name}".*grace period`),
       );
     });
+
+    it('does not leak an unhandled rejection when an aborted task rejects', async () => {
+      const unhandled: unknown[] = [];
+      const capture = (reason: unknown) => {
+        unhandled.push(reason);
+      };
+      process.on('unhandledRejection', capture);
+
+      try {
+        // Time out the in-flight task, then have it reject with the abort
+        // error, mirroring how `node-fetch` rejects on `AbortSignal`.
+        await tickPast(TASK_TIMEOUT_MS);
+        await expect(run.aborted).to.eventually.be.fulfilled;
+        run.reject(new Error('The user aborted a request.'));
+        await tickPast(ABANDON_GRACE_MS);
+
+        // Node only reports unhandled rejections once the microtask queue has
+        // drained, so yield to a real timer the fake clock does not stub.
+        await new Promise((resolve) => setImmediate(resolve));
+      } finally {
+        process.off('unhandledRejection', capture);
+      }
+
+      expect(unhandled).to.be.empty;
+    });
   });
 });
