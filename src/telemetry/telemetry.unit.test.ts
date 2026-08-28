@@ -11,6 +11,7 @@ import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
 import { TEST_ONLY as EXPERIMENT_TEST_ONLY } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
+import { InputFlowAction } from '../common/multi-step-quickpick';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
@@ -204,6 +205,33 @@ describe('Telemetry Module', () => {
           ...baseLog,
           error_event,
         });
+      });
+    }
+
+    const cancellations = [
+      {
+        type: 'AbortError',
+        error: (() => {
+          const e = new Error('The user aborted a request.');
+          e.name = 'AbortError';
+          return e;
+        })(),
+      },
+      {
+        type: 'vscode CancellationError',
+        error: (() => {
+          const e = new Error('Canceled');
+          e.name = 'Canceled';
+          return e;
+        })(),
+      },
+      { type: 'InputFlowAction', error: InputFlowAction.back },
+    ];
+    for (const { type, error } of cancellations) {
+      it(`does not log cancellation of type ${type}`, () => {
+        telemetry.logError(error);
+
+        sinon.assert.notCalled(logStub);
       });
     }
 
