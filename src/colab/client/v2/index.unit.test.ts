@@ -9,6 +9,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import * as sinon from 'sinon';
 import { SinonStubbedFunction } from 'sinon';
+import { log } from '../../../common/logging';
 import { telemetry } from '../../../telemetry';
 import {
   AcceleratorUnavailableError,
@@ -19,7 +20,14 @@ import {
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import { Shape as CommonShape, Variant as CommonVariant } from '../../types';
-import { FetchAPI, Key, Operation, Shape, Variant } from './generated/colab';
+import {
+  FetchAPI,
+  Key,
+  Operation,
+  ResponseError,
+  Shape,
+  Variant,
+} from './generated/colab';
 import {
   ColabApiClient,
   createColabApiClient,
@@ -34,6 +42,28 @@ import {
 
 const COLAB_API_HOST = 'colab.example.com';
 const BEARER_TOKEN = 'test-access-token';
+
+/**
+ * Awaits a request that is expected to fail and returns the `ResponseError` it
+ * rejected with.
+ *
+ * @param request - The request, which must reject.
+ * @returns The error it rejected with.
+ */
+async function rejectionOf(request: Promise<unknown>): Promise<ResponseError> {
+  const error: unknown = await request.then(
+    () => expect.fail('expected the request to reject'),
+    (e: unknown) => e,
+  );
+  if (!(error instanceof ResponseError)) {
+    // `generated/operations` declares a same-named class, so a rejection that
+    // prints as a ResponseError can still fail this check.
+    expect.fail(
+      `expected the ResponseError from generated/colab, got ${String(error)}`,
+    );
+  }
+  return error;
+}
 
 describe('ColabApiClient', () => {
   let client: ColabApiClient;
@@ -171,10 +201,19 @@ describe('ColabApiClient', () => {
           );
         });
 
-        it('throws an error and logs to telemetry', async () => {
+        it('rejects without reporting to telemetry', async () => {
           await expect(client.getSubscription()).to.be.rejected;
 
-          sinon.assert.calledOnce(logErrorStub);
+          sinon.assert.notCalled(logErrorStub);
+        });
+
+        it('throws a ResponseError carrying the status and URL', async () => {
+          const error = await rejectionOf(client.getSubscription());
+
+          expect(error.message)
+            .to.contain(String(status))
+            .and.to.contain('/v1beta/subscription');
+          expect(error.response.status).to.equal(status);
         });
 
         if (onAuthErrorCalled) {
@@ -309,10 +348,10 @@ describe('ColabApiClient', () => {
           );
         });
 
-        it('throws an error and logs to telemetry', async () => {
+        it('rejects without reporting to telemetry', async () => {
           await expect(client.listRuntimeSpecs()).to.be.rejected;
 
-          sinon.assert.calledOnce(logErrorStub);
+          sinon.assert.notCalled(logErrorStub);
         });
 
         if (onAuthErrorCalled) {
@@ -460,10 +499,10 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting to telemetry', async () => {
             await expect(client.listRuntimes()).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -576,11 +615,11 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting to telemetry', async () => {
             await expect(client.getRuntime({ runtime: runtimeId })).to.be
               .rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -724,6 +763,49 @@ describe('ColabApiClient', () => {
         sinon.assert.calledOnce(logErrorStub);
       });
 
+      it('redacts the query values from the logged fetch error', async () => {
+        const logStub = sinon.stub(log, 'error');
+        server.use(
+          http.post(`https://${COLAB_API_HOST}/v1beta/runtimes`, () =>
+            HttpResponse.error(),
+          ),
+        );
+
+        await expect(
+          client.createRuntime({
+            runtime: { runtimeSpec },
+            runtimeId,
+            requestId,
+          }),
+        ).to.be.rejected;
+
+        sinon.assert.calledWithMatch(
+          logStub,
+          sinon.match('requestId=REDACTED'),
+        );
+      });
+
+      it('redacts the query values from the thrown message', async () => {
+        server.use(
+          http.post(`https://${COLAB_API_HOST}/v1beta/runtimes`, () =>
+            HttpResponse.json({}, { status: 500 }),
+          ),
+        );
+
+        const error = await rejectionOf(
+          client.createRuntime({
+            runtime: { runtimeSpec },
+            runtimeId,
+            requestId,
+          }),
+        );
+
+        // A caller that reports this reaches telemetry with the message.
+        expect(error.message).to.contain('runtimeId=REDACTED');
+        expect(error.message).to.contain('requestId=REDACTED');
+        expect(error.message).to.not.contain(requestId);
+      });
+
       const tests = [
         { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
         { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
@@ -739,7 +821,7 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting to telemetry', async () => {
             await expect(
               client.createRuntime({
                 runtime: { runtimeSpec },
@@ -748,7 +830,7 @@ describe('ColabApiClient', () => {
               }),
             ).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -870,11 +952,11 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting to telemetry', async () => {
             await expect(client.deleteRuntime({ runtime: runtimeId })).to.be
               .rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -999,6 +1081,25 @@ describe('ColabApiClient', () => {
         sinon.assert.calledOnce(logErrorStub);
       });
 
+      it('rejects with the ResponseError declared by generated/colab', async () => {
+        server.use(
+          http.get(
+            `https://${COLAB_API_HOST}/v1/operations/${OPERATION_ID}`,
+            () => HttpResponse.json({}, { status: 500 }),
+          ),
+        );
+
+        // One middleware serves both packages, so the class thrown here is
+        // colab's, not the one generated/operations declares.
+        const error = await rejectionOf(
+          client.getOperation({ operationsId: OPERATION_ID }),
+        );
+
+        expect(error.message)
+          .to.contain('500')
+          .and.to.contain(`/v1/operations/${OPERATION_ID}`);
+      });
+
       const tests = [
         { error: 'Bad Request', status: 400, onAuthErrorCalled: false },
         { error: 'Unauthorized', status: 401, onAuthErrorCalled: true },
@@ -1015,11 +1116,11 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting to telemetry', async () => {
             await expect(client.getOperation({ operationsId: OPERATION_ID })).to
               .be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -1158,7 +1259,7 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting to telemetry', async () => {
             await expect(
               client.waitOperation({
                 operationsId: OPERATION_ID,
@@ -1166,7 +1267,7 @@ describe('ColabApiClient', () => {
               }),
             ).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {

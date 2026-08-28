@@ -16,7 +16,9 @@ import { Request, Response } from 'node-fetch';
 const MAX_BODY_CHARS = 512;
 
 /**
- * Redacts the values of every search parameter in the URL.
+ * Redacts the value of every search parameter, and replaces the fragment
+ * entirely. Path segments are left alone, so an identifier in the path still
+ * reaches wherever the result is sent.
  *
  * E.g. `https://example.com/path?foo=bar&baz=quux` becomes
  * `https://example.com/path?foo=REDACTED&baz=REDACTED`.
@@ -25,9 +27,9 @@ const MAX_BODY_CHARS = 512;
  * fragment is returned.
  *
  * @param url - The URL to redact.
- * @returns The URL with all search parameter values redacted.
+ * @returns The URL with all values and the fragment redacted.
  */
-function redactUrl(url: string): string {
+export function redactUrl(url: string): string {
   try {
     const u = new URL(url);
     for (const key of u.searchParams.keys()) {
