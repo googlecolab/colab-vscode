@@ -296,20 +296,29 @@ export class SequentialTaskRunner implements Disposable {
     graceMs: number,
     taskName: string,
   ): Promise<void> {
+    // Cleanup must hang off a mirror of `task` that never rejects. Attaching
+    // `.finally()` directly to `task` creates derived promises that adopt its
+    // rejection, and `Promise.race` below only observes `task` itself, so
+    // those derived rejections escape as process-level `unhandledRejection`s
+    // even though the caller catches the task failure.
+    const settled = task.catch(() => {
+      // Swallowed here. The failure is still surfaced by the race below.
+    });
+
     const abortHandler = new Promise<void>((_, reject) => {
       const onAbort = () => {
         const graceTimeout = setTimeout(() => {
           reject(new NonGracefulAbandonError(taskName, graceMs));
         }, graceMs);
 
-        void task.finally(() => {
+        void settled.then(() => {
           clearTimeout(graceTimeout);
         });
       };
 
       signal.addEventListener('abort', onAbort, { once: true });
 
-      void task.finally(() => {
+      void settled.then(() => {
         signal.removeEventListener('abort', onAbort);
       });
     });
