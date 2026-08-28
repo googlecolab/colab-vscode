@@ -7,6 +7,36 @@
 import { Request, Response } from 'node-fetch';
 
 /**
+ * Cap on the response body carried in an error message.
+ *
+ * Bodies can be entire HTML error pages, and the message is reported verbatim
+ * to telemetry.
+ */
+const MAX_BODY_CHARS = 512;
+
+/**
+ * Drops the query string, which can carry notebook hashes and auth hints.
+ *
+ * @param url - The URL to redact.
+ * @returns The URL without its query string.
+ */
+function redactUrl(url: string): string {
+  return url.split(/[?#]/)[0];
+}
+
+/**
+ * Shortens a response body for inclusion in an error message.
+ *
+ * @param body - The response body.
+ * @returns The body, truncated if it exceeds {@link MAX_BODY_CHARS}.
+ */
+function truncate(body: string): string {
+  return body.length <= MAX_BODY_CHARS
+    ? body
+    : `${body.slice(0, MAX_BODY_CHARS)}... (${String(body.length)} chars total)`;
+}
+
+/**
  * Wrapper for errors thrown from issuing requests.
  */
 export class ColabRequestError extends Error {
@@ -25,8 +55,8 @@ export class ColabRequestError extends Error {
     readonly responseBody?: string,
   ) {
     super(
-      `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ${responseBody}` : ''),
+      `Failed to issue request ${request.method} ${redactUrl(request.url)}: ${response.statusText}` +
+        (responseBody ? `\nResponse body: ${truncate(responseBody)}` : ''),
     );
   }
 }
