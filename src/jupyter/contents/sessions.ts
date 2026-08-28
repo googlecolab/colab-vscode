@@ -24,6 +24,8 @@ interface ServerConnection {
  * Error thrown when a server corresponding to a provided endpoint is not found.
  */
 export class ServerNotFound extends Error {
+  override name = 'ServerNotFound' as const;
+
   /**
    * Initializes the error with a message indicating the missing server
    * endpoint.

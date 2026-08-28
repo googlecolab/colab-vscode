@@ -17,6 +17,8 @@ import vscode from 'vscode';
  * Represents an action that can be taken during an input flow.
  */
 export class InputFlowAction extends Error {
+  override name = 'InputFlowAction' as const;
+
   /** Navigate back in the input flow. */
   static back = new InputFlowAction('back');
   /** Cancel the input flow. */

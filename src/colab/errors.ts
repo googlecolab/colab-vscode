@@ -10,6 +10,8 @@ import { Request, Response } from 'node-fetch';
  * Wrapper for errors thrown from issuing requests.
  */
 export class ColabRequestError extends Error {
+  override name = 'ColabRequestError' as const;
+
   /**
    * Initializes a new instance
    *
@@ -30,10 +32,14 @@ export class ColabRequestError extends Error {
 }
 
 /** Error thrown when the user has too many assignments. */
-export class TooManyAssignmentsError extends Error {}
+export class TooManyAssignmentsError extends Error {
+  override name = 'TooManyAssignmentsError' as const;
+}
 
 /** Error thrown when the requested machine accelerator is unavailable. */
 export class AcceleratorUnavailableError extends Error {
+  override name = 'AcceleratorUnavailableError' as const;
+
   /**
    * Initializes a new instance.
    *
@@ -45,16 +51,24 @@ export class AcceleratorUnavailableError extends Error {
 }
 
 /** Error thrown when the user has been denylisted. */
-export class DenylistedError extends Error {}
+export class DenylistedError extends Error {
+  override name = 'DenylistedError' as const;
+}
 
 /** Error thrown when the user has insufficient quota. */
-export class InsufficientQuotaError extends Error {}
+export class InsufficientQuotaError extends Error {
+  override name = 'InsufficientQuotaError' as const;
+}
 
 /** Error thrown when the request resource cannot be found. */
-export class NotFoundError extends Error {}
+export class NotFoundError extends Error {
+  override name = 'NotFoundError' as const;
+}
 
 /** Error thrown when a long-running operation fails. */
 export class LongRunningOperationError extends Error {
+  override name = 'LongRunningOperationError' as const;
+
   /**
    * Initializes a new instance.
    *
@@ -77,6 +91,8 @@ export class LongRunningOperationError extends Error {
 
 /** Error thrown when WaitOperation times out. */
 export class WaitOperationTimeoutError extends Error {
+  override name = 'WaitOperationTimeoutError' as const;
+
   /**
    * Initializes a new instance.
    *

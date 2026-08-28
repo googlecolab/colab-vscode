@@ -1155,6 +1155,8 @@ const MISSING_OPERATION_NAME_ERR_MSG = 'Name missing in operation';
 const MISSING_OPERATION_RESPONSE_ERR_MSG = 'Response missing in operation';
 
 class AllAcceleratorsUnavailableError extends Error {
+  override name = 'AllAcceleratorsUnavailableError' as const;
+
   constructor(
     variant: string,
     readonly attempted: string[],
