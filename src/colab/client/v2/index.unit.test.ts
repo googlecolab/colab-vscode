@@ -20,7 +20,13 @@ import {
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import { Shape as CommonShape, Variant as CommonVariant } from '../../types';
-import { FetchAPI, Key, Shape, Variant } from './generated/colab';
+import {
+  FetchAPI,
+  Key,
+  ResponseError,
+  Shape,
+  Variant,
+} from './generated/colab';
 import { Operation } from './generated/operations';
 import {
   ColabApiClient,
@@ -170,10 +176,25 @@ describe('ColabApiClient', () => {
           );
         });
 
-        it('throws an error and logs to telemetry', async () => {
+        it('rejects without reporting the failure itself', async () => {
           await expect(client.colab.getSubscription()).to.be.rejected;
 
-          sinon.assert.calledOnce(logErrorStub);
+          sinon.assert.notCalled(logErrorStub);
+        });
+
+        it('throws a ResponseError carrying the status and path', async () => {
+          const error: unknown = await client.colab.getSubscription().then(
+            () => expect.fail('expected the request to reject'),
+            (e: unknown) => e,
+          );
+
+          if (!(error instanceof ResponseError)) {
+            expect.fail(`expected a ResponseError, got ${typeof error}`);
+          }
+          expect(error.message)
+            .to.contain(String(status))
+            .and.to.contain('/v1beta/subscription');
+          expect(error.response.status).to.equal(status);
         });
 
         if (onAuthErrorCalled) {
@@ -308,10 +329,10 @@ describe('ColabApiClient', () => {
           );
         });
 
-        it('throws an error and logs to telemetry', async () => {
+        it('rejects without reporting the failure itself', async () => {
           await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
 
-          sinon.assert.calledOnce(logErrorStub);
+          sinon.assert.notCalled(logErrorStub);
         });
 
         if (onAuthErrorCalled) {
@@ -459,10 +480,10 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting the failure itself', async () => {
             await expect(client.colab.listRuntimes()).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -576,11 +597,11 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting the failure itself', async () => {
             await expect(client.colab.getRuntime({ runtime: runtimeId })).to.be
               .rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -739,7 +760,7 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting the failure itself', async () => {
             await expect(
               client.colab.createRuntime({
                 runtime: { runtimeSpec },
@@ -748,7 +769,7 @@ describe('ColabApiClient', () => {
               }),
             ).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -870,11 +891,11 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting the failure itself', async () => {
             await expect(client.colab.deleteRuntime({ runtime: runtimeId })).to
               .be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -1016,12 +1037,12 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting the failure itself', async () => {
             await expect(
               client.operations.getOperation({ operationsId: OPERATION_ID }),
             ).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
@@ -1162,7 +1183,7 @@ describe('ColabApiClient', () => {
             );
           });
 
-          it('throws an error and logs to telemetry', async () => {
+          it('rejects without reporting the failure itself', async () => {
             await expect(
               client.operations.waitOperation({
                 operationsId: OPERATION_ID,
@@ -1170,7 +1191,7 @@ describe('ColabApiClient', () => {
               }),
             ).to.be.rejected;
 
-            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.notCalled(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
