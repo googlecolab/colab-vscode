@@ -9,6 +9,7 @@ import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
 import { getExperimentIds } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
+import { describeCauses, truncateMessage } from '../common/error-description';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -134,14 +135,25 @@ export const telemetry = {
   },
   logError: (e: unknown) => {
     if (e instanceof Error) {
+      const causes = describeCauses(e);
       log({
-        error_event: { name: e.name, msg: e.message, stack: e.stack ?? '' },
+        error_event: {
+          name: e.name,
+          msg: truncateMessage(
+            causes ? `${e.message} <- ${causes}` : e.message,
+          ),
+          stack: e.stack ?? '',
+        },
       });
     } else if (typeof e === 'string') {
-      log({ error_event: { name: 'Error', msg: e, stack: '' } });
+      log({
+        error_event: { name: 'Error', msg: truncateMessage(e), stack: '' },
+      });
     } else {
       const msg = e ? JSON.stringify(e) : String(e);
-      log({ error_event: { name: 'Error', msg, stack: '' } });
+      log({
+        error_event: { name: 'Error', msg: truncateMessage(msg), stack: '' },
+      });
     }
   },
   logHandleEphemeralAuth: (authType: AuthType) => {
