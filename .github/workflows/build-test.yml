@@ -143,8 +143,10 @@ jobs:
         # For now, there's no sense acruing the cost of the runners.
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    # Limit running the E2E tests until unit tests pass to save on resources.
-    needs: unitTests
+    # Deliberately not gated on unitTests. E2E is the workflow's long pole, so
+    # serializing it behind a ~45s job that almost always passes just pushes
+    # out the critical path. Runners are free on a public repo; wall-clock
+    # feedback isn't.
     env:
       # Secrets and variables are sourced from the "E2E Tests" environment.
       TEST_ACCOUNT_EMAIL: ${{ secrets.TEST_ACCOUNT_EMAIL }}

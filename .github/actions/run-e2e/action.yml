@@ -15,6 +15,35 @@ runs:
     - name: Generate production config
       run: npm run generate:config
       shell: bash
+    # Resolve the VS Code version extest is about to pick so it can key the
+    # binary cache. Same endpoint extest uses, so the answer matches. Failing
+    # to resolve it is not fatal: we fall back to a key that never hits and
+    # the run downloads as it does today.
+    - name: Resolve latest VS Code version
+      if: runner.os == 'Linux'
+      id: vscode-version
+      shell: bash
+      run: |
+        version="$(curl -fsSL https://update.code.visualstudio.com/api/releases/stable | jq -r '.[0]')" || version=""
+        [[ -n "$version" && "$version" != "null" ]] || version="unresolved"
+        echo "Latest stable VS Code: $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+    # Cache only the binaries extest downloads, never `settings/` -- that is
+    # the VS Code user-data-dir and holds the signed-in session. Caches on a
+    # public repo are readable by anything that can trigger a workflow.
+    #
+    # The unpacked VS Code lets extest skip both the download and the unpack
+    # (it version-checks the binary and short-circuits). ChromeDriver always
+    # unpacks, so caching its archive is what saves the fetch. ChromeDriver's
+    # version is derived from VS Code's, so one key covers both.
+    - name: Cache VS Code and ChromeDriver
+      if: runner.os == 'Linux'
+      uses: actions/cache@v4
+      with:
+        path: |
+          /tmp/test-resources/VSCode-linux-x64
+          /tmp/test-resources/*chromedriver*.zip
+        key: e2e-binaries-${{ runner.os }}-vscode-${{ steps.vscode-version.outputs.version }}
     - name: npm run test:e2e:headless (Linux)
       if: runner.os == 'Linux'
       run: npm run test:e2e:headless

@@ -52,18 +52,32 @@ assert.equal(
 
 const DIALOG_WAIT_MS = 3000;
 
+/**
+ * Upper bound on how long VS Code may take to start up far enough to accept
+ * the commands the sign-in flow drives.
+ */
+const WORKBENCH_READY_WAIT_MS = 8000;
+
+/**
+ * Upper bound on how long the workbench may take to settle after sign-in.
+ */
+const AUTH_SETTLE_WAIT_MS = 5000;
+
 before(async function () {
   console.log('Starting global E2E test setup...');
   const workbench = new Workbench();
   const vsCodeDriver = workbench.getDriver();
   const chromeDriver = await getOAuthDriver();
-  await vsCodeDriver.sleep(8000);
 
   try {
     await signIn(workbench, vsCodeDriver, chromeDriver);
 
-    // Wait for the auth state to fully propagate in VS Code.
-    await vsCodeDriver.sleep(5000);
+    // By the time `signIn` returns the extension has already made
+    // authenticated calls on our behalf, so there is no auth state left to
+    // wait on. What can linger is UI: a picker still on screen here would be
+    // swallowed by the first test's command palette invocation, so clear it
+    // before handing over.
+    await dismissAnyOpenInput(vsCodeDriver, AUTH_SETTLE_WAIT_MS);
   } catch (err: unknown) {
     console.error('Error during test setup:', err);
     try {
@@ -110,7 +124,7 @@ async function signIn(
   vsCodeDriver: WebDriver,
   chromeDriver: WebDriver,
 ) {
-  await createNotebook(workbench);
+  await createNotebookWhenReady(workbench, WORKBENCH_READY_WAIT_MS);
 
   // Dismiss the telemetry notice modal if it appears. The extension activates
   // asynchronously after notebook creation, so we poll for the dialog. This is
@@ -180,6 +194,44 @@ async function signIn(
     console.warn(
       'Best-effort post-signin cleanup failed; continuing with tests.',
       err,
+    );
+  }
+}
+
+/**
+ * Creates the session's first notebook, retrying until VS Code has started up
+ * enough to accept the command.
+ *
+ * `Create: New Jupyter Notebook` is contributed by the Jupyter extension, so
+ * on a cold start it is not registered yet and dispatching it throws. Polling
+ * the real operation costs nothing on a warm start, and when startup never
+ * completes it fails here with a clear message rather than somewhere further
+ * down the sign-in flow.
+ *
+ * @param workbench - The workbench to create the notebook in.
+ * @param timeoutMs - Upper bound on how long to keep retrying.
+ */
+async function createNotebookWhenReady(
+  workbench: Workbench,
+  timeoutMs: number,
+): Promise<void> {
+  let lastError: unknown;
+  const created = await workbench
+    .getDriver()
+    .wait(async () => {
+      try {
+        await createNotebook(workbench);
+        return true;
+      } catch (err: unknown) {
+        lastError = err;
+        return false;
+      }
+    }, timeoutMs)
+    .catch(() => false);
+  if (!created) {
+    throw new Error(
+      `VS Code did not accept "Create: New Jupyter Notebook" within ${timeoutMs.toString()}ms.`,
+      { cause: lastError },
     );
   }
 }
