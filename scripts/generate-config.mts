@@ -87,7 +87,6 @@ const output = `${licenseHeader}
 // Generate with \`npm run generate-config\` after updating environment
 // variables (see \`.env.template\`).
 
-/* eslint-disable @cspell/spellchecker */
 export const CONFIG = ${JSON.stringify(config, null, 2)} as const;
 `;
 
