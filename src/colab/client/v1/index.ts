@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { UUID } from 'crypto';
 import * as https from 'https';
 import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
@@ -17,14 +16,6 @@ import {
   createErrorMiddleware,
 } from '../../../common/middleware';
 import { ColabAssignedServer } from '../../../jupyter/servers';
-import { uuidToWebSafeBase64 } from '../../../utils/uuid';
-import {
-  AcceleratorUnavailableError,
-  ColabRequestError,
-  DenylistedError,
-  InsufficientQuotaError,
-  TooManyAssignmentsError,
-} from '../../errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -33,52 +24,19 @@ import {
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from '../../headers';
-import { Shape, Variant } from '../../types';
 import {
-  Assignment,
   AuthType,
-  GetAssignmentResponse,
-  AssignmentSchema,
-  GetAssignmentResponseSchema,
-  UserInfo,
-  UserInfoSchema,
   ConsumptionUserInfo,
   ConsumptionUserInfoSchema,
-  PostAssignmentResponse,
-  Outcome,
-  PostAssignmentResponseSchema,
-  ListedAssignmentsSchema,
-  ListedAssignment,
-  RuntimeProxyToken,
-  RuntimeProxyTokenSchema,
   CredentialsPropagationResult,
   CredentialsPropagationResultSchema,
   ExperimentStateSchema,
   ExperimentState,
-  isHighMemOnlyAccelerator,
   Resources,
   ResourcesSchema,
 } from './api';
 
 const TUN_ENDPOINT = '/tun/m';
-
-// To discriminate the type of GET assignment responses.
-interface AssignmentToken extends GetAssignmentResponse {
-  kind: 'to_assign';
-}
-
-// To discriminate the type of GET assignment responses.
-interface AssignedAssignment extends Assignment {
-  kind: 'assigned';
-}
-
-// Options for assign method.
-interface AssignParams {
-  variant: Variant;
-  accelerator?: string;
-  shape?: Shape;
-  version?: string;
-}
 
 /**
  * A client for interacting with the Colab APIs.
@@ -146,20 +104,6 @@ export class ColabClient {
   }
 
   /**
-   * Gets the current user information.
-   *
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The current user information.
-   */
-  async getUserInfo(signal?: AbortSignal): Promise<UserInfo> {
-    return await this.issueRequest(
-      new URL('v1/user-info', this.colabGapiDomain),
-      { method: 'GET', signal },
-      UserInfoSchema,
-    );
-  }
-
-  /**
    * Gets the current user with Colab Compute Units (CCU) information.
    *
    * @param signal - Optional {@link AbortSignal} to cancel the request.
@@ -175,147 +119,6 @@ export class ColabClient {
       { method: 'GET', signal },
       ConsumptionUserInfoSchema,
     );
-  }
-
-  /**
-   * Returns the existing machine assignment if one exists, or creates one if it
-   * does not.
-   *
-   * @param notebookHash - Represents a web-safe base-64 encoded SHA256 digest.
-   * This value should always be a string of length 44.
-   * @param params - The assignment parameters {@link AssignParams} like
-   * variant, accelerator, shape and version.
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The assignment which is assigned to the user.
-   * @throws TooManyAssignmentsError if the user has too many assignments.
-   * @throws AcceleratorUnavailableError if the requested machine accelerator is
-   * unavailable.
-   * @throws InsufficientQuotaError if the user lacks the quota to assign.
-   * @throws DenylistedError if the user has been banned.
-   */
-  async assign(
-    notebookHash: UUID,
-    params: AssignParams,
-    signal?: AbortSignal,
-  ): Promise<{ assignment: Assignment; isNew: boolean }> {
-    const assignment = await this.getAssignment(notebookHash, params, signal);
-    switch (assignment.kind) {
-      case 'assigned': {
-        // Not required, but we want to remove the type field we use internally
-        // to discriminate the union of types returned from getAssignment.
-        const { kind: _, ...rest } = assignment;
-        return { assignment: rest, isNew: false };
-      }
-      case 'to_assign': {
-        let res: PostAssignmentResponse;
-        try {
-          res = await this.postAssignment(
-            notebookHash,
-            assignment.xsrfToken,
-            params,
-            signal,
-          );
-        } catch (error) {
-          // Check for Precondition Failed
-          if (
-            error instanceof ColabRequestError &&
-            error.response.status === 412
-          ) {
-            throw new TooManyAssignmentsError(error.message);
-          }
-          // Check for no machine availability.
-          if (
-            error instanceof ColabRequestError &&
-            error.response.status === 503
-          ) {
-            throw new AcceleratorUnavailableError(
-              params.accelerator ?? 'default',
-            );
-          }
-          throw error;
-        }
-
-        switch (res.outcome) {
-          case Outcome.QUOTA_DENIED_REQUESTED_VARIANTS:
-          case Outcome.QUOTA_EXCEEDED_USAGE_TIME:
-            throw new InsufficientQuotaError(
-              'You have insufficient quota to assign this server.',
-            );
-          case Outcome.DENYLISTED:
-            // TODO: Consider adding a mechanism to send feedback as part of an
-            // appeal.
-            throw new DenylistedError(
-              'This account has been blocked from accessing Colab servers due to suspected abusive activity. This does not impact access to other Google products. Review the [usage limitations](https://research.google.com/colaboratory/faq.html#limitations-and-restrictions).',
-            );
-          case Outcome.UNDEFINED_OUTCOME:
-          case Outcome.SUCCESS:
-          case undefined:
-            return {
-              assignment: AssignmentSchema.parse(res),
-              isNew: true,
-            };
-        }
-      }
-    }
-  }
-
-  /**
-   * Unassigns the specified machine assignment.
-   *
-   * @param endpoint - The endpoint to unassign.
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   */
-  async unassign(endpoint: string, signal?: AbortSignal): Promise<void> {
-    const url = new URL(
-      `${TUN_ENDPOINT}/unassign/${endpoint}`,
-      this.colabDomain,
-    );
-    const { token } = await this.issueRequest(
-      url,
-      { method: 'GET', signal },
-      z.object({ token: z.string() }),
-    );
-    await this.issueRequest(url, {
-      method: 'POST',
-      headers: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
-      signal,
-    });
-  }
-
-  /**
-   * Refreshes the connection for the given endpoint.
-   *
-   * @param endpoint - The server endpoint to refresh the connection for.
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The refreshed runtime proxy information.
-   */
-  async refreshConnection(
-    endpoint: string,
-    signal?: AbortSignal,
-  ): Promise<RuntimeProxyToken> {
-    const url = new URL('v1/runtime-proxy-token', this.colabGapiDomain);
-    url.searchParams.set('endpoint', endpoint);
-    url.searchParams.set('port', '8080');
-    return await this.issueRequest(
-      url,
-      { method: 'GET', signal },
-      RuntimeProxyTokenSchema,
-    );
-  }
-
-  /**
-   * Lists all assignments.
-   *
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns The list of assignments.
-   */
-  async listAssignments(signal?: AbortSignal): Promise<ListedAssignment[]> {
-    const response = await this.issueRequest(
-      new URL('v1/assignments', this.colabGapiDomain),
-      { method: 'GET', signal },
-      ListedAssignmentsSchema,
-    );
-    return response.assignments;
   }
 
   /**
@@ -435,69 +238,6 @@ export class ColabClient {
     return expState;
   }
 
-  private async getAssignment(
-    notebookHash: UUID,
-    params: AssignParams,
-    signal?: AbortSignal,
-  ): Promise<AssignmentToken | AssignedAssignment> {
-    const url = this.buildAssignUrl(notebookHash, params);
-    const response = await this.issueRequest(
-      url,
-      { method: 'GET', signal },
-      z.union([GetAssignmentResponseSchema, AssignmentSchema]),
-    );
-    if ('xsrfToken' in response) {
-      return { ...response, kind: 'to_assign' };
-    } else {
-      return { ...response, kind: 'assigned' };
-    }
-  }
-
-  private async postAssignment(
-    notebookHash: UUID,
-    xsrfToken: string,
-    params: AssignParams,
-    signal?: AbortSignal,
-  ): Promise<PostAssignmentResponse> {
-    const url = this.buildAssignUrl(notebookHash, params);
-    return await this.issueRequest(
-      url,
-      {
-        method: 'POST',
-        headers: { [COLAB_XSRF_TOKEN_HEADER.key]: xsrfToken },
-        signal,
-      },
-      PostAssignmentResponseSchema,
-    );
-  }
-
-  private buildAssignUrl(
-    notebookHash: UUID,
-    { variant, accelerator, shape, version }: AssignParams,
-  ): URL {
-    const url = new URL(`${TUN_ENDPOINT}/assign`, this.colabDomain);
-    url.searchParams.set('nbh', uuidToWebSafeBase64(notebookHash));
-    if (variant !== Variant.DEFAULT) {
-      url.searchParams.set('variant', variant);
-    }
-    if (accelerator) {
-      url.searchParams.set('accelerator', accelerator);
-    }
-    const shapeURLParam = mapShapeToURLParam(
-      // High mem only accelerators only have one shape option
-      isHighMemOnlyAccelerator(accelerator)
-        ? Shape.STANDARD
-        : (shape ?? Shape.STANDARD),
-    );
-    if (shapeURLParam) {
-      url.searchParams.set('shape', shapeURLParam);
-    }
-    if (version) {
-      url.searchParams.set('runtime_version_label', version);
-    }
-    return url;
-  }
-
   /**
    * Issues a request to the given endpoint, adding the necessary headers and
    * handling errors.
@@ -566,14 +306,5 @@ export class ColabClient {
     return schema
       ? fetchAndParse(fetchImpl, endpoint.toString(), schema, requestInit)
       : fetchImpl(endpoint.toString(), requestInit).then(() => undefined);
-  }
-}
-
-function mapShapeToURLParam(shape: Shape): string | undefined {
-  switch (shape) {
-    case Shape.HIGHMEM:
-      return 'hm';
-    default:
-      return undefined;
   }
 }

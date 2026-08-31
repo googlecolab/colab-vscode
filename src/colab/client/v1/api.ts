@@ -24,16 +24,7 @@
  */
 
 import { z } from 'zod';
-import { Kernel as GeneratedKernel } from '../../../jupyter/client/generated';
 import { Shape, SubscriptionTier, Variant } from '../../types';
-
-export enum SubscriptionState {
-  UNSUBSCRIBED = 1,
-  RECURRING = 2,
-  NON_RECURRING = 3,
-  PENDING_ACTIVATION = 4,
-  DECLINED = 5,
-}
 
 enum ColabSubscriptionTier {
   UNKNOWN = 0,
@@ -48,25 +39,10 @@ enum ColabGapiSubscriptionTier {
   PRO_PLUS = 'SUBSCRIPTION_TIER_PRO_PLUS',
 }
 
-export enum Outcome {
-  UNDEFINED_OUTCOME = 0,
-  QUOTA_DENIED_REQUESTED_VARIANTS = 1,
-  QUOTA_EXCEEDED_USAGE_TIME = 2,
-  // QUOTA_EXCEEDED_USAGE_TIME_REFUND_MIGHT_UNBLOCK (3) is deprecated.
-  SUCCESS = 4,
-  DENYLISTED = 5,
-}
-
 enum ColabGapiVariant {
   UNSPECIFIED = 'VARIANT_UNSPECIFIED',
   GPU = 'VARIANT_GPU',
   TPU = 'VARIANT_TPU',
-}
-
-enum ColabGapiShape {
-  UNSPECIFIED = 'SHAPE_UNSPECIFIED',
-  STANDARD = 'SHAPE_DEFAULT',
-  HIGHMEM = 'SHAPE_HIGH_MEM',
 }
 
 /** Colab supported auth types. */
@@ -113,21 +89,6 @@ function normalizeVariant(variant: ColabGapiVariant): Variant {
   }
 }
 
-/**
- * Normalize the similar but different GAPI representation for the shape.
- *
- * @param shape - the machine shape as represented by the Colab Google API.
- * @returns the normalized machine shape.
- */
-function normalizeShape(shape: ColabGapiShape): Shape {
-  switch (shape) {
-    case ColabGapiShape.HIGHMEM:
-      return Shape.HIGHMEM;
-    default:
-      return Shape.STANDARD;
-  }
-}
-
 export const Accelerator = z.object({
   /** The variant of the assignment. */
   variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
@@ -140,31 +101,20 @@ export const Accelerator = z.object({
 
 /**
  * The schema for top level information about a user's tier, usage and
- * availability in Colab.
+ * availability in Colab when CCU consumption info is requested (consumption
+ * fields are required).
  */
-export const UserInfoSchema = z.object({
+export const ConsumptionUserInfoSchema = z.object({
   /** The subscription tier. */
   subscriptionTier: z
     .enum(ColabGapiSubscriptionTier)
     .transform(normalizeSubTier),
   /** The paid Colab Compute Units balance. */
-  paidComputeUnitsBalance: z.number().optional(),
+  paidComputeUnitsBalance: z.number(),
   /** The eligible machine accelerators. */
   eligibleAccelerators: z.array(Accelerator),
   /** The ineligible machine accelerators. */
   ineligibleAccelerators: z.array(Accelerator),
-});
-/** Colab user information. */
-export type UserInfo = z.infer<typeof UserInfoSchema>;
-
-/**
- * The schema for top level information about a user's tier, usage and
- * availability in Colab when CCU consumption info is requested (consumption
- * fields are required).
- */
-export const ConsumptionUserInfoSchema = UserInfoSchema.required({
-  paidComputeUnitsBalance: true,
-}).extend({
   /**
    * The current rate of consumption of the user's CCUs (paid or free) based on
    * all assigned VMs.
@@ -211,194 +161,6 @@ export const ConsumptionUserInfoSchema = UserInfoSchema.required({
 });
 /** Colab consumption user information. */
 export type ConsumptionUserInfo = z.infer<typeof ConsumptionUserInfoSchema>;
-
-/** The response when getting an assignment. */
-export const GetAssignmentResponseSchema = z
-  .object({
-    /** The pool's accelerator. */
-    acc: z.string().toUpperCase(),
-    /** The notebook ID hash. */
-    nbh: z.string(),
-    /** Whether or not Recaptcha should prompt. */
-    p: z.boolean(),
-    /** XSRF token for assignment posting. */
-    token: z.string(),
-    /** The variant of the assignment. */
-    variant: z.enum(Variant),
-  })
-  .transform(({ acc, nbh, p, token, ...rest }) => ({
-    ...rest,
-    /** The pool's accelerator. */
-    accelerator: acc,
-    /** The notebook ID hash. */
-    notebookIdHash: nbh,
-    /** Whether or not Recaptcha should prompt. */
-    shouldPromptRecaptcha: p,
-    /** XSRF token for assignment posting. */
-    xsrfToken: token,
-  }));
-/** The response when getting an assignment. */
-export type GetAssignmentResponse = z.infer<typeof GetAssignmentResponseSchema>;
-
-export const RuntimeProxyInfoSchema = z.object({
-  /** Token for the runtime proxy. */
-  token: z.string(),
-  /** Token expiration time in seconds. */
-  tokenExpiresInSeconds: z.number(),
-  /** URL of the runtime proxy. */
-  url: z.string(),
-});
-
-export const RuntimeProxyTokenSchema = z
-  .object({
-    /** Token for the runtime proxy. */
-    token: z.string(),
-    /** Token TTL, serialized from `google.protobuf.Duration` as string. */
-    tokenTtl: z.string(),
-    /** URL of the runtime proxy. */
-    url: z.string(),
-  })
-  .transform(({ tokenTtl, ...rest }) => {
-    // Convert from string with 's' suffix to number of seconds and rename to
-    // match `RuntimeProxyInfoSchema`.
-    const tokenExpiresInSeconds = Number(tokenTtl.slice(0, -1));
-    return {
-      ...rest,
-      tokenExpiresInSeconds:
-        Number.isNaN(tokenExpiresInSeconds) || tokenExpiresInSeconds <= 0
-          ? DEFAULT_TOKEN_TTL_SECONDS
-          : tokenExpiresInSeconds,
-    };
-  });
-export type RuntimeProxyToken = z.infer<typeof RuntimeProxyTokenSchema>;
-
-/** The response when creating an assignment. */
-export const PostAssignmentResponseSchema = z.object({
-  /** The assigned accelerator. */
-  accelerator: z.string().toUpperCase().optional(),
-  /** The endpoint URL. */
-  endpoint: z.string().optional(),
-  /** Frontend idle timeout in seconds. */
-  fit: z.number().optional(),
-  /** Whether the backend is trusted. */
-  allowedCredentials: z.boolean().optional(),
-  /** The subscription state. */
-  sub: z.enum(SubscriptionState).optional(),
-  /** The subscription tier. */
-  subTier: z.enum(ColabSubscriptionTier).transform(normalizeSubTier).optional(),
-  /** The outcome of the assignment. */
-  outcome: z.enum(Outcome).optional(),
-  /** The variant of the assignment. */
-  // On GET, this is a string (enum) but on POST this is a number.
-  // Normalize it to the string-based enum.
-  variant: z.preprocess((val) => {
-    if (typeof val === 'number') {
-      switch (val) {
-        case 0:
-          return Variant.DEFAULT;
-        case 1:
-          return Variant.GPU;
-        case 2:
-          return Variant.TPU;
-      }
-    }
-    return val;
-  }, z.enum(Variant).optional()),
-  /** The machine shape. */
-  machineShape: z.enum(Shape).optional(),
-  /** Information about the runtime proxy. */
-  runtimeProxyInfo: RuntimeProxyInfoSchema.optional(),
-});
-/** The response when creating an assignment. */
-export type PostAssignmentResponse = z.infer<
-  typeof PostAssignmentResponseSchema
->;
-
-/** The schema of an assignment when listing all. */
-export const ListedAssignmentSchema = z.object({
-  /** The endpoint URL. */
-  endpoint: z.string(),
-  /** The assigned accelerator. */
-  accelerator: z.string().toUpperCase(),
-  /** The variant of the assignment. */
-  variant: z.enum(ColabGapiVariant).transform(normalizeVariant),
-  /** The machine shape. */
-  machineShape: z.enum(ColabGapiShape).transform(normalizeShape),
-  /** Information about the runtime proxy. */
-  runtimeProxyInfo: RuntimeProxyTokenSchema.optional(),
-  /** Runtime version label. */
-  runtimeVersionLabel: z.string().optional(),
-  /**
-   * Notebook ID hash.
-   *
-   * This should always be present, but added as a optional field to avoid
-   * breaking changes.
-   */
-  notebookIdHash: z.string().optional(),
-});
-/** An abbreviated, listed assignment in Colab. */
-export type ListedAssignment = z.infer<typeof ListedAssignmentSchema>;
-
-/** The schema of the Colab API's list assignments endpoint. */
-export const ListedAssignmentsSchema = z.object({
-  assignments: z
-    .array(ListedAssignmentSchema)
-    .optional()
-    .transform((assignments) => assignments ?? []),
-});
-/** Abbreviated, listed assignments in Colab. */
-export type ListedAssignments = z.infer<typeof ListedAssignmentsSchema>;
-
-/** A machine assignment in Colab. */
-export const AssignmentSchema = PostAssignmentResponseSchema.omit({
-  outcome: true,
-})
-  // fit, sub, subTier and runtimeProxyInfo come back on POST but not when
-  // listing all.
-  .required({
-    accelerator: true,
-    endpoint: true,
-    variant: true,
-    machineShape: true,
-    runtimeProxyInfo: true,
-  })
-  .transform(({ fit, sub, subTier, ...rest }) => ({
-    ...rest,
-    /** The idle timeout in seconds. */
-    idleTimeoutSec: fit,
-    /** The subscription state. */
-    subscriptionState: sub,
-    /** The subscription tier. */
-    subscriptionTier: subTier,
-  }));
-/** A machine assignment in Colab. */
-export type Assignment = z.infer<typeof AssignmentSchema>;
-
-/** A Colab Jupyter kernel returned from the Colab API. */
-// This can be obtained by querying the Jupyter REST API's /api/spec.yaml
-// endpoint.
-export const KernelSchema: z.ZodType<GeneratedKernel> = z
-  .object({
-    /** The UUID of the kernel. */
-    id: z.string(),
-    /** The kernel spec name. */
-    name: z.string(),
-    /** The ISO 8601 timestamp for the last-seen activity on the kernel. */
-    last_activity: z.iso.datetime(),
-    /** The current execution state of the kernel. */
-    execution_state: z.string(),
-    /** The number of active connections to the kernel. */
-    connections: z.number(),
-  })
-  .transform(({ last_activity, execution_state, ...rest }) => ({
-    ...rest,
-    /** The ISO 8601 timestamp for the last-seen activity on the kernel. */
-    lastActivity: last_activity,
-    /** The current execution state of the kernel. */
-    executionState: execution_state,
-  }));
-/** A Colab Jupyter kernel. */
-export type Kernel = z.infer<typeof KernelSchema>;
 
 /** Information about memory usage on a Colab runtime. */
 export const MemorySchema = z
@@ -532,29 +294,8 @@ export function shapeToMachineShape(shape: Shape): string {
   }
 }
 
-const HIGHMEM_ONLY_ACCELERATORS: Set<string> = new Set<string>([
-  'L4',
-  'V28',
-  'V5E1',
-  'V6E1',
-]);
-
-/**
- * Determines if the provided accelerator is one that requires a high-memory
- * machine shape.
- *
- * @param accelerator - The accelerator to check.
- * @returns Whether the accelerator requires a high-memory machine shape.
- */
-export function isHighMemOnlyAccelerator(accelerator?: string): boolean {
-  return (
-    accelerator !== undefined && HIGHMEM_ONLY_ACCELERATORS.has(accelerator)
-  );
-}
-
 /** The experiment flags supported by the Colab extension. */
 export enum ExperimentFlag {
-  EnablePublicApi = 'enable_public_api_vscode',
   EnableTelemetry = 'enable_vscode_telemetry',
   ResourcePollIntervalMs = 'resource_poll_interval_ms',
   RuntimeVersionNames = 'runtime_version_names',
@@ -565,7 +306,6 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
-  [ExperimentFlag.EnablePublicApi]: false,
   [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.ResourcePollIntervalMs]: 10000,
   [ExperimentFlag.RuntimeVersionNames]: [],
@@ -604,5 +344,3 @@ export const ExperimentStateSchema = z.object({
 });
 /** The experiment state response. */
 export type ExperimentState = z.infer<typeof ExperimentStateSchema>;
-
-const DEFAULT_TOKEN_TTL_SECONDS = 3600;
