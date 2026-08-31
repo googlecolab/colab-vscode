@@ -15,11 +15,7 @@ import {
   TooManyAssignmentsError,
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
-import {
-  Shape as CommonShape,
-  SubscriptionTier as CommonSubscriptionTier,
-  Variant as CommonVariant,
-} from '../../types';
+import { Shape as CommonShape, Variant as CommonVariant } from '../../types';
 import {
   ColaboratoryApi,
   Configuration as ColabConfig,
@@ -32,7 +28,6 @@ import {
   ResponseContext,
   Runtime,
   Shape,
-  SubscriptionTier,
   Variant,
 } from './generated/colab';
 import {
@@ -74,28 +69,6 @@ export function createColabApiClient(
   onAuthError?: () => Promise<void>,
 ): ColabApiClient {
   return new ColabApiClientImpl(basePath, getAccessToken, onAuthError);
-}
-
-/**
- * Normalizes the API {@link SubscriptionTier} to the common
- * {@link CommonSubscriptionTier}.
- *
- * @param tier - Subscription tier returned from public Colab API.
- * @returns Normalized common subscription tier value.
- */
-export function normalizeSubscriptionTier(
-  tier: SubscriptionTier,
-): CommonSubscriptionTier {
-  switch (tier) {
-    case SubscriptionTier.SubscriptionTierFree:
-      return CommonSubscriptionTier.NONE;
-    case SubscriptionTier.SubscriptionTierPro:
-      return CommonSubscriptionTier.PRO;
-    case SubscriptionTier.SubscriptionTierProPlus:
-      return CommonSubscriptionTier.PRO_PLUS;
-    default:
-      throw new Error(`Unknown subscription tier: ${tier}`);
-  }
 }
 
 /**

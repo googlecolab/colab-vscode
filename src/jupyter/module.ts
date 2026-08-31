@@ -81,7 +81,6 @@ export function createJupyterModule(
     vs,
     authProvider.onDidChangeSessions,
     assignmentManager,
-    colabClient,
     colabApiClient,
     new ServerPicker(vs, assignmentManager),
     jupyter.exports,
