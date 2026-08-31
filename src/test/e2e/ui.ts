@@ -82,7 +82,7 @@ export async function pickerIdentity(inputBox: InputBox): Promise<{
       .findElement(By.className('monaco-inputbox'))
       .findElement(By.className('input'));
     const attr = await input.getAttribute('aria-label');
-    ariaLabel = attr || undefined;
+    ariaLabel = attr ?? undefined;
   } catch {
     /* leave undefined */
   }
