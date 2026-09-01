@@ -54,7 +54,7 @@ export class ConsumptionPoller implements Toggleable, Disposable {
         abandonGraceMs: 0,
       },
       {
-        name: ConsumptionPoller.name,
+        name: 'ConsumptionPoller',
         run: this.poll.bind(this),
       },
       OverrunPolicy.AbandonAndRun,

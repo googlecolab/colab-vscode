@@ -77,7 +77,7 @@ export class ResourceTreeProvider
           abandonGraceMs: 0, // Nothing to cleanup, abandon immediately.
         },
         {
-          name: ResourceTreeProvider.name,
+          name: 'ResourceTreeProvider',
           run: () => {
             this.refresh.call(this);
             return Promise.resolve();

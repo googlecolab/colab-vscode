@@ -86,7 +86,7 @@ export class ServerKeepAliveController implements Toggleable, Disposable {
         abandonGraceMs: 0,
       },
       {
-        name: ServerKeepAliveController.name,
+        name: 'ServerKeepAliveController',
         run: (signal) => this.keepServersAlive(signal),
       },
       OverrunPolicy.AllowToComplete,

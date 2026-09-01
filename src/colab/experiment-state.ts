@@ -62,7 +62,7 @@ export class ExperimentStateProvider implements Toggleable, Disposable {
         abandonGraceMs: 0,
       },
       {
-        name: ExperimentStateProvider.name,
+        name: 'ExperimentStateProvider',
         run: async (signal: AbortSignal) => {
           await this.getExperimentState(this.isAuthorized, signal);
         },
