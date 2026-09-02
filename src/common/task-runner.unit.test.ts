@@ -5,7 +5,8 @@
  */
 
 import { expect } from 'chai';
-import sinon, { SinonFakeTimers } from 'sinon';
+import sinon, { SinonFakeTimers, SinonStubbedFunction } from 'sinon';
+import { telemetry } from '../telemetry';
 import { ColabLogWatcher } from '../test/helpers/logging';
 import { newVsCodeStub } from '../test/helpers/vscode';
 import { LogLevel } from './logging';
@@ -266,6 +267,85 @@ describe('SequentialTaskRunner', () => {
       await expect(run.aborted, 'Task should be aborted').to.eventually.be
         .fulfilled;
       sinon.assert.calledOnce(testTask.run);
+    });
+  });
+
+  describe('failure reporting', () => {
+    let logError: SinonStubbedFunction<typeof telemetry.logError>;
+    let runner: SequentialTaskRunner;
+    let run: TestRun;
+
+    /**
+     * Starts a runner and waits for its first run to begin.
+     *
+     * @param overrun - The overrun policy to build the runner with.
+     */
+    async function start(
+      overrun: OverrunPolicy = OverrunPolicy.AllowToComplete,
+    ): Promise<void> {
+      runner = buildRunner(overrun);
+      run = testTask.nextRun();
+      runner.start(StartMode.Immediately);
+      await expect(run.started, 'First run should start').to.eventually.be
+        .fulfilled;
+    }
+
+    beforeEach(() => {
+      logError = sinon.stub(telemetry, 'logError');
+    });
+
+    afterEach(() => {
+      runner.dispose();
+      logError.restore();
+    });
+
+    it('reports an error the task threw itself', async () => {
+      await start();
+      const failure = new Error('network down');
+
+      run.reject(failure);
+      await tickPast(ABANDON_GRACE_MS);
+
+      sinon.assert.calledOnceWithExactly(logError, failure);
+    });
+
+    it('reports the timeout rather than the opaque abort', async () => {
+      await start();
+
+      await tickPast(TASK_TIMEOUT_MS);
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      run.reject(new Error('The user aborted a request.'));
+      await tickPast(ABANDON_GRACE_MS);
+
+      sinon.assert.calledOnce(logError);
+      const [reported] = logError.firstCall.args;
+      if (!(reported instanceof Error)) {
+        expect.fail('expected an Error');
+      }
+      expect(reported.message).to.contain('timed out');
+    });
+
+    it('stays silent when the runner abandons the task for a new run', async () => {
+      await start(OverrunPolicy.AbandonAndRun);
+
+      testTask.nextRun();
+      runner.runNow();
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      run.reject(new Error('The user aborted a request.'));
+      await tickPast(ABANDON_GRACE_MS);
+
+      sinon.assert.notCalled(logError);
+    });
+
+    it('stays silent when the runner is stopped', async () => {
+      await start();
+
+      runner.stop();
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      run.reject(new Error('The user aborted a request.'));
+      await tickPast(ABANDON_GRACE_MS);
+
+      sinon.assert.notCalled(logError);
     });
   });
 
