@@ -9,6 +9,7 @@ import { Disposable } from 'vscode';
 import { AuthType } from '../colab/client/v1/api';
 import { getExperimentIds } from '../colab/experiment-state';
 import { SubscriptionTier as ColabSubscriptionTier } from '../colab/types';
+import { InputFlowAction } from '../common/multi-step-quickpick';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { getPackageInfo } from '../config/package-info';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
@@ -32,6 +33,19 @@ let client: ClearcutClient | undefined;
 let baseLog: ColabLogEventBase;
 // Indicates whether the user has telemetry enabled.
 let isTelemetryEnabled: () => boolean;
+
+/**
+ * A set of error names that represent cancelled or abandoned work.
+ *
+ * These are normal control flow. E.g. a user dismissing a picker or a poll
+ * being superseded. Errors with these names are not reported to the telemetry
+ * service as they are not indicative of a problem with the extension.
+ */
+const CANCELLATION_ERROR_NAMES = new Set([
+  'AbortError',
+  'Canceled',
+  'CancellationError',
+]);
 
 /**
  * Initializes the telemetry module
@@ -133,6 +147,9 @@ export const telemetry = {
     });
   },
   logError: (e: unknown) => {
+    if (isCancellation(e)) {
+      return;
+    }
     if (e instanceof Error) {
       log({
         error_event: { name: e.name, msg: e.message, stack: e.stack ?? '' },
@@ -233,4 +250,17 @@ function toTelemetrySubscriptionTier(
     case ColabSubscriptionTier.PRO_PLUS:
       return SubscriptionTier.SUBSCRIPTION_TIER_PRO_PLUS;
   }
+}
+
+/**
+ * Reports whether an error represents cancelled or abandoned work.
+ *
+ * @param e - The value passed to the error reporter.
+ * @returns True when the value is a cancellation error, false otherwise.
+ */
+function isCancellation(e: unknown): boolean {
+  if (e instanceof InputFlowAction) {
+    return true;
+  }
+  return e instanceof Error && CANCELLATION_ERROR_NAMES.has(e.name);
 }
