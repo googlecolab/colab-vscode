@@ -161,6 +161,12 @@ export function colabProxyWebSocket(
     }
 
     private sendInputReply(requestMessageId: number, err?: unknown): void {
+      // It's possible the socket dropped while the auth was round-tripping.
+      if (this.readyState !== WebSocket.OPEN) {
+        log.warn('Dropping input reply: the kernel socket is no longer open');
+        return;
+      }
+
       // Client session ID should be set already at this point.
       assert(this.clientSessionId);
       const replyMessage: ColabInputReplyMessage = {

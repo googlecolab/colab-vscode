@@ -12,6 +12,7 @@ import WebSocket from 'ws';
 import { handleEphemeralAuth } from '../auth/ephemeral';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
+import { telemetry } from '../telemetry';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
   colabProxyWebSocket,
@@ -231,6 +232,42 @@ describe('colabProxyWebSocket', () => {
       );
     });
 
+    it('drops the input reply when the socket is no longer open', async () => {
+      const ephemeralAuthHandled = new Promise<void>((resolve) => {
+        handleEphemeralAuthStub.callsFake(() => {
+          // The auth modal outlives the kernel socket.
+          testWebSocket.readyState = WebSocket.CLOSED;
+          resolve();
+          return Promise.resolve();
+        });
+      });
+      const sendSpy = sinon.spy(testWebSocket, 'send');
+      const logErrorStub = sinon.stub(telemetry, 'logError');
+      const unhandled: unknown[] = [];
+      const capture = (reason: unknown) => {
+        unhandled.push(reason);
+      };
+      process.on('unhandledRejection', capture);
+
+      try {
+        testWebSocket.emit(
+          'message',
+          JSON.stringify(rawColabRequestMessage),
+          /* isBinary= */ false,
+        );
+
+        await expect(ephemeralAuthHandled).to.eventually.be.fulfilled;
+        await new Promise((resolve) => setImmediate(resolve));
+      } finally {
+        process.off('unhandledRejection', capture);
+      }
+
+      sinon.assert.notCalled(sendSpy);
+      // Dropping the reply must be silent, not a reported error.
+      sinon.assert.notCalled(logErrorStub);
+      expect(unhandled).to.be.empty;
+    });
+
     it('does not trigger handleEphemeralAuth if message is not a colab_request', () => {
       const rawMessage = JSON.stringify({
         header: { msg_type: 'execute_reply' },
@@ -314,6 +351,9 @@ describe('colabProxyWebSocket', () => {
   });
 
   class TestWebSocket extends WebSocket {
+    /** Mutable stand-in for the real socket's connection state. */
+    override readyState: WebSocket['readyState'] = WebSocket.OPEN;
+
     constructor(
       _address: string | URL | null,
       protocols?:
