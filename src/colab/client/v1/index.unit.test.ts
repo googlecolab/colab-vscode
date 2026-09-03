@@ -11,13 +11,6 @@ import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
 import { ColabAssignedServer } from '../../../jupyter/servers';
 import { TestUri } from '../../../test/helpers/uri';
-import { uuidToWebSafeBase64 } from '../../../utils/uuid';
-import {
-  AcceleratorUnavailableError,
-  DenylistedError,
-  InsufficientQuotaError,
-  TooManyAssignmentsError,
-} from '../../errors';
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
@@ -28,18 +21,8 @@ import {
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
 } from '../../headers';
-import { Shape, SubscriptionTier, Variant } from '../../types';
-import {
-  Assignment,
-  SubscriptionState,
-  Outcome,
-  RuntimeProxyToken,
-  AuthType,
-  ExperimentFlag,
-  ConsumptionUserInfo,
-  UserInfo,
-  ListedAssignment,
-} from './api';
+import { SubscriptionTier, Variant } from '../../types';
+import { AuthType, ExperimentFlag, ConsumptionUserInfo } from './api';
 import { ColabClient } from '.';
 
 const COLAB_HOST = 'colab.example.com';
@@ -47,28 +30,6 @@ const GOOGLE_APIS_HOST = 'colab.example.googleapis.com';
 const BEARER_TOKEN = 'access-token';
 const APP_NAME = 'mock-app';
 const EXTENSION_VERSION = '1.2.3';
-const NOTEBOOK_HASH = randomUUID();
-const DEFAULT_ASSIGNMENT_RESPONSE = {
-  accelerator: 'A100',
-  endpoint: 'mock-server',
-  fit: 30,
-  sub: SubscriptionState.UNSUBSCRIBED,
-  subTier: SubscriptionTier.NONE,
-  variant: Variant.GPU,
-  machineShape: Shape.STANDARD,
-  runtimeProxyInfo: {
-    token: 'mock-token',
-    tokenExpiresInSeconds: 42,
-    url: 'https://mock-url.com',
-  },
-};
-const { fit, sub, subTier, ...rest } = DEFAULT_ASSIGNMENT_RESPONSE;
-const DEFAULT_ASSIGNMENT: Assignment = {
-  ...rest,
-  idleTimeoutSec: fit,
-  subscriptionState: sub,
-  subscriptionTier: subTier,
-};
 
 describe('ColabClient', () => {
   let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
@@ -93,60 +54,6 @@ describe('ColabClient', () => {
 
   afterEach(() => {
     sinon.restore();
-  });
-
-  it('successfully gets user info', async () => {
-    const mockResponse = {
-      subscriptionTier: 'SUBSCRIPTION_TIER_PRO',
-      eligibleAccelerators: [
-        {
-          variant: 'VARIANT_GPU',
-          models: ['T4', 'A100', 'L4'],
-        },
-        {
-          variant: 'VARIANT_TPU',
-          models: ['V5E1', 'V6E1', 'V28'],
-        },
-      ],
-      ineligibleAccelerators: [
-        { variant: 'VARIANT_GPU' },
-        { variant: 'VARIANT_TPU' },
-      ],
-    };
-    fetchStub
-      .withArgs(
-        urlMatcher({
-          method: 'GET',
-          host: GOOGLE_APIS_HOST,
-          path: '/v1/user-info',
-          withAuthUser: false,
-        }),
-      )
-      .resolves(
-        new Response(withXSSI(JSON.stringify(mockResponse)), { status: 200 }),
-      );
-
-    const response = client.getUserInfo();
-
-    const expectedResponse: UserInfo = {
-      subscriptionTier: SubscriptionTier.PRO,
-      eligibleAccelerators: [
-        {
-          variant: Variant.GPU,
-          models: ['T4', 'A100', 'L4'],
-        },
-        {
-          variant: Variant.TPU,
-          models: ['V5E1', 'V6E1', 'V28'],
-        },
-      ],
-      ineligibleAccelerators: [
-        { variant: Variant.GPU, models: [] },
-        { variant: Variant.TPU, models: [] },
-      ],
-    };
-    await expect(response).to.eventually.deep.equal(expectedResponse);
-    sinon.assert.calledOnce(fetchStub);
   });
 
   it('successfully gets consumption user info', async () => {
@@ -230,461 +137,6 @@ describe('ColabClient', () => {
     sinon.assert.calledOnce(fetchStub);
   });
 
-  describe('assignment', () => {
-    const ASSIGN_PATH = '/tun/m/assign';
-    let wireNbh: string;
-    let queryParams: Record<string, string | RegExp>;
-
-    beforeEach(() => {
-      wireNbh = uuidToWebSafeBase64(NOTEBOOK_HASH);
-      queryParams = {
-        nbh: wireNbh,
-      };
-    });
-
-    it('resolves an existing assignment', async () => {
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'GET',
-            host: COLAB_HOST,
-            path: ASSIGN_PATH,
-            queryParams,
-          }),
-        )
-        .resolves(
-          new Response(withXSSI(JSON.stringify(DEFAULT_ASSIGNMENT_RESPONSE)), {
-            status: 200,
-          }),
-        );
-
-      await expect(
-        client.assign(NOTEBOOK_HASH, {
-          variant: Variant.GPU,
-          accelerator: 'A100',
-        }),
-      ).to.eventually.deep.equal({
-        assignment: DEFAULT_ASSIGNMENT,
-        isNew: false,
-      });
-
-      sinon.assert.calledOnce(fetchStub);
-    });
-
-    describe('without an existing assignment', () => {
-      beforeEach(() => {
-        const mockGetResponse = {
-          acc: 'NONE',
-          nbh: wireNbh,
-          p: false,
-          token: 'mock-xsrf-token',
-          variant: Variant.DEFAULT,
-        };
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'GET',
-              host: COLAB_HOST,
-              path: ASSIGN_PATH,
-              queryParams,
-            }),
-          )
-          .resolves(
-            new Response(withXSSI(JSON.stringify(mockGetResponse)), {
-              status: 200,
-            }),
-          );
-      });
-
-      const assignmentTests: [Variant, string?, Shape?, string?][] = [
-        [Variant.DEFAULT, undefined],
-        [Variant.GPU, 'T4'],
-        [Variant.TPU, 'V28', Shape.STANDARD],
-        [Variant.DEFAULT, undefined, Shape.HIGHMEM],
-        [Variant.GPU, 'A100', Shape.HIGHMEM],
-        [Variant.TPU, 'V6E1', Shape.STANDARD, ''],
-        [Variant.GPU, 'T4', Shape.STANDARD, 'v2'],
-      ];
-      for (const [variant, accelerator, shape, version] of assignmentTests) {
-        const assignment = `${variant}${accelerator ? ` (${accelerator})` : ''} with shape ${String(shape ?? Shape.STANDARD)}${version ? ` and version ${version}` : ''}`;
-
-        it(`creates a new ${assignment}`, async () => {
-          const postQueryParams: Record<string, string | RegExp> = {
-            ...queryParams,
-          };
-          if (variant !== Variant.DEFAULT) {
-            postQueryParams.variant = variant;
-          }
-          if (accelerator) {
-            postQueryParams.accelerator = accelerator;
-          }
-          if (shape === Shape.HIGHMEM) {
-            postQueryParams.shape = 'hm';
-          }
-          if (version) {
-            postQueryParams.runtime_version_label = version;
-          }
-          const assignmentResponse = {
-            ...DEFAULT_ASSIGNMENT_RESPONSE,
-            variant,
-            accelerator: accelerator ?? 'NONE',
-            ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
-          };
-          fetchStub
-            .withArgs(
-              urlMatcher({
-                method: 'POST',
-                host: COLAB_HOST,
-                path: ASSIGN_PATH,
-                queryParams: postQueryParams,
-                otherHeaders: {
-                  [COLAB_XSRF_TOKEN_HEADER.key]: 'mock-xsrf-token',
-                },
-              }),
-            )
-            .resolves(
-              new Response(withXSSI(JSON.stringify(assignmentResponse)), {
-                status: 200,
-              }),
-            );
-
-          const expectedAssignment: Assignment = {
-            ...DEFAULT_ASSIGNMENT,
-            variant,
-            accelerator: accelerator ?? 'NONE',
-            ...(shape === Shape.HIGHMEM ? { machineShape: Shape.HIGHMEM } : {}),
-          };
-          await expect(
-            client.assign(NOTEBOOK_HASH, {
-              variant,
-              accelerator,
-              shape,
-              version,
-            }),
-          ).to.eventually.deep.equal({
-            assignment: expectedAssignment,
-            isNew: true,
-          });
-
-          sinon.assert.calledTwice(fetchStub);
-        });
-      }
-
-      it('creates a new assignment with default shape if accelerator is high mem only', async () => {
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'POST',
-              host: COLAB_HOST,
-              path: ASSIGN_PATH,
-              queryParams: {
-                ...queryParams,
-                variant: Variant.GPU,
-                accelerator: 'L4',
-              },
-              otherHeaders: {
-                [COLAB_XSRF_TOKEN_HEADER.key]: 'mock-xsrf-token',
-              },
-            }),
-          )
-          .resolves(
-            new Response(
-              withXSSI(
-                JSON.stringify({
-                  ...DEFAULT_ASSIGNMENT_RESPONSE,
-                  variant: Variant.GPU,
-                  accelerator: 'L4',
-                }),
-              ),
-              {
-                status: 200,
-              },
-            ),
-          );
-
-        const expectedAssignment: Assignment = {
-          ...DEFAULT_ASSIGNMENT,
-          variant: Variant.GPU,
-          accelerator: 'L4',
-          machineShape: Shape.STANDARD,
-        };
-        await expect(
-          client.assign(NOTEBOOK_HASH, {
-            variant: Variant.GPU,
-            accelerator: 'L4',
-            shape: Shape.HIGHMEM,
-          }),
-        ).to.eventually.deep.equal({
-          assignment: expectedAssignment,
-          isNew: true,
-        });
-
-        sinon.assert.calledTwice(fetchStub);
-      });
-
-      it('rejects when assignments exceed limit', async () => {
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'POST',
-              host: COLAB_HOST,
-              path: ASSIGN_PATH,
-              queryParams,
-              otherHeaders: {
-                'X-Goog-Colab-Token': 'mock-xsrf-token',
-              },
-            }),
-          )
-          .resolves(new Response(undefined, { status: 412 }));
-
-        await expect(
-          client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
-        ).to.eventually.be.rejectedWith(TooManyAssignmentsError);
-      });
-
-      it('rejects when accelerator is unavailable', async () => {
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'POST',
-              host: COLAB_HOST,
-              path: ASSIGN_PATH,
-              queryParams,
-              otherHeaders: {
-                'X-Goog-Colab-Token': 'mock-xsrf-token',
-              },
-            }),
-          )
-          .resolves(new Response(undefined, { status: 503 }));
-
-        await expect(
-          client.assign(NOTEBOOK_HASH, {
-            variant: Variant.GPU,
-            accelerator: 'H100',
-          }),
-        ).to.eventually.be.rejectedWith(AcceleratorUnavailableError, /H100/);
-      });
-
-      for (const quotaTest of [
-        {
-          reason: 'request variant unavailable',
-          outcome: Outcome.QUOTA_DENIED_REQUESTED_VARIANTS,
-        },
-        {
-          reason: 'usage time exceeded',
-          outcome: Outcome.QUOTA_EXCEEDED_USAGE_TIME,
-        },
-      ]) {
-        it(`rejects when quota is exceeded due to ${quotaTest.reason}`, async () => {
-          fetchStub
-            .withArgs(
-              urlMatcher({
-                method: 'POST',
-                host: COLAB_HOST,
-                path: ASSIGN_PATH,
-                queryParams,
-                otherHeaders: {
-                  'X-Goog-Colab-Token': 'mock-xsrf-token',
-                },
-              }),
-            )
-            .resolves(
-              new Response(
-                withXSSI(
-                  JSON.stringify({
-                    outcome: quotaTest.outcome,
-                  }),
-                ),
-                {
-                  status: 200,
-                },
-              ),
-            );
-
-          await expect(
-            client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
-          ).to.eventually.be.rejectedWith(
-            InsufficientQuotaError,
-            /insufficient quota/,
-          );
-        });
-      }
-
-      it('rejects when user is banned', async () => {
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'POST',
-              host: COLAB_HOST,
-              path: ASSIGN_PATH,
-              queryParams,
-              otherHeaders: {
-                'X-Goog-Colab-Token': 'mock-xsrf-token',
-              },
-            }),
-          )
-          .resolves(
-            new Response(
-              withXSSI(
-                JSON.stringify({
-                  outcome: Outcome.DENYLISTED,
-                }),
-              ),
-              {
-                status: 200,
-              },
-            ),
-          );
-
-        await expect(
-          client.assign(NOTEBOOK_HASH, { variant: Variant.DEFAULT }),
-        ).to.eventually.be.rejectedWith(DenylistedError, /blocked/);
-      });
-    });
-  });
-
-  it('successfully lists multiple assignments', async () => {
-    const mockAssignment1 = {
-      endpoint: 'm-s-foo-1',
-      accelerator: 'A100',
-      variant: 'VARIANT_UNSPECIFIED',
-      machineShape: 'SHAPE_UNSPECIFIED',
-      runtimeProxyInfo: {
-        token: 'new_token',
-        tokenTtl: '3600s',
-        url: 'https://8080-m-s-foo-1.bar.prod.colab.dev',
-      },
-    };
-    const mockAssignment2 = {
-      endpoint: 'm-s-foo-2',
-      accelerator: 'T4',
-      variant: 'VARIANT_GPU',
-      machineShape: 'SHAPE_DEFAULT',
-      runtimeProxyInfo: {
-        token: 'new_token',
-        tokenTtl: '3600s',
-        url: 'https://8080-m-s-foo-2.bar.prod.colab.dev',
-      },
-    };
-    const mockAssignment3 = {
-      endpoint: 'm-s-foo-3',
-      accelerator: 'V28',
-      variant: 'VARIANT_TPU',
-      machineShape: 'SHAPE_HIGH_MEM',
-      runtimeProxyInfo: {
-        token: 'new_token',
-        tokenTtl: '3600s',
-        url: 'https://8080-m-s-foo-3.bar.prod.colab.dev',
-      },
-    };
-    fetchStub
-      .withArgs(
-        urlMatcher({
-          method: 'GET',
-          host: GOOGLE_APIS_HOST,
-          path: '/v1/assignments',
-          withAuthUser: false,
-        }),
-      )
-      .resolves(
-        new Response(
-          withXSSI(
-            JSON.stringify({
-              assignments: [mockAssignment1, mockAssignment2, mockAssignment3],
-            }),
-          ),
-          { status: 200 },
-        ),
-      );
-
-    const results = client.listAssignments();
-
-    const expectedAssignment1: ListedAssignment = {
-      endpoint: mockAssignment1.endpoint,
-      accelerator: mockAssignment1.accelerator,
-      variant: Variant.DEFAULT,
-      machineShape: Shape.STANDARD,
-      runtimeProxyInfo: {
-        token: mockAssignment1.runtimeProxyInfo.token,
-        tokenExpiresInSeconds: 3600,
-        url: mockAssignment1.runtimeProxyInfo.url,
-      },
-    };
-    const expectedAssignment2: ListedAssignment = {
-      endpoint: mockAssignment2.endpoint,
-      accelerator: mockAssignment2.accelerator,
-      variant: Variant.GPU,
-      machineShape: Shape.STANDARD,
-      runtimeProxyInfo: {
-        token: mockAssignment2.runtimeProxyInfo.token,
-        tokenExpiresInSeconds: 3600,
-        url: mockAssignment2.runtimeProxyInfo.url,
-      },
-    };
-    const expectedAssignment3: ListedAssignment = {
-      endpoint: mockAssignment3.endpoint,
-      accelerator: mockAssignment3.accelerator,
-      variant: Variant.TPU,
-      machineShape: Shape.HIGHMEM,
-      runtimeProxyInfo: {
-        token: mockAssignment3.runtimeProxyInfo.token,
-        tokenExpiresInSeconds: 3600,
-        url: mockAssignment3.runtimeProxyInfo.url,
-      },
-    };
-    await expect(results).to.eventually.deep.equal([
-      expectedAssignment1,
-      expectedAssignment2,
-      expectedAssignment3,
-    ]);
-    sinon.assert.calledOnce(fetchStub);
-  });
-
-  it('successfully lists undefined assignments', async () => {
-    fetchStub
-      .withArgs(
-        urlMatcher({
-          method: 'GET',
-          host: GOOGLE_APIS_HOST,
-          path: '/v1/assignments',
-          withAuthUser: false,
-        }),
-      )
-      .resolves(new Response(withXSSI(JSON.stringify({})), { status: 200 }));
-
-    const results = client.listAssignments();
-
-    await expect(results).to.eventually.to.empty;
-    sinon.assert.calledOnce(fetchStub);
-  });
-
-  it('successfully unassigns the specified assignment', async () => {
-    const endpoint = 'mock-server';
-    const path = `/tun/m/unassign/${endpoint}`;
-    const token = 'mock-xsrf-token';
-    fetchStub
-      .withArgs(urlMatcher({ method: 'GET', host: COLAB_HOST, path }))
-      .resolves(
-        new Response(withXSSI(JSON.stringify({ token })), { status: 200 }),
-      );
-    fetchStub
-      .withArgs(
-        urlMatcher({
-          method: 'POST',
-          host: COLAB_HOST,
-          path,
-          otherHeaders: {
-            [COLAB_XSRF_TOKEN_HEADER.key]: token,
-          },
-        }),
-      )
-      .resolves(new Response(undefined, { status: 200 }));
-
-    await expect(client.unassign(endpoint)).to.eventually.be.fulfilled;
-
-    sinon.assert.calledTwice(fetchStub);
-  });
-
   describe('with an assigned server', () => {
     const assignedServerUrl = new URL(
       'https://8080-m-s-foo.bar.prod.colab.dev',
@@ -693,7 +145,7 @@ describe('ColabClient', () => {
 
     beforeEach(() => {
       assignedServer = {
-        id: randomUUID(),
+        id: `r-${randomUUID()}`,
         label: 'foo',
         variant: Variant.DEFAULT,
         accelerator: undefined,
@@ -705,50 +157,6 @@ describe('ColabClient', () => {
         },
         dateAssigned: new Date(),
       };
-    });
-
-    const tests = [
-      { tokenTtl: '3.1415926s', expectedExpiry: 3.1415926 },
-      { tokenTtl: '-100s', expectedExpiry: 3600 },
-      { tokenTtl: 'bad_data', expectedExpiry: 3600 },
-      { tokenTtl: '', expectedExpiry: 3600 },
-    ];
-    tests.forEach(({ tokenTtl, expectedExpiry }) => {
-      it(`successfully refreshes the connection (token_ttl: '${tokenTtl}')`, async () => {
-        const path = '/v1/runtime-proxy-token';
-        const rawRuntimeProxyToken = {
-          token: 'new',
-          tokenTtl,
-          url: assignedServerUrl.toString(),
-        };
-        fetchStub
-          .withArgs(
-            urlMatcher({
-              method: 'GET',
-              host: GOOGLE_APIS_HOST,
-              path,
-              queryParams: {
-                endpoint: assignedServer.endpoint,
-                port: '8080',
-              },
-              withAuthUser: false,
-            }),
-          )
-          .resolves(
-            new Response(withXSSI(JSON.stringify(rawRuntimeProxyToken)), {
-              status: 200,
-            }),
-          );
-
-        const response = client.refreshConnection(assignedServer.endpoint);
-
-        const newConnectionInfo: RuntimeProxyToken = {
-          url: rawRuntimeProxyToken.url,
-          token: rawRuntimeProxyToken.token,
-          tokenExpiresInSeconds: expectedExpiry,
-        };
-        await expect(response).to.eventually.deep.equal(newConnectionInfo);
-      });
     });
 
     it('successfully gets resources by server', async () => {
@@ -847,6 +255,7 @@ describe('ColabClient', () => {
           method: 'GET',
           host: GOOGLE_APIS_HOST,
           path: '/v1/user-info',
+          queryParams: { get_ccu_consumption_info: 'true' },
           withAuthUser: false,
         }),
       )
@@ -860,16 +269,22 @@ describe('ColabClient', () => {
               subscriptionTier: 'SUBSCRIPTION_TIER_NONE',
               eligibleAccelerators: [],
               ineligibleAccelerators: [],
+              paidComputeUnitsBalance: 1,
+              consumptionRateHourly: 2,
+              assignmentsCount: 3,
             }),
           ),
           { status: 200 },
         ),
       );
 
-    await expect(client.getUserInfo()).to.eventually.deep.equal({
+    await expect(client.getConsumptionUserInfo()).to.eventually.deep.equal({
       subscriptionTier: SubscriptionTier.NONE,
       eligibleAccelerators: [],
       ineligibleAccelerators: [],
+      paidComputeUnitsBalance: 1,
+      consumptionRateHourly: 2,
+      assignmentsCount: 3,
     });
 
     sinon.assert.calledTwice(fetchStub);
