@@ -4,7 +4,55 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { URL } from 'url';
 import { Request, Response } from 'node-fetch';
+
+/**
+ * Cap on the response body carried in an error message.
+ *
+ * Bodies can be entire HTML error pages, and the message is reported verbatim
+ * to telemetry.
+ */
+const MAX_BODY_CHARS = 512;
+
+/**
+ * Redacts the values of every search parameter in the URL.
+ *
+ * E.g. `https://example.com/path?foo=bar&baz=quux` becomes
+ * `https://example.com/path?foo=REDACTED&baz=REDACTED`.
+ *
+ * Given an invalid, unparsable URL, the URL without the query string or
+ * fragment is returned.
+ *
+ * @param url - The URL to redact.
+ * @returns The URL with all search parameter values redacted.
+ */
+function redactUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    for (const key of u.searchParams.keys()) {
+      u.searchParams.set(key, 'REDACTED');
+    }
+    if (u.hash) {
+      u.hash = 'REDACTED';
+    }
+    return u.toString();
+  } catch {
+    return url.split(/[?#]/)[0];
+  }
+}
+
+/**
+ * Shortens a response body for inclusion in an error message.
+ *
+ * @param body - The response body.
+ * @returns The body, truncated if it exceeds {@link MAX_BODY_CHARS}.
+ */
+function truncate(body: string): string {
+  return body.length <= MAX_BODY_CHARS
+    ? body
+    : `${body.slice(0, MAX_BODY_CHARS)}... (${String(body.length)} chars total)`;
+}
 
 /**
  * Wrapper for errors thrown from issuing requests.
@@ -25,8 +73,8 @@ export class ColabRequestError extends Error {
     readonly responseBody?: string,
   ) {
     super(
-      `Failed to issue request ${request.method} ${request.url}: ${response.statusText}` +
-        (responseBody ? `\nResponse body: ${responseBody}` : ''),
+      `Failed to issue request ${request.method} ${redactUrl(request.url)}: ${response.statusText}` +
+        (responseBody ? `\nResponse body: ${truncate(responseBody)}` : ''),
     );
   }
 }
