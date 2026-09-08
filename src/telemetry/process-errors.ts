@@ -14,7 +14,7 @@ import { telemetry } from '.';
  * being superseded. Errors with these names are not reported to the telemetry
  * service as they are not indicative of a problem with the extension.
  */
-const CANCELLATION_ERROR_NAMES = new Set([
+const CANCELLATION_ERROR_NAMES: ReadonlySet<string> = new Set([
   'AbortError',
   'Canceled',
   'CancellationError',
