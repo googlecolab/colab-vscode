@@ -5,10 +5,22 @@
  */
 
 import sinon, { SinonStub } from 'sinon';
+import { InputFlowAction } from '../common/multi-step-quickpick';
 import { createProcessErrorHandler } from './process-errors';
 import { telemetry } from '.';
 
 const EXTENSION_PATH = '/home/user/.vscode/extensions/google.colab-1.2.3';
+
+function withExtensionStack<T extends Error>(error: T): T {
+  error.stack = `${error.name}: ${error.message}\n    at Object.<anonymous> (${EXTENSION_PATH}/out/extension.js:42:13)`;
+  return error;
+}
+
+function namedError(name: string, message: string): Error {
+  const error = new Error(message);
+  error.name = name;
+  return error;
+}
 
 describe('createProcessErrorHandler', () => {
   let logErrorStub: SinonStub;
@@ -24,8 +36,7 @@ describe('createProcessErrorHandler', () => {
   });
 
   it('logs errors with a stack trace containing the extension path', () => {
-    const error = new Error('test error');
-    error.stack = `Error: test error\n    at Object.<anonymous> (${EXTENSION_PATH}/out/extension.js:42:13)`;
+    const error = withExtensionStack(new Error('test error'));
 
     handler(error);
 
@@ -69,4 +80,23 @@ describe('createProcessErrorHandler', () => {
 
     sinon.assert.notCalled(logErrorStub);
   });
+
+  const cancellations = [
+    {
+      type: 'AbortError',
+      getError: () => namedError('AbortError', 'The user aborted a request.'),
+    },
+    {
+      type: 'vscode CancellationError',
+      getError: () => namedError('Canceled', 'Canceled'),
+    },
+    { type: 'InputFlowAction', getError: () => new InputFlowAction('back') },
+  ];
+  for (const { type, getError } of cancellations) {
+    it(`does not log cancellation of type ${type}`, () => {
+      handler(withExtensionStack(getError()));
+
+      sinon.assert.notCalled(logErrorStub);
+    });
+  }
 });
