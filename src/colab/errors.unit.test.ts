@@ -36,13 +36,15 @@ describe('ColabRequestError', () => {
     expect(error.message).to.contain('Bad Request');
   });
 
-  it('drops the query string, which carries notebook hashes', () => {
+  it('redacts values in the query string', () => {
     const error = buildBadRequestError(
-      'https://example.test/tun/m/assign?nbh=secret&authuser=0',
+      'https://example.test/tun/m/assign?nbh=secret',
     );
 
     expect(error.message).to.not.contain('secret');
-    expect(error.message).to.not.contain('authuser');
+    expect(error.message).to.contain(
+      'https://example.test/tun/m/assign?nbh=REDACTED',
+    );
   });
 
   it('drops the query from a URL that does not parse', () => {
@@ -52,12 +54,13 @@ describe('ColabRequestError', () => {
     expect(error.message).to.not.contain('authuser');
   });
 
-  it('drops fragments', () => {
+  it('redacts URL fragment', () => {
     const error = buildBadRequestError(
       'https://example.test/v1/thing#nbh=secret',
     );
 
     expect(error.message).to.not.contain('secret');
+    expect(error.message).to.contain('https://example.test/v1/thing#REDACTED');
   });
 
   it('truncates an oversized response body', () => {

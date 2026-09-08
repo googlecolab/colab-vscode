@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { URL } from 'url';
 import { Request, Response } from 'node-fetch';
 
 /**
@@ -15,13 +16,30 @@ import { Request, Response } from 'node-fetch';
 const MAX_BODY_CHARS = 512;
 
 /**
- * Drops the query string, which can carry notebook hashes and auth hints.
+ * Redacts the values of every search parameter in the URL.
+ *
+ * E.g. `https://example.com/path?foo=bar&baz=quux` becomes
+ * `https://example.com/path?foo=REDACTED&baz=REDACTED`.
+ *
+ * Given an invalid, unparsable URL, the URL without the query string or
+ * fragment is returned.
  *
  * @param url - The URL to redact.
- * @returns The URL without its query string.
+ * @returns The URL with all search parameter values redacted.
  */
 function redactUrl(url: string): string {
-  return url.split(/[?#]/)[0];
+  try {
+    const u = new URL(url);
+    for (const key of u.searchParams.keys()) {
+      u.searchParams.set(key, 'REDACTED');
+    }
+    if (u.hash) {
+      u.hash = 'REDACTED';
+    }
+    return u.toString();
+  } catch {
+    return url.split(/[?#]/)[0];
+  }
 }
 
 /**
