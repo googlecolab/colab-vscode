@@ -5,6 +5,7 @@
  */
 
 import { Disposable } from 'vscode';
+import { telemetry } from '../telemetry';
 import { log } from './logging';
 
 /**
@@ -238,15 +239,24 @@ export class SequentialTaskRunner implements Disposable {
         return;
       }
       if (err instanceof NonGracefulAbandonError) {
-        // Task failed to shut down cleanly after an abort.
+        // A task that ignores an abort for a whole grace period is a defect,
+        // however the abort came about.
         log.error(err.message);
-      } else {
-        // The task itself threw an unexpected error.
-        log.error(
-          `Unhandled error in background task "${this.task.name}":`,
-          err,
-        );
+        telemetry.logError(err);
+        return;
       }
+      const abortReason: unknown = abort.signal.reason;
+      if (
+        abortReason instanceof OverrunAbandonError ||
+        abortReason instanceof DisposedError
+      ) {
+        // Intentional task abort.
+        return;
+      }
+      log.error(`Unhandled error in background task "${this.task.name}":`, err);
+      telemetry.logError(
+        abortReason instanceof TimeoutError ? abortReason : err,
+      );
     } finally {
       clearTimeout(timeout);
       this.inFlight = undefined;
