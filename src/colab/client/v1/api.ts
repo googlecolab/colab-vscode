@@ -75,7 +75,7 @@ export enum AuthType {
   AUTH_USER_EPHEMERAL = 'auth_user_ephemeral',
 }
 
-/** Colab supported auth types. */
+/** Colab supported access token types. */
 export enum AccessTokenType {
   DFS_EPHEMERAL = 'ACCESS_TOKEN_TYPE_DFS_EPHEMERAL',
   AUTH_USER_EPHEMERAL = 'ACCESS_TOKEN_TYPE_AUTH_USER_EPHEMERAL',
