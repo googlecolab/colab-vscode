@@ -12,6 +12,7 @@ import WebSocket from 'ws';
 import { handleEphemeralAuth } from '../auth/ephemeral';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
+import { UserCancelledError } from '../common/cancellation';
 import { telemetry } from '../telemetry';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import {
@@ -230,6 +231,38 @@ describe('colabProxyWebSocket', () => {
           );
         }),
       );
+    });
+
+    it('does not report an error when the user declines consent', async () => {
+      const errMsg = 'User cancelled dfs_ephemeral authorization';
+      const consentDeclined = new Promise<void>((resolve) => {
+        handleEphemeralAuthStub.callsFake(() => {
+          resolve();
+          return Promise.reject(new UserCancelledError(errMsg));
+        });
+      });
+      const sendSpy = sinon.spy(testWebSocket, 'send');
+      const logErrorStub = sinon.stub(telemetry, 'logError');
+
+      testWebSocket.emit(
+        'message',
+        JSON.stringify(rawColabRequestMessage),
+        /* isBinary= */ false,
+      );
+
+      await expect(consentDeclined).to.eventually.be.fulfilled;
+      // The kernel still needs to hear that no credentials are coming.
+      sinon.assert.calledOnceWithMatch(
+        sendSpy,
+        sinon.match((data: string) => {
+          const message = JSON.parse(data) as unknown;
+          return (
+            isColabInputReplyMessage(message) &&
+            message.content.value.error === errMsg
+          );
+        }),
+      );
+      sinon.assert.notCalled(logErrorStub);
     });
 
     it('drops the input reply when the socket is no longer open', async () => {

@@ -192,6 +192,23 @@ describe('LocalServerFlow', () => {
     sinon.assert.calledOnce(resStub.end);
   });
 
+  it('answers a redirect nobody is waiting for', () => {
+    void flow.trigger(defaultTriggerOpts);
+    // A nonce no exchange is awaiting.
+    const state = encodeURIComponent(`nonce=${NONCE}-expired`);
+    const req = {
+      method: 'GET',
+      url: `/?state=${state}&code=${CODE}`,
+      headers: { host: DEFAULT_HOST },
+    } as http.IncomingMessage;
+
+    expect(() => fakeServer.emit('request', req, resStub)).not.to.throw();
+
+    sinon.assert.calledWith(resStub.writeHead, 409);
+    sinon.assert.calledOnce(resStub.end);
+    sinon.assert.notCalled(vs.env.asExternalUri);
+  });
+
   // TODO: This SUT and test read from disk, we should add the following test as
   // an integration test to keep the UTs zippy ⚡.
   //

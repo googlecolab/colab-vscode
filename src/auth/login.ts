@@ -10,6 +10,7 @@ import {
 } from 'google-auth-library';
 import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
+import { isCancellation, UserCancelledError } from '../common/cancellation';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
 import { AuthFlow } from '../telemetry/api';
@@ -57,7 +58,8 @@ export type Credentials = OAuth2Credentials & {
  * @param scopes - The requested OAuth scopes.
  * @param options - Optional login options.
  * @returns The obtained credentials upon successful authentication.
- * @throws Error if all authentication attempts fail or are cancelled.
+ * @throws AggregateError carrying every attempt's error if the attempts failed,
+ * or a {@link UserCancelledError} if the user abandoned them all.
  */
 export async function login(
   vs: typeof vscode,
@@ -70,12 +72,13 @@ export async function login(
     throw new Error('No authentication flows available.');
   }
 
+  const attemptErrors: Error[] = [];
   for (const flow of flows) {
+    if (flow !== flows[0] && !(await promptIfFallback(vs))) {
+      break;
+    }
     let success = false;
     try {
-      if (flow !== flows[0] && !(await promptIfFallback(vs))) {
-        break;
-      }
       const res = await vs.window.withProgress<Credentials>(
         {
           location: vs.ProgressLocation.Notification,
@@ -106,21 +109,50 @@ export async function login(
       );
       success = true;
       return res;
-    } catch (err) {
-      const innerMsg = err instanceof Error ? err.message : 'unknown error';
-      const msg = `Sign-in attempt failed: ${innerMsg}.`;
-      // Notify this attempt failed, but try other methods 🤞.
-      vs.window.showErrorMessage(msg);
+    } catch (err: unknown) {
+      const attemptError = toError(err);
+      attemptErrors.push(attemptError);
+      if (!isCancellation(attemptError)) {
+        // Notify of the non-cancellation failure, and progress to another
+        // method.
+        vs.window.showErrorMessage(
+          `Sign-in attempt failed: ${attemptError.message}.`,
+        );
+      }
     } finally {
       logSignIn(flow, success);
     }
   }
 
+  throw buildLoginError(attemptErrors);
+}
+
+/**
+ * Builds the error describing why login never produced credentials.
+ *
+ * An attempt the user cancelled is not a defect, so a run in which nothing
+ * genuinely failed is reported as a cancellation. Anything else carries every
+ * attempt's error.
+ *
+ * @param attemptErrors - The error from each attempted flow, in order.
+ * @returns The error to throw from {@link login}.
+ */
+function buildLoginError(attemptErrors: Error[]): Error {
+  const failures = attemptErrors.filter((e) => !isCancellation(e));
+  if (failures.length === 0) {
+    return new UserCancelledError('Sign-in was cancelled.', {
+      cause: attemptErrors[0],
+    });
+  }
   const msg =
-    flows.length > 1
+    attemptErrors.length > 1
       ? 'All authentication methods failed.'
       : 'Authentication failed.';
-  throw new Error(msg);
+  return new AggregateError(attemptErrors, msg);
+}
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
 }
 
 async function promptIfFallback(vs: typeof vscode): Promise<boolean> {

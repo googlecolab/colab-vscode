@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import { InputBox } from 'vscode';
 import { CONFIG } from '../../colab-config';
 import { ExtensionUriHandler } from '../../system/uri';
+import { Deferred } from '../../test/helpers/async';
 import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import {
   buildInputBoxStub,
@@ -133,5 +134,29 @@ describe('ProxiedRedirectFlow', () => {
 
     const expected: FlowResult = { code: CODE, redirectUri: REDIRECT_URI };
     await expect(trigger).to.eventually.deep.equal(expected);
+  });
+
+  it('warns when a code is pasted after the exchange has ended', async () => {
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+    const warned = new Deferred<void>();
+    vs.window.showWarningMessage.callsFake(() => {
+      warned.resolve();
+      return Promise.resolve(undefined);
+    });
+    const trigger = flow.trigger(defaultTriggerOpts);
+    await inputBoxStub.nextShow();
+    clock.tick(60_001);
+    await expect(trigger).to.eventually.be.rejectedWith(/timeout/);
+
+    inputBoxStub.value = CODE;
+    inputBoxStub.onDidChangeValue.yield(CODE);
+    inputBoxStub.onDidAccept.yield();
+
+    await warned.promise;
+    sinon.assert.calledOnceWithMatch(
+      vs.window.showWarningMessage,
+      sinon.match(/too late/),
+    );
+    clock.restore();
   });
 });

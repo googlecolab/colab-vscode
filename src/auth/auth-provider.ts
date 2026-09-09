@@ -19,6 +19,7 @@ import vscode, {
 } from 'vscode';
 import { z } from 'zod';
 import { AUTHORIZATION_HEADER } from '../colab/headers';
+import { isCancellation } from '../common/cancellation';
 import { log } from '../common/logging';
 import { Toggleable } from '../common/toggleable';
 import { telemetry } from '../telemetry';
@@ -326,8 +327,11 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       this.vs.window.showInformationMessage('Signed in to Google!');
       return this.session;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'unknown error';
-      this.vs.window.showErrorMessage(`Sign in failed: ${msg}`);
+      // A user who abandoned the sign-in does not need to be told it failed.
+      if (!isCancellation(err)) {
+        const msg = err instanceof Error ? err.message : 'unknown error';
+        this.vs.window.showErrorMessage(`Sign in failed: ${msg}`);
+      }
       throw err;
     }
   }

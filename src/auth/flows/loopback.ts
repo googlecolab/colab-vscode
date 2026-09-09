@@ -93,6 +93,10 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
     this.activeServers.add(server);
     try {
       const code = this.codeManager.waitForCode(options.nonce, options.cancel);
+      // `code` is only awaited on the happy path below. Claim its rejection now
+      // so bailing out during setup doesn't leave it to reject unhandled once
+      // the exchange later times out.
+      void code.catch(() => undefined);
       options.cancel.onCancellationRequested(server.dispose.bind(server));
       const port = await server.start();
       const address = `http://127.0.0.1:${port.toString()}`;
@@ -160,7 +164,17 @@ class Handler implements LoopbackHandler {
         if (!nonce || !code) {
           throw new Error('Missing nonce or code in redirect URI');
         }
-        this.codeProvider.resolveCode(nonce, code);
+        if (!this.codeProvider.resolveCode(nonce, code)) {
+          // Nobody is waiting on this nonce: the browser replayed the redirect,
+          // or the exchange already timed out or was cancelled. Answer the
+          // request rather than throwing, which escapes the request listener as
+          // an uncaught exception and leaves the tab awaiting a response that
+          // never comes.
+          log.warn('Ignoring an authorization code nobody is waiting for');
+          res.writeHead(409);
+          res.end('No sign-in is waiting for this authorization code.');
+          break;
+        }
 
         void this.redirectSuccessfulAuth(res).catch((err: unknown) => {
           log.error('Unable to redirect the successful auth request', err);
