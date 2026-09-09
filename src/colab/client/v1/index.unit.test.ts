@@ -25,7 +25,12 @@ import {
   CONTENT_TYPE_JSON_HEADER,
 } from '../../headers';
 import { SubscriptionTier, Variant } from '../../types';
-import { AuthType, ExperimentFlag, ConsumptionUserInfo, OnePlatformError } from './api';
+import {
+  AuthType,
+  ExperimentFlag,
+  ConsumptionUserInfo,
+  OnePlatformError,
+} from './api';
 import { ColabClient } from '.';
 
 const COLAB_HOST = 'colab.example.com';
