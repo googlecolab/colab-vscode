@@ -461,30 +461,12 @@ export class ColabClient {
         success: true,
         unauthorizedRedirectUri: undefined,
       };
-    } catch (e: unknown) {
-      if (
-        e instanceof ColabRequestError &&
-        e.response.status === 400 &&
-        e.responseBody
-      ) {
-        const errorBody = JSON.parse(e.responseBody) as unknown;
-        if (isOnePlatformError(errorBody)) {
-          for (const detail of errorBody.error.details ?? []) {
-            if (!isErrorInfo(detail)) {
-              continue;
-            }
-            if (detail.reason !== 'OAUTH_CONSENT_REQUIRED') {
-              continue;
-            }
-            return {
-              success: false,
-              unauthorizedRedirectUri:
-                detail.metadata?.unauthorized_redirect_uri,
-            };
-          }
-        }
+    } catch (error: unknown) {
+      const unauthorizedRedirectUri = getUnauthorizedRedirectUri(error);
+      if (!unauthorizedRedirectUri) {
+        throw error;
       }
-      throw e;
+      return { success: false, unauthorizedRedirectUri };
     }
   }
 
@@ -669,6 +651,31 @@ function mapShapeToURLParam(shape: Shape): string | undefined {
     default:
       return undefined;
   }
+}
+
+function getUnauthorizedRedirectUri(error: unknown): string | undefined {
+  if (
+    !(error instanceof ColabRequestError) ||
+    error.response.status !== 400 ||
+    !error.responseBody
+  ) {
+    return undefined;
+  }
+
+  const errorBody: unknown = JSON.parse(error.responseBody);
+  if (!isOnePlatformError(errorBody)) {
+    return undefined;
+  }
+
+  const details = errorBody.error.details ?? [];
+  if (
+    details.length !== 1 ||
+    !isErrorInfo(details[0]) ||
+    details[0].reason !== 'OAUTH_CONSENT_REQUIRED'
+  ) {
+    return undefined;
+  }
+  return details[0].metadata?.unauthorized_redirect_uri;
 }
 
 function isOnePlatformError(obj: unknown): obj is OnePlatformError {

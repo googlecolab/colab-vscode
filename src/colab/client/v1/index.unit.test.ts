@@ -1042,10 +1042,6 @@ describe('ColabClient', () => {
             status: 'FAILED_PRECONDITION',
             details: [
               {
-                '@type': 'type.googleapis.com/google.rpc.CustomError',
-                someOtherField: 'someValue',
-              },
-              {
                 '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
                 reason: 'OAUTH_CONSENT_REQUIRED',
                 domain: COLAB_HOST,
@@ -1098,55 +1094,65 @@ describe('ColabClient', () => {
         {
           name: 'errors with non-ErrorInfo details',
           status: 400,
-          hasErrorInfo: false,
+          hasNonErrorInfoDetail: true,
+        },
+        {
+          name: 'errors with more than one detail',
+          status: 400,
+          hasErrorInfo: true,
+          reason: 'OAUTH_CONSENT_REQUIRED',
+          hasNonErrorInfoDetail: true,
         },
       ];
-      errorTests.forEach(({ name, status, reason, hasErrorInfo }) => {
-        it(`rejects on ${name}`, async () => {
-          const errorBody: OnePlatformError = {
-            error: {
-              code: status,
-              message: 'Some error message',
-              status: 'SOME_ERROR_STATUS',
-              details: [],
-            },
-          };
-          if (hasErrorInfo) {
-            errorBody.error.details?.push({
-              '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
-              reason,
-              domain: COLAB_HOST,
-            });
-          } else {
-            errorBody.error.details?.push({
-              '@type': 'type.googleapis.com/google.rpc.BadRequest',
-              someOtherField: 'someValue',
-            });
-          }
-          fetchStub
-            .withArgs(
-              urlMatcher({
-                method: 'POST',
-                host: GOOGLE_APIS_HOST,
-                path: '/v1/credential-propagation:enable',
-                otherHeaders: {
-                  [CONTENT_TYPE_JSON_HEADER.key]:
-                    CONTENT_TYPE_JSON_HEADER.value,
-                },
-                withAuthUser: false,
-              }),
-            )
-            .resolves(new Response(JSON.stringify(errorBody), { status }));
-          const endpoint = 'mock-server';
+      errorTests.forEach(
+        ({ name, status, reason, hasErrorInfo, hasNonErrorInfoDetail }) => {
+          it(`rejects on ${name}`, async () => {
+            const errorBody: OnePlatformError = {
+              error: {
+                code: status,
+                message: 'Some error message',
+                status: 'SOME_ERROR_STATUS',
+                details: [],
+              },
+            };
+            if (hasErrorInfo) {
+              errorBody.error.details?.push({
+                '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                reason,
+                domain: COLAB_HOST,
+              });
+            }
+            if (hasNonErrorInfoDetail) {
+              errorBody.error.details?.push({
+                '@type': 'type.googleapis.com/google.rpc.BadRequest',
+                someOtherField: 'someValue',
+              });
+            }
+            fetchStub
+              .withArgs(
+                urlMatcher({
+                  method: 'POST',
+                  host: GOOGLE_APIS_HOST,
+                  path: '/v1/credential-propagation:enable',
+                  otherHeaders: {
+                    [CONTENT_TYPE_JSON_HEADER.key]:
+                      CONTENT_TYPE_JSON_HEADER.value,
+                  },
+                  withAuthUser: false,
+                }),
+              )
+              .resolves(new Response(JSON.stringify(errorBody), { status }));
+            const endpoint = 'mock-server';
 
-          await expect(
-            client.propagateCredentials(endpoint, {
-              authType: AuthType.AUTH_USER_EPHEMERAL,
-              dryRun: true,
-            }),
-          ).to.eventually.be.rejectedWith(ColabRequestError);
-        });
-      });
+            await expect(
+              client.propagateCredentials(endpoint, {
+                authType: AuthType.AUTH_USER_EPHEMERAL,
+                dryRun: true,
+              }),
+            ).to.eventually.be.rejectedWith(ColabRequestError);
+          });
+        },
+      );
     });
   });
 
