@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
-import fetch, { Response } from 'node-fetch';
+import fetch, { Request, Response } from 'node-fetch';
 import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
 import { ColabAssignedServer } from '../../../jupyter/servers';
@@ -14,10 +14,12 @@ import { TestUri } from '../../../test/helpers/uri';
 import { uuidToWebSafeBase64 } from '../../../utils/uuid';
 import {
   AcceleratorUnavailableError,
+  ColabRequestError,
   DenylistedError,
   InsufficientQuotaError,
   TooManyAssignmentsError,
 } from '../../errors';
+import { TEST_ONLY as EXPERIMENT_TEST } from '../../experiment-state';
 import {
   ACCEPT_JSON_HEADER,
   AUTHORIZATION_HEADER,
@@ -27,6 +29,7 @@ import {
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
+  CONTENT_TYPE_JSON_HEADER,
 } from '../../headers';
 import { Shape, SubscriptionTier, Variant } from '../../types';
 import {
@@ -39,6 +42,7 @@ import {
   ConsumptionUserInfo,
   UserInfo,
   ListedAssignment,
+  OnePlatformError,
 } from './api';
 import { ColabClient } from '.';
 
@@ -92,6 +96,7 @@ describe('ColabClient', () => {
   });
 
   afterEach(() => {
+    EXPERIMENT_TEST.resetExperimentsForTest();
     sinon.restore();
   });
 
@@ -920,56 +925,234 @@ describe('ColabClient', () => {
       { authType: AuthType.AUTH_USER_EPHEMERAL, dryRun: true },
       { authType: AuthType.AUTH_USER_EPHEMERAL, dryRun: false },
     ];
-    tests.forEach(({ authType, dryRun }) => {
-      it(`successfully propagates ${authType} credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
-        const endpoint = 'mock-server';
-        const path = `/tun/m/credentials-propagation/${endpoint}`;
-        const token = 'mock-xsrf-token';
-        const queryParams = {
-          authtype: authType,
-          dryrun: String(dryRun),
-          record: 'false',
-          version: '2',
-          propagate: 'true',
+
+    describe('with OP API disabled', () => {
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(
+          ExperimentFlag.EnableOpCredentialPropagationApi,
+          false,
+        );
+      });
+
+      tests.forEach(({ authType, dryRun }) => {
+        it(`successfully propagates ${authType} credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
+          const endpoint = 'mock-server';
+          const path = `/tun/m/credentials-propagation/${endpoint}`;
+          const token = 'mock-xsrf-token';
+          const queryParams = {
+            authtype: authType,
+            dryrun: String(dryRun),
+            record: 'false',
+            version: '2',
+            propagate: 'true',
+          };
+          fetchStub
+            .withArgs(
+              urlMatcher({
+                method: 'GET',
+                host: COLAB_HOST,
+                path,
+                queryParams,
+              }),
+            )
+            .resolves(
+              new Response(withXSSI(JSON.stringify({ token })), {
+                status: 200,
+              }),
+            );
+          fetchStub
+            .withArgs(
+              urlMatcher({
+                method: 'POST',
+                host: COLAB_HOST,
+                path,
+                queryParams,
+                otherHeaders: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
+              }),
+            )
+            .resolves(
+              new Response(withXSSI(JSON.stringify({ success: true })), {
+                status: 200,
+              }),
+            );
+
+          const result = client.propagateCredentials(endpoint, {
+            authType,
+            dryRun,
+          });
+
+          await expect(result).to.eventually.be.fulfilled;
+          sinon.assert.calledTwice(fetchStub);
+        });
+      });
+    });
+
+    describe('with OP API enabled', () => {
+      beforeEach(() => {
+        EXPERIMENT_TEST.setFlagForTest(
+          ExperimentFlag.EnableOpCredentialPropagationApi,
+          true,
+        );
+      });
+
+      tests.forEach(({ authType, dryRun }) => {
+        it(`successfully propagates ${authType} credentials${dryRun ? ' (dryRun)' : ''}`, async () => {
+          fetchStub
+            .withArgs(
+              urlMatcher({
+                method: 'POST',
+                host: GOOGLE_APIS_HOST,
+                path: '/v1/credential-propagation:enable',
+                otherHeaders: {
+                  [CONTENT_TYPE_JSON_HEADER.key]:
+                    CONTENT_TYPE_JSON_HEADER.value,
+                },
+                withAuthUser: false,
+              }),
+            )
+            .resolves(new Response(/* body= */ undefined, { status: 200 }));
+          const endpoint = 'mock-server';
+
+          const result = client.propagateCredentials(endpoint, {
+            authType,
+            dryRun,
+          });
+
+          await expect(result).to.eventually.deep.equal({
+            success: true,
+            unauthorizedRedirectUri: undefined,
+          });
+          sinon.assert.calledOnce(fetchStub);
+          const req = fetchStub.getCall(0).args[0] as Request;
+          await expect(req.json()).to.eventually.deep.equal({
+            endpoint,
+            accessTokenType: `ACCESS_TOKEN_TYPE_${authType.toUpperCase()}`,
+            dryRun,
+            version: '2',
+          });
+        });
+      });
+
+      it('extracts unauthorized redirect URI from OAUTH_CONSENT_REQUIRED error', async () => {
+        const oauthUrl = 'test-unauthorized-redirect-uri';
+        const errorBody = {
+          error: {
+            code: 400,
+            message: 'Precondition check failed.',
+            status: 'FAILED_PRECONDITION',
+            details: [
+              {
+                '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                reason: 'OAUTH_CONSENT_REQUIRED',
+                domain: COLAB_HOST,
+                metadata: {
+                  unauthorized_redirect_uri: oauthUrl,
+                },
+              },
+            ],
+          },
         };
         fetchStub
           .withArgs(
             urlMatcher({
-              method: 'GET',
-              host: COLAB_HOST,
-              path,
-              queryParams,
-            }),
-          )
-          .resolves(
-            new Response(withXSSI(JSON.stringify({ token })), {
-              status: 200,
-            }),
-          );
-        fetchStub
-          .withArgs(
-            urlMatcher({
               method: 'POST',
-              host: COLAB_HOST,
-              path,
-              queryParams,
-              otherHeaders: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
+              host: GOOGLE_APIS_HOST,
+              path: '/v1/credential-propagation:enable',
+              otherHeaders: {
+                [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+              },
+              withAuthUser: false,
             }),
           )
-          .resolves(
-            new Response(withXSSI(JSON.stringify({ success: true })), {
-              status: 200,
-            }),
-          );
+          .resolves(new Response(JSON.stringify(errorBody), { status: 400 }));
+        const endpoint = 'mock-server';
 
         const result = client.propagateCredentials(endpoint, {
-          authType,
-          dryRun,
+          authType: AuthType.DFS_EPHEMERAL,
+          dryRun: true,
         });
 
-        await expect(result).to.eventually.be.fulfilled;
-        sinon.assert.calledTwice(fetchStub);
+        await expect(result).to.eventually.deep.equal({
+          success: false,
+          unauthorizedRedirectUri: oauthUrl,
+        });
       });
+
+      const errorTests = [
+        {
+          name: 'non-400 errors',
+          status: 401,
+          hasErrorInfo: true,
+          reason: 'OAUTH_CONSENT_REQUIRED',
+        },
+        {
+          name: 'errors with non-OAUTH_CONSENT_REQUIRED reason',
+          status: 400,
+          hasErrorInfo: true,
+          reason: 'A_DIFFERENT_REASON',
+        },
+        {
+          name: 'errors with non-ErrorInfo details',
+          status: 400,
+          hasNonErrorInfoDetail: true,
+        },
+        {
+          name: 'errors with more than one detail',
+          status: 400,
+          hasErrorInfo: true,
+          reason: 'OAUTH_CONSENT_REQUIRED',
+          hasNonErrorInfoDetail: true,
+        },
+      ];
+      errorTests.forEach(
+        ({ name, status, reason, hasErrorInfo, hasNonErrorInfoDetail }) => {
+          it(`rejects on ${name}`, async () => {
+            const errorBody: OnePlatformError = {
+              error: {
+                code: status,
+                message: 'Some error message',
+                status: 'SOME_ERROR_STATUS',
+                details: [],
+              },
+            };
+            if (hasErrorInfo) {
+              errorBody.error.details?.push({
+                '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                reason,
+                domain: COLAB_HOST,
+              });
+            }
+            if (hasNonErrorInfoDetail) {
+              errorBody.error.details?.push({
+                '@type': 'type.googleapis.com/google.rpc.BadRequest',
+                someOtherField: 'someValue',
+              });
+            }
+            fetchStub
+              .withArgs(
+                urlMatcher({
+                  method: 'POST',
+                  host: GOOGLE_APIS_HOST,
+                  path: '/v1/credential-propagation:enable',
+                  otherHeaders: {
+                    [CONTENT_TYPE_JSON_HEADER.key]:
+                      CONTENT_TYPE_JSON_HEADER.value,
+                  },
+                  withAuthUser: false,
+                }),
+              )
+              .resolves(new Response(JSON.stringify(errorBody), { status }));
+            const endpoint = 'mock-server';
+
+            await expect(
+              client.propagateCredentials(endpoint, {
+                authType: AuthType.AUTH_USER_EPHEMERAL,
+                dryRun: true,
+              }),
+            ).to.eventually.be.rejectedWith(ColabRequestError);
+          });
+        },
+      );
     });
   });
 
