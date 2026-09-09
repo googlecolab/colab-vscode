@@ -10,13 +10,14 @@ import { OAuth2Client } from 'google-auth-library';
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
-import vscode from 'vscode';
+import { AuthenticationSession } from 'vscode';
 import {
   AUTHORIZATION_HEADER,
   CONTENT_TYPE_JSON_HEADER,
 } from '../colab/headers';
 import { Toggleable } from '../common/toggleable';
 import { PROVIDER_ID } from '../config/constants';
+import { Deferred } from '../test/helpers/async';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { AuthChangeEvent, GoogleAuthProvider } from './auth-provider';
 import { Credentials, LoginOptions } from './login';
@@ -44,7 +45,7 @@ const DEFAULT_CREDENTIALS = {
   id_token: 'eh',
   scope: SCOPES.join(' '),
 };
-const DEFAULT_AUTH_SESSION: vscode.AuthenticationSession = {
+const DEFAULT_AUTH_SESSION: AuthenticationSession = {
   id: DEFAULT_REFRESH_SESSION.id,
   accessToken: DEFAULT_ACCESS_TOKEN,
   account: DEFAULT_REFRESH_SESSION.account,
@@ -68,7 +69,7 @@ const UPGRADED_CREDENTIALS = {
   id_token: 'aw',
   scope: UPGRADED_SCOPES.join(' '),
 };
-const UPGRADED_AUTH_SESSION: vscode.AuthenticationSession = {
+const UPGRADED_AUTH_SESSION: AuthenticationSession = {
   id: UPGRADED_REFRESH_SESSION.id,
   accessToken: UPGRADED_ACCESS_TOKEN,
   account: UPGRADED_REFRESH_SESSION.account,
@@ -629,6 +630,58 @@ describe('GoogleAuthProvider', () => {
         const sessions = authProvider.getSessions(undefined, {});
 
         await expect(sessions).to.eventually.deep.equal([DEFAULT_AUTH_SESSION]);
+      });
+
+      describe('when the session is cleared while a refresh is in flight', () => {
+        let refreshStarted: Deferred<void>;
+        let finishRefresh: Deferred<void>;
+
+        beforeEach(() => {
+          refreshStarted = new Deferred<void>();
+          finishRefresh = new Deferred<void>();
+          // Cast necessary due to OAuth2Client.refreshAccessToken overload.
+          (refreshAccessTokenStub as SinonStub).callsFake(async () => {
+            refreshStarted.resolve();
+            await finishRefresh.promise;
+            oauth2Client.credentials = {
+              ...oauth2Client.credentials,
+              access_token: 'new',
+            };
+          });
+          sinon.stub(oauth2Client, 'revokeToken').resolves();
+          fakeClock.tick(HOUR_MS * 2);
+        });
+
+        /**
+         * Races a sign out against an in-flight token refresh.
+         *
+         * Suspends a `getSessions` call inside `refreshAccessToken`, signs out
+         * (which clears the managed session) and only then lets the refresh
+         * finish.
+         *
+         * @returns The sessions returned by the raced `getSessions` call.
+         */
+        async function signOutDuringRefresh(): Promise<
+          AuthenticationSession[]
+        > {
+          const inFlight = authProvider.getSessions(SCOPES, {});
+          await refreshStarted.promise;
+          await authProvider.signOut();
+          finishRefresh.resolve();
+          return inFlight;
+        }
+
+        it('does not resurrect the cleared session', async () => {
+          await expect(signOutDuringRefresh()).to.eventually.deep.equal([]);
+        });
+
+        it('does not leave a partial session behind for later lookups', async () => {
+          await signOutDuringRefresh();
+
+          await expect(
+            authProvider.getSessions(SCOPES, {}),
+          ).to.eventually.deep.equal([]);
+        });
       });
     });
 

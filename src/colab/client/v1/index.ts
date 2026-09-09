@@ -16,6 +16,8 @@ import {
   createErrorMiddleware,
 } from '../../../common/middleware';
 import { ColabAssignedServer } from '../../../jupyter/servers';
+import { ColabRequestError } from '../../errors';
+import { getFlag } from '../../experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
@@ -23,6 +25,7 @@ import {
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
   COLAB_XSRF_TOKEN_HEADER,
+  CONTENT_TYPE_JSON_HEADER,
 } from '../../headers';
 import {
   AuthType,
@@ -34,6 +37,12 @@ import {
   ExperimentState,
   Resources,
   ResourcesSchema,
+  AccessTokenType,
+  ExperimentFlag,
+  OnePlatformError,
+  OnePlatformErrorSchema,
+  ErrorInfoSchema,
+  ErrorInfo,
 } from './api';
 
 const TUN_ENDPOINT = '/tun/m';
@@ -171,6 +180,31 @@ export class ColabClient {
     },
     signal?: AbortSignal,
   ): Promise<CredentialsPropagationResult> {
+    const enableOp = getFlag(ExperimentFlag.EnableOpCredentialPropagationApi);
+    if (!enableOp) {
+      return this.propagateCredentialsV1(endpoint, params, signal);
+    }
+    return this.propagateCredentialsV2(
+      endpoint,
+      {
+        accessTokenType:
+          params.authType === AuthType.DFS_EPHEMERAL
+            ? AccessTokenType.DFS_EPHEMERAL
+            : AccessTokenType.AUTH_USER_EPHEMERAL,
+        dryRun: params.dryRun,
+      },
+      signal,
+    );
+  }
+
+  private async propagateCredentialsV1(
+    endpoint: string,
+    params: {
+      authType: AuthType;
+      dryRun: boolean;
+    },
+    signal?: AbortSignal,
+  ): Promise<CredentialsPropagationResult> {
     const url = new URL(
       `${TUN_ENDPOINT}/credentials-propagation/${endpoint}`,
       this.colabDomain,
@@ -196,6 +230,45 @@ export class ColabClient {
       },
       CredentialsPropagationResultSchema,
     );
+  }
+
+  private async propagateCredentialsV2(
+    endpoint: string,
+    params: {
+      accessTokenType: AccessTokenType;
+      dryRun: boolean;
+    },
+    signal?: AbortSignal,
+  ): Promise<CredentialsPropagationResult> {
+    const url = new URL(
+      'v1/credential-propagation:enable',
+      this.colabGapiDomain,
+    );
+
+    const payload = {
+      endpoint,
+      accessTokenType: params.accessTokenType,
+      dryRun: params.dryRun,
+      version: '2',
+    };
+
+    try {
+      await this.issueRequest(url, {
+        method: 'POST',
+        headers: {
+          [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+      return { success: true, unauthorizedRedirectUri: undefined };
+    } catch (error: unknown) {
+      const unauthorizedRedirectUri = extractUnauthorizedRedirectUri(error);
+      if (!unauthorizedRedirectUri) {
+        throw error;
+      }
+      return { success: false, unauthorizedRedirectUri };
+    }
   }
 
   /**
@@ -307,4 +380,37 @@ export class ColabClient {
       ? fetchAndParse(fetchImpl, endpoint.toString(), schema, requestInit)
       : fetchImpl(endpoint.toString(), requestInit).then(() => undefined);
   }
+}
+
+function extractUnauthorizedRedirectUri(error: unknown): string | undefined {
+  if (
+    !(error instanceof ColabRequestError) ||
+    error.response.status !== 400 ||
+    !error.responseBody
+  ) {
+    return undefined;
+  }
+
+  const errorBody: unknown = JSON.parse(error.responseBody);
+  if (!isOnePlatformError(errorBody)) {
+    return undefined;
+  }
+
+  const details = errorBody.error.details ?? [];
+  if (
+    details.length !== 1 ||
+    !isErrorInfo(details[0]) ||
+    details[0].reason !== 'OAUTH_CONSENT_REQUIRED'
+  ) {
+    return undefined;
+  }
+  return details[0].metadata?.unauthorized_redirect_uri;
+}
+
+function isOnePlatformError(obj: unknown): obj is OnePlatformError {
+  return OnePlatformErrorSchema.safeParse(obj).success;
+}
+
+function isErrorInfo(obj: unknown): obj is ErrorInfo {
+  return ErrorInfoSchema.safeParse(obj).success;
 }

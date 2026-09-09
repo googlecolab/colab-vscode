@@ -218,11 +218,15 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   ): Promise<AuthenticationSession[]> {
     this.guardDisposed();
     this.assertReady();
+    // Snapshot the session rather than narrowing `this.session` directly:
+    // narrowing a field survives the `await` below in the type system, but not
+    // at runtime.
+    const current = this.session;
     if (
-      !this.session ||
+      !current ||
       !areScopesAllowed(scopes) ||
       // Checks if provided scopes are a subset of the current session's scopes
-      (scopes && !scopes.every((r) => this.session?.scopes.includes(r)))
+      (scopes && !scopes.every((r) => current.scopes.includes(r)))
     ) {
       return [];
     }
@@ -233,17 +237,21 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
         this.shouldClearSessionOnRefreshError(err);
       if (shouldClearSession) {
         log.warn(`${reason}. Clearing session.`, err);
-        if (this.session.id) {
-          await this.removeSession(this.session.id);
-        }
+        await this.removeSession(current.id);
         return [];
       }
       log.error('Unable to refresh access token', err);
     }
-    if (options.account && this.session.account != options.account) {
+    // Re-read the session: it may have been cleared or replaced while the
+    // refresh above was in flight.
+    const session = this.session;
+    if (!session) {
       return [];
     }
-    return [this.session];
+    if (options.account && session.account != options.account) {
+      return [];
+    }
+    return [session];
   }
 
   /**
@@ -415,7 +423,8 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
   }
 
   private async refreshSessionIfNeeded(): Promise<void> {
-    if (!this.session) {
+    const session = this.session;
+    if (!session) {
       return;
     }
     const expiryDateMs = this.oAuth2Client.credentials.expiry_date;
@@ -427,9 +436,16 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
     if (!accessToken) {
       throw new Error('Failed to refresh Google OAuth token.');
     }
+    // The managed session may have been cleared (sign out) or replaced
+    // (re-authentication) while the refresh was in flight. Writing back here
+    // would resurrect the session we started with, and spreading a cleared
+    // session yields a partial object missing `scopes`, `id` and `account`.
+    if (this.session !== session) {
+      return;
+    }
 
     this.session = {
-      ...this.session,
+      ...session,
       accessToken,
     };
   }

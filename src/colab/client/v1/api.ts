@@ -51,6 +51,12 @@ export enum AuthType {
   AUTH_USER_EPHEMERAL = 'auth_user_ephemeral',
 }
 
+/** Colab supported access token types. */
+export enum AccessTokenType {
+  DFS_EPHEMERAL = 'ACCESS_TOKEN_TYPE_DFS_EPHEMERAL',
+  AUTH_USER_EPHEMERAL = 'ACCESS_TOKEN_TYPE_AUTH_USER_EPHEMERAL',
+}
+
 /**
  * Normalize the similar but different representations of subscription tiers
  *
@@ -246,7 +252,7 @@ export const ResourcesSchema = z.object({
 /** Resources on a Colab runtime. */
 export type Resources = z.infer<typeof ResourcesSchema>;
 
-/** Result from the Colab Drive credentials propagation API. */
+/** Schema of the Colab credentials propagation API result. */
 export const CredentialsPropagationResultSchema = z
   .object({
     /** Whether the credentials are or were already propagated. */
@@ -258,9 +264,41 @@ export const CredentialsPropagationResultSchema = z
     ...rest,
     unauthorizedRedirectUri: unauthorized_redirect_uri,
   }));
+/** Type of the Colab credentials propagation API result. */
 export type CredentialsPropagationResult = z.infer<
   typeof CredentialsPropagationResultSchema
 >;
+
+/** OnePlatform API error schema. */
+export const OnePlatformErrorSchema = z.object({
+  /** The error object. */
+  error: z.object({
+    /** The error status code, e.g. 400. */
+    code: z.number(),
+    /** The error message. */
+    message: z.string(),
+    /** The canonical error status, e.g. FAILED_PRECONDITION. */
+    status: z.string(),
+    /** The optional error details. */
+    details: z.array(z.record(z.string(), z.any())).optional(),
+  }),
+});
+/** OnePlatform API error type. */
+export type OnePlatformError = z.infer<typeof OnePlatformErrorSchema>;
+
+/** API error info schema. */
+export const ErrorInfoSchema = z.object({
+  /** The type URL for the error info. */
+  '@type': z.literal('type.googleapis.com/google.rpc.ErrorInfo'),
+  /** The error reason. */
+  reason: z.string(),
+  /** The error domain. */
+  domain: z.string(),
+  /** The optional error metadata. */
+  metadata: z.record(z.string(), z.string()).optional(),
+});
+/** API error info type. */
+export type ErrorInfo = z.infer<typeof ErrorInfoSchema>;
 
 /**
  * Maps a Colab {@link Variant} to a human-friendly machine type name.
@@ -296,6 +334,7 @@ export function shapeToMachineShape(shape: Shape): string {
 
 /** The experiment flags supported by the Colab extension. */
 export enum ExperimentFlag {
+  EnableOpCredentialPropagationApi = 'enable_op_credprop_api_vscode',
   EnableTelemetry = 'enable_vscode_telemetry',
   ResourcePollIntervalMs = 'resource_poll_interval_ms',
   RuntimeVersionNames = 'runtime_version_names',
@@ -306,6 +345,7 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
+  [ExperimentFlag.EnableOpCredentialPropagationApi]: false,
   [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.ResourcePollIntervalMs]: 10000,
   [ExperimentFlag.RuntimeVersionNames]: [],
