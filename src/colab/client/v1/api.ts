@@ -604,7 +604,7 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
-  [ExperimentFlag.EnableOpCredentialPropagationApi]: true,
+  [ExperimentFlag.EnableOpCredentialPropagationApi]: false,
   [ExperimentFlag.EnablePublicApi]: false,
   [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.ResourcePollIntervalMs]: 10000,
