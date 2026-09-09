@@ -457,12 +457,9 @@ export class ColabClient {
         body: JSON.stringify(payload),
         signal,
       });
-      return {
-        success: true,
-        unauthorizedRedirectUri: undefined,
-      };
+      return { success: true, unauthorizedRedirectUri: undefined };
     } catch (error: unknown) {
-      const unauthorizedRedirectUri = getUnauthorizedRedirectUri(error);
+      const unauthorizedRedirectUri = extractUnauthorizedRedirectUri(error);
       if (!unauthorizedRedirectUri) {
         throw error;
       }
@@ -653,7 +650,7 @@ function mapShapeToURLParam(shape: Shape): string | undefined {
   }
 }
 
-function getUnauthorizedRedirectUri(error: unknown): string | undefined {
+function extractUnauthorizedRedirectUri(error: unknown): string | undefined {
   if (
     !(error instanceof ColabRequestError) ||
     error.response.status !== 400 ||
