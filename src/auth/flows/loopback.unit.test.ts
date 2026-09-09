@@ -10,6 +10,7 @@ import { expect } from 'chai';
 import { OAuth2Client } from 'google-auth-library';
 import sinon from 'sinon';
 import { CONFIG } from '../../colab-config';
+import { UserCancelledError } from '../../common/cancellation';
 import { authUriMatch } from '../../test/helpers/authentication';
 import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import { createHttpServerMock } from '../../test/helpers/http-server';
@@ -190,6 +191,66 @@ describe('LocalServerFlow', () => {
     expect(flowResult.redirectUri).to.equal(`http://${DEFAULT_HOST}`);
     expect(resStub.statusCode).to.equal(302);
     sinon.assert.calledOnce(resStub.end);
+  });
+
+  it('answers a redirect nobody is waiting for', () => {
+    void flow.trigger(defaultTriggerOpts);
+    // A nonce no exchange is awaiting.
+    const state = encodeURIComponent(`nonce=${NONCE}-expired`);
+    const req = {
+      method: 'GET',
+      url: `/?state=${state}&code=${CODE}`,
+      headers: { host: DEFAULT_HOST },
+    } as http.IncomingMessage;
+
+    expect(() => fakeServer.emit('request', req, resStub)).not.to.throw();
+
+    sinon.assert.calledWith(resStub.writeHead, 409);
+    sinon.assert.calledOnce(resStub.end);
+    sinon.assert.notCalled(vs.env.asExternalUri);
+  });
+
+  it('answers a refused consent and fails the exchange', async () => {
+    const trigger = flow.trigger(defaultTriggerOpts);
+    const state = encodeURIComponent(`nonce=${NONCE}`);
+    const req = {
+      method: 'GET',
+      url: `/?error=access_denied&state=${state}`,
+      headers: { host: DEFAULT_HOST },
+    } as http.IncomingMessage;
+
+    expect(() => fakeServer.emit('request', req, resStub)).not.to.throw();
+
+    await expect(trigger).to.eventually.be.rejectedWith(
+      UserCancelledError,
+      /refused/,
+    );
+    sinon.assert.calledWith(resStub.writeHead, 200);
+    sinon.assert.calledOnce(resStub.end);
+    sinon.assert.notCalled(vs.env.asExternalUri);
+  });
+
+  it('claims the pending code when the server fails to start', async () => {
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+    createServerStub.returns(createHttpServerMock(null));
+    const unhandled: unknown[] = [];
+    const capture = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', capture);
+
+    try {
+      await expect(flow.trigger(defaultTriggerOpts)).to.eventually.be.rejected;
+      // The abandoned exchange rejects on its own timeout, long after `trigger`
+      // gave up on it.
+      clock.tick(60_001);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off('unhandledRejection', capture);
+      clock.restore();
+    }
+
+    expect(unhandled).to.be.empty;
   });
 
   // TODO: This SUT and test read from disk, we should add the following test as

@@ -10,6 +10,7 @@ import {
 } from 'google-auth-library';
 import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
+import { isCancellation, UserCancelledError } from '../common/cancellation';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
 import { AuthFlow } from '../telemetry/api';
@@ -51,13 +52,18 @@ export type Credentials = OAuth2Credentials & {
  * attempt several flows depending on the environment capabilities (e.g. it's
  * not possible to launch a loopback server in a remote extension host).
  *
+ * Nothing is reported to the user here beyond the offer of another method. The
+ * thrown error carries every attempt's reason, and telling the user is the
+ * caller's to do once, rather than this doing it per attempt.
+ *
  * @param vs - The VS Code API instance.
  * @param flows - The authentication flows manager.
  * @param client - The API client instance.
  * @param scopes - The requested OAuth scopes.
  * @param options - Optional login options.
  * @returns The obtained credentials upon successful authentication.
- * @throws Error if all authentication attempts fail or are cancelled.
+ * @throws AggregateError carrying every attempt's error if the attempts failed,
+ * or a {@link UserCancelledError} if the user abandoned them all.
  */
 export async function login(
   vs: typeof vscode,
@@ -70,12 +76,14 @@ export async function login(
     throw new Error('No authentication flows available.');
   }
 
+  const attemptErrors: Error[] = [];
   for (const flow of flows) {
+    const previous = attemptErrors.at(-1);
+    if (previous && !(await promptIfFallback(vs, isCancellation(previous)))) {
+      break;
+    }
     let success = false;
     try {
-      if (flow !== flows[0] && !(await promptIfFallback(vs))) {
-        break;
-      }
       const res = await vs.window.withProgress<Credentials>(
         {
           location: vs.ProgressLocation.Notification,
@@ -106,31 +114,70 @@ export async function login(
       );
       success = true;
       return res;
-    } catch (err) {
-      const innerMsg = err instanceof Error ? err.message : 'unknown error';
-      const msg = `Sign-in attempt failed: ${innerMsg}.`;
-      // Notify this attempt failed, but try other methods 🤞.
-      vs.window.showErrorMessage(msg);
+    } catch (err: unknown) {
+      // Reporting each attempt talks over the fallback prompt below, and then
+      // over the caller's report of the whole failure, which already carries
+      // every reason. Collect them and stay quiet.
+      attemptErrors.push(toError(err));
     } finally {
       logSignIn(flow, success);
     }
   }
 
-  const msg =
-    flows.length > 1
-      ? 'All authentication methods failed.'
-      : 'Authentication failed.';
-  throw new Error(msg);
+  throw buildLoginError(attemptErrors);
 }
 
-async function promptIfFallback(vs: typeof vscode): Promise<boolean> {
+/**
+ * Builds the error describing why login never produced credentials.
+ *
+ * An attempt the user cancelled is not a defect, so a run in which nothing
+ * genuinely failed is reported as a cancellation. Anything else carries every
+ * attempt's error.
+ *
+ * @param attemptErrors - The error from each attempted flow, in order.
+ * @returns The error to throw from {@link login}.
+ */
+function buildLoginError(attemptErrors: Error[]): Error {
+  const failures = attemptErrors.filter((e) => !isCancellation(e));
+  if (failures.length === 0) {
+    return new UserCancelledError('Sign-in was cancelled.', {
+      cause: attemptErrors[0],
+    });
+  }
+  const msg =
+    attemptErrors.length > 1
+      ? 'All authentication methods failed.'
+      : 'Authentication failed.';
+  return new AggregateError(attemptErrors, msg);
+}
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/**
+ * Asks whether to try the next authentication flow.
+ *
+ * @param vs - The VS Code API instance.
+ * @param cancelled - Whether the previous attempt was abandoned by the user
+ * rather than failing. Telling someone who just pressed Cancel that
+ * authentication failed is both wrong and alarming.
+ * @returns True when the user wants to try another method.
+ */
+async function promptIfFallback(
+  vs: typeof vscode,
+  cancelled: boolean,
+): Promise<boolean> {
+  const question = 'Would you like to try a different authentication method?';
   const yes = 'Yes';
   const no = 'No';
-  const result = await vs.window.showErrorMessage(
-    'Failed to authenticate with Google. Would you like to try a different authentication method?',
-    yes,
-    no,
-  );
+  const result = cancelled
+    ? await vs.window.showInformationMessage(question, yes, no)
+    : await vs.window.showErrorMessage(
+        `Failed to authenticate with Google. ${question}`,
+        yes,
+        no,
+      );
   return result === yes;
 }
 

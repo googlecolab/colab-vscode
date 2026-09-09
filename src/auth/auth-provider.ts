@@ -19,6 +19,7 @@ import vscode, {
 } from 'vscode';
 import { z } from 'zod';
 import { AUTHORIZATION_HEADER } from '../colab/headers';
+import { isCancellation } from '../common/cancellation';
 import { log } from '../common/logging';
 import { Toggleable } from '../common/toggleable';
 import { telemetry } from '../telemetry';
@@ -326,8 +327,12 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       this.vs.window.showInformationMessage('Signed in to Google!');
       return this.session;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'unknown error';
-      this.vs.window.showErrorMessage(`Sign in failed: ${msg}`);
+      // A user who abandoned the sign-in does not need to be told it failed.
+      if (!isCancellation(err)) {
+        this.vs.window.showErrorMessage(
+          `Sign in failed: ${getErrorDescription(err)}`,
+        );
+      }
       throw err;
     }
   }
@@ -487,6 +492,28 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       throw this.disposeSignal.reason;
     }
   }
+}
+
+/**
+ * Renders a sign-in failure for a toast.
+ *
+ * `login` throws an `AggregateError` whose own message only names the umbrella
+ * failure, so reporting it verbatim says nothing the `Sign in failed` prefix
+ * has not already said. The reasons are in `errors`.
+ *
+ * @param err - The thrown value.
+ * @returns A message naming why sign-in failed.
+ */
+function getErrorDescription(err: unknown): string {
+  if (err instanceof AggregateError) {
+    const reasons = err.errors
+      .filter((e: unknown): e is Error => e instanceof Error)
+      .map((e) => e.message);
+    if (reasons.length > 0) {
+      return reasons.join('; ');
+    }
+  }
+  return err instanceof Error ? err.message : 'unknown error';
 }
 
 function isInvalidGrantError(err: unknown): boolean {

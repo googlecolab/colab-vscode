@@ -15,6 +15,7 @@ import {
   AUTHORIZATION_HEADER,
   CONTENT_TYPE_JSON_HEADER,
 } from '../colab/headers';
+import { UserCancelledError } from '../common/cancellation';
 import { Toggleable } from '../common/toggleable';
 import { PROVIDER_ID } from '../config/constants';
 import { Deferred } from '../test/helpers/async';
@@ -749,6 +750,38 @@ describe('GoogleAuthProvider', () => {
       ).to.eventually.be.rejectedWith(/get token/);
 
       sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showErrorMessage,
+        sinon.match(/Sign in failed.+/),
+      );
+    });
+
+    it('reports every attempt when all sign-in methods failed', async () => {
+      await authProvider.initialize();
+      loginStub.rejects(
+        new AggregateError(
+          [new Error('Barf'), new Error('Yack')],
+          'All authentication methods failed.',
+        ),
+      );
+
+      await expect(authProvider.createSession(SCOPES)).to.eventually.be
+        .rejected;
+
+      sinon.assert.calledOnceWithMatch(
+        vsCodeStub.window.showErrorMessage,
+        'Sign in failed: Barf; Yack',
+      );
+    });
+
+    it('does not report a failure when the user cancelled sign-in', async () => {
+      await authProvider.initialize();
+      loginStub.rejects(new UserCancelledError('Sign-in was cancelled.'));
+
+      await expect(
+        authProvider.createSession(SCOPES),
+      ).to.eventually.be.rejectedWith(/cancelled/);
+
+      sinon.assert.neverCalledWithMatch(
         vsCodeStub.window.showErrorMessage,
         sinon.match(/Sign in failed.+/),
       );
