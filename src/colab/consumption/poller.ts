@@ -20,7 +20,8 @@ const POLL_INTERVAL_MS = 1000 * 60; // 1 minute.
 const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
 /**
  * Ceiling on the consecutive intervals skipped while backing off, so a user who
- * is simply offline issues ~4 requests an hour rather than 60.
+ * is simply offline issues ~4 requests an hour (one every 15 minutes) rather
+ * than 60.
  */
 const MAX_BACKOFF_INTERVALS = 15;
 
@@ -30,7 +31,7 @@ const MAX_BACKOFF_INTERVALS = 15;
  * @param failures - Consecutive failures so far, at least one.
  * @returns The number of intervals to skip before trying again.
  */
-function backoffIntervals(failures: number): number {
+function calculateBackoffIntervals(failures: number): number {
   const base = Math.min(2 ** (failures - 1), MAX_BACKOFF_INTERVALS);
   const jittered = Math.round(base * (0.5 + Math.random()));
   return Math.min(Math.max(jittered, 1), MAX_BACKOFF_INTERVALS);
@@ -45,7 +46,7 @@ function backoffIntervals(failures: number): number {
  * @param signal - The signal the poll ran under.
  * @returns True when the failure should count towards the backoff.
  */
-function countsAsFailure(signal?: AbortSignal): boolean {
+function countsAsNetworkFailure(signal?: AbortSignal): boolean {
   return !signal?.aborted || signal.reason instanceof TimeoutError;
 }
 
@@ -160,9 +161,11 @@ export class ConsumptionPoller implements Toggleable, Disposable {
     try {
       consumptionUserInfo = await this.client.getConsumptionUserInfo(signal);
     } catch (err: unknown) {
-      if (countsAsFailure(signal)) {
+      if (countsAsNetworkFailure(signal)) {
         this.consecutiveFailures++;
-        this.intervalsToSkip = backoffIntervals(this.consecutiveFailures);
+        this.intervalsToSkip = calculateBackoffIntervals(
+          this.consecutiveFailures,
+        );
       }
       throw err;
     }
