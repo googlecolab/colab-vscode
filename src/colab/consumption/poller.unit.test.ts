@@ -251,6 +251,197 @@ describe('ConsumptionPoller', () => {
     });
   });
 
+  describe('when polling fails', () => {
+    let randomStub: sinon.SinonStub<[], number>;
+
+    beforeEach(async () => {
+      // Deterministic jitter: the multiplier becomes exactly 1.
+      randomStub = sinon.stub(Math, 'random').returns(0.5);
+      clientStub.getConsumptionUserInfo.rejects(new Error('offline'));
+      poller.on();
+      await fakeClock.tickAsync(TASK_TIMEOUT_MS);
+      clientStub.getConsumptionUserInfo.resetHistory();
+    });
+
+    it('skips the next interval after a single failure', async () => {
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+    });
+
+    it('retries once the backoff has elapsed', async () => {
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 2);
+
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    it('backs off further with each consecutive failure', async () => {
+      // Second failure, so the next attempt waits two intervals rather than
+      // the one that followed the first.
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 2);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 2);
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    /** Advances to just after a poll runs, so its backoff starts here. */
+    async function settleOnFreshBackoff(): Promise<void> {
+      for (let i = 0; i < 200; i++) {
+        clientStub.getConsumptionUserInfo.resetHistory();
+        await fakeClock.tickAsync(POLL_INTERVAL_MS);
+        if (clientStub.getConsumptionUserInfo.called) {
+          clientStub.getConsumptionUserInfo.resetHistory();
+          return;
+        }
+      }
+      expect.fail('the poller never retried');
+    }
+
+    it('caps the backoff at fifteen intervals', async () => {
+      // Far more failures than needed to saturate the exponential growth.
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 500);
+      await settleOnFreshBackoff();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 15);
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    it('caps the backoff even after jitter rounds up', async () => {
+      // Maximum jitter, which without a post-jitter clamp turns 15 into 23.
+      randomStub.returns(0.999);
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 500);
+      await settleOnFreshBackoff();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 16);
+
+      sinon.assert.called(clientStub.getConsumptionUserInfo);
+    });
+
+    it('jitters the backoff', async () => {
+      // A second failure has a base of two intervals; maximum jitter takes it
+      // to three.
+      randomStub.returns(0.999);
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 2);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 3);
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    it('resets the backoff after a success', async () => {
+      clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 2);
+
+      // Failing again should earn the one-interval backoff of a first
+      // failure, not the two intervals of a second consecutive one.
+      clientStub.getConsumptionUserInfo.rejects(new Error('offline again'));
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    it('clears the backoff when toggled off and back on', async () => {
+      // Escalate well past a single interval of backoff.
+      await fakeClock.tickAsync(POLL_INTERVAL_MS * 10);
+      poller.off();
+      await fakeClock.tickAsync(TASK_TIMEOUT_MS);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      poller.on();
+
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    it('polls immediately when an assignment changes', () => {
+      assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
+
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+  });
+
+  describe('aborts are not network failures', () => {
+    beforeEach(async () => {
+      sinon.stub(Math, 'random').returns(0.5);
+      clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
+      poller.on();
+      await fakeClock.tickAsync(TASK_TIMEOUT_MS);
+    });
+
+    it('does not accrue backoff from superseded polls', async () => {
+      // Hang until aborted, the way an in-flight request behaves.
+      clientStub.getConsumptionUserInfo.callsFake(
+        (signal?: AbortSignal) =>
+          new Promise((_, reject) => {
+            signal?.addEventListener('abort', () => {
+              reject(new Error('The user aborted a request.'));
+            });
+          }),
+      );
+
+      // Each change abandons the poll the previous one started. Kept well
+      // inside the task timeout so none of these is a genuine hang.
+      for (let i = 0; i < 3; i++) {
+        assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
+        await fakeClock.tickAsync(1);
+      }
+
+      // Let the last one be superseded by a poll that completes, so nothing
+      // is left in flight to time out during the probe below.
+      clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
+      assignmentChangeEmitter.fire({ added: [], removed: [], changed: [] });
+      await fakeClock.tickAsync(1);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      // A plain scheduled tick: it only runs if no backoff was armed.
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+
+      sinon.assert.called(clientStub.getConsumptionUserInfo);
+    });
+
+    it('polls immediately when toggled back on after being toggled off', async () => {
+      poller.off();
+      await fakeClock.tickAsync(TASK_TIMEOUT_MS);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      poller.on();
+
+      sinon.assert.calledOnce(clientStub.getConsumptionUserInfo);
+    });
+
+    it('still backs off when a poll times out', async () => {
+      // node-fetch rejects on abort, so a timeout surfaces as a rejection.
+      clientStub.getConsumptionUserInfo.callsFake(
+        (signal?: AbortSignal) =>
+          new Promise((_, reject) => {
+            signal?.addEventListener('abort', () => {
+              reject(new Error('The user aborted a request.'));
+            });
+          }),
+      );
+      await fakeClock.tickAsync(POLL_INTERVAL_MS + TASK_TIMEOUT_MS);
+      clientStub.getConsumptionUserInfo.resetHistory();
+
+      await fakeClock.tickAsync(POLL_INTERVAL_MS);
+
+      sinon.assert.notCalled(clientStub.getConsumptionUserInfo);
+    });
+  });
+
   describe('toggled off', () => {
     beforeEach(async () => {
       clientStub.getConsumptionUserInfo.resolves(DEFAULT_CCU_INFO);
