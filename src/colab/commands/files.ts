@@ -70,23 +70,45 @@ export async function upload(
           cancellable: false,
         },
         async (progress) => {
-          for (const op of operations) {
+
+          const dirOps = operations.filter((op) => op.type === 'directory');
+          const fileOps = operations.filter((op) => op.type === 'file');
+
+          for (const op of dirOps) {
             try {
-              if (op.type === 'directory') {
-                await createDirectory(vs, op.dest);
-              } else {
-                const fileName = op.source.path.split('/').pop() ?? '';
-                progress.report({
-                  message: `Importing ${fileName}...`,
-                  increment: incrementPerFile,
-                });
-                const content = await vs.workspace.fs.readFile(op.source);
-                await vs.workspace.fs.writeFile(op.dest, content);
-                successCount++;
-                uploadedBytes += content.byteLength;
-              }
+              await createDirectory(vs, op.dest);
             } catch (err) {
-              log.error(`Failed to process ${op.dest.toString()}`, err);
+              log.error(`Failed to create directory ${op.dest.toString()}`, err);
+              failCount++;
+            }
+          }
+
+          const uploadResults = await Promise.all(
+            fileOps.map(
+              async (op) => {
+                try {
+                  const fileName = op.source.path.split('/').pop() ?? '';
+                  progress.report({
+                    message: `Importing ${fileName}...`,
+                    increment: incrementPerFile,
+                  });
+                  const content = await vs.workspace.fs.readFile(op.source);
+                  await vs.workspace.fs.writeFile(op.dest, content);
+                  return { success: true, bytes: content.byteLength };
+
+                } catch (err) {
+                  log.error(`Failed to process ${op.dest.toString()}`, err);
+                  return { success: false, bytes: 0 };
+                }
+              }
+            )
+          );
+
+          for (const result of uploadResults) {
+            if (result.success) {
+              successCount++;
+              uploadedBytes += result.bytes;
+            } else {
               failCount++;
             }
           }
