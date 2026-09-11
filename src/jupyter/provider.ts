@@ -15,9 +15,8 @@ import {
 import { CancellationToken, Disposable, Event, ProviderResult } from 'vscode';
 import vscode from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
-import { ColabClient } from '../colab/client/v1';
-import { ExperimentFlag } from '../colab/client/v1/api';
-import { ColabApiClient, normalizeSubscriptionTier } from '../colab/client/v2';
+import { ColabApiClient } from '../colab/client/v2';
+import { SubscriptionTier } from '../colab/client/v2/generated/colab';
 import {
   AUTO_CONNECT,
   Command,
@@ -29,9 +28,7 @@ import {
 import { openColabSignup, openColabWeb } from '../colab/commands/external';
 import { buildIconLabel, stripIconLabel } from '../colab/commands/utils';
 import { NotFoundError } from '../colab/errors';
-import { getFlag } from '../colab/experiment-state';
 import { ServerPicker } from '../colab/server-picker';
-import { SubscriptionTier } from '../colab/types';
 import { LatestCancelable } from '../common/async';
 import { traceMethod } from '../common/logging/decorators';
 import { InputFlowAction } from '../common/multi-step-quickpick';
@@ -69,7 +66,6 @@ export class ColabJupyterServerProvider
    * @param vs - The VS Code API instance.
    * @param authEvent - The authentication event emitter.
    * @param assignmentManager - The assignment manager instance.
-   * @param colabClient - The old Colab private API client instance.
    * @param colabApiClient - The new Colab public API client instance.
    * @param serverPicker - The Server picker.
    * @param jupyter - The Jupyter API provider.
@@ -78,7 +74,6 @@ export class ColabJupyterServerProvider
     private readonly vs: typeof vscode,
     authEvent: Event<AuthChangeEvent>,
     private readonly assignmentManager: AssignmentManager,
-    private readonly colabClient: ColabClient,
     private readonly colabApiClient: ColabApiClient,
     private readonly serverPicker: ServerPicker,
     jupyter: Jupyter,
@@ -188,15 +183,8 @@ export class ColabJupyterServerProvider
     commands.push(AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB);
     if (this.isAuthorized) {
       try {
-        const enablePublicApi = getFlag(ExperimentFlag.EnablePublicApi);
-        let tier: SubscriptionTier;
-        if (enablePublicApi) {
-          const subs = await this.colabApiClient.colab.getSubscription();
-          tier = normalizeSubscriptionTier(subs.tier);
-        } else {
-          tier = (await this.colabClient.getUserInfo()).subscriptionTier;
-        }
-        if (tier === SubscriptionTier.NONE) {
+        const subs = await this.colabApiClient.colab.getSubscription();
+        if (subs.tier === SubscriptionTier.SubscriptionTierFree) {
           commands.push(UPGRADE_TO_PRO);
         }
       } catch {
