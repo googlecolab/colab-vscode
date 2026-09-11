@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ body:
     attributes:
       label: VS Code version
       description: "`Help` > `About` (or `Code` > `About Visual Studio Code` on Mac)."
-      placeholder: 1.104.2
+      placeholder: 1.137.0
     validations:
       required: true
 
@@ -47,7 +47,7 @@ body:
     attributes:
       label: Colab extension version
       description: Shown on the extension's page in the Extensions view.
-      placeholder: 0.3.1
+      placeholder: 0.9.5
     validations:
       required: true
 
@@ -56,7 +56,7 @@ body:
     attributes:
       label: Jupyter extension version
       description: Shown on the extension's page in the Extensions view.
-      placeholder: 2025.9.1
+      placeholder: 2026.6.2026071501
     validations:
       required: true
 
