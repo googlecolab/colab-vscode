@@ -5,6 +5,7 @@
  */
 
 import { isPromiseLike } from '../common/async';
+import { isCancellation } from '../common/cancellation';
 import { telemetry } from '.';
 
 /**
@@ -36,7 +37,8 @@ export function trackErrors<
 
 /**
  * A higher-order function that wraps a target function to log uncaught errors,
- * supporting both sync and async execution.
+ * supporting both sync and async execution. Cancellations are normal control
+ * flow and are never reported.
  *
  * @param fn - The function to wrap with error tracking.
  * @returns A new function that wraps the original function with error tracking.
@@ -49,17 +51,33 @@ export function withErrorTracking<
     try {
       result = fn.apply(this, args);
     } catch (error: unknown) {
-      telemetry.logError(error);
+      report(error);
       throw error;
     }
 
     if (isPromiseLike(result)) {
       return Promise.resolve(result).catch((error: unknown) => {
-        telemetry.logError(error);
+        report(error);
         throw error;
       }) as ReturnType<T>;
     }
 
     return result;
   } as T;
+}
+
+/**
+ * Reports an error this wrapper caught, unless it is a cancellation.
+ *
+ * The caller never asked for this report, so a user abandoning an operation
+ * would only bury the failures worth acting on. A deliberate
+ * `telemetry.logError` call is not filtered.
+ *
+ * @param error - The uncaught error.
+ */
+function report(error: unknown): void {
+  if (isCancellation(error)) {
+    return;
+  }
+  telemetry.logError(error);
 }

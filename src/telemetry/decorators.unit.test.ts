@@ -6,9 +6,23 @@
 
 import { expect } from 'chai';
 import sinon, { SinonStub } from 'sinon';
+import { InputFlowAction } from '../common/multi-step-quickpick';
 import { Deferred } from '../test/helpers/async';
 import { trackErrors, withErrorTracking } from './decorators';
 import { telemetry } from '.';
+
+/**
+ * Builds an error with the given name, as the platform's cancellations do.
+ *
+ * @param name - The error name.
+ * @param message - The error message.
+ * @returns The named error.
+ */
+function namedError(name: string, message: string): Error {
+  const error = new Error(message);
+  error.name = name;
+  return error;
+}
 
 class TestClass {
   @trackErrors
@@ -152,6 +166,52 @@ describe('withErrorTracking', () => {
 
       expect(result).to.equal('foobar');
       sinon.assert.notCalled(logErrorStub);
+    });
+  });
+
+  describe('cancellations', () => {
+    const cancellations = [
+      {
+        type: 'AbortError',
+        getError: () => namedError('AbortError', 'The user aborted a request.'),
+      },
+      {
+        type: 'a vscode CancellationError',
+        getError: () => namedError('Canceled', 'Canceled'),
+      },
+      {
+        type: 'an InputFlowAction',
+        getError: () => new InputFlowAction('back'),
+      },
+    ];
+
+    for (const { type, getError } of cancellations) {
+      it(`drops ${type} and still rethrows`, () => {
+        const fn = () => {
+          throw getError();
+        };
+
+        expect(() => withErrorTracking(fn)()).to.throw();
+        sinon.assert.notCalled(logErrorStub);
+      });
+    }
+
+    it('drops a cancellation rejected asynchronously', async () => {
+      const fn = () => Promise.reject(namedError('Canceled', 'Canceled'));
+
+      await expect(withErrorTracking(fn)()).to.be.rejected;
+      sinon.assert.notCalled(logErrorStub);
+    });
+
+    it('reports an error that merely mentions cancelling', () => {
+      // The filter matches on the error name, never on the message.
+      const error = new Error('failed to cancel the request');
+      const fn = () => {
+        throw error;
+      };
+
+      expect(() => withErrorTracking(fn)()).to.throw();
+      sinon.assert.calledOnceWithExactly(logErrorStub, error);
     });
   });
 });
