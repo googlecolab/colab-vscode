@@ -207,6 +207,110 @@ describe('Telemetry Module', () => {
       });
     }
 
+    describe('with a wrapped cause', () => {
+      it('appends the underlying cause', () => {
+        // The shape undici produces for a refused connection.
+        const cause = Object.assign(
+          new Error('connect ECONNREFUSED 127.0.0.1:443'),
+          { code: 'ECONNREFUSED' },
+        );
+
+        telemetry.logError(new TypeError('fetch failed', { cause }));
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: {
+            msg: 'fetch failed <- Error(ECONNREFUSED): connect ECONNREFUSED 127.0.0.1:443',
+          },
+        });
+      });
+
+      it('follows a chain of wrappers', () => {
+        const root = new Error('socket hang up');
+        const middle = new TypeError('fetch failed', { cause: root });
+
+        telemetry.logError(new Error('request failed', { cause: middle }));
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: {
+            msg: 'request failed <- TypeError: fetch failed <- Error: socket hang up',
+          },
+        });
+      });
+
+      it('descends into an AggregateError, whose message is empty', () => {
+        const cause = new AggregateError([
+          new Error('connect ECONNREFUSED ::1:443'),
+          new Error('connect ECONNREFUSED 127.0.0.1:443'),
+        ]);
+
+        telemetry.logError(new TypeError('fetch failed', { cause }));
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: {
+            msg:
+              'fetch failed <- AggregateError <- ' +
+              'Error: connect ECONNREFUSED ::1:443 <- ' +
+              'Error: connect ECONNREFUSED 127.0.0.1:443',
+          },
+        });
+      });
+
+      it('leaves a cause-free error untouched', () => {
+        telemetry.logError(new Error('plain failure'));
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: { msg: 'plain failure' },
+        });
+      });
+
+      it('terminates on a cycle', () => {
+        const a = new Error('a');
+        const b = new Error('b', { cause: a });
+        a.cause = b;
+
+        telemetry.logError(b);
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: { msg: 'b <- Error: a' },
+        });
+      });
+
+      it('caps an enormous message', () => {
+        // A wide AggregateError is only one level deep but unbounded in size.
+        const cause = new AggregateError(
+          Array.from(
+            { length: 500 },
+            (_, i) => new Error(`sub failure number ${String(i)}`),
+          ),
+        );
+
+        telemetry.logError(new TypeError('fetch failed', { cause }));
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: {
+            msg: sinon.match(
+              (msg: string) => msg.length < 2200 && msg.includes('chars total'),
+            ),
+          },
+        });
+      });
+
+      it('bounds a very deep chain', () => {
+        let error = new Error('root');
+        for (let i = 0; i < 20; i++) {
+          error = new Error(`wrap${String(i)}`, { cause: error });
+        }
+
+        telemetry.logError(error);
+
+        sinon.assert.calledOnceWithMatch(logStub, {
+          error_event: {
+            msg: sinon.match((msg: string) => msg.split(' <- ').length === 5),
+          },
+        });
+      });
+    });
+
     it('logs with the correct time', () => {
       const curTime = fakeClock.tick(100);
 
