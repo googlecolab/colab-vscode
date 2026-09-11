@@ -7,9 +7,9 @@ extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyte
 this extension exposes Colab servers directly in VS Code!
 
 - 👾 [Bug
-  report](https://github.com/googlecolab/colab-vscode/issues/new?template=bug_report.md)
+  report](https://github.com/googlecolab/colab-vscode/issues/new?template=bug_report.yml)
 - ✨ [Feature
-  request](https://github.com/googlecolab/colab-vscode/issues/new?template=feature_request.md)
+  request](https://github.com/googlecolab/colab-vscode/issues/new?template=feature_request.yml)
 - 💬 [Discussions](https://github.com/googlecolab/colab-vscode/discussions)
 
 ## Quick Start

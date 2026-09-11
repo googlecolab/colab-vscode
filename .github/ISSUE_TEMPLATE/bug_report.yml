@@ -1,0 +1,124 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Bug report
+description: Create a report to help us improve
+labels: ["bug"]
+body:
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: Preflight
+      options:
+        - label: I have searched the existing issues and this is not a duplicate.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Connecting to a Colab runtime fails after ...
+    validations:
+      required: true
+
+  - type: input
+    id: vscode-version
+    attributes:
+      label: VS Code version
+      description: "`Help` > `About` (or `Code` > `About Visual Studio Code` on Mac)."
+      placeholder: 1.137.0
+    validations:
+      required: true
+
+  - type: input
+    id: colab-version
+    attributes:
+      label: Colab extension version
+      description: Shown on the extension's page in the Extensions view.
+      placeholder: 0.9.5
+    validations:
+      required: true
+
+  - type: input
+    id: jupyter-version
+    attributes:
+      label: Jupyter extension version
+      description: Shown on the extension's page in the Extensions view.
+      placeholder: 2026.6.2026071501
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Mac
+        - Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro steps
+      description: The exact steps someone else can follow to see the bug.
+      placeholder: |
+        1. Click on ...
+        2. Then select ...
+        3. And finally ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: A clear and concise description of what happens instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: colab-logs
+    attributes:
+      label: Colab logs
+      description:
+        Logs from `Colab` in the `Output` panel (`View` > `Output`, change the
+        drop-down in the upper-right of the `Output` panel to `Colab`).
+      render: shell
+
+  - type: textarea
+    id: jupyter-logs
+    attributes:
+      label: Jupyter logs
+      description:
+        Logs from `Jupyter` in the `Output` panel (`View` > `Output`, change the
+        drop-down in the upper-right of the `Output` panel to `Jupyter`).
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other context or screenshots about the problem.
