@@ -70,7 +70,6 @@ export async function upload(
           cancellable: false,
         },
         async (progress) => {
-
           const dirOps = operations.filter((op) => op.type === 'directory');
           const fileOps = operations.filter((op) => op.type === 'file');
 
@@ -78,30 +77,24 @@ export async function upload(
             try {
               await createDirectory(vs, op.dest);
             } catch (err) {
-              log.error(`Failed to create directory ${op.dest.toString()}`, err);
+              log.error(
+                `Failed to create directory ${op.dest.toString()}`,
+                err,
+              );
               failCount++;
             }
           }
 
           const uploadResults = await Promise.all(
-            fileOps.map(
-              async (op) => {
-                try {
-                  const fileName = op.source.path.split('/').pop() ?? '';
-                  progress.report({
-                    message: `Importing ${fileName}...`,
-                    increment: incrementPerFile,
-                  });
-                  const content = await vs.workspace.fs.readFile(op.source);
-                  await vs.workspace.fs.writeFile(op.dest, content);
-                  return { success: true, bytes: content.byteLength };
-
-                } catch (err) {
-                  log.error(`Failed to process ${op.dest.toString()}`, err);
-                  return { success: false, bytes: 0 };
-                }
-              }
-            )
+            fileOps.map(async (op) => {
+              const result = await uploadFile(vs, op.source, op.dest);
+              const fileName = op.source.path.split('/').pop() ?? '';
+              progress.report({
+                message: `Importing ${fileName}...`,
+                increment: incrementPerFile,
+              });
+              return result;
+            }),
           );
 
           for (const result of uploadResults) {
@@ -262,5 +255,20 @@ async function createDirectory(vs: typeof vscode, uri: vscode.Uri) {
     if (!dirExists) {
       throw err;
     }
+  }
+}
+
+async function uploadFile(
+  vs: typeof vscode,
+  source: vscode.Uri,
+  dest: vscode.Uri,
+): Promise<{ success: boolean; bytes: number }> {
+  try {
+    const content = await vs.workspace.fs.readFile(source);
+    await vs.workspace.fs.writeFile(dest, content);
+    return { success: true, bytes: content.byteLength };
+  } catch (err) {
+    log.error(`Failed to process ${dest.toString()}`, err);
+    return { success: false, bytes: 0 };
   }
 }
