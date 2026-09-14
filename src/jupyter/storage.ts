@@ -7,30 +7,72 @@
 import vscode from 'vscode';
 import { z } from 'zod';
 import { Shape, Variant } from '../colab/types';
+import { log } from '../common/logging';
 import { PROVIDER_ID } from '../config/constants';
 import { ColabAssignedServer } from './servers';
 
 const ASSIGNED_SERVERS_KEY = `${PROVIDER_ID}.assigned_servers`;
-const AssignedServers = z.array(
-  z.object({
-    id: z.string(),
-    label: z.string().nonempty(),
-    variant: z.enum(Variant),
-    accelerator: z.string().optional(),
-    shape: z.enum(Shape).optional(),
-    version: z.string().optional(),
-    endpoint: z.string().nonempty(),
-    connectionInformation: z.object({
-      baseUrl: z.string().nonempty(),
-      token: z.string().nonempty(),
-      tokenExpiry: z.coerce.date(),
-      headers: z
-        .record(z.string().nonempty(), z.string().nonempty())
-        .optional(),
-    }),
-    dateAssigned: z.coerce.date(),
+
+const AssignedServer = z.object({
+  id: z.string(),
+  label: z.string().nonempty(),
+  variant: z.enum(Variant),
+  accelerator: z.string().optional(),
+  // The shape is presentational. Degrading an unrecognized one keeps a live
+  // server usable if the API gains a shape this version predates, rather than
+  // discarding it over a label.
+  shape: z.enum(Shape).optional().catch(undefined),
+  version: z.string().optional(),
+  endpoint: z.string().nonempty(),
+  connectionInformation: z.object({
+    baseUrl: z.string().nonempty(),
+    token: z.string().nonempty(),
+    tokenExpiry: z.coerce.date(),
+    headers: z.record(z.string().nonempty(), z.string().nonempty()).optional(),
   }),
-);
+  dateAssigned: z.coerce.date(),
+});
+type AssignedServer = z.infer<typeof AssignedServer>;
+
+/**
+ * Parses the persisted servers, skipping any entry that cannot be understood.
+ *
+ * Persisted data outlives the schema that wrote it. Parsing the array as a
+ * unit means one entry written by an older (or newer) schema throws away every
+ * other server and leaves the user permanently unable to list, store or remove
+ * anything, so entries are parsed individually instead.
+ *
+ * @param json - The raw JSON read from secret storage.
+ * @returns The servers that could be parsed, and how many entries could not.
+ */
+function parseStoredServers(json: string | undefined): {
+  servers: AssignedServer[];
+  dropped: number;
+} {
+  if (!json) {
+    return { servers: [], dropped: 0 };
+  }
+  const entries = z.array(z.unknown()).safeParse(JSON.parse(json));
+  if (!entries.success) {
+    log.error('Discarding stored servers, expected an array:', entries.error);
+    return { servers: [], dropped: 0 };
+  }
+  const servers: AssignedServer[] = [];
+  let dropped = 0;
+  for (const [index, entry] of entries.data.entries()) {
+    const server = AssignedServer.safeParse(entry);
+    if (!server.success) {
+      log.warn(
+        `Dropping unparsable stored server at index ${index.toString()}:`,
+        server.error,
+      );
+      dropped++;
+      continue;
+    }
+    servers.push(server.data);
+  }
+  return { servers, dropped };
+}
 
 /**
  * Server storage for Colab Jupyter servers.
@@ -61,9 +103,14 @@ export class ServerStorage {
       return this.cache;
     }
     const serversJson = await this.secrets.get(ASSIGNED_SERVERS_KEY);
-    const servers = serversJson
-      ? AssignedServers.parse(JSON.parse(serversJson))
-      : [];
+    const { servers, dropped } = parseStoredServers(serversJson);
+    if (dropped > 0) {
+      // Prune rather than skip on every read. An assigned server is
+      // ephemeral: an idle one is reclaimed within ~30 minutes and none
+      // outlive 24 hours, so an entry this version cannot read refers to a
+      // runtime that is long gone and is worth nothing to keep.
+      await this.storeServers(servers, serversJson);
+    }
     const res = servers.map((server) => ({
       id: server.id,
       label: server.label,
@@ -164,7 +211,7 @@ export class ServerStorage {
   }
 
   private async storeServers(
-    servers: z.infer<typeof AssignedServers>,
+    servers: AssignedServer[],
     existingServersJson: string | undefined,
   ): Promise<void> {
     const serversSorted = servers.sort((a, b) => a.id.localeCompare(b.id));
@@ -179,6 +226,5 @@ export class ServerStorage {
 }
 
 function mapServersById(json: string | undefined) {
-  const servers = json ? AssignedServers.parse(JSON.parse(json)) : [];
-  return new Map(servers.map((s) => [s.id, s]));
+  return new Map(parseStoredServers(json).servers.map((s) => [s.id, s]));
 }
