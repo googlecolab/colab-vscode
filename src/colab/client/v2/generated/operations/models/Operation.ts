@@ -33,22 +33,16 @@ export interface Operation {
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
      * available.
-     * @type {boolean}
-     * @memberof Operation
      */
     done?: boolean;
     /**
      * The error result of the operation in case of failure or cancellation.
-     * @type {Status}
-     * @memberof Operation
      */
     error?: Status;
     /**
      * The server-assigned name, which is only unique within the same service that
      * originally returns it. If you use the default HTTP mapping, the
      * `name` should be a resource name ending with `operations/{unique_id}`.
-     * @type {string}
-     * @memberof Operation
      */
     name?: string;
     /**
@@ -56,8 +50,6 @@ export interface Operation {
      * contains progress information and common metadata such as create time.
      * Some services might not provide such metadata.  Any method that returns a
      * long-running operation should document the metadata type, if any.
-     * @type {{ [key: string]: any; }}
-     * @memberof Operation
      */
     metadata?: { [key: string]: any; };
     /**
@@ -69,8 +61,6 @@ export interface Operation {
      * is the original method name.  For example, if the original method name
      * is `TakeSnapshot()`, the inferred response type is
      * `TakeSnapshotResponse`.
-     * @type {{ [key: string]: any; }}
-     * @memberof Operation
      */
     response?: { [key: string]: any; };
 }

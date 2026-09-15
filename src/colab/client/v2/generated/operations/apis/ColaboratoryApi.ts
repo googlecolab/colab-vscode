@@ -26,28 +26,81 @@ import {
 } from '../models/Operation';
 
 export interface GetOperationRequest {
+    /**
+     * Part of `name`. The name of the operation resource.
+     */
     operationsId: string;
+    /**
+     * Data format for response.
+     */
     $alt?: GetOperationAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: GetOperationXgafvEnum;
 }
 
 export interface ListOperationsRequest {
+    /**
+     * Data format for response.
+     */
     $alt?: ListOperationsAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: ListOperationsXgafvEnum;
+    /**
+     * The standard list page size.
+     */
     pageSize?: number;
+    /**
+     * The standard list page token.
+     */
     pageToken?: string;
 }
 
 export interface WaitOperationRequest {
+    /**
+     * Part of `name`. The name of the operation resource to wait on.
+     */
     operationsId: string;
+    /**
+     * Data format for response.
+     */
     $alt?: WaitOperationAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: WaitOperationXgafvEnum;
+    /**
+     * The maximum duration to wait before timing out. If left blank, the wait
+     * will be at most the time permitted by the underlying HTTP/RPC protocol.
+     * If RPC context deadline is also specified, the shorter one will be used.
+     */
     timeout?: string;
 }
 
@@ -408,7 +461,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
 export const GetOperationAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type GetOperationAltEnum = typeof GetOperationAltEnum[keyof typeof GetOperationAltEnum];
 /**
@@ -416,7 +469,7 @@ export type GetOperationAltEnum = typeof GetOperationAltEnum[keyof typeof GetOpe
  */
 export const GetOperationXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type GetOperationXgafvEnum = typeof GetOperationXgafvEnum[keyof typeof GetOperationXgafvEnum];
 /**
@@ -425,7 +478,7 @@ export type GetOperationXgafvEnum = typeof GetOperationXgafvEnum[keyof typeof Ge
 export const ListOperationsAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type ListOperationsAltEnum = typeof ListOperationsAltEnum[keyof typeof ListOperationsAltEnum];
 /**
@@ -433,7 +486,7 @@ export type ListOperationsAltEnum = typeof ListOperationsAltEnum[keyof typeof Li
  */
 export const ListOperationsXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type ListOperationsXgafvEnum = typeof ListOperationsXgafvEnum[keyof typeof ListOperationsXgafvEnum];
 /**
@@ -442,7 +495,7 @@ export type ListOperationsXgafvEnum = typeof ListOperationsXgafvEnum[keyof typeo
 export const WaitOperationAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type WaitOperationAltEnum = typeof WaitOperationAltEnum[keyof typeof WaitOperationAltEnum];
 /**
@@ -450,6 +503,6 @@ export type WaitOperationAltEnum = typeof WaitOperationAltEnum[keyof typeof Wait
  */
 export const WaitOperationXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type WaitOperationXgafvEnum = typeof WaitOperationXgafvEnum[keyof typeof WaitOperationXgafvEnum];
