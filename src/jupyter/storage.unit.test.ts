@@ -9,7 +9,9 @@ import { assert, expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { SecretStorage } from 'vscode';
 import { Shape, Variant } from '../colab/types';
+import { LogLevel } from '../common/logging';
 import { PROVIDER_ID } from '../config/constants';
+import { ColabLogWatcher } from '../test/helpers/logging';
 import { SecretStorageFake } from '../test/helpers/secret-storage';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ColabAssignedServer } from './servers';
@@ -563,6 +565,156 @@ describe('ServerStorage', () => {
 
         sinon.assert.calledOnce(secretsStub.get);
       });
+    });
+  });
+
+  describe('when stored data does not match the current schema', () => {
+    let logs: ColabLogWatcher;
+    let other: ColabAssignedServer;
+
+    /**
+     * Seeds secret storage with raw records, bypassing the current schema.
+     *
+     * @param records - The raw records to persist.
+     */
+    async function seed(records: unknown[]): Promise<void> {
+      await secretsStub.store(ASSIGNED_SERVERS_KEY, JSON.stringify(records));
+      secretsStub.get.resetHistory();
+      secretsStub.store.resetHistory();
+    }
+
+    /**
+     * Builds a raw record in the shape secret storage persists.
+     *
+     * @param server - The server to serialize.
+     * @param overrides - Fields to replace in the serialized record.
+     * @returns The raw record.
+     */
+    function rawRecord(
+      server: ColabAssignedServer,
+      overrides: Record<string, unknown> = {},
+    ): Record<string, unknown> {
+      const c = server.connectionInformation;
+      return {
+        id: server.id,
+        label: server.label,
+        variant: server.variant,
+        accelerator: server.accelerator,
+        shape: server.shape,
+        version: server.version,
+        endpoint: server.endpoint,
+        connectionInformation: {
+          baseUrl: c.baseUrl.toString(),
+          token: c.token,
+          tokenExpiry: c.tokenExpiry,
+          headers: c.headers,
+        },
+        dateAssigned: server.dateAssigned,
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      logs = new ColabLogWatcher(vsCodeStub, LogLevel.Trace);
+      other = { ...defaultServer, id: randomUUID(), label: 'other' };
+    });
+
+    afterEach(() => {
+      logs.dispose();
+    });
+
+    describe('when a single entry is unparsable', () => {
+      beforeEach(async () => {
+        await seed([
+          rawRecord(defaultServer, { variant: 'QPU' }),
+          rawRecord(other),
+        ]);
+      });
+
+      it('still returns the remaining servers', async () => {
+        await expect(serverStorage.list()).to.eventually.deep.equal([other]);
+      });
+
+      it('logs the entry it skipped', async () => {
+        await assert.isFulfilled(serverStorage.list());
+
+        expect(logs.output).to.match(
+          /Dropping unparsable stored server at index 0/,
+        );
+      });
+
+      it('can still remove another server', async () => {
+        await expect(serverStorage.remove(other.id)).to.eventually.be.true;
+
+        await expect(serverStorage.list()).to.eventually.deep.equal([]);
+      });
+
+      it('can still store another server', async () => {
+        const added: ColabAssignedServer = {
+          ...defaultServer,
+          id: randomUUID(),
+          label: 'added',
+        };
+
+        await expect(serverStorage.store([added])).to.eventually.be.fulfilled;
+
+        await expect(serverStorage.list()).to.eventually.have.same.deep.members(
+          [other, added],
+        );
+      });
+    });
+
+    it('drops a server written before the variant became a string', async () => {
+      // An entry this version cannot read was written by a build that predates
+      // the string enum, so its runtime is long expired. Nothing to recover.
+      await seed([rawRecord(defaultServer, { variant: 0 })]);
+
+      await expect(serverStorage.list()).to.eventually.deep.equal([]);
+    });
+
+    it('prunes an unreadable entry from storage rather than re-reading it', async () => {
+      const keep = { ...defaultServer, id: randomUUID() };
+      await seed([rawRecord(defaultServer, { variant: 0 }), rawRecord(keep)]);
+
+      await assert.isFulfilled(serverStorage.list());
+
+      // Persisted, so a later read neither sees nor re-reports the bad entry.
+      const stored: unknown = JSON.parse(
+        (await secretsStub.get(ASSIGNED_SERVERS_KEY)) ?? '[]',
+      );
+      expect(stored).to.have.lengthOf(1);
+    });
+
+    it('leaves storage alone when every entry parses', async () => {
+      // Deliberately not in the order `storeServers` would write them: a read
+      // must not rewrite storage just because it could tidy it.
+      const [first, second] = [
+        { ...defaultServer, id: 'bbb' },
+        { ...defaultServer, id: 'aaa' },
+      ];
+      await seed([rawRecord(first), rawRecord(second)]);
+      const before = await secretsStub.get(ASSIGNED_SERVERS_KEY);
+
+      await assert.isFulfilled(serverStorage.list());
+
+      expect(await secretsStub.get(ASSIGNED_SERVERS_KEY)).to.equal(before);
+    });
+
+    it('keeps a server whose shape is no longer recognized', async () => {
+      // Shape 2 is the retired VERYHIGHMEM.
+      await seed([rawRecord(defaultServer, { shape: 2 })]);
+
+      await expect(serverStorage.list()).to.eventually.deep.equal([
+        { ...defaultServer, shape: undefined },
+      ]);
+    });
+
+    it('discards a stored value that is not an array', async () => {
+      await seed([]);
+      await secretsStub.store(ASSIGNED_SERVERS_KEY, JSON.stringify({}));
+
+      await expect(serverStorage.list()).to.eventually.deep.equal([]);
+      expect(logs.output).to.match(/expected an array/);
     });
   });
 });
