@@ -33,22 +33,16 @@ export interface BaseOperation {
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
      * available.
-     * @type {boolean}
-     * @memberof BaseOperation
      */
     done?: boolean;
     /**
      * The error result of the operation in case of failure or cancellation.
-     * @type {Status}
-     * @memberof BaseOperation
      */
     error?: Status;
     /**
      * The server-assigned name, which is only unique within the same service that
      * originally returns it. If you use the default HTTP mapping, the
      * `name` should be a resource name ending with `operations/{unique_id}`.
-     * @type {string}
-     * @memberof BaseOperation
      */
     name?: string;
 }

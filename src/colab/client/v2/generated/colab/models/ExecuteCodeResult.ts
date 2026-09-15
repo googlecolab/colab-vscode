@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -32,37 +32,27 @@ export interface ExecuteCodeResult {
     /**
      * The Jupyter `In[N]` execution count assigned by the kernel. Informational
      * only. Not for addressing executions, for that use `execution_id`.
-     * @type {number}
-     * @memberof ExecuteCodeResult
      */
     executionCount?: number;
     /**
      * Populated when the execution raised. Mutually exclusive with a successful
      * completion.
-     * @type {Error}
-     * @memberof ExecuteCodeResult
      */
     executionError?: Error;
     /**
      * The execution identifier this result is for, echoed from the request. Empty
      * when the request supplied no `execution_id` (such an execution is not
      * resumable). Use it to resume.
-     * @type {string}
-     * @memberof ExecuteCodeResult
      */
     executionId?: string;
     /**
      * Whether the runtime truncated buffered output (size or line caps hit). When
      * true, `stdout`/`stderr` are tail-truncated.
-     * @type {boolean}
-     * @memberof ExecuteCodeResult
      */
     outputTruncated?: boolean;
     /**
      * The `text/plain` representation of the last expression's value, if the
      * execution ended on an expression. Empty otherwise.
-     * @type {string}
-     * @memberof ExecuteCodeResult
      */
     result?: string;
     /**
@@ -71,8 +61,6 @@ export interface ExecuteCodeResult {
      * (the capture preamble records what it wrote, including drops) rather than
      * reconstructed from a naming convention. Each entry carries its MIME
      * representations and whether it was written (with a reason when not).
-     * @type {Array<RichOutput>}
-     * @memberof ExecuteCodeResult
      */
     richOutputs?: Array<RichOutput>;
     /**
@@ -82,28 +70,20 @@ export interface ExecuteCodeResult {
      * executions. When rich-output capture is enabled, that same set is reported
      * structurally in `rich_outputs`, so a non-empty `rich_outputs` is the
      * equivalent signal. Still populated for backward compatibility.
-     * @type {boolean}
-     * @memberof ExecuteCodeResult
      * @deprecated
      */
     richOutputsDropped?: boolean;
     /**
      * The session the execution ran in.
      * Format: `runtimes/{runtime}/sessions/{session}`.
-     * @type {string}
-     * @memberof ExecuteCodeResult
      */
     session?: string;
     /**
      * Aggregated stderr across the execution.
-     * @type {string}
-     * @memberof ExecuteCodeResult
      */
     stderr?: string;
     /**
      * Aggregated stdout across the execution.
-     * @type {string}
-     * @memberof ExecuteCodeResult
      */
     stdout?: string;
 }

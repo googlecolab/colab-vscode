@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -13,7 +13,7 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
+import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime';
 /**
  * Connection info used to authenticate to the runtime.
  * @export
@@ -24,27 +24,24 @@ export interface ConnectionInfo {
      * Required. Output only. The endpoint used to internally identify the runtime. This field is
      * restricted to Colab internal use only because the endpoint is an internal
      * implementation detail that shouldn't be exposed to public users.
-     * @type {string}
-     * @memberof ConnectionInfo
      */
     readonly endpoint: string;
     /**
      * Required. Output only. The expiration time of the runtime proxy token.
-     * @type {Date}
-     * @memberof ConnectionInfo
      */
     readonly expireTime: Date;
     /**
      * Required. Output only. The runtime proxy token. This is a short-lived credential used to
      * authenticate to the runtime.
-     * @type {string}
-     * @memberof ConnectionInfo
+     * 
+     * Clients should set this token as the value of the
+     * `X-Colab-Runtime-Proxy-Token` HTTP header when connecting to the runtime,
+     * and call the GetRuntime API to refresh this
+     * token when approaching `expire_time`.
      */
     readonly token: string;
     /**
      * Required. Output only. The authenticated URL that can be used to connect to the runtime.
-     * @type {string}
-     * @memberof ConnectionInfo
      */
     readonly url: string;
 }
@@ -71,7 +68,7 @@ export function ConnectionInfoFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
         'endpoint': json['endpoint'],
-        'expireTime': (new Date(json['expireTime'])),
+        'expireTime': (json['expireTime'] == null ? json['expireTime'] : parseDateTime(json['expireTime'])),
         'token': json['token'],
         'url': json['url'],
     };

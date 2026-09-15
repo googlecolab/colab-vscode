@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -30,8 +30,6 @@ import {
 export interface RichOutput {
     /**
      * Why the output was not written, set iff it was dropped.
-     * @type {ErrorInfo}
-     * @memberof RichOutput
      */
     errorInfo?: ErrorInfo;
     /**
@@ -40,8 +38,6 @@ export interface RichOutput {
      * `/content/.dsm_outputs/{execution_msg_id}/out-000.json`. Set iff the
      * output was written. Keys only, never bytes; the bytes can be fetched
      * from the live runtime out of band.
-     * @type {string}
-     * @memberof RichOutput
      */
     filePath?: string;
     /**
@@ -49,8 +45,6 @@ export interface RichOutput {
      * emission order. Dense and monotonic: a dropped output still occupies its
      * index, so later indices never shift. This is the stable identifier for a
      * dropped output, which has no `file_path`.
-     * @type {number}
-     * @memberof RichOutput
      */
     index?: number;
     /**
@@ -61,8 +55,6 @@ export interface RichOutput {
      * always-present "text/plain" fallback (still present in the bundle) and
      * Colab's internal intrinsic type. Non-empty even for a dropped output
      * (whose bundle was never written), so a client can tell what was lost.
-     * @type {Array<string>}
-     * @memberof RichOutput
      */
     mimeTypes?: Array<string>;
     /**
@@ -71,8 +63,6 @@ export interface RichOutput {
      * how many bytes a fetch transfers), NOT the decoded asset size. A hint so
      * a client can decide whether to fetch. Set only for a written output; 0
      * (omitted) for a dropped one.
-     * @type {string}
-     * @memberof RichOutput
      */
     sizeBytes?: string;
 }

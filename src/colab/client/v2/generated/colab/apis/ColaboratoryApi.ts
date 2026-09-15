@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -41,49 +41,164 @@ import {
 } from '../models/Subscription';
 
 export interface CreateRuntimeRequest {
+    /**
+     * Data format for response.
+     */
     $alt?: CreateRuntimeAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: CreateRuntimeXgafvEnum;
+    /**
+     * Optional. A unique identifier for this request.
+     * 
+     * This request is only idempotent if a `request_id` is provided.
+     * See [AIP-155](https://google.aip.dev/155) for more details.
+     * 
+     * If provided, the request ID must be in UUID4 format per
+     * https://linter.aip.dev/155/request-id-format.
+     */
     requestId?: string;
+    /**
+     * Optional. A unique identifier for the runtime. If not supplied, a random ID will be
+     * generated. If a runtime with the given ID owned by the requesting user
+     * already exists, a completed Operation with
+     * an [`ALREADY_EXISTS` (code:
+     * 6)](https://github.com/googleapis/googleapis/blob/437254f595a380cd9323111700ce0fcf9d6d2c21/google/rpc/code.proto#L84)
+     * error will be returned. See
+     * [AIP-133](https://google.aip.dev/133#user-specified-ids) for more details.
+     * 
+     * The ID must conform to
+     * [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034), specifically:
+     * 
+     * - 1 to 63 characters
+     * 
+     * - Lower-case letters, digits, and hyphens
+     * 
+     * - Start with a letter
+     * 
+     * - End with a letter or digit
+     */
     runtimeId?: string;
+    /**
+     * 
+     */
     runtime?: Omit<Runtime, 'connectionInfo'>;
 }
 
 export interface DeleteRuntimeRequest {
+    /**
+     * Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+     */
     runtime: string;
+    /**
+     * Data format for response.
+     */
     $alt?: DeleteRuntimeAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: DeleteRuntimeXgafvEnum;
+    /**
+     * Optional. If set to `true`, and the runtime is not found, the request will succeed
+     * but no action will be taken on the server.
+     */
+    allowMissing?: boolean;
 }
 
 export interface GetRuntimeRequest {
+    /**
+     * Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+     */
     runtime: string;
+    /**
+     * Data format for response.
+     */
     $alt?: GetRuntimeAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: GetRuntimeXgafvEnum;
 }
 
 export interface GetSubscriptionRequest {
+    /**
+     * Data format for response.
+     */
     $alt?: GetSubscriptionAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: GetSubscriptionXgafvEnum;
 }
 
 export interface ListRuntimeSpecsRequest {
+    /**
+     * Data format for response.
+     */
     $alt?: ListRuntimeSpecsAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: ListRuntimeSpecsXgafvEnum;
 }
 
 export interface ListRuntimesRequest {
+    /**
+     * Data format for response.
+     */
     $alt?: ListRuntimesAltEnum;
+    /**
+     * JSONP
+     */
     $callback?: string;
+    /**
+     * Returns response with indentations and line breaks.
+     */
     $prettyPrint?: boolean;
+    /**
+     * V1 error format.
+     */
     $xgafv?: ListRuntimesXgafvEnum;
 }
 
@@ -135,6 +250,7 @@ export interface ColaboratoryApiInterface {
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
      * @param {'1' | '2'} [$xgafv] V1 error format.
+     * @param {boolean} [allowMissing] Optional. If set to &#x60;true&#x60;, and the runtime is not found, the request will succeed but no action will be taken on the server.
      * @throws {RequiredError}
      * @memberof ColaboratoryApiInterface
      */
@@ -147,6 +263,7 @@ export interface ColaboratoryApiInterface {
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
      * @param {'1' | '2'} [$xgafv] V1 error format.
+     * @param {boolean} [allowMissing] Optional. If set to &#x60;true&#x60;, and the runtime is not found, the request will succeed but no action will be taken on the server.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof ColaboratoryApiInterface
@@ -228,7 +345,7 @@ export interface ColaboratoryApiInterface {
     listRuntimeSpecsRequestOpts(requestParameters: ListRuntimeSpecsRequest): Promise<runtime.RequestOpts>;
 
     /**
-     * Lists Colab runtime specs available to the requesting user.
+     * Lists available Colab runtime specs and their eligibility to the requesting user.
      * @param {'json' | 'media' | 'proto'} [$alt] Data format for response.
      * @param {string} [$callback] JSONP
      * @param {boolean} [$prettyPrint] Returns response with indentations and line breaks.
@@ -240,7 +357,7 @@ export interface ColaboratoryApiInterface {
     listRuntimeSpecsRaw(requestParameters: ListRuntimeSpecsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ListRuntimeSpecsResponse>>;
 
     /**
-     * Lists Colab runtime specs available to the requesting user.
+     * Lists available Colab runtime specs and their eligibility to the requesting user.
      */
     listRuntimeSpecs(requestParameters: ListRuntimeSpecsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ListRuntimeSpecsResponse>;
 
@@ -388,6 +505,10 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
 
         if (requestParameters['$xgafv'] != null) {
             queryParameters['$.xgafv'] = requestParameters['$xgafv'];
+        }
+
+        if (requestParameters['allowMissing'] != null) {
+            queryParameters['allowMissing'] = requestParameters['allowMissing'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -643,7 +764,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
     }
 
     /**
-     * Lists Colab runtime specs available to the requesting user.
+     * Lists available Colab runtime specs and their eligibility to the requesting user.
      */
     async listRuntimeSpecsRaw(requestParameters: ListRuntimeSpecsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ListRuntimeSpecsResponse>> {
         const requestOptions = await this.listRuntimeSpecsRequestOpts(requestParameters);
@@ -653,7 +774,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
     }
 
     /**
-     * Lists Colab runtime specs available to the requesting user.
+     * Lists available Colab runtime specs and their eligibility to the requesting user.
      */
     async listRuntimeSpecs(requestParameters: ListRuntimeSpecsRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ListRuntimeSpecsResponse> {
         const response = await this.listRuntimeSpecsRaw(requestParameters, initOverrides);
@@ -739,7 +860,7 @@ export class ColaboratoryApi extends runtime.BaseAPI implements ColaboratoryApiI
 export const CreateRuntimeAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type CreateRuntimeAltEnum = typeof CreateRuntimeAltEnum[keyof typeof CreateRuntimeAltEnum];
 /**
@@ -747,7 +868,7 @@ export type CreateRuntimeAltEnum = typeof CreateRuntimeAltEnum[keyof typeof Crea
  */
 export const CreateRuntimeXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type CreateRuntimeXgafvEnum = typeof CreateRuntimeXgafvEnum[keyof typeof CreateRuntimeXgafvEnum];
 /**
@@ -756,7 +877,7 @@ export type CreateRuntimeXgafvEnum = typeof CreateRuntimeXgafvEnum[keyof typeof 
 export const DeleteRuntimeAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type DeleteRuntimeAltEnum = typeof DeleteRuntimeAltEnum[keyof typeof DeleteRuntimeAltEnum];
 /**
@@ -764,7 +885,7 @@ export type DeleteRuntimeAltEnum = typeof DeleteRuntimeAltEnum[keyof typeof Dele
  */
 export const DeleteRuntimeXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type DeleteRuntimeXgafvEnum = typeof DeleteRuntimeXgafvEnum[keyof typeof DeleteRuntimeXgafvEnum];
 /**
@@ -773,7 +894,7 @@ export type DeleteRuntimeXgafvEnum = typeof DeleteRuntimeXgafvEnum[keyof typeof 
 export const GetRuntimeAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type GetRuntimeAltEnum = typeof GetRuntimeAltEnum[keyof typeof GetRuntimeAltEnum];
 /**
@@ -781,7 +902,7 @@ export type GetRuntimeAltEnum = typeof GetRuntimeAltEnum[keyof typeof GetRuntime
  */
 export const GetRuntimeXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type GetRuntimeXgafvEnum = typeof GetRuntimeXgafvEnum[keyof typeof GetRuntimeXgafvEnum];
 /**
@@ -790,7 +911,7 @@ export type GetRuntimeXgafvEnum = typeof GetRuntimeXgafvEnum[keyof typeof GetRun
 export const GetSubscriptionAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type GetSubscriptionAltEnum = typeof GetSubscriptionAltEnum[keyof typeof GetSubscriptionAltEnum];
 /**
@@ -798,7 +919,7 @@ export type GetSubscriptionAltEnum = typeof GetSubscriptionAltEnum[keyof typeof 
  */
 export const GetSubscriptionXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type GetSubscriptionXgafvEnum = typeof GetSubscriptionXgafvEnum[keyof typeof GetSubscriptionXgafvEnum];
 /**
@@ -807,7 +928,7 @@ export type GetSubscriptionXgafvEnum = typeof GetSubscriptionXgafvEnum[keyof typ
 export const ListRuntimeSpecsAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type ListRuntimeSpecsAltEnum = typeof ListRuntimeSpecsAltEnum[keyof typeof ListRuntimeSpecsAltEnum];
 /**
@@ -815,7 +936,7 @@ export type ListRuntimeSpecsAltEnum = typeof ListRuntimeSpecsAltEnum[keyof typeo
  */
 export const ListRuntimeSpecsXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type ListRuntimeSpecsXgafvEnum = typeof ListRuntimeSpecsXgafvEnum[keyof typeof ListRuntimeSpecsXgafvEnum];
 /**
@@ -824,7 +945,7 @@ export type ListRuntimeSpecsXgafvEnum = typeof ListRuntimeSpecsXgafvEnum[keyof t
 export const ListRuntimesAltEnum = {
     Json: 'json',
     Media: 'media',
-    Proto: 'proto'
+    Proto: 'proto',
 } as const;
 export type ListRuntimesAltEnum = typeof ListRuntimesAltEnum[keyof typeof ListRuntimesAltEnum];
 /**
@@ -832,6 +953,6 @@ export type ListRuntimesAltEnum = typeof ListRuntimesAltEnum[keyof typeof ListRu
  */
 export const ListRuntimesXgafvEnum = {
     _1: '1',
-    _2: '2'
+    _2: '2',
 } as const;
 export type ListRuntimesXgafvEnum = typeof ListRuntimesXgafvEnum[keyof typeof ListRuntimesXgafvEnum];

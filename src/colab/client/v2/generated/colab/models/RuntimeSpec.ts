@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -30,14 +30,10 @@ import {
 export interface RuntimeSpec {
     /**
      * Output only. Whether the requesting user is eligible for the runtime spec.
-     * @type {boolean}
-     * @memberof RuntimeSpec
      */
     readonly eligible?: boolean;
     /**
      * Required. The key of the runtime spec.
-     * @type {Key}
-     * @memberof RuntimeSpec
      */
     key: Key;
 }
