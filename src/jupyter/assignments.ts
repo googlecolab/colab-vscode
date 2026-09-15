@@ -36,7 +36,6 @@ import {
   ConnectionInfo,
   CreateRuntimeOperationFromJSON,
   Runtime,
-  ResponseError,
   instanceOfRuntime,
 } from '../colab/client/v2/generated/colab';
 import { REMOVE_SERVER } from '../colab/commands/constants';
@@ -1123,17 +1122,10 @@ export class AssignmentManager implements Disposable {
    * @param signal - The cancellation signal.
    */
   private async deleteRuntime(id: string, signal?: AbortSignal): Promise<void> {
-    try {
-      await this.colabApiClient.colab.deleteRuntime(
-        { runtime: id },
-        { signal },
-      );
-    } catch (error: unknown) {
-      if (!(error instanceof ResponseError && error.response.status === 404)) {
-        throw error;
-      }
-      log.trace(`Runtime ${id} was already deleted`, error);
-    }
+    await this.colabApiClient.colab.deleteRuntime(
+      { runtime: id, allowMissing: true },
+      { signal },
+    );
   }
 }
 

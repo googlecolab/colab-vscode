@@ -30,14 +30,10 @@ import {
 export interface ListOperationsResponse {
     /**
      * The standard List next-page token.
-     * @type {string}
-     * @memberof ListOperationsResponse
      */
     nextPageToken?: string;
     /**
      * A list of operations that matches the specified filter in the request.
-     * @type {Array<Operation>}
-     * @memberof ListOperationsResponse
      */
     operations?: Array<Operation>;
 }

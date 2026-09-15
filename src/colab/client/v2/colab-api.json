@@ -82,7 +82,7 @@
             "type": "string"
           },
           "token": {
-            "description": "Required. Output only. The runtime proxy token. This is a short-lived credential used to\nauthenticate to the runtime.",
+            "description": "Required. Output only. The runtime proxy token. This is a short-lived credential used to\nauthenticate to the runtime.\n\nClients should set this token as the value of the\n`X-Colab-Runtime-Proxy-Token` HTTP header when connecting to the runtime,\nand call the GetRuntime API to refresh this\ntoken when approaching `expire_time`.",
             "readOnly": true,
             "type": "string"
           },
@@ -343,7 +343,7 @@
         "type": "object"
       },
       "Runtime": {
-        "description": "A Colab managed runtime.",
+        "description": "A Colab managed runtime.\n\nThis is essentially a Jupyter server that runs on Google infrastructure.\nClients should use the connection_info provided to connect to the\nruntime, and leverage the standard Jupyter [REST\nAPI](https://jupyter-server.readthedocs.io/en/stable/developers/rest-api.html)\nand/or [client\nlibrary](https://jupyter-client.readthedocs.io/en/stable/api/jupyter_client.html)\nto interact with the runtime.",
         "properties": {
           "connectionInfo": {
             "allOf": [
@@ -521,10 +521,10 @@
     "url": "https://developers.google.com/colab"
   },
   "info": {
-    "description": "The Colab API lets you programmatically manage Colab runtimes.\n\nThe API is currently in beta and available on an allowlist basis. If you're interested in\nintegrating with us, please share your use cases with colaboratory-team@google.com to request\naccess. We look forward to working with you!",
+    "description": "The Colab API lets you programmatically manage Colab runtimes.\n\nThe API is currently in beta and available on an allowlist basis. If you're interested in\nintegrating with us, please submit your use cases through this\n[form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).\n\nOnce access is granted to your project, run `gcloud services enable colaboratory.googleapis.com`\nto enable the API, and add a `key=` query parameter to access the API discovery\ndocuments below.\n\nWe look forward to working with you!",
     "title": "Colab API",
     "version": "v1beta",
-    "x-google-revision": "20260802"
+    "x-google-revision": "20260913"
   },
   "openapi": "3.0.3",
   "paths": {
@@ -653,6 +653,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Optional. If set to `true`, and the runtime is not found, the request will succeed\nbut no action will be taken on the server.",
+            "in": "query",
+            "name": "allowMissing",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -746,7 +754,7 @@
     },
     "/v1beta/runtimespecs": {
       "get": {
-        "description": "Lists Colab runtime specs available to the requesting user.",
+        "description": "Lists available Colab runtime specs and their eligibility to the requesting\nuser.",
         "operationId": "ListRuntimeSpecs",
         "parameters": [],
         "responses": {
