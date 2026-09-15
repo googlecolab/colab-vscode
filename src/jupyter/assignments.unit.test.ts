@@ -1970,7 +1970,7 @@ describe('AssignmentManager', () => {
         expect(serversAfter).to.be.empty;
         sinon.assert.alwaysCalledWithMatch(
           deleteRuntimeStub,
-          sinon.match({ runtime: defaultServer.id }),
+          sinon.match({ runtime: defaultServer.id, allowMissing: true }),
           sinon.match.any,
         );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
@@ -1993,7 +1993,7 @@ describe('AssignmentManager', () => {
         expect(serversAfter).to.be.empty;
         sinon.assert.alwaysCalledWithMatch(
           deleteRuntimeStub,
-          sinon.match({ runtime: defaultServer.id }),
+          sinon.match({ runtime: defaultServer.id, allowMissing: true }),
           sinon.match.any,
         );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
@@ -2030,7 +2030,7 @@ describe('AssignmentManager', () => {
         expect(serversAfter).to.be.empty;
         sinon.assert.alwaysCalledWithMatch(
           deleteRuntimeStub,
-          sinon.match({ runtime: defaultServer.id }),
+          sinon.match({ runtime: defaultServer.id, allowMissing: true }),
           sinon.match.any,
         );
         sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
@@ -2068,28 +2068,10 @@ describe('AssignmentManager', () => {
         ]);
         sinon.assert.alwaysCalledWithMatch(
           deleteRuntimeStub,
-          sinon.match({ runtime: defaultServer.id }),
+          sinon.match({ runtime: defaultServer.id, allowMissing: true }),
           sinon.match.any,
         );
         sinon.assert.notCalled(assignmentChangeListener);
-      });
-
-      it('stops tracking the server when the runtime is already gone', async () => {
-        jupyterStub.sessions.list.resolves([]);
-        deleteRuntimeStub.rejects(
-          new ResponseError(new Response(null, { status: 404 })),
-        );
-
-        await assignmentManager.unassignServer(defaultServer);
-
-        const serversAfter =
-          await assignmentManager.getLastKnownAssignedServers();
-        expect(serversAfter).to.be.empty;
-        sinon.assert.calledOnceWithExactly(assignmentChangeListener, {
-          added: [],
-          removed: [{ server: defaultServer, userInitiated: true }],
-          changed: [],
-        });
       });
 
       it('keeps the server tracked on a non-404 response error', async () => {
@@ -2127,27 +2109,7 @@ describe('AssignmentManager', () => {
         );
       });
 
-      it('ignores a 404 from deleteRuntime', async () => {
-        const remoteServer = {
-          id: 'test-id',
-          endpoint: 'test-endpoint',
-          label: 'name',
-          variant: Variant.DEFAULT,
-        };
-        deleteRuntimeStub.rejects(
-          new ResponseError(new Response(null, { status: 404 })),
-        );
-
-        await assignmentManager.unassignServer(remoteServer);
-
-        sinon.assert.calledOnceWithMatch(
-          deleteRuntimeStub,
-          sinon.match({ runtime: remoteServer.id }),
-          sinon.match.any,
-        );
-      });
-
-      it('rethrows non-404 errors from deleteRuntime', async () => {
+      it('rethrows response errors from deleteRuntime', async () => {
         const remoteServer = {
           id: 'test-id',
           endpoint: 'test-endpoint',

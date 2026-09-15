@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -33,22 +33,16 @@ export interface BaseOperation {
      * If the value is `false`, it means the operation is still in progress.
      * If `true`, the operation is completed, and either `error` or `response` is
      * available.
-     * @type {boolean}
-     * @memberof BaseOperation
      */
     done?: boolean;
     /**
      * The error result of the operation in case of failure or cancellation.
-     * @type {Status}
-     * @memberof BaseOperation
      */
     error?: Status;
     /**
      * The server-assigned name, which is only unique within the same service that
      * originally returns it. If you use the default HTTP mapping, the
      * `name` should be a resource name ending with `operations/{unique_id}`.
-     * @type {string}
-     * @memberof BaseOperation
      */
     name?: string;
 }

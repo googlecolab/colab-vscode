@@ -3,7 +3,7 @@
 /* eslint-disable */
 /**
  * Colab API
- * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please share your use cases with colaboratory-team@google.com to request access. We look forward to working with you!
+ * The Colab API lets you programmatically manage Colab runtimes.  The API is currently in beta and available on an allowlist basis. If you\'re interested in integrating with us, please submit your use cases through this [form](https://docs.google.com/forms/d/e/1FAIpQLSf6q_v7lM7Eqq3PGqMsQBB5pHiuc9XOSsjwJXdT5F2EypmBiA/viewform).  Once access is granted to your project, run `gcloud services enable colaboratory.googleapis.com` to enable the API, and add a `key=` query parameter to access the API discovery documents below.  We look forward to working with you!
  *
  * The version of the OpenAPI document: v1beta
  * 
@@ -28,23 +28,17 @@ import { mapValues } from '../runtime';
 export interface Status {
     /**
      * The status code, which should be an enum value of google.rpc.Code.
-     * @type {number}
-     * @memberof Status
      */
     code?: number;
     /**
      * A list of messages that carry the error details.  There is a common set of
      * message types for APIs to use.
-     * @type {Array<{ [key: string]: any; }>}
-     * @memberof Status
      */
     details?: Array<{ [key: string]: any; }>;
     /**
      * A developer-facing error message, which should be in English. Any
      * user-facing error message should be localized and sent in the
      * google.rpc.Status.details field, or localized by the client.
-     * @type {string}
-     * @memberof Status
      */
     message?: string;
 }
