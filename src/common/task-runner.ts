@@ -32,6 +32,12 @@ export interface Config {
    * finish in the background while a new task is started. The aborted task is
    * signaled to abort, but it is up to the task implementation to respect that
    * signal.
+   *
+   * Zero (or less) means "nothing to clean up, abandon immediately": the task
+   * is left behind as soon as it is aborted, and the runner does not treat
+   * outliving that non-existent window as a task defect. Only a positive
+   * grace period is policed, because only then was the task given a window it
+   * could have met.
    */
   readonly abandonGraceMs: number;
 }
@@ -238,25 +244,7 @@ export class SequentialTaskRunner implements Disposable {
       if (!this.isRunning) {
         return;
       }
-      if (err instanceof NonGracefulAbandonError) {
-        // A task that ignores an abort for a whole grace period is a defect,
-        // however the abort came about.
-        log.error(err.message);
-        telemetry.logError(err);
-        return;
-      }
-      const abortReason: unknown = abort.signal.reason;
-      if (
-        abortReason instanceof OverrunAbandonError ||
-        abortReason instanceof DisposedError
-      ) {
-        // Intentional task abort.
-        return;
-      }
-      log.error(`Unhandled error in background task "${this.task.name}":`, err);
-      telemetry.logError(
-        abortReason instanceof TimeoutError ? abortReason : err,
-      );
+      this.recordFailure(err, abort.signal.reason);
     } finally {
       clearTimeout(timeout);
       this.inFlight = undefined;
@@ -275,6 +263,37 @@ export class SequentialTaskRunner implements Disposable {
   }
 
   /**
+   * Records a run that settled badly to the relevant sink.
+   *
+   * @param err - The error that settled the run.
+   * @param abortReason - Why the task's signal was aborted, if it was.
+   */
+  private recordFailure(err: unknown, abortReason: unknown): void {
+    // Teardown or a timeout/dispose-triggered abandon is expected.
+    if (
+      abortReason instanceof OverrunAbandonError ||
+      abortReason instanceof DisposedError
+    ) {
+      return;
+    }
+    if (err instanceof NonGracefulAbandonError) {
+      // With zero grace, the abandon is just the runner stopping its wait.
+      if (this.config.abandonGraceMs <= 0) {
+        if (abortReason instanceof TimeoutError) {
+          telemetry.logError(abortReason);
+        }
+        return;
+      }
+      // A real grace window expired: the task ignored cancellation.
+      log.error(err.message);
+      telemetry.logError(err);
+      return;
+    }
+    log.error(`Unhandled error in background task "${this.task.name}":`, err);
+    telemetry.logError(abortReason instanceof TimeoutError ? abortReason : err);
+  }
+
+  /**
    * Wraps a task promise to provide a graceful shutdown mechanism.
    *
    * This function uses `Promise.race` to compete the `task` against an
@@ -289,8 +308,10 @@ export class SequentialTaskRunner implements Disposable {
    * the `graceTimeout`, preventing the `abortHandler` from rejecting.
    * If `task` does not finish within the grace period, the `graceTimeout`
    * fires, causing the `abortHandler` to reject with a
-   * `NonGracefulAbandonError`. This settles the race, signaling that the task
-   * did not shut down cleanly.
+   * `NonGracefulAbandonError`. That rejection is how the runner stops waiting
+   * on the abandoned task and moves on, so it is control flow rather than a
+   * verdict. Whether it also means the task is broken is decided by
+   * {@link SequentialTaskRunner.recordFailure}.
    *
    * @param task - The task promise to wrap.
    * @param signal - The abort signal to compete against.
