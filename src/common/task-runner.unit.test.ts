@@ -349,6 +349,140 @@ describe('SequentialTaskRunner', () => {
     });
   });
 
+  describe('abandon reporting', () => {
+    let logError: SinonStubbedFunction<typeof telemetry.logError>;
+    let runner: SequentialTaskRunner;
+    let run: TestRun;
+
+    /**
+     * Starts a runner whose first run never settles, so that aborting it
+     * always outlives whatever grace period is configured.
+     *
+     * @param graceMs - The abandon grace period to configure.
+     * @param overrun - The overrun policy to build the runner with.
+     * @param taskTimeoutMs - The task timeout to configure.
+     */
+    async function startStuckTask(
+      graceMs: number,
+      overrun: OverrunPolicy = OverrunPolicy.AllowToComplete,
+      taskTimeoutMs: number = TASK_TIMEOUT_MS,
+    ): Promise<void> {
+      runner = buildRunner(overrun, {
+        intervalTimeoutMs: INTERVAL_TIMEOUT_MS,
+        taskTimeoutMs,
+        abandonGraceMs: graceMs,
+      });
+      run = testTask.nextRun();
+      runner.start(StartMode.Immediately);
+      await expect(run.started, 'First run should start').to.eventually.be
+        .fulfilled;
+    }
+
+    /**
+     * Collects the message of every error handed to telemetry.
+     *
+     * @returns One message per reported error, in call order.
+     */
+    function reportedMessages(): string[] {
+      return logError.getCalls().map(({ args: [reported] }) => {
+        if (!(reported instanceof Error)) {
+          expect.fail('expected telemetry to receive an Error');
+        }
+        return reported.message;
+      });
+    }
+
+    beforeEach(() => {
+      logError = sinon.stub(telemetry, 'logError');
+    });
+
+    afterEach(() => {
+      runner.dispose();
+      logError.restore();
+    });
+
+    it('does not report an abandon when the grace period is zero', async () => {
+      await startStuckTask(0);
+
+      await tickPast(TASK_TIMEOUT_MS);
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      // Never resolve the run: it outlives the (non-existent) grace period.
+      await tickPast(0);
+
+      expect(
+        reportedMessages().filter((message) =>
+          message.includes('grace period'),
+        ),
+        'a zero grace period is not a window the task could have met',
+      ).to.be.empty;
+      expect(logs.output).to.not.match(
+        new RegExp(`Error.*Task "${testTask.name}".*grace period`),
+      );
+    });
+
+    it('still reports the timeout that abandoned a zero grace task', async () => {
+      await startStuckTask(0);
+
+      await tickPast(TASK_TIMEOUT_MS);
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      await tickPast(0);
+
+      expect(reportedMessages()).to.deep.equal([
+        `Task "${testTask.name}" timed out after ${TASK_TIMEOUT_MS.toString()}ms`,
+      ]);
+    });
+
+    it('reports a task that outlives a real grace period after timing out', async () => {
+      await startStuckTask(ABANDON_GRACE_MS);
+
+      await tickPast(TASK_TIMEOUT_MS);
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      // Never resolve the run: it ignores the abort for the whole window.
+      await tickPast(ABANDON_GRACE_MS);
+
+      expect(reportedMessages()).to.deep.equal([
+        `Task "${testTask.name}" did not complete within a ${ABANDON_GRACE_MS.toString()}ms grace period after being abandoned.`,
+      ]);
+      expect(logs.output).to.match(
+        new RegExp(`Error.*Task "${testTask.name}".*grace period`),
+      );
+    });
+
+    it('does not report a task abandoned for a new run', async () => {
+      await startStuckTask(
+        ABANDON_GRACE_MS,
+        OverrunPolicy.AbandonAndRun,
+        INTERVAL_TIMEOUT_MS * 10,
+      );
+      testTask.nextRun();
+
+      runner.runNow();
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      // Never resolve the abandoned run.
+      await tickPast(ABANDON_GRACE_MS);
+
+      expect(reportedMessages()).to.be.empty;
+    });
+
+    it('starts the replacement run without waiting on a zero grace abandon', async () => {
+      await startStuckTask(
+        0,
+        OverrunPolicy.AbandonAndRun,
+        INTERVAL_TIMEOUT_MS * 10,
+      );
+      const secondRun = testTask.nextRun();
+
+      runner.runNow();
+      await expect(run.aborted).to.eventually.be.fulfilled;
+      // Never resolve the abandoned run.
+      await tickPast(0);
+
+      await expect(secondRun.started, 'Second run should start').to.eventually
+        .be.fulfilled;
+      sinon.assert.calledTwice(testTask.run);
+    });
+  });
+
   describe('runNow', () => {
     it('throws when disposed', () => {
       const runner = buildRunner();
@@ -508,14 +642,16 @@ describe('SequentialTaskRunner', () => {
       );
     });
 
-    it('logs an error if the aborted task fails to complete within its grace period', async () => {
+    it('stays silent if the aborted task fails to complete within its grace period', async () => {
       await expect(firstRun.aborted, 'First run should be aborted').to
         .eventually.be.fulfilled;
 
       // Don't resolve the first run, let the grace period expire.
       await tickPast(ABANDON_GRACE_MS);
 
-      expect(logs.output).to.match(
+      // The runner asked for this abandon and has already moved on, so how
+      // long the old task lingers afterwards is not a defect.
+      expect(logs.output).to.not.match(
         new RegExp(`Error.*Task "${testTask.name}".*grace period`),
       );
     });
