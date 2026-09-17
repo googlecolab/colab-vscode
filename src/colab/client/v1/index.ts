@@ -31,14 +31,14 @@ import {
   ConsumptionUserInfo,
   ConsumptionUserInfoSchema,
   CredentialsPropagationResult,
-  ExperimentStateSchema,
+  ErrorInfo,
+  ErrorInfoSchema,
   ExperimentState,
-  Resources,
-  ResourcesSchema,
+  ExperimentStateSchema,
   OnePlatformError,
   OnePlatformErrorSchema,
-  ErrorInfoSchema,
-  ErrorInfo,
+  Resources,
+  ResourcesSchema,
 } from './api';
 
 const TUN_ENDPOINT = '/tun/m';
