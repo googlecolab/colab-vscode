@@ -2304,6 +2304,21 @@ describe('AssignmentManager', () => {
       ).to.eventually.be.rejectedWith(ResponseError);
     });
 
+    it('throws an error if refreshed runtime is missing connection info', async () => {
+      listRuntimesStub.resolves({ runtimes: [defaultRuntime] });
+      await serverStorage.store([defaultServer]);
+      getRuntimeStub
+        .withArgs(sinon.match({ runtime: defaultServer.id }), sinon.match.any)
+        .resolves({
+          ...defaultRuntime,
+          connectionInfo: undefined,
+        });
+
+      await expect(
+        assignmentManager.refreshConnection(defaultServer.id),
+      ).to.eventually.be.rejectedWith(/ConnectionInfo missing in runtime/);
+    });
+
     describe('with a refreshed connection', () => {
       const newToken = 'new-token';
       let refreshedServer: ColabAssignedServer;
