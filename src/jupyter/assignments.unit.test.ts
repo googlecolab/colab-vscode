@@ -1764,7 +1764,7 @@ describe('AssignmentManager', () => {
         });
 
         await expect(assignmentManager.assignServer(defaultServerDescriptor)).to
-          .be.rejected;
+          .eventually.be.rejected;
 
         sinon.assert.calledOnceWithExactly(
           logStub,
@@ -1816,7 +1816,7 @@ describe('AssignmentManager', () => {
           });
 
           await expect(assignmentManager.assignServer(defaultServerDescriptor))
-            .to.be.rejected;
+            .to.eventually.be.rejected;
 
           sinon.assert.calledOnceWithExactly(logStub, outcome, {
             variant: defaultServerDescriptor.variant,
