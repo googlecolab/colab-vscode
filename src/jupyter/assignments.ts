@@ -143,10 +143,9 @@ export class AssignmentManager implements Disposable {
     signal?: AbortSignal,
   ): Promise<ColabServerDescriptor[]> {
     this.guardDisposed();
-    // The new ListRuntimeSpecs API already takes user's subscription tier
-    // into account, returning with the correct eligibility info. The new API
-    // also returns additional high-memory shapes for the Pro users, so we
-    // don't need to manually add them.
+    // The ListRuntimeSpecs API already takes user's subscription tier into
+    // account, returning with the correct eligibility info and additional
+    // high-memory shapes where applicable.
     const response = await this.colabApiClient.colab.listRuntimeSpecs(
       /* requestParameters= */ {},
       /* initOverrides= */ { signal },
