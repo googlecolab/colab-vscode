@@ -327,7 +327,6 @@ export class AssignmentManager implements Disposable {
     signal?: AbortSignal,
   ): Promise<ColabAssignedServer> {
     this.guardDisposed();
-    const id = randomUUID();
     const { label, variant, accelerator, shape, version } = descriptor;
     let outcome = AssignmentOutcome.ASSIGNMENT_OUTCOME_UNSPECIFIED;
     let hadFallback = false;
@@ -346,7 +345,7 @@ export class AssignmentManager implements Disposable {
           runtime = await this.createRuntime(descriptor, signal);
         }
       } catch (error) {
-        log.trace(`Failed assigning server ${id}`, error);
+        log.trace(`Failed assigning server for:`, descriptor, error);
         outcome = errorToAssignmentOutcome(error);
         if (error instanceof AllAcceleratorsUnavailableError) {
           hadFallback = error.attempted.length > 1;

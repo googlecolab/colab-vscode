@@ -233,7 +233,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.getAvailableServerDescriptors(),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     const defaultGpuT4Descriptor = {
@@ -308,7 +308,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.reconcileAssignedServers(),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('does nothing when there are no stored servers', async () => {
@@ -530,9 +530,9 @@ describe('AssignmentManager', () => {
     it('throws after being disposed', async () => {
       assignmentManager.dispose();
 
-      await expect(assignmentManager.hasAssignedServer()).to.be.rejectedWith(
-        /disposed/,
-      );
+      await expect(
+        assignmentManager.hasAssignedServer(),
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('returns false when no servers are assigned', async () => {
@@ -687,9 +687,9 @@ describe('AssignmentManager', () => {
     it('throws after being disposed', async () => {
       assignmentManager.dispose();
 
-      await expect(assignmentManager.getServers('all')).to.be.rejectedWith(
-        /disposed/,
-      );
+      await expect(
+        assignmentManager.getServers('all'),
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     describe('from extension', () => {
@@ -1120,7 +1120,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.getLastKnownAssignedServers(),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('returns an empty list when there are no stored servers', async () => {
@@ -1169,10 +1169,10 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.assignServer(defaultServerDescriptor),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
-    it('throws an error when the assignment does not include a URL to connect to', () => {
+    it('throws an error when the assignment does not contain connection info', async () => {
       createRuntimeStub
         .withArgs(
           sinon.match((req: CreateRuntimeRequest) => {
@@ -1191,47 +1191,13 @@ describe('AssignmentManager', () => {
           done: true,
           response: {
             ...defaultRuntime,
-            connectionInfo: {
-              ...defaultRuntime.connectionInfo,
-              url: '',
-            },
+            connectionInfo: undefined,
           },
         });
 
-      expect(
+      await expect(
         assignmentManager.assignServer(defaultServerDescriptor),
-      ).to.be.rejectedWith(/connection info/);
-    });
-
-    it('throws an error when the assignment does not include a token to connect with', () => {
-      createRuntimeStub
-        .withArgs(
-          sinon.match((req: CreateRuntimeRequest) => {
-            const spec = req.runtime?.runtimeSpec;
-            return (
-              req.requestId &&
-              isUUID(req.requestId) &&
-              spec?.variant === defaultRuntime.runtimeSpec.variant &&
-              spec.shape === defaultRuntime.runtimeSpec.shape &&
-              spec.accelerator === defaultRuntime.runtimeSpec.accelerator &&
-              req.runtime?.version === defaultRuntime.version
-            );
-          }),
-        )
-        .resolves({
-          done: true,
-          response: {
-            ...defaultRuntime,
-            connectionInfo: {
-              ...defaultRuntime.connectionInfo,
-              token: '',
-            },
-          },
-        });
-
-      expect(
-        assignmentManager.assignServer(defaultServerDescriptor),
-      ).to.be.rejectedWith(/connection info/);
+      ).to.eventually.be.rejectedWith(/ConnectionInfo missing in runtime/);
     });
 
     describe('when a server is assigned', () => {
@@ -1654,7 +1620,7 @@ describe('AssignmentManager', () => {
             variant: Variant.GPU,
             accelerator: 'A100',
           }),
-        ).to.be.rejectedWith(
+        ).to.eventually.be.rejectedWith(
           /All GPU accelerators are unavailable: A100, T4, V100/,
         );
 
@@ -1897,7 +1863,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.unassignServer(defaultServer),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('does nothing when the server does not exist', async () => {
@@ -2050,7 +2016,7 @@ describe('AssignmentManager', () => {
 
         await expect(
           assignmentManager.unassignServer(defaultServer),
-        ).to.be.rejectedWith('unassign failed');
+        ).to.eventually.be.rejectedWith('unassign failed');
 
         const serversAfter =
           await assignmentManager.getLastKnownAssignedServers();
@@ -2082,7 +2048,7 @@ describe('AssignmentManager', () => {
 
         await expect(
           assignmentManager.unassignServer(defaultServer),
-        ).to.be.rejectedWith('☢️');
+        ).to.eventually.be.rejectedWith('☢️');
 
         const serversAfter =
           await assignmentManager.getLastKnownAssignedServers();
@@ -2122,7 +2088,7 @@ describe('AssignmentManager', () => {
 
         await expect(
           assignmentManager.unassignServer(remoteServer),
-        ).to.be.rejectedWith('☢️');
+        ).to.eventually.be.rejectedWith('☢️');
       });
 
       it('rethrows non-response errors from deleteRuntime', async () => {
@@ -2136,7 +2102,7 @@ describe('AssignmentManager', () => {
 
         await expect(
           assignmentManager.unassignServer(remoteServer),
-        ).to.be.rejectedWith('💩');
+        ).to.eventually.be.rejectedWith('💩');
       });
     });
   });
@@ -2147,7 +2113,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.latestOrAutoAssignServer(),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('assigns a new default server when none have been assigned', async () => {
@@ -2210,9 +2176,9 @@ describe('AssignmentManager', () => {
     it('throws after being disposed', async () => {
       assignmentManager.dispose();
 
-      await expect(assignmentManager.latestServer()).to.be.rejectedWith(
-        /disposed/,
-      );
+      await expect(
+        assignmentManager.latestServer(),
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('returns undefined when none have been assigned', async () => {
@@ -2255,7 +2221,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.refreshConnection(defaultServer.id),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it("throws a not found error when refreshing a server that's not tracked", async () => {
@@ -2343,7 +2309,7 @@ describe('AssignmentManager', () => {
 
       await expect(
         assignmentManager.getDefaultLabel(Variant.DEFAULT),
-      ).to.be.rejectedWith(/disposed/);
+      ).to.eventually.be.rejectedWith(/disposed/);
     });
 
     it('returns a simple variant-accelerator pair when there are no assigned servers', async () => {

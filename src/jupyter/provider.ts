@@ -66,7 +66,7 @@ export class ColabJupyterServerProvider
    * @param vs - The VS Code API instance.
    * @param authEvent - The authentication event emitter.
    * @param assignmentManager - The assignment manager instance.
-   * @param colabApiClient - The new Colab public API client instance.
+   * @param colabApiClient - The Colab API client instance.
    * @param serverPicker - The Server picker.
    * @param jupyter - The Jupyter API provider.
    */
