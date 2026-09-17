@@ -17,28 +17,24 @@ import {
 } from '../../../common/middleware';
 import { ColabAssignedServer } from '../../../jupyter/servers';
 import { ColabRequestError } from '../../errors';
-import { getFlag } from '../../experiment-state';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
   COLAB_TUNNEL_HEADER,
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
-  COLAB_XSRF_TOKEN_HEADER,
   CONTENT_TYPE_JSON_HEADER,
 } from '../../headers';
 import {
+  AccessTokenType,
   AuthType,
   ConsumptionUserInfo,
   ConsumptionUserInfoSchema,
   CredentialsPropagationResult,
-  CredentialsPropagationResultSchema,
   ExperimentStateSchema,
   ExperimentState,
   Resources,
   ResourcesSchema,
-  AccessTokenType,
-  ExperimentFlag,
   OnePlatformError,
   OnePlatformErrorSchema,
   ErrorInfoSchema,
@@ -174,68 +170,6 @@ export class ColabClient {
     endpoint: string,
     params: {
       authType: AuthType;
-      // If true, check if credentials are already propagated to the backend
-      // and/or obtain an OAuth redirect URL.
-      dryRun: boolean;
-    },
-    signal?: AbortSignal,
-  ): Promise<CredentialsPropagationResult> {
-    const enableOp = getFlag(ExperimentFlag.EnableOpCredentialPropagationApi);
-    if (!enableOp) {
-      return this.propagateCredentialsV1(endpoint, params, signal);
-    }
-    return this.propagateCredentialsV2(
-      endpoint,
-      {
-        accessTokenType:
-          params.authType === AuthType.DFS_EPHEMERAL
-            ? AccessTokenType.DFS_EPHEMERAL
-            : AccessTokenType.AUTH_USER_EPHEMERAL,
-        dryRun: params.dryRun,
-      },
-      signal,
-    );
-  }
-
-  private async propagateCredentialsV1(
-    endpoint: string,
-    params: {
-      authType: AuthType;
-      dryRun: boolean;
-    },
-    signal?: AbortSignal,
-  ): Promise<CredentialsPropagationResult> {
-    const url = new URL(
-      `${TUN_ENDPOINT}/credentials-propagation/${endpoint}`,
-      this.colabDomain,
-    );
-    url.searchParams.set('authtype', params.authType);
-    url.searchParams.set('version', '2');
-    url.searchParams.set('dryrun', String(params.dryRun));
-    url.searchParams.set('propagate', 'true');
-    url.searchParams.set('record', 'false');
-
-    const { token } = await this.issueRequest(
-      url,
-      { method: 'GET', signal },
-      z.object({ token: z.string() }),
-    );
-
-    return await this.issueRequest(
-      url,
-      {
-        method: 'POST',
-        headers: { [COLAB_XSRF_TOKEN_HEADER.key]: token },
-        signal,
-      },
-      CredentialsPropagationResultSchema,
-    );
-  }
-
-  private async propagateCredentialsV2(
-    endpoint: string,
-    params: {
-      accessTokenType: AccessTokenType;
       dryRun: boolean;
     },
     signal?: AbortSignal,
@@ -247,7 +181,10 @@ export class ColabClient {
 
     const payload = {
       endpoint,
-      accessTokenType: params.accessTokenType,
+      accessTokenType:
+        params.authType === AuthType.DFS_EPHEMERAL
+          ? AccessTokenType.DFS_EPHEMERAL
+          : AccessTokenType.AUTH_USER_EPHEMERAL,
       dryRun: params.dryRun,
       version: '2',
     };

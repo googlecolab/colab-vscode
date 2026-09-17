@@ -5,7 +5,6 @@ chromedriver
 colab
 colabclient
 colaboratory
-credprop
 dryrun
 ephem
 extest

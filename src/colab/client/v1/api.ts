@@ -324,7 +324,6 @@ export function shapeToMachineShape(shape: Shape): string {
 
 /** The experiment flags supported by the Colab extension. */
 export enum ExperimentFlag {
-  EnableOpCredentialPropagationApi = 'enable_op_credprop_api_vscode',
   EnableTelemetry = 'enable_vscode_telemetry',
   ResourcePollIntervalMs = 'resource_poll_interval_ms',
   RuntimeVersionNames = 'runtime_version_names',
@@ -335,7 +334,6 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
-  [ExperimentFlag.EnableOpCredentialPropagationApi]: false,
   [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.ResourcePollIntervalMs]: 10000,
   [ExperimentFlag.RuntimeVersionNames]: [],
