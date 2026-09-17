@@ -496,8 +496,7 @@ export class AssignmentManager implements Disposable {
    * Unassigns the given server.
    *
    * For `ColabAssignedServer` assigned by VS Code, deletes all kernel sessions
-   * for the specified server before unassigning. Only unassigns if all session
-   * deletions succeed.
+   * for the specified server (best-effort) before unassigning.
    *
    * For `UnownedServer` assigned outside VS Code, simply unassigns the
    * server without deleting the sessions. This is because we don't have access
