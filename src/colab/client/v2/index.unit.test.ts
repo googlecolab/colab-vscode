@@ -19,18 +19,8 @@ import {
   TooManyAssignmentsError,
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
-import {
-  Shape as CommonShape,
-  SubscriptionTier as CommonSubscriptionTier,
-  Variant as CommonVariant,
-} from '../../types';
-import {
-  FetchAPI,
-  Key,
-  Shape,
-  SubscriptionTier,
-  Variant,
-} from './generated/colab';
+import { Shape as CommonShape, Variant as CommonVariant } from '../../types';
+import { FetchAPI, Key, Shape, Variant } from './generated/colab';
 import { Operation } from './generated/operations';
 import {
   ColabApiClient,
@@ -38,7 +28,6 @@ import {
   denormalizeShape,
   denormalizeVariant,
   normalizeShape,
-  normalizeSubscriptionTier,
   normalizeVariant,
   throwIfOperationError,
 } from '.';
@@ -1210,34 +1199,6 @@ describe('ColabApiClient', () => {
         });
       });
     });
-  });
-});
-
-describe('normalizeSubscriptionTier', () => {
-  const tests = [
-    {
-      input: SubscriptionTier.SubscriptionTierFree,
-      expected: CommonSubscriptionTier.NONE,
-    },
-    {
-      input: SubscriptionTier.SubscriptionTierPro,
-      expected: CommonSubscriptionTier.PRO,
-    },
-    {
-      input: SubscriptionTier.SubscriptionTierProPlus,
-      expected: CommonSubscriptionTier.PRO_PLUS,
-    },
-  ];
-  tests.forEach(({ input, expected }) => {
-    it(`normalizes ${input}`, () => {
-      expect(normalizeSubscriptionTier(input)).to.equal(expected);
-    });
-  });
-
-  it('throws an error if unspecified', () => {
-    expect(() =>
-      normalizeSubscriptionTier(SubscriptionTier.SubscriptionTierUnspecified),
-    ).to.throw(/Unknown subscription tier:/);
   });
 });
 
