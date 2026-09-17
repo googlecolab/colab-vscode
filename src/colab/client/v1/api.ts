@@ -26,12 +26,6 @@
 import { z } from 'zod';
 import { Shape, SubscriptionTier, Variant } from '../../types';
 
-enum ColabSubscriptionTier {
-  UNKNOWN = 0,
-  PRO = 1,
-  VERY_PRO = 2,
-}
-
 enum ColabGapiSubscriptionTier {
   UNSPECIFIED = 'SUBSCRIPTION_TIER_UNSPECIFIED',
   NONE = 'SUBSCRIPTION_TIER_NONE',
@@ -60,17 +54,13 @@ export enum AccessTokenType {
 /**
  * Normalize the similar but different representations of subscription tiers
  *
- * @param tier - either the Colab backend or Colab Google API subscription tier.
+ * @param tier - the Colab Google API subscription tier.
  * @returns the normalized subscription tier.
  */
-function normalizeSubTier(
-  tier: ColabSubscriptionTier | ColabGapiSubscriptionTier,
-): SubscriptionTier {
+function normalizeSubTier(tier: ColabGapiSubscriptionTier): SubscriptionTier {
   switch (tier) {
-    case ColabSubscriptionTier.PRO:
     case ColabGapiSubscriptionTier.PRO:
       return SubscriptionTier.PRO;
-    case ColabSubscriptionTier.VERY_PRO:
     case ColabGapiSubscriptionTier.PRO_PLUS:
       return SubscriptionTier.PRO_PLUS;
     default:

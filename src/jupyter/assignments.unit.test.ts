@@ -1172,6 +1172,31 @@ describe('AssignmentManager', () => {
       ).to.eventually.be.rejectedWith(/disposed/);
     });
 
+    it('throws an error when the assignment does not contain a name', async () => {
+      createRuntimeStub
+        .withArgs(
+          sinon.match((req: CreateRuntimeRequest) => {
+            const spec = req.runtime?.runtimeSpec;
+            return (
+              req.requestId &&
+              isUUID(req.requestId) &&
+              spec?.variant === defaultRuntime.runtimeSpec.variant &&
+              spec.shape === defaultRuntime.runtimeSpec.shape &&
+              spec.accelerator === defaultRuntime.runtimeSpec.accelerator &&
+              req.runtime?.version === defaultRuntime.version
+            );
+          }),
+        )
+        .resolves({
+          done: true,
+          response: runtimeWithoutName,
+        });
+
+      await expect(
+        assignmentManager.assignServer(defaultServerDescriptor),
+      ).to.eventually.be.rejectedWith(/Name missing in runtime/);
+    });
+
     it('throws an error when the assignment does not contain connection info', async () => {
       createRuntimeStub
         .withArgs(
@@ -1827,6 +1852,31 @@ describe('AssignmentManager', () => {
           });
         });
       }
+
+      it('logs the requested shape and version when present', async () => {
+        createRuntimeStub.resolves({
+          done: true,
+          response: defaultRuntime,
+        });
+
+        await assignmentManager.assignServer({
+          ...defaultServerDescriptor,
+          shape: Shape.HIGHMEM,
+          version: 'v1',
+        });
+
+        sinon.assert.calledOnceWithExactly(
+          logStub,
+          AssignmentOutcome.ASSIGNMENT_OUTCOME_SUCCEEDED,
+          {
+            variant: defaultServerDescriptor.variant,
+            accelerator: defaultServerDescriptor.accelerator ?? '',
+            shape: 'HIGHMEM',
+            version: 'v1',
+            hadFallback: false,
+          },
+        );
+      });
 
       it('logs an empty accelerator for the default CPU descriptor', async () => {
         createRuntimeStub.resolves({
