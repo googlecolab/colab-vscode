@@ -28,6 +28,7 @@ import {
 import {
   ConnectionInfo,
   CreateRuntimeOperationFromJSON,
+  ResponseError,
   Runtime,
 } from '../colab/client/v2/generated/colab';
 import { REMOVE_SERVER } from '../colab/commands/constants';
@@ -468,15 +469,25 @@ export class AssignmentManager implements Disposable {
     await this.reconcileAssignedServers(signal);
     const server = await this.storage.get(id);
     if (!server) {
-      throw new NotFoundError('Server is not assigned');
+      throw new NotFoundError(`Server ${id} is not assigned`);
     }
 
-    const runtime = await this.colabApiClient.colab.getRuntime(
-      { runtime: id },
-      { signal },
-    );
-    assert(runtime.connectionInfo, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`);
+    let runtime: Runtime;
+    try {
+      runtime = await this.colabApiClient.colab.getRuntime(
+        { runtime: id },
+        { signal },
+      );
+    } catch (e: unknown) {
+      // Rethrow 404 as NotFoundError so the server is garbage collected in
+      // ConnectionRefresher right away to avoid another refresh.
+      if (e instanceof ResponseError && e.response.status === 404) {
+        throw new NotFoundError(`Server ${id} is no longer assigned`);
+      }
+      throw e;
+    }
 
+    assert(runtime.connectionInfo, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`);
     const updatedServer = this.toAssignedServer(
       server,
       server.endpoint,
