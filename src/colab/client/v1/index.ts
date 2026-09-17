@@ -170,6 +170,10 @@ export class ColabClient {
     endpoint: string,
     params: {
       authType: AuthType;
+      /**
+       * If true, checks if credentials are already propagated to the backend
+       * and/or obtain an OAuth redirect URL.
+       */
       dryRun: boolean;
     },
     signal?: AbortSignal,
