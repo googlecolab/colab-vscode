@@ -332,55 +332,27 @@ describe('ColabJupyterServerProvider', () => {
           ]);
         });
 
-        it('excludes upgrade to pro command for users with pro', async () => {
-          getSubscriptionStub.resolves({ tier: 'SUBSCRIPTION_TIER_PRO' });
+        const nonFreeTiers = [
+          'SUBSCRIPTION_TIER_PRO',
+          'SUBSCRIPTION_TIER_PRO_PLUS',
+          'SUBSCRIPTION_TIER_UNSPECIFIED',
+        ] as const;
+        nonFreeTiers.forEach((tier) => {
+          it(`excludes upgrade to pro command for users with ${tier}`, async () => {
+            getSubscriptionStub.resolves({ tier });
 
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
+            const commands = await serverProvider.provideCommands(
+              undefined,
+              cancellationToken,
+            );
 
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-          ]);
-        });
-
-        it('excludes upgrade to pro command for users with pro-plus', async () => {
-          getSubscriptionStub.resolves({ tier: 'SUBSCRIPTION_TIER_PRO_PLUS' });
-
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
-
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-          ]);
-        });
-
-        it('excludes upgrade to pro command for users with unspecified subscription tier', async () => {
-          // This should not occur in reality, but covered for completeness.
-          getSubscriptionStub.resolves({
-            tier: 'SUBSCRIPTION_TIER_UNSPECIFIED',
+            assert.isDefined(commands);
+            expect(commands.map((c) => c.label)).to.deep.equal([
+              buildIconLabel(AUTO_CONNECT),
+              buildIconLabel(NEW_SERVER),
+              buildIconLabel(OPEN_COLAB_WEB),
+            ]);
           });
-
-          const commands = await serverProvider.provideCommands(
-            undefined,
-            cancellationToken,
-          );
-
-          assert.isDefined(commands);
-          expect(commands.map((c) => c.label)).to.deep.equal([
-            buildIconLabel(AUTO_CONNECT),
-            buildIconLabel(NEW_SERVER),
-            buildIconLabel(OPEN_COLAB_WEB),
-          ]);
         });
 
         it('returns commands to auto-connect, create a server, open Colab web and upgrade to pro for free users', async () => {
