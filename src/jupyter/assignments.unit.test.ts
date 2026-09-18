@@ -719,14 +719,8 @@ describe('AssignmentManager', () => {
           const id2 = `r-${randomUUID()}`;
           listRuntimesStub.resolves({
             runtimes: [
-              {
-                ...defaultRuntime,
-                name: `runtimes/${id1}`,
-              },
-              {
-                ...defaultRuntime,
-                name: `runtimes/${id2}`,
-              },
+              { ...defaultRuntime, name: `runtimes/${id1}` },
+              { ...defaultRuntime, name: `runtimes/${id2}` },
             ],
           });
           const storedServers = [
