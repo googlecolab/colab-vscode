@@ -2274,10 +2274,49 @@ describe('AssignmentManager', () => {
       ).to.eventually.be.rejectedWith(/disposed/);
     });
 
-    it("throws a not found error when refreshing a server that's not tracked", async () => {
+    it('throws a NotFoundError when refreshing a server that is not tracked', async () => {
       await expect(
         assignmentManager.refreshConnection(defaultServer.id),
       ).to.eventually.be.rejectedWith(NotFoundError);
+    });
+
+    it('throws a NotFoundError when GetRuntime call returns a 404', async () => {
+      listRuntimesStub.resolves({ runtimes: [defaultRuntime] });
+      await serverStorage.store([defaultServer]);
+      getRuntimeStub
+        .withArgs(sinon.match({ runtime: defaultServer.id }), sinon.match.any)
+        .rejects(new ResponseError(new Response(null, { status: 404 })));
+
+      await expect(
+        assignmentManager.refreshConnection(defaultServer.id),
+      ).to.eventually.be.rejectedWith(NotFoundError);
+    });
+
+    it('throws a ResponseError when GetRuntime call returns a non-404', async () => {
+      listRuntimesStub.resolves({ runtimes: [defaultRuntime] });
+      await serverStorage.store([defaultServer]);
+      getRuntimeStub
+        .withArgs(sinon.match({ runtime: defaultServer.id }), sinon.match.any)
+        .rejects(new ResponseError(new Response(null, { status: 500 })));
+
+      await expect(
+        assignmentManager.refreshConnection(defaultServer.id),
+      ).to.eventually.be.rejectedWith(ResponseError);
+    });
+
+    it('throws an error if refreshed runtime is missing connection info', async () => {
+      listRuntimesStub.resolves({ runtimes: [defaultRuntime] });
+      await serverStorage.store([defaultServer]);
+      getRuntimeStub
+        .withArgs(sinon.match({ runtime: defaultServer.id }), sinon.match.any)
+        .resolves({
+          ...defaultRuntime,
+          connectionInfo: undefined,
+        });
+
+      await expect(
+        assignmentManager.refreshConnection(defaultServer.id),
+      ).to.eventually.be.rejectedWith(/ConnectionInfo missing in runtime/);
     });
 
     describe('with a refreshed connection', () => {
