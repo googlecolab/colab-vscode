@@ -122,6 +122,31 @@ describe('LoopbackServer', () => {
       sinon.assert.calledOnceWithExactly(handler.handleRequest, req, res);
     });
 
+    it('answers the request when the handler throws', () => {
+      const res = sinon.createStubInstance(http.ServerResponse);
+      handler.handleRequest.throws(new Error('malformed'));
+
+      expect(() =>
+        fakeServer.emit('request', {} as http.IncomingMessage, res),
+      ).not.to.throw();
+
+      sinon.assert.calledWith(res.writeHead, 500);
+      sinon.assert.calledOnce(res.end);
+    });
+
+    it('does not answer twice when the handler throws after responding', () => {
+      const res = sinon.createStubInstance(http.ServerResponse);
+      Object.defineProperty(res, 'writableEnded', { get: () => true });
+      handler.handleRequest.throws(new Error('malformed'));
+
+      expect(() =>
+        fakeServer.emit('request', {} as http.IncomingMessage, res),
+      ).not.to.throw();
+
+      sinon.assert.notCalled(res.end);
+      sinon.assert.notCalled(res.writeHead);
+    });
+
     it('invokes the handler on error', () => {
       const err = new Error('test error');
 
