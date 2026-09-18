@@ -9,6 +9,7 @@ import sinon, { SinonStubbedInstance } from 'sinon';
 import { Uri } from 'vscode';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
+import { isCancellation } from '../common/cancellation';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { handleEphemeralAuth } from './ephemeral';
@@ -126,6 +127,26 @@ describe('handleEphemeralAuth', () => {
           vsCodeStub.window.showInformationMessage,
           sinon.match(consentMessage),
         );
+        sinon.assert.notCalled(vsCodeStub.env.openExternal);
+        sinon.assert.neverCalledWith(
+          colabClientStub.propagateCredentials,
+          testServer.endpoint,
+          {
+            dryRun: false,
+            authType,
+          },
+        );
+      });
+
+      it(`declining ${authType} consent is a cancellation, not a failure`, async () => {
+        const err: unknown = await handleEphemeralAuth(
+          vsCodeStub.asVsCode(),
+          colabClientStub,
+          testServer,
+          authType,
+        ).catch((e: unknown) => e);
+
+        expect(isCancellation(err)).to.be.true;
         sinon.assert.notCalled(vsCodeStub.env.openExternal);
         sinon.assert.neverCalledWith(
           colabClientStub.propagateCredentials,
@@ -268,7 +289,30 @@ describe('handleEphemeralAuth', () => {
         );
 
         await expect(promise).to.be.rejectedWith(
-          `[${authType}] Credentials propagation unsuccessful`,
+          `[${authType}] Credentials propagation unsuccessful: the server reported no reason`,
+        );
+      });
+
+      it(`reports that ${authType} credentials remain unauthorized after propagation`, async () => {
+        colabClientStub.propagateCredentials
+          .withArgs(testServer.endpoint, {
+            dryRun: false,
+            authType,
+          })
+          .resolves({
+            success: false,
+            unauthorizedRedirectUri: 'http://test-oauth-uri',
+          });
+
+        const promise = handleEphemeralAuth(
+          vsCodeStub.asVsCode(),
+          colabClientStub,
+          testServer,
+          authType,
+        );
+
+        await expect(promise).to.be.rejectedWith(
+          /still reports the credentials as unauthorized/,
         );
       });
     });

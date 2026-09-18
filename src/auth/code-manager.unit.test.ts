@@ -8,6 +8,7 @@ import { expect } from 'chai';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
 import { CancellationTokenSource } from 'vscode';
+import { isCancellation } from '../common/cancellation';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { CodeManager } from './code-manager';
 
@@ -92,6 +93,15 @@ describe('CodeManager', () => {
     cancellationTokenSource.cancel();
 
     await expect(gotCode).to.be.rejectedWith(/cancelled/);
+  });
+
+  it('rejects a user cancellation as a cancellation, not a failure', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
+
+    cancellationTokenSource.cancel();
+
+    const err: unknown = await gotCode.catch((e: unknown) => e);
+    expect(isCancellation(err)).to.be.true;
   });
 
   it('resolves a code', async () => {
