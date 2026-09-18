@@ -110,40 +110,36 @@ describe('LocalServerFlow', () => {
     clock.restore();
   });
 
-  it('throws an error for malformed requests missing a URL', () => {
-    const req = { method: 'GET' } as http.IncomingMessage;
-    fakeServer.emit('request', req, resStub);
-    void flow.trigger(defaultTriggerOpts);
-
-    expect(() => fakeServer.emit('request', req, resStub)).to.throw(/url/);
-  });
-
-  it('throws an error for malformed requests missing a host header', () => {
-    const req = { method: 'GET', url: '/' } as http.IncomingMessage;
-    fakeServer.emit('request', req, resStub);
-    void flow.trigger(defaultTriggerOpts);
-
-    expect(() => fakeServer.emit('request', req, resStub)).to.throw(/host/);
-  });
-
-  const requestErrorTests = [
-    { label: 'state', url: '/', expectedError: /state/ },
-    { label: 'nonce', url: '/?state=', expectedError: /state/ },
-    { label: 'code', url: `/?state=nonce%3D${NONCE}`, expectedError: /code/ },
-  ];
-  for (const t of requestErrorTests) {
-    it(`throws an error when ${t.label} is missing`, () => {
-      const req = {
+  const malformedRequestTests = [
+    { label: 'a URL', req: { method: 'GET' } },
+    { label: 'a host header', req: { method: 'GET', url: '/' } },
+    {
+      label: 'a state param',
+      req: { method: 'GET', url: '/', headers: { host: DEFAULT_HOST } },
+    },
+    {
+      label: 'a non-empty state param',
+      req: { method: 'GET', url: '/?state=', headers: { host: DEFAULT_HOST } },
+    },
+    {
+      label: 'a code',
+      req: {
         method: 'GET',
-        url: t.url,
+        url: `/?state=nonce%3D${NONCE}`,
         headers: { host: DEFAULT_HOST },
-      } as http.IncomingMessage;
-      fakeServer.emit('request', req, resStub);
+      },
+    },
+  ];
+  for (const t of malformedRequestTests) {
+    it(`answers a malformed request missing ${t.label}`, () => {
       void flow.trigger(defaultTriggerOpts);
 
-      expect(() => fakeServer.emit('request', req, resStub)).to.throw(
-        t.expectedError,
-      );
+      expect(() =>
+        fakeServer.emit('request', t.req as http.IncomingMessage, resStub),
+      ).not.to.throw();
+
+      sinon.assert.calledWith(resStub.writeHead, 500);
+      sinon.assert.calledOnce(resStub.end);
     });
   }
 
