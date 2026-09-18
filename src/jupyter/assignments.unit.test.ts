@@ -2297,6 +2297,7 @@ describe('AssignmentManager', () => {
 
     describe('with a refreshed connection', () => {
       const newToken = 'new-token';
+      const newEndpoint = 'new-endpoint';
       let refreshedServer: ColabAssignedServer;
 
       beforeEach(async () => {
@@ -2309,6 +2310,7 @@ describe('AssignmentManager', () => {
               ...defaultRuntime.connectionInfo,
               token: newToken,
               expireTime: new Date(NOW.getTime() + TOKEN_EXPIRY_MS * 2),
+              endpoint: newEndpoint,
             },
           });
         await serverStorage.store([defaultServer]);
@@ -2322,6 +2324,7 @@ describe('AssignmentManager', () => {
       it('stores and returns the server with updated connection info', () => {
         const expectedServer: ColabAssignedServer = {
           ...defaultServer,
+          endpoint: newEndpoint,
           connectionInformation: {
             ...defaultServer.connectionInformation,
             headers: {
