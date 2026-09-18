@@ -484,7 +484,7 @@ export class AssignmentManager implements Disposable {
     assert(runtime.connectionInfo, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`);
     const updatedServer = this.toAssignedServer(
       server,
-      server.endpoint,
+      runtime.connectionInfo.endpoint,
       runtime.connectionInfo,
       server.dateAssigned,
     );
