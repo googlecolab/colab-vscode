@@ -26,6 +26,7 @@ import {
   Middleware,
   RequestContext,
   ResponseContext,
+  ResponseError,
   Runtime,
   Shape,
   Variant,
@@ -249,16 +250,23 @@ class ErrorMiddleware implements Middleware {
   constructor(private readonly onAuthError?: () => Promise<void>) {}
 
   async post(context: ResponseContext): Promise<void> {
-    if (!context.response.ok) {
-      if (context.response.status === 401 && this.onAuthError) {
-        await this.onAuthError();
-      }
-      telemetry.logError(context.response);
-      log.warn(
-        `Error response received by ${context.init.method ?? ''} ${context.url}:`,
-        context.response,
-      );
+    if (context.response.ok) {
+      return;
     }
+
+    if (context.response.status === 401 && this.onAuthError) {
+      await this.onAuthError();
+    }
+    log.warn(
+      `Error response received by ${context.init.method ?? ''} ${context.url}:`,
+      context.response,
+    );
+    // Replaces the identical throw in the generated `request()`, whose
+    // ResponseError carries neither the status nor the path.
+    throw new ResponseError(
+      context.response,
+      `Error response ${String(context.response.status)} received by ${context.init.method ?? ''} ${redactUrl(context.url)}`,
+    );
   }
 
   onError(context: ErrorContext): Promise<void> {
@@ -269,6 +277,18 @@ class ErrorMiddleware implements Middleware {
     );
     return Promise.resolve();
   }
+}
+
+/**
+ * Drops the query string, which can carry notebook hashes and auth hints.
+ *
+ * @param url - The URL to redact.
+ * @returns The URL without its query string.
+ */
+function redactUrl(url: string): string {
+  // Deliberately textual: parsing and falling back on failure leaks the query
+  // of any URL that does not parse, which is the opposite of what we want.
+  return url.split(/[?#]/)[0];
 }
 
 function isErrorInfo(obj: unknown): obj is ErrorInfo {
