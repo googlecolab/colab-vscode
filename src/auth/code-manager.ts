@@ -6,6 +6,7 @@
 
 import vscode from 'vscode';
 import { DisposablePromise, waitForTimeout } from '../common/async';
+import { UserCancelledError } from '../common/cancellation';
 
 const EXCHANGE_TIMEOUT_MS = 60_000;
 
@@ -78,17 +79,44 @@ export class CodeManager implements vscode.Disposable {
    * Resolves the in-flight promise corresponding to the provided nonce
    * with the provided authorization code.
    *
+   * A code can arrive with nobody waiting for it: the browser can replay the
+   * redirect, or the user can paste a code after the exchange already timed out
+   * or was cancelled. Neither is an extension defect, so this reports the
+   * outcome instead of throwing and leaves it to the caller to tell the user.
+   *
    * @param nonce - The unique nonce used to correlate the request and response.
    * @param code - The authorization code to resolve for the associated nonce.
+   * @returns True when a waiter received the code, false when the nonce is
+   * unknown or no longer awaited.
    */
-  resolveCode(nonce: string, code: string): void {
-    this.guardDisposed();
+  resolveCode(nonce: string, code: string): boolean {
     const inFlight = this.inFlightPromises.get(nonce);
     if (!inFlight) {
-      throw new Error('Unexpected code exchange received');
+      return false;
     }
 
     inFlight.resolve(code);
+    return true;
+  }
+
+  /**
+   * Fails the in-flight exchange for the provided nonce.
+   *
+   * Used when the redirect says no code is coming (e.g. a refused consent).
+   *
+   * @param nonce - The unique nonce used to correlate the request and response.
+   * @param reason - Why no code will arrive.
+   * @returns True when a waiter was failed, false when the nonce is unknown or
+   * no longer awaited.
+   */
+  rejectCode(nonce: string, reason: Error): boolean {
+    const inFlight = this.inFlightPromises.get(nonce);
+    if (!inFlight) {
+      return false;
+    }
+
+    inFlight.reject(reason);
+    return true;
   }
 
   private guardDisposed() {
@@ -112,7 +140,9 @@ function waitForCancellation(
   let listener: vscode.Disposable;
   const promise = new Promise<never>((_, reject) => {
     listener = token.onCancellationRequested(() => {
-      reject(new Error('Authentication was cancelled by the user'));
+      reject(
+        new UserCancelledError('Authentication was cancelled by the user'),
+      );
     });
   });
 

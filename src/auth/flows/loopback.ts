@@ -11,6 +11,7 @@ import * as path from 'path';
 import { OAuth2Client } from 'google-auth-library';
 import vscode from 'vscode';
 import { CONFIG } from '../../colab-config';
+import { UserCancelledError } from '../../common/cancellation';
 import { log } from '../../common/logging';
 import { LoopbackHandler, LoopbackServer } from '../../common/loopback-server';
 import { CodeManager } from '../code-manager';
@@ -93,6 +94,10 @@ export class LocalServerFlow implements OAuth2Flow, vscode.Disposable {
     this.activeServers.add(server);
     try {
       const code = this.codeManager.waitForCode(options.nonce, options.cancel);
+      // `code` is only awaited on the happy path below. Claim its rejection now
+      // so bailing out during setup doesn't leave it to reject unhandled once
+      // the exchange later times out.
+      void code.catch(() => undefined);
       options.cancel.onCancellationRequested(server.dispose.bind(server));
       const port = await server.start();
       const address = `http://127.0.0.1:${port.toString()}`;
@@ -156,11 +161,38 @@ class Handler implements LoopbackHandler {
         }
         const parsedState = new URLSearchParams(state);
         const nonce = parsedState.get('nonce');
+        const error = url.searchParams.get('error');
+        if (error) {
+          // A refused consent comes back as `?error=access_denied&state=...`:
+          // `state` is present but no code is coming. Fail the exchange now so
+          // the user is not left watching a picker until it times out, and
+          // answer the tab rather than throwing past the request listener.
+          log.info(`Sign-in was refused at the consent screen: ${error}`);
+          if (nonce) {
+            this.codeProvider.rejectCode(
+              nonce,
+              new UserCancelledError('Sign-in was refused.'),
+            );
+          }
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end('Sign-in was cancelled. You can close this tab.');
+          break;
+        }
         const code = url.searchParams.get('code');
         if (!nonce || !code) {
           throw new Error('Missing nonce or code in redirect URI');
         }
-        this.codeProvider.resolveCode(nonce, code);
+        if (!this.codeProvider.resolveCode(nonce, code)) {
+          // Nobody is waiting on this nonce: the browser replayed the redirect,
+          // or the exchange already timed out or was cancelled. Answer the
+          // request rather than throwing, which escapes the request listener as
+          // an uncaught exception and leaves the tab awaiting a response that
+          // never comes.
+          log.warn('Ignoring an authorization code nobody is waiting for');
+          res.writeHead(409);
+          res.end('No sign-in is waiting for this authorization code.');
+          break;
+        }
 
         void this.redirectSuccessfulAuth(res).catch((err: unknown) => {
           log.error('Unable to redirect the successful auth request', err);

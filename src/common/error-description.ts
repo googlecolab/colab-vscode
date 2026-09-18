@@ -37,7 +37,8 @@ function describeLink(e: Error): string {
 }
 
 function nextLinks(e: Error): Error[] {
-  // An AggregateError's own message is empty; the detail is in `errors`.
+  // An AggregateError's own message, when it has one, only names the umbrella
+  // failure.
   if (e instanceof AggregateError) {
     return e.errors.filter(
       (sub: unknown): sub is Error => sub instanceof Error,

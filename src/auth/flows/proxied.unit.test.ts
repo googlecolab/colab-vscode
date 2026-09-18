@@ -10,6 +10,7 @@ import * as sinon from 'sinon';
 import { InputBox } from 'vscode';
 import { CONFIG } from '../../colab-config';
 import { ExtensionUriHandler } from '../../system/uri';
+import { Deferred } from '../../test/helpers/async';
 import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import {
   buildInputBoxStub,
@@ -133,5 +134,79 @@ describe('ProxiedRedirectFlow', () => {
 
     const expected: FlowResult = { code: CODE, redirectUri: REDIRECT_URI };
     await expect(trigger).to.eventually.deep.equal(expected);
+    // A code that was claimed is not a code that arrived too late.
+    sinon.assert.notCalled(vs.window.showWarningMessage);
+  });
+
+  it('warns when a code is pasted after the exchange has ended', async () => {
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+    const warned = new Deferred<void>();
+    vs.window.showWarningMessage.callsFake(() => {
+      warned.resolve();
+      return Promise.resolve(undefined);
+    });
+    const trigger = flow.trigger(defaultTriggerOpts);
+    await inputBoxStub.nextShow();
+    clock.tick(60_001);
+    await expect(trigger).to.eventually.be.rejectedWith(/timeout/);
+
+    inputBoxStub.value = CODE;
+    inputBoxStub.onDidChangeValue.yield(CODE);
+    inputBoxStub.onDidAccept.yield();
+
+    await warned.promise;
+    sinon.assert.calledOnceWithMatch(
+      vs.window.showWarningMessage,
+      sinon.match(/too late/),
+    );
+    clock.restore();
+  });
+
+  it('warns when a code is pasted after the flow was disposed', async () => {
+    const warned = new Deferred<void>();
+    vs.window.showWarningMessage.callsFake(() => {
+      warned.resolve();
+      return Promise.resolve(undefined);
+    });
+    const trigger = flow.trigger(defaultTriggerOpts);
+    await inputBoxStub.nextShow();
+    // `dispose` rejects the exchange but leaves the input box on screen.
+    flow.dispose();
+    await expect(trigger).to.eventually.be.rejectedWith(/disposed/);
+
+    // Nobody is waiting, so this must report rather than throw past the
+    // fire-and-forget `MultiStepInput.run`.
+    inputBoxStub.value = CODE;
+    inputBoxStub.onDidChangeValue.yield(CODE);
+    inputBoxStub.onDidAccept.yield();
+
+    await warned.promise;
+    sinon.assert.calledOnceWithMatch(
+      vs.window.showWarningMessage,
+      sinon.match(/too late/),
+    );
+  });
+
+  it('claims the pending code when opening the browser fails', async () => {
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+    vs.env.openExternal.rejects(new Error('No browser'));
+    const unhandled: unknown[] = [];
+    const capture = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', capture);
+
+    try {
+      await expect(flow.trigger(defaultTriggerOpts)).to.eventually.be.rejected;
+      // The abandoned exchange rejects on its own timeout, long after `trigger`
+      // gave up on it.
+      clock.tick(60_001);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off('unhandledRejection', capture);
+      clock.restore();
+    }
+
+    expect(unhandled).to.be.empty;
   });
 });

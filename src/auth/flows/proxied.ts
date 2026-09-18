@@ -71,6 +71,10 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
         options.nonce,
         cancelTokenSource.token,
       );
+      // `code` is only awaited on the happy path below. Claim its rejection now
+      // so bailing out during setup doesn't leave it to reject unhandled once
+      // the exchange later times out.
+      void code.catch(() => undefined);
       const vsCodeRedirectUri = this.vs.Uri.parse(
         `${this.extensionUri}?nonce=${options.nonce}`,
       );
@@ -122,7 +126,14 @@ export class ProxiedRedirectFlow implements OAuth2Flow, vscode.Disposable {
           },
           value: '',
         });
-        this.codeManager.resolveCode(nonce, pastedCode);
+        if (!this.codeManager.resolveCode(nonce, pastedCode)) {
+          // The input box outlives the exchange, so a code pasted after the
+          // exchange timed out or was cancelled arrives with nobody waiting.
+          // Say so instead of failing silently.
+          this.vs.window.showWarningMessage(
+            'That authorization code arrived too late. Please sign in again.',
+          );
+        }
         return undefined;
       } catch (e) {
         if (e === InputFlowAction.cancel) {

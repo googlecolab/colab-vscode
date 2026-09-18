@@ -7,6 +7,7 @@
 import vscode from 'vscode';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
+import { UserCancelledError } from '../common/cancellation';
 import { log } from '../common/logging';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { telemetry } from '../telemetry';
@@ -22,7 +23,8 @@ import { telemetry } from '../telemetry';
  * @param apiClient - Colab API client to invoke the credentials propagation
  * @param server - Colab server information used for credentials propagation
  * @param authType - The type of authentication flow.
- * @throws Error if authorization is cancelled or credentials propagation fails
+ * @throws A {@link UserCancelledError} if the user declined authorization, or
+ * an Error if credentials propagation fails.
  */
 export async function handleEphemeralAuth(
   vs: typeof vscode,
@@ -51,7 +53,7 @@ export async function handleEphemeralAuth(
       server.label,
     );
     if (!userConsentObtained) {
-      throw new Error(`User cancelled ${authType} authorization`);
+      throw new UserCancelledError(`User cancelled ${authType} authorization`);
     }
     await propagateCredentials(apiClient, server.endpoint, authType);
   } else {
@@ -124,6 +126,14 @@ async function propagateCredentials(
   log.trace(`[${authType}] credentials propagation:`, propagationResult);
 
   if (!propagationResult.success) {
-    throw new Error(`[${authType}] Credentials propagation unsuccessful`);
+    // The result carries no failure message, but whether the backend handed
+    // back another authorization URL separates "the consent we just collected
+    // did not take effect" from "propagation failed for some other reason".
+    const reason = propagationResult.unauthorizedRedirectUri
+      ? 'the server still reports the credentials as unauthorized'
+      : 'the server reported no reason';
+    throw new Error(
+      `[${authType}] Credentials propagation unsuccessful: ${reason}`,
+    );
   }
 }

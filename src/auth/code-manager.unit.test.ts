@@ -8,6 +8,7 @@ import { expect } from 'chai';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
 import { CancellationTokenSource } from 'vscode';
+import { isCancellation } from '../common/cancellation';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { CodeManager } from './code-manager';
 
@@ -38,12 +39,37 @@ describe('CodeManager', () => {
     ).to.be.rejectedWith(/disposed/);
   });
 
-  it('throws when disposed for resolveCode', () => {
+  it('reports an undelivered code when disposed', () => {
     manager.dispose();
 
-    expect(() => {
-      manager.resolveCode('1', '42');
-    }).to.throw(/disposed/);
+    // The input box outlives `dispose`, so a paste can still arrive. Throwing
+    // here would escape the caller's fire-and-forget prompt as an unhandled
+    // rejection.
+    expect(manager.resolveCode('1', '42')).to.be.false;
+  });
+
+  it('reports no waiter to fail when disposed', () => {
+    manager.dispose();
+
+    expect(manager.rejectCode('1', new Error('Refused'))).to.be.false;
+  });
+
+  it('fails the awaited exchange for a nonce', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
+
+    expect(manager.rejectCode('1', new Error('Refused'))).to.be.true;
+
+    await expect(gotCode).to.be.rejectedWith(/Refused/);
+  });
+
+  it('reports no waiter to fail for an unknown nonce', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
+
+    expect(manager.rejectCode('unknown', new Error('Refused'))).to.be.false;
+
+    // The real exchange is untouched and still times out on its own.
+    clock.tick(60_001);
+    await expect(gotCode).to.be.rejectedWith(/timeout/);
   });
 
   it('rejects outstanding codes when disposed', async () => {
@@ -64,18 +90,27 @@ describe('CodeManager', () => {
     ).to.be.rejectedWith(/waiting/);
   });
 
-  it('throws when resolving an unknown nonce', async () => {
+  it('reports an undelivered code when resolving an unknown nonce', async () => {
     const nonce = '1';
     const code = '42';
     const gotCode = manager.waitForCode(nonce, cancellationTokenSource.token);
 
-    expect(() => {
-      manager.resolveCode('unknown', code);
-    }).to.throw(/Unexpected/);
+    expect(manager.resolveCode('unknown', code)).to.be.false;
 
     // Ensure no code is resolved and ultimately times out.
     clock.tick(60_001);
     await expect(gotCode).to.be.rejectedWith(/timeout/);
+  });
+
+  it('reports an undelivered code once the nonce is no longer awaited', async () => {
+    const nonce = '1';
+    const gotCode = manager.waitForCode(nonce, cancellationTokenSource.token);
+    clock.tick(60_001);
+    await expect(gotCode).to.be.rejectedWith(/timeout/);
+
+    // A replayed browser redirect, or a code pasted after the exchange gave up,
+    // is expected rather than a defect.
+    expect(manager.resolveCode(nonce, '42')).to.be.false;
   });
 
   it('rejects when the timeout is exceeded', async () => {
@@ -94,12 +129,30 @@ describe('CodeManager', () => {
     await expect(gotCode).to.be.rejectedWith(/cancelled/);
   });
 
+  it('rejects a user cancellation as a cancellation, not a failure', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
+
+    cancellationTokenSource.cancel();
+
+    const err: unknown = await gotCode.catch((e: unknown) => e);
+    expect(isCancellation(err)).to.be.true;
+  });
+
+  it('rejects an exceeded timeout as a failure, not a cancellation', async () => {
+    const gotCode = manager.waitForCode('1', cancellationTokenSource.token);
+
+    clock.tick(60_001);
+
+    const err: unknown = await gotCode.catch((e: unknown) => e);
+    expect(isCancellation(err)).to.be.false;
+  });
+
   it('resolves a code', async () => {
     const code = '42';
     const nonce = '123';
 
     const gotCode = manager.waitForCode(nonce, cancellationTokenSource.token);
-    manager.resolveCode(nonce, code);
+    expect(manager.resolveCode(nonce, code)).to.be.true;
 
     await expect(gotCode).to.eventually.equal(code);
   });
