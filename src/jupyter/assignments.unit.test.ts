@@ -588,7 +588,6 @@ describe('AssignmentManager', () => {
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.with.session.name',
-        endpoint: 'test-endpoint-with-session-name',
       },
     } satisfies Runtime;
     const runtimeIdWithoutSessionName = `r-${randomUUID()}`;
@@ -598,7 +597,6 @@ describe('AssignmentManager', () => {
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.without.session.name',
-        endpoint: 'test-endpoint-without-session-name',
       },
     } satisfies Runtime;
     const runtimeIdWithoutSession = `r-${randomUUID()}`;
@@ -608,7 +606,6 @@ describe('AssignmentManager', () => {
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.without.session',
-        endpoint: 'test-endpoint-without-session',
       },
     } satisfies Runtime;
 
@@ -616,19 +613,19 @@ describe('AssignmentManager', () => {
       ...defaultServerDescriptor,
       label: TEST_SESSION_NAME,
       id: runtimeIdWithSessionName,
-      endpoint: runtimeWithSessionName.connectionInfo.endpoint,
+      endpoint: defaultServer.endpoint,
     } satisfies UnownedServer;
     const serverWithoutName = {
       ...defaultServerDescriptor,
       label: UNKNOWN_REMOTE_SERVER_NAME,
       id: runtimeIdWithoutSessionName,
-      endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
+      endpoint: defaultServer.endpoint,
     } satisfies UnownedServer;
     const serverWithoutSession = {
       ...defaultServerDescriptor,
       label: UNKNOWN_REMOTE_SERVER_NAME,
       id: runtimeIdWithoutSession,
-      endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+      endpoint: defaultServer.endpoint,
     } satisfies UnownedServer;
 
     const defaultSession = {
@@ -901,10 +898,7 @@ describe('AssignmentManager', () => {
           ],
         });
         // One of the assignments was assigned within VS Code extension
-        const assignedServer = {
-          ...defaultServer,
-          endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
-        };
+        const assignedServer = { ...defaultServer, ...serverWithoutName };
         await serverStorage.store([assignedServer]);
 
         // When we get servers from external
