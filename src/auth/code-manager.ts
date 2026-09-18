@@ -6,6 +6,7 @@
 
 import vscode from 'vscode';
 import { DisposablePromise, waitForTimeout } from '../common/async';
+import { UserCancelledError } from '../common/cancellation';
 
 const EXCHANGE_TIMEOUT_MS = 60_000;
 
@@ -112,7 +113,9 @@ function waitForCancellation(
   let listener: vscode.Disposable;
   const promise = new Promise<never>((_, reject) => {
     listener = token.onCancellationRequested(() => {
-      reject(new Error('Authentication was cancelled by the user'));
+      reject(
+        new UserCancelledError('Authentication was cancelled by the user'),
+      );
     });
   });
 

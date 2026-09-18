@@ -17,6 +17,7 @@ import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
 } from '../colab/headers';
+import { isCancellation } from '../common/cancellation';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
 import { withErrorTracking } from '../telemetry/decorators';
@@ -152,8 +153,14 @@ export function colabProxyWebSocket(
               this.sendInputReply(message.metadata.colab_msg_id);
             })
             .catch((err: unknown) => {
-              log.error('Failed handling ephemeral auth propagation', err);
-              telemetry.logError(err);
+              // Declining the consent prompt is the user's call, not a defect.
+              // The kernel still needs to hear that no credentials are coming.
+              if (isCancellation(err)) {
+                log.info('Ephemeral auth was cancelled', err);
+              } else {
+                log.error('Failed handling ephemeral auth propagation', err);
+                telemetry.logError(err);
+              }
               this.sendInputReply(message.metadata.colab_msg_id, err);
             });
         }
