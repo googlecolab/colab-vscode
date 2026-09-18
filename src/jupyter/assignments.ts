@@ -186,10 +186,7 @@ export class AssignmentManager implements Disposable {
     }
 
     const live = await this.listAssignedRuntimes(signal);
-    await this.reconcileStoredServers(
-      stored,
-      live.map((r) => r.connectionInfo.endpoint),
-    );
+    await this.reconcileStoredServers(stored, live);
   }
 
   /**
@@ -254,10 +251,7 @@ export class AssignmentManager implements Disposable {
 
     if (from === 'extension' || from === 'all') {
       storedServers = (
-        await this.reconcileStoredServers(
-          storedServers,
-          allAssignedRuntimes.map((r) => r.connectionInfo.endpoint),
-        )
+        await this.reconcileStoredServers(storedServers, allAssignedRuntimes)
       ).map((server) => {
         const c = server.connectionInformation;
         return {
@@ -368,7 +362,7 @@ export class AssignmentManager implements Disposable {
       }
 
       assert(runtime.name, MISSING_RUNTIME_NAME_ERR_MSG);
-      const runtimeId = trimPrefix(runtime.name, 'runtimes/');
+      const runtimeId = trimPrefix(runtime.name, RUNTIME_NAME_PREFIX);
       const c = runtime.connectionInfo;
       assert(c, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${runtimeId}`);
       const server = this.toAssignedServer(
@@ -490,7 +484,7 @@ export class AssignmentManager implements Disposable {
     assert(runtime.connectionInfo, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`);
     const updatedServer = this.toAssignedServer(
       server,
-      server.endpoint,
+      runtime.connectionInfo.endpoint,
       runtime.connectionInfo,
       server.dateAssigned,
     );
@@ -600,13 +594,15 @@ export class AssignmentManager implements Disposable {
 
   private async reconcileStoredServers(
     storedServers: ColabAssignedServer[],
-    liveEndpoints: string[],
+    liveRuntimes: AssertedRuntime[],
   ): Promise<ColabAssignedServer[]> {
-    const liveEndpointSet = new Set(liveEndpoints);
+    const liveServerIds = new Set(
+      liveRuntimes.map((r) => trimPrefix(r.name, RUNTIME_NAME_PREFIX)),
+    );
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
-      if (liveEndpointSet.has(s.endpoint)) {
+      if (liveServerIds.has(s.id)) {
         reconciled.push(s);
       } else {
         removed.push(s);
@@ -616,7 +612,7 @@ export class AssignmentManager implements Disposable {
       return reconciled;
     }
 
-    telemetry.logPruneServers(removed.map((s) => s.endpoint));
+    telemetry.logPruneServers(removed.map((s) => s.id));
     await this.storage.clear();
     await this.storage.store(reconciled);
     this.assignmentChange.fire({
@@ -733,20 +729,21 @@ export class AssignmentManager implements Disposable {
     storedServers: ColabAssignedServer[],
     signal?: AbortSignal,
   ): Promise<UnownedServer[]> {
-    const storedEndpointSet = new Set(storedServers.map((s) => s.endpoint));
+    const storedRuntimeNames = new Set(
+      storedServers.map((s) => RUNTIME_NAME_PREFIX + s.id),
+    );
 
     return (
       await Promise.all(
         allAssignedRuntimes
-          .filter((r) => !storedEndpointSet.has(r.connectionInfo.endpoint))
+          .filter((r) => !storedRuntimeNames.has(r.name))
           .map(async (r): Promise<UnownedServer | undefined> => {
-            const endpoint = r.connectionInfo.endpoint;
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.
             let label = UNKNOWN_REMOTE_SERVER_NAME;
             const timeout = waitForTimeout(
               LIST_UNOWNED_SESSIONS_TIMEOUT_MS,
-              `Listing sessions timeout exceeded for endpoint ${endpoint}`,
+              `Listing sessions timeout exceeded for runtime ${r.name}`,
             );
 
             try {
@@ -769,7 +766,7 @@ export class AssignmentManager implements Disposable {
               // than failing the entire call.
               if (error instanceof JupyterFetchError) {
                 log.trace(
-                  `Dropping orphan assignment ${endpoint} - sessions.list resulted in a network error`,
+                  `Dropping orphan runtime ${r.name} - sessions.list resulted in a network error`,
                   error,
                 );
                 return undefined;
@@ -777,7 +774,7 @@ export class AssignmentManager implements Disposable {
               // For any other failure, fail open with a placeholder label so
               // we still surface the assignment to the user.
               log.warn(
-                `Failed to list sessions for assignment ${endpoint}, falling back to placeholder label`,
+                `Failed to list sessions for runtime ${r.name}, falling back to placeholder label`,
                 error,
               );
             } finally {
@@ -1008,6 +1005,8 @@ enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
+const RUNTIME_NAME_PREFIX = 'runtimes/';
+
 // Internal CreateAssignment RPC deadline of 180s + network buffer
 const WAIT_OPERATION_TIMEOUT = '200s';
 const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
@@ -1095,7 +1094,7 @@ function toUnownedServer(
   runtime: AssertedRuntime,
 ): UnownedServer {
   return {
-    id: trimPrefix(runtime.name, 'runtimes/'),
+    id: trimPrefix(runtime.name, RUNTIME_NAME_PREFIX),
     label,
     endpoint: runtime.connectionInfo.endpoint,
     variant: normalizeVariant(runtime.runtimeSpec.variant),
