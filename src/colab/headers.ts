@@ -85,10 +85,3 @@ export const AUTHORIZATION_HEADER: Header = {
 export const COLAB_RUNTIME_PROXY_TOKEN_HEADER: Header = {
   key: 'X-Colab-Runtime-Proxy-Token',
 };
-
-/**
- * The HTTP header for the Colab XSRF token.
- */
-export const COLAB_XSRF_TOKEN_HEADER: Header = {
-  key: 'X-Goog-Colab-Token',
-};

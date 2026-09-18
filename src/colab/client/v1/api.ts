@@ -242,22 +242,13 @@ export const ResourcesSchema = z.object({
 /** Resources on a Colab runtime. */
 export type Resources = z.infer<typeof ResourcesSchema>;
 
-/** Schema of the Colab credentials propagation API result. */
-export const CredentialsPropagationResultSchema = z
-  .object({
-    /** Whether the credentials are or were already propagated. */
-    success: z.boolean(),
-    /** An optional OAuth redirect URL if credentials aren't propagated. */
-    unauthorized_redirect_uri: z.string().optional(),
-  })
-  .transform(({ unauthorized_redirect_uri, ...rest }) => ({
-    ...rest,
-    unauthorizedRedirectUri: unauthorized_redirect_uri,
-  }));
-/** Type of the Colab credentials propagation API result. */
-export type CredentialsPropagationResult = z.infer<
-  typeof CredentialsPropagationResultSchema
->;
+/** The Colab credentials propagation API result. */
+export interface CredentialsPropagationResult {
+  /** Whether the credentials are or were already propagated. */
+  success: boolean;
+  /** An optional OAuth redirect URL if credentials aren't propagated. */
+  unauthorizedRedirectUri?: string;
+}
 
 /** OnePlatform API error schema. */
 export const OnePlatformErrorSchema = z.object({
@@ -324,7 +315,6 @@ export function shapeToMachineShape(shape: Shape): string {
 
 /** The experiment flags supported by the Colab extension. */
 export enum ExperimentFlag {
-  EnableOpCredentialPropagationApi = 'enable_op_credprop_api_vscode',
   EnableTelemetry = 'enable_vscode_telemetry',
   ResourcePollIntervalMs = 'resource_poll_interval_ms',
   RuntimeVersionNames = 'runtime_version_names',
@@ -335,7 +325,6 @@ export const EXPERIMENT_FLAG_DEFAULT_VALUES: Record<
   ExperimentFlag,
   ExperimentFlagValue
 > = {
-  [ExperimentFlag.EnableOpCredentialPropagationApi]: false,
   [ExperimentFlag.EnableTelemetry]: false,
   [ExperimentFlag.ResourcePollIntervalMs]: 10000,
   [ExperimentFlag.RuntimeVersionNames]: [],

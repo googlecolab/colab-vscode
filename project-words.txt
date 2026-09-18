@@ -1,12 +1,9 @@
-authtype
 authuser
 autorestarting
 chromedriver
 colab
 colabclient
 colaboratory
-credprop
-dryrun
 ephem
 extest
 exthost
