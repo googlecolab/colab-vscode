@@ -365,10 +365,7 @@ describe('ColabClient', () => {
           dryRun,
         });
 
-        await expect(result).to.eventually.deep.equal({
-          success: true,
-          unauthorizedRedirectUri: undefined,
-        });
+        await expect(result).to.eventually.deep.equal({ success: true });
         sinon.assert.calledOnce(fetchStub);
         const req = fetchStub.getCall(0).args[0] as Request;
         await expect(req.json()).to.eventually.deep.equal({

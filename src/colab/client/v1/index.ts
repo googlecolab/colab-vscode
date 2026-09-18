@@ -202,7 +202,7 @@ export class ColabClient {
         body: JSON.stringify(payload),
         signal,
       });
-      return { success: true, unauthorizedRedirectUri: undefined };
+      return { success: true };
     } catch (error: unknown) {
       const unauthorizedRedirectUri = extractUnauthorizedRedirectUri(error);
       if (!unauthorizedRedirectUri) {

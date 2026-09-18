@@ -242,22 +242,13 @@ export const ResourcesSchema = z.object({
 /** Resources on a Colab runtime. */
 export type Resources = z.infer<typeof ResourcesSchema>;
 
-/** Schema of the Colab credentials propagation API result. */
-export const CredentialsPropagationResultSchema = z
-  .object({
-    /** Whether the credentials are or were already propagated. */
-    success: z.boolean(),
-    /** An optional OAuth redirect URL if credentials aren't propagated. */
-    unauthorized_redirect_uri: z.string().optional(),
-  })
-  .transform(({ unauthorized_redirect_uri, ...rest }) => ({
-    ...rest,
-    unauthorizedRedirectUri: unauthorized_redirect_uri,
-  }));
-/** Type of the Colab credentials propagation API result. */
-export type CredentialsPropagationResult = z.infer<
-  typeof CredentialsPropagationResultSchema
->;
+/** The Colab credentials propagation API result. */
+export interface CredentialsPropagationResult {
+  /** Whether the credentials are or were already propagated. */
+  success: boolean;
+  /** An optional OAuth redirect URL if credentials aren't propagated. */
+  unauthorizedRedirectUri?: string;
+}
 
 /** OnePlatform API error schema. */
 export const OnePlatformErrorSchema = z.object({
