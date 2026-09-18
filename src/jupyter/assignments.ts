@@ -186,10 +186,7 @@ export class AssignmentManager implements Disposable {
     }
 
     const live = await this.listAssignedRuntimes(signal);
-    await this.reconcileStoredServers(
-      stored,
-      live.map((r) => r.connectionInfo.endpoint),
-    );
+    await this.reconcileStoredServers(stored, live);
   }
 
   /**
@@ -254,10 +251,7 @@ export class AssignmentManager implements Disposable {
 
     if (from === 'extension' || from === 'all') {
       storedServers = (
-        await this.reconcileStoredServers(
-          storedServers,
-          allAssignedRuntimes.map((r) => r.connectionInfo.endpoint),
-        )
+        await this.reconcileStoredServers(storedServers, allAssignedRuntimes)
       ).map((server) => {
         const c = server.connectionInformation;
         return {
@@ -368,7 +362,7 @@ export class AssignmentManager implements Disposable {
       }
 
       assert(runtime.name, MISSING_RUNTIME_NAME_ERR_MSG);
-      const runtimeId = trimPrefix(runtime.name, 'runtimes/');
+      const runtimeId = trimPrefix(runtime.name, RUNTIME_NAME_PREFIX);
       const c = runtime.connectionInfo;
       assert(c, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${runtimeId}`);
       const server = this.toAssignedServer(
@@ -600,13 +594,15 @@ export class AssignmentManager implements Disposable {
 
   private async reconcileStoredServers(
     storedServers: ColabAssignedServer[],
-    liveEndpoints: string[],
+    liveRuntimes: AssertedRuntime[],
   ): Promise<ColabAssignedServer[]> {
-    const liveEndpointSet = new Set(liveEndpoints);
+    const liveServerIdSet = new Set(
+      liveRuntimes.map((r) => trimPrefix(r.name, RUNTIME_NAME_PREFIX)),
+    );
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
-      if (liveEndpointSet.has(s.endpoint)) {
+      if (liveServerIdSet.has(s.id)) {
         reconciled.push(s);
       } else {
         removed.push(s);
@@ -1008,6 +1004,8 @@ enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
 
+const RUNTIME_NAME_PREFIX = 'runtimes/';
+
 // Internal CreateAssignment RPC deadline of 180s + network buffer
 const WAIT_OPERATION_TIMEOUT = '200s';
 const LIST_UNOWNED_SESSIONS_TIMEOUT_MS = 3000;
@@ -1095,7 +1093,7 @@ function toUnownedServer(
   runtime: AssertedRuntime,
 ): UnownedServer {
   return {
-    id: trimPrefix(runtime.name, 'runtimes/'),
+    id: trimPrefix(runtime.name, RUNTIME_NAME_PREFIX),
     label,
     endpoint: runtime.connectionInfo.endpoint,
     variant: normalizeVariant(runtime.runtimeSpec.variant),
