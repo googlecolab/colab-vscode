@@ -60,7 +60,20 @@ export class LoopbackServer implements vscode.Disposable {
   constructor(private readonly handler: LoopbackHandler) {
     this.server = http.createServer();
     this.server.on('request', (req, res) => {
-      handler.handleRequest(req, res);
+      try {
+        handler.handleRequest(req, res);
+      } catch (err: unknown) {
+        // Node calls this listener bare, so a throw would go uncaught and
+        // leave the browser tab waiting
+        log.error('Loopback request handler failed', err);
+        if (res.writableEnded) {
+          return;
+        }
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+        }
+        res.end('Sign-in could not be completed. You can close this tab.');
+      }
     });
     this.server.on('error', (err) => {
       if (this.handler.handleError) {
