@@ -7,6 +7,7 @@
 import vscode from 'vscode';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
+import { UserCancelledError } from '../common/cancellation';
 import { log } from '../common/logging';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { telemetry } from '../telemetry';
@@ -22,7 +23,8 @@ import { telemetry } from '../telemetry';
  * @param apiClient - Colab API client to invoke the credentials propagation
  * @param server - Colab server information used for credentials propagation
  * @param authType - The type of authentication flow.
- * @throws Error if authorization is cancelled or credentials propagation fails
+ * @throws A {@link UserCancelledError} if the user declined authorization, or
+ * an Error if credentials propagation fails.
  */
 export async function handleEphemeralAuth(
   vs: typeof vscode,
@@ -33,34 +35,26 @@ export async function handleEphemeralAuth(
   telemetry.logHandleEphemeralAuth(authType);
 
   // Dry run to check if authorization is needed.
-  const dryRunResult = await apiClient.propagateCredentials(server.endpoint, {
+  const redirectUri = await apiClient.propagateCredentials(server.endpoint, {
     authType,
     dryRun: true,
   });
-  log.trace(`[${authType}] Credentials propagation dry run:`, dryRunResult);
+  log.trace(`[${authType}] Credentials propagation dry run:`, redirectUri);
 
-  if (dryRunResult.success) {
-    // Already authorized; propagate credentials directly.
-    await propagateCredentials(apiClient, server.endpoint, authType);
-  } else if (dryRunResult.unauthorizedRedirectUri) {
+  if (redirectUri) {
     // Need to obtain user consent and then propagate credentials.
     const userConsentObtained = await obtainUserAuthConsent(
       vs,
       authType,
-      dryRunResult.unauthorizedRedirectUri,
+      redirectUri,
       server.label,
     );
     if (!userConsentObtained) {
-      throw new Error(`User cancelled ${authType} authorization`);
+      throw new UserCancelledError(`User cancelled ${authType} authorization`);
     }
-    await propagateCredentials(apiClient, server.endpoint, authType);
-  } else {
-    // Not already authorized and no auth consent URL returned. This
-    // technically shouldn't happen, but just in case.
-    throw new Error(
-      `[${authType}] Credentials propagation dry run returned unexpected results: ${JSON.stringify(dryRunResult)}`,
-    );
   }
+
+  await propagateCredentials(apiClient, server.endpoint, authType);
 }
 
 async function obtainUserAuthConsent(
@@ -117,13 +111,17 @@ async function propagateCredentials(
   endpoint: string,
   authType: AuthType,
 ): Promise<void> {
-  const propagationResult = await apiClient.propagateCredentials(endpoint, {
+  const redirectUri = await apiClient.propagateCredentials(endpoint, {
     authType,
     dryRun: false,
   });
-  log.trace(`[${authType}] credentials propagation:`, propagationResult);
+  log.trace(`[${authType}] credentials propagation:`, redirectUri);
 
-  if (!propagationResult.success) {
-    throw new Error(`[${authType}] Credentials propagation unsuccessful`);
+  if (redirectUri) {
+    // User consent was obtained, but the server still reports the credentials
+    // as unauthorized.
+    throw new Error(
+      `[${authType}] Credentials propagation unsuccessful: the server still reports the credentials as unauthorized`,
+    );
   }
 }

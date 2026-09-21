@@ -9,6 +9,7 @@ import sinon, { SinonStubbedInstance } from 'sinon';
 import { Uri } from 'vscode';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
+import { isCancellation } from '../common/cancellation';
 import { ColabAssignedServer } from '../jupyter/servers';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { handleEphemeralAuth } from './ephemeral';
@@ -30,10 +31,7 @@ describe('handleEphemeralAuth', () => {
         testServer.endpoint,
         sinon.match(({ dryRun }) => !dryRun),
       )
-      .resolves({
-        success: true,
-        unauthorizedRedirectUri: undefined,
-      });
+      .resolves(undefined);
   });
 
   afterEach(() => {
@@ -73,29 +71,6 @@ describe('handleEphemeralAuth', () => {
       await expect(promise).to.be.rejectedWith(errMsg);
     });
 
-    it(`throws an error if ${authType} credentials propagation dry run returned unexpected results`, async () => {
-      colabClientStub.propagateCredentials
-        .withArgs(testServer.endpoint, {
-          dryRun: true,
-          authType,
-        })
-        .resolves({
-          success: false,
-          unauthorizedRedirectUri: undefined,
-        });
-
-      const promise = handleEphemeralAuth(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        authType,
-      );
-
-      await expect(promise).to.be.rejectedWith(
-        /Credentials propagation dry run returned unexpected results/,
-      );
-    });
-
     describe(`with no existing ${authType} authorization`, () => {
       const testUnauthorizedRedirectUri = 'http://test-oauth-uri';
 
@@ -105,10 +80,7 @@ describe('handleEphemeralAuth', () => {
             dryRun: true,
             authType,
           })
-          .resolves({
-            success: false,
-            unauthorizedRedirectUri: testUnauthorizedRedirectUri,
-          });
+          .resolves(testUnauthorizedRedirectUri);
       });
 
       it(`shows ${authType} consent prompt and throws an error if user not consented`, async () => {
@@ -126,6 +98,26 @@ describe('handleEphemeralAuth', () => {
           vsCodeStub.window.showInformationMessage,
           sinon.match(consentMessage),
         );
+        sinon.assert.notCalled(vsCodeStub.env.openExternal);
+        sinon.assert.neverCalledWith(
+          colabClientStub.propagateCredentials,
+          testServer.endpoint,
+          {
+            dryRun: false,
+            authType,
+          },
+        );
+      });
+
+      it(`declining ${authType} consent is a cancellation, not a failure`, async () => {
+        const err: unknown = await handleEphemeralAuth(
+          vsCodeStub.asVsCode(),
+          colabClientStub,
+          testServer,
+          authType,
+        ).catch((e: unknown) => e);
+
+        expect(isCancellation(err)).to.be.true;
         sinon.assert.notCalled(vsCodeStub.env.openExternal);
         sinon.assert.neverCalledWith(
           colabClientStub.propagateCredentials,
@@ -204,10 +196,7 @@ describe('handleEphemeralAuth', () => {
             dryRun: true,
             authType,
           })
-          .resolves({
-            success: true,
-            unauthorizedRedirectUri: undefined,
-          });
+          .resolves(undefined);
       });
 
       it(`skips prompt and propagates ${authType} credentials`, async () => {
@@ -249,16 +238,13 @@ describe('handleEphemeralAuth', () => {
         await expect(promise).to.be.rejectedWith(errMsg);
       });
 
-      it(`throws an error if ${authType} credentials propagation returns unsuccessful`, async () => {
+      it(`reports that ${authType} credentials remain unauthorized after propagation`, async () => {
         colabClientStub.propagateCredentials
           .withArgs(testServer.endpoint, {
             dryRun: false,
             authType,
           })
-          .resolves({
-            success: false,
-            unauthorizedRedirectUri: undefined,
-          });
+          .resolves('http://test-oauth-uri');
 
         const promise = handleEphemeralAuth(
           vsCodeStub.asVsCode(),
@@ -268,7 +254,7 @@ describe('handleEphemeralAuth', () => {
         );
 
         await expect(promise).to.be.rejectedWith(
-          `[${authType}] Credentials propagation unsuccessful`,
+          /still reports the credentials as unauthorized/,
         );
       });
     });

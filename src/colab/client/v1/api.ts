@@ -242,14 +242,6 @@ export const ResourcesSchema = z.object({
 /** Resources on a Colab runtime. */
 export type Resources = z.infer<typeof ResourcesSchema>;
 
-/** The Colab credentials propagation API result. */
-export interface CredentialsPropagationResult {
-  /** Whether the credentials are or were already propagated. */
-  success: boolean;
-  /** An optional OAuth redirect URL if credentials aren't propagated. */
-  unauthorizedRedirectUri?: string;
-}
-
 /** OnePlatform API error schema. */
 export const OnePlatformErrorSchema = z.object({
   /** The error object. */
