@@ -31,10 +31,7 @@ describe('handleEphemeralAuth', () => {
         testServer.endpoint,
         sinon.match(({ dryRun }) => !dryRun),
       )
-      .resolves({
-        success: true,
-        unauthorizedRedirectUri: undefined,
-      });
+      .resolves(undefined);
   });
 
   afterEach(() => {
@@ -74,29 +71,6 @@ describe('handleEphemeralAuth', () => {
       await expect(promise).to.be.rejectedWith(errMsg);
     });
 
-    it(`throws an error if ${authType} credentials propagation dry run returned unexpected results`, async () => {
-      colabClientStub.propagateCredentials
-        .withArgs(testServer.endpoint, {
-          dryRun: true,
-          authType,
-        })
-        .resolves({
-          success: false,
-          unauthorizedRedirectUri: undefined,
-        });
-
-      const promise = handleEphemeralAuth(
-        vsCodeStub.asVsCode(),
-        colabClientStub,
-        testServer,
-        authType,
-      );
-
-      await expect(promise).to.be.rejectedWith(
-        /Credentials propagation dry run returned unexpected results/,
-      );
-    });
-
     describe(`with no existing ${authType} authorization`, () => {
       const testUnauthorizedRedirectUri = 'http://test-oauth-uri';
 
@@ -106,10 +80,7 @@ describe('handleEphemeralAuth', () => {
             dryRun: true,
             authType,
           })
-          .resolves({
-            success: false,
-            unauthorizedRedirectUri: testUnauthorizedRedirectUri,
-          });
+          .resolves(testUnauthorizedRedirectUri);
       });
 
       it(`shows ${authType} consent prompt and throws an error if user not consented`, async () => {
@@ -225,10 +196,7 @@ describe('handleEphemeralAuth', () => {
             dryRun: true,
             authType,
           })
-          .resolves({
-            success: true,
-            unauthorizedRedirectUri: undefined,
-          });
+          .resolves(undefined);
       });
 
       it(`skips prompt and propagates ${authType} credentials`, async () => {
@@ -270,39 +238,13 @@ describe('handleEphemeralAuth', () => {
         await expect(promise).to.be.rejectedWith(errMsg);
       });
 
-      it(`throws an error if ${authType} credentials propagation returns unsuccessful`, async () => {
-        colabClientStub.propagateCredentials
-          .withArgs(testServer.endpoint, {
-            dryRun: false,
-            authType,
-          })
-          .resolves({
-            success: false,
-            unauthorizedRedirectUri: undefined,
-          });
-
-        const promise = handleEphemeralAuth(
-          vsCodeStub.asVsCode(),
-          colabClientStub,
-          testServer,
-          authType,
-        );
-
-        await expect(promise).to.be.rejectedWith(
-          `[${authType}] Credentials propagation unsuccessful: the server reported no reason`,
-        );
-      });
-
       it(`reports that ${authType} credentials remain unauthorized after propagation`, async () => {
         colabClientStub.propagateCredentials
           .withArgs(testServer.endpoint, {
             dryRun: false,
             authType,
           })
-          .resolves({
-            success: false,
-            unauthorizedRedirectUri: 'http://test-oauth-uri',
-          });
+          .resolves('http://test-oauth-uri');
 
         const promise = handleEphemeralAuth(
           vsCodeStub.asVsCode(),

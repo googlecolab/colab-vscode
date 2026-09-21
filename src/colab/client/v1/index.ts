@@ -30,7 +30,6 @@ import {
   AuthType,
   ConsumptionUserInfo,
   ConsumptionUserInfoSchema,
-  CredentialsPropagationResult,
   ErrorInfo,
   ErrorInfoSchema,
   ExperimentState,
@@ -163,8 +162,8 @@ export class ColabClient {
    * @param endpoint - The assignment endpoint to propagate credentials to.
    * @param params - Parameters for credentials propagation API.
    * @param signal - Optional {@link AbortSignal} to cancel the request.
-   * @returns Whether propagation is successful. If not, an OAuth redirect URL
-   * is returned to obtain the credentials.
+   * @returns Undefined if successful, otherwise the OAuth redirect URL to
+   * obtain the credentials.
    */
   async propagateCredentials(
     endpoint: string,
@@ -177,7 +176,7 @@ export class ColabClient {
       dryRun: boolean;
     },
     signal?: AbortSignal,
-  ): Promise<CredentialsPropagationResult> {
+  ): Promise<undefined | string> {
     const url = new URL(
       'v1/credential-propagation:enable',
       this.colabGapiDomain,
@@ -202,13 +201,13 @@ export class ColabClient {
         body: JSON.stringify(payload),
         signal,
       });
-      return { success: true };
+      return undefined;
     } catch (error: unknown) {
-      const unauthorizedRedirectUri = extractUnauthorizedRedirectUri(error);
-      if (!unauthorizedRedirectUri) {
+      const redirectUri = extractUnauthorizedRedirectUri(error);
+      if (!redirectUri) {
         throw error;
       }
-      return { success: false, unauthorizedRedirectUri };
+      return redirectUri;
     }
   }
 

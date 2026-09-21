@@ -35,34 +35,26 @@ export async function handleEphemeralAuth(
   telemetry.logHandleEphemeralAuth(authType);
 
   // Dry run to check if authorization is needed.
-  const dryRunResult = await apiClient.propagateCredentials(server.endpoint, {
+  const redirectUri = await apiClient.propagateCredentials(server.endpoint, {
     authType,
     dryRun: true,
   });
-  log.trace(`[${authType}] Credentials propagation dry run:`, dryRunResult);
+  log.trace(`[${authType}] Credentials propagation dry run:`, redirectUri);
 
-  if (dryRunResult.success) {
-    // Already authorized; propagate credentials directly.
-    await propagateCredentials(apiClient, server.endpoint, authType);
-  } else if (dryRunResult.unauthorizedRedirectUri) {
+  if (redirectUri) {
     // Need to obtain user consent and then propagate credentials.
     const userConsentObtained = await obtainUserAuthConsent(
       vs,
       authType,
-      dryRunResult.unauthorizedRedirectUri,
+      redirectUri,
       server.label,
     );
     if (!userConsentObtained) {
       throw new UserCancelledError(`User cancelled ${authType} authorization`);
     }
-    await propagateCredentials(apiClient, server.endpoint, authType);
-  } else {
-    // Not already authorized and no auth consent URL returned. This
-    // technically shouldn't happen, but just in case.
-    throw new Error(
-      `[${authType}] Credentials propagation dry run returned unexpected results: ${JSON.stringify(dryRunResult)}`,
-    );
   }
+
+  await propagateCredentials(apiClient, server.endpoint, authType);
 }
 
 async function obtainUserAuthConsent(
@@ -119,21 +111,17 @@ async function propagateCredentials(
   endpoint: string,
   authType: AuthType,
 ): Promise<void> {
-  const propagationResult = await apiClient.propagateCredentials(endpoint, {
+  const redirectUri = await apiClient.propagateCredentials(endpoint, {
     authType,
     dryRun: false,
   });
-  log.trace(`[${authType}] credentials propagation:`, propagationResult);
+  log.trace(`[${authType}] credentials propagation:`, redirectUri);
 
-  if (!propagationResult.success) {
-    // The result carries no failure message, but whether the backend handed
-    // back another authorization URL separates "the consent we just collected
-    // did not take effect" from "propagation failed for some other reason".
-    const reason = propagationResult.unauthorizedRedirectUri
-      ? 'the server still reports the credentials as unauthorized'
-      : 'the server reported no reason';
+  if (redirectUri) {
+    // User consent was obtained, but the server still reports the credentials
+    // as unauthorized.
     throw new Error(
-      `[${authType}] Credentials propagation unsuccessful: ${reason}`,
+      `[${authType}] Credentials propagation unsuccessful: the server still reports the credentials as unauthorized`,
     );
   }
 }
