@@ -8,7 +8,6 @@ import * as https from 'https';
 import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 import { fetchAndParse } from '../../../common/fetch-utils';
-import { traceMethod } from '../../../common/logging/decorators';
 import {
   buildFetchChain,
   createAcceptJsonMiddleware,
@@ -20,7 +19,6 @@ import { ColabRequestError } from '../../errors';
 import {
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-  COLAB_TUNNEL_HEADER,
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
   CONTENT_TYPE_JSON_HEADER,
@@ -39,8 +37,6 @@ import {
   Resources,
   ResourcesSchema,
 } from './api';
-
-const TUN_ENDPOINT = '/tun/m';
 
 /**
  * A client for interacting with the Colab APIs.
@@ -209,24 +205,6 @@ export class ColabClient {
       }
       return redirectUri;
     }
-  }
-
-  /**
-   * Sends a keep-alive ping to the given endpoint.
-   *
-   * @param endpoint - The assigned endpoint to keep alive.
-   * @param signal - Optional {@link AbortSignal} to cancel the request.
-   */
-  @traceMethod
-  async sendKeepAlive(endpoint: string, signal?: AbortSignal): Promise<void> {
-    await this.issueRequest(
-      new URL(`${TUN_ENDPOINT}/${endpoint}/keep-alive/`, this.colabDomain),
-      {
-        method: 'GET',
-        headers: { [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value },
-        signal,
-      },
-    );
   }
 
   /**

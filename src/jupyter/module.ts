@@ -13,7 +13,6 @@ import { registerColabCommands } from '../colab/commands/register';
 import { ConnectionRefreshController } from '../colab/connection-refresher';
 import { ContentTreeProvider } from '../colab/content-browser/content-tree';
 import { registerContentBrowserCommands } from '../colab/content-browser/register';
-import { ServerKeepAliveController } from '../colab/keep-alive';
 import { ResourceTreeProvider } from '../colab/resource-monitor/resource-tree';
 import { ServerPicker } from '../colab/server-picker';
 import { Toggleable } from '../common/toggleable';
@@ -104,11 +103,6 @@ export function createJupyterModule(
     colabClient,
   );
   const connections = new ConnectionRefreshController(assignmentManager);
-  const keepAlive = new ServerKeepAliveController(
-    vs,
-    colabClient,
-    assignmentManager,
-  );
 
   const fsDisposable = vs.workspace.registerFileSystemProvider('colab', fs, {
     isCaseSensitive: true,
@@ -142,12 +136,11 @@ export function createJupyterModule(
       contentTreeView,
       resourceTreeView,
       connections,
-      keepAlive,
     ],
     commandDisposables: [
       ...colabCommandDisposables,
       ...contentBrowserCommandDisposables,
     ],
-    toggles: [connections, keepAlive],
+    toggles: [connections],
   };
 }

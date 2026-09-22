@@ -18,7 +18,6 @@ import {
   AUTHORIZATION_HEADER,
   COLAB_CLIENT_AGENT_HEADER,
   COLAB_RUNTIME_PROXY_TOKEN_HEADER,
-  COLAB_TUNNEL_HEADER,
   COLAB_VS_CODE_APP_NAME,
   COLAB_VS_CODE_EXTENSION_VERSION,
   CONTENT_TYPE_JSON_HEADER,
@@ -237,25 +236,6 @@ describe('ColabClient', () => {
     });
   });
 
-  it('successfully issues keep-alive pings', async () => {
-    fetchStub
-      .withArgs(
-        urlMatcher({
-          method: 'GET',
-          host: COLAB_HOST,
-          path: '/tun/m/foo/keep-alive/',
-          otherHeaders: {
-            [COLAB_TUNNEL_HEADER.key]: COLAB_TUNNEL_HEADER.value,
-          },
-        }),
-      )
-      .resolves(new Response(undefined, { status: 200 }));
-
-    await expect(client.sendKeepAlive('foo')).to.eventually.be.fulfilled;
-
-    sinon.assert.calledOnce(fetchStub);
-  });
-
   it('retries request on 401 if onAuthError is provided', async () => {
     fetchStub
       .withArgs(
@@ -330,8 +310,16 @@ describe('ColabClient', () => {
       .withArgs(sinon.match({ signal: abort.signal }))
       .resolves(new Response(undefined, { status: 200 }));
 
-    await expect(client.sendKeepAlive('foo', abort.signal)).to.eventually.be
-      .fulfilled;
+    await expect(
+      client.propagateCredentials(
+        'foo',
+        {
+          authType: AuthType.AUTH_USER_EPHEMERAL,
+          dryRun: true,
+        },
+        abort.signal,
+      ),
+    ).to.eventually.be.fulfilled;
 
     sinon.assert.calledOnce(fetchStub);
   });
