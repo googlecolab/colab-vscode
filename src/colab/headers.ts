@@ -65,14 +65,6 @@ export const COLAB_VS_CODE_EXTENSION_VERSION: Header = {
 };
 
 /**
- * The HTTP header for requests that are resolved through the Colab tunnel.
- */
-export const COLAB_TUNNEL_HEADER: StaticHeader = {
-  key: 'X-Colab-Tunnel',
-  value: 'Google',
-};
-
-/**
  * The HTTP header for the authorization token.
  */
 export const AUTHORIZATION_HEADER: Header = {

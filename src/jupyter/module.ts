@@ -13,7 +13,6 @@ import { registerColabCommands } from '../colab/commands/register';
 import { ConnectionRefreshController } from '../colab/connection-refresher';
 import { ContentTreeProvider } from '../colab/content-browser/content-tree';
 import { registerContentBrowserCommands } from '../colab/content-browser/register';
-import { ServerKeepAliveController } from '../colab/keep-alive';
 import { ResourceTreeProvider } from '../colab/resource-monitor/resource-tree';
 import { ServerPicker } from '../colab/server-picker';
 import { Toggleable } from '../common/toggleable';
@@ -30,9 +29,8 @@ export interface JupyterModule {
   /**
    * Service-level disposables (assignment manager, server provider, jupyter
    * connections, file-system registration, both tree views, connection
-   * refresher, keep-alive controller). Push these into
-   * `context.subscriptions` before the colab background services so they tear
-   * down in the correct order.
+   * refresher). Push these into `context.subscriptions` before the colab
+   * background services so they tear down in the correct order.
    */
   readonly disposables: Disposable[];
   /**
@@ -47,9 +45,8 @@ export interface JupyterModule {
 
 /**
  * Builds the Jupyter integration: assignment manager, server provider,
- * connections, file system, both tree views, connection refresher, keep-alive
- * controller, and registers the Colab + content-browser commands that depend
- * on these services.
+ * connections, file system, both tree views, connection refresher, and
+ * registers the Colab + content-browser commands that depend on these services.
  *
  * @param vs - The VS Code API instance.
  * @param context - The extension context (for `secrets` access).
@@ -104,11 +101,6 @@ export function createJupyterModule(
     colabClient,
   );
   const connections = new ConnectionRefreshController(assignmentManager);
-  const keepAlive = new ServerKeepAliveController(
-    vs,
-    colabClient,
-    assignmentManager,
-  );
 
   const fsDisposable = vs.workspace.registerFileSystemProvider('colab', fs, {
     isCaseSensitive: true,
@@ -142,12 +134,11 @@ export function createJupyterModule(
       contentTreeView,
       resourceTreeView,
       connections,
-      keepAlive,
     ],
     commandDisposables: [
       ...colabCommandDisposables,
       ...contentBrowserCommandDisposables,
     ],
-    toggles: [connections, keepAlive],
+    toggles: [connections],
   };
 }

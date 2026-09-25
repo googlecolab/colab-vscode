@@ -67,10 +67,9 @@ async function activateInternal(context: vscode.ExtensionContext) {
     jupyterModule.assignmentManager,
   );
   await authProvider.initialize();
-  // Sending server "keep-alive" pings and monitoring consumption requires
-  // issuing authenticated requests to Colab. This can only be done after the
-  // user has signed in. We don't block extension activation on completing the
-  // heavily asynchronous sign-in flow.
+  // Monitoring consumption requires issuing authenticated requests to Colab.
+  // This can only be done after the user has signed in. We don't block
+  // extension activation on completing the heavily asynchronous sign-in flow.
   const whileAuthorizedToggle = authProvider.whileAuthorized(
     ...jupyterModule.toggles,
     ...colab.toggles,

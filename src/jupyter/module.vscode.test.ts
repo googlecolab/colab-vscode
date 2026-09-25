@@ -29,7 +29,6 @@ import {
   UPLOAD,
 } from '../colab/commands/constants';
 import { ConnectionRefreshController } from '../colab/connection-refresher';
-import { ServerKeepAliveController } from '../colab/keep-alive';
 import { ContentsFileSystemProvider } from './contents/file-system';
 import { createJupyterModule, JupyterModule } from './module';
 
@@ -178,15 +177,12 @@ describe('createJupyterModule', () => {
     ]);
   });
 
-  it('exposes the connection refresher and keep-alive as toggles', () => {
+  it('exposes the connection refresher as a toggle', () => {
     const module = activate();
 
-    expect(module.toggles).to.have.lengthOf(2);
+    expect(module.toggles).to.have.lengthOf(1);
     expect(
       module.toggles.some((t) => t instanceof ConnectionRefreshController),
-    ).to.equal(true);
-    expect(
-      module.toggles.some((t) => t instanceof ServerKeepAliveController),
     ).to.equal(true);
   });
 
