@@ -644,8 +644,13 @@ describe('AssignmentManager', () => {
     let jupyterStubWithSessionName: JupyterClientStub;
     let jupyterStubWithoutSessionName: JupyterClientStub;
     let jupyterStubWithoutSession: JupyterClientStub;
+    let logPruneServersStub: SinonStubbedFunction<
+      typeof telemetry.logPruneServers
+    >;
 
     beforeEach(() => {
+      logPruneServersStub = sinon.stub(telemetry, 'logPruneServers');
+
       jupyterStubWithSessionName = createJupyterClientStub();
       jupyterStaticConnectionStub
         .withArgs(
@@ -742,6 +747,9 @@ describe('AssignmentManager', () => {
           const results = await assignmentManager.getServers('extension');
 
           expect(stripNetworkOverrides(results)).to.deep.equal([defaultServer]);
+          sinon.assert.calledOnceWithExactly(logPruneServersStub, [
+            noLongerAssignedServer.id,
+          ]);
         });
 
         it('includes a fetch implementation that attaches Colab connection info', async () => {
@@ -1071,6 +1079,9 @@ describe('AssignmentManager', () => {
 
         expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
           assignedServer,
+        ]);
+        sinon.assert.calledOnceWithExactly(logPruneServersStub, [
+          noLongerAssignedServer.id,
         ]);
       });
 

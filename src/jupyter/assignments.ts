@@ -374,7 +374,6 @@ export class AssignmentManager implements Disposable {
           shape: normalizeShape(runtime.runtimeSpec.shape),
           version: runtime.version,
         },
-        c.endpoint,
         c,
         new Date(),
       );
@@ -484,7 +483,6 @@ export class AssignmentManager implements Disposable {
     assert(runtime.connectionInfo, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${id}`);
     const updatedServer = this.toAssignedServer(
       server,
-      runtime.connectionInfo.endpoint,
       runtime.connectionInfo,
       server.dateAssigned,
     );
@@ -693,11 +691,10 @@ export class AssignmentManager implements Disposable {
 
   private toAssignedServer(
     server: ColabJupyterServer,
-    endpoint: string,
     connectionInfo: ConnectionInfo,
     dateAssigned: Date,
   ): ColabAssignedServer {
-    const { url, token } = connectionInfo;
+    const { endpoint, url, token } = connectionInfo;
     const headers: Record<string, string> =
       server.connectionInformation?.headers ?? {};
     headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER.key] = token;
@@ -729,14 +726,15 @@ export class AssignmentManager implements Disposable {
     storedServers: ColabAssignedServer[],
     signal?: AbortSignal,
   ): Promise<UnownedServer[]> {
-    const storedRuntimeNames = new Set(
-      storedServers.map((s) => RUNTIME_NAME_PREFIX + s.id),
-    );
+    const storedServerIds = new Set(storedServers.map((s) => s.id));
 
     return (
       await Promise.all(
         allAssignedRuntimes
-          .filter((r) => !storedRuntimeNames.has(r.name))
+          .filter(
+            (r) =>
+              !storedServerIds.has(trimPrefix(r.name, RUNTIME_NAME_PREFIX)),
+          )
           .map(async (r): Promise<UnownedServer | undefined> => {
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.

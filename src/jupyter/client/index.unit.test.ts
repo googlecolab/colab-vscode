@@ -31,7 +31,7 @@ import { JupyterClient, ProxiedJupyterClient } from './index';
 
 const TOKEN = 'access-token';
 const DEFAULT_SERVER: ColabAssignedServer = {
-  id: randomUUID(),
+  id: `r-${randomUUID()}`,
   label: 'Colab GPU A100',
   variant: Variant.GPU,
   accelerator: 'A100',
