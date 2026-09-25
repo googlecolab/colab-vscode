@@ -177,7 +177,7 @@ describe('createJupyterModule', () => {
     ]);
   });
 
-  it('exposes the connection refresher as toggles', () => {
+  it('exposes the connection refresher as a toggle', () => {
     const module = activate();
 
     expect(module.toggles).to.have.lengthOf(1);
