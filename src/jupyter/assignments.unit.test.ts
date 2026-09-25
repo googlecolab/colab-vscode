@@ -581,51 +581,51 @@ describe('AssignmentManager', () => {
     const TEST_SESSION_NAME = 'test-session-name';
     const UNKNOWN_REMOTE_SERVER_NAME = 'Untitled';
 
+    const runtimeIdWithSessionName = `r-${randomUUID()}`;
     const runtimeWithSessionName = {
       ...defaultRuntime,
-      name: `runtimes/r-${randomUUID()}`,
+      name: `runtimes/${runtimeIdWithSessionName}`,
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.with.session.name',
-        endpoint: 'test-endpoint-with-session-name',
       },
     } satisfies Runtime;
+    const runtimeIdWithoutSessionName = `r-${randomUUID()}`;
     const runtimeWithoutSessionName = {
       ...defaultRuntime,
-      name: `runtimes/r-${randomUUID()}`,
+      name: `runtimes/${runtimeIdWithoutSessionName}`,
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.without.session.name',
-        endpoint: 'test-endpoint-without-session-name',
       },
     } satisfies Runtime;
+    const runtimeIdWithoutSession = `r-${randomUUID()}`;
     const runtimeWithoutSession = {
       ...defaultRuntime,
-      name: `runtimes/r-${randomUUID()}`,
+      name: `runtimes/${runtimeIdWithoutSession}`,
       connectionInfo: {
         ...defaultRuntime.connectionInfo,
         url: 'https://test.url.without.session',
-        endpoint: 'test-endpoint-without-session',
       },
     } satisfies Runtime;
 
-    const serverV2WithName = {
+    const serverWithName = {
       ...defaultServerDescriptor,
       label: TEST_SESSION_NAME,
-      id: trimPrefix(runtimeWithSessionName.name, 'runtimes/'),
-      endpoint: runtimeWithSessionName.connectionInfo.endpoint,
+      id: runtimeIdWithSessionName,
+      endpoint: defaultServer.endpoint,
     } satisfies UnownedServer;
-    const serverV2WithoutName = {
+    const serverWithoutName = {
       ...defaultServerDescriptor,
       label: UNKNOWN_REMOTE_SERVER_NAME,
-      id: trimPrefix(runtimeWithoutSessionName.name, 'runtimes/'),
-      endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
+      id: runtimeIdWithoutSessionName,
+      endpoint: defaultServer.endpoint,
     } satisfies UnownedServer;
-    const serverV2WithoutSession = {
+    const serverWithoutSession = {
       ...defaultServerDescriptor,
       label: UNKNOWN_REMOTE_SERVER_NAME,
-      id: trimPrefix(runtimeWithoutSession.name, 'runtimes/'),
-      endpoint: runtimeWithoutSession.connectionInfo.endpoint,
+      id: runtimeIdWithoutSession,
+      endpoint: defaultServer.endpoint,
     } satisfies UnownedServer;
 
     const defaultSession = {
@@ -644,8 +644,13 @@ describe('AssignmentManager', () => {
     let jupyterStubWithSessionName: JupyterClientStub;
     let jupyterStubWithoutSessionName: JupyterClientStub;
     let jupyterStubWithoutSession: JupyterClientStub;
+    let logPruneServersStub: SinonStubbedFunction<
+      typeof telemetry.logPruneServers
+    >;
 
     beforeEach(() => {
+      logPruneServersStub = sinon.stub(telemetry, 'logPruneServers');
+
       jupyterStubWithSessionName = createJupyterClientStub();
       jupyterStaticConnectionStub
         .withArgs(
@@ -712,9 +717,17 @@ describe('AssignmentManager', () => {
         });
 
         it('returns multiple assigned servers when there are some', async () => {
+          const id1 = `r-${randomUUID()}`;
+          const id2 = `r-${randomUUID()}`;
+          listRuntimesStub.resolves({
+            runtimes: [
+              { ...defaultRuntime, name: `runtimes/${id1}` },
+              { ...defaultRuntime, name: `runtimes/${id2}` },
+            ],
+          });
           const storedServers = [
-            { ...defaultServer, id: `r-${randomUUID()}` },
-            { ...defaultServer, id: `r-${randomUUID()}` },
+            { ...defaultServer, id: id1 },
+            { ...defaultServer, id: id2 },
           ];
           await serverStorage.store(storedServers);
 
@@ -727,13 +740,16 @@ describe('AssignmentManager', () => {
           listRuntimesStub.resolves({ runtimes: [defaultRuntime] });
           const noLongerAssignedServer = {
             ...defaultServer,
-            endpoint: 'no-longer-assigned',
+            id: 'no-longer-assigned',
           };
           await serverStorage.store([defaultServer, noLongerAssignedServer]);
 
           const results = await assignmentManager.getServers('extension');
 
           expect(stripNetworkOverrides(results)).to.deep.equal([defaultServer]);
+          sinon.assert.calledOnceWithExactly(logPruneServersStub, [
+            noLongerAssignedServer.id,
+          ]);
         });
 
         it('includes a fetch implementation that attaches Colab connection info', async () => {
@@ -890,20 +906,14 @@ describe('AssignmentManager', () => {
           ],
         });
         // One of the assignments was assigned within VS Code extension
-        const assignedServer = {
-          ...defaultServer,
-          endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
-        };
+        const assignedServer = { ...defaultServer, ...serverWithoutName };
         await serverStorage.store([assignedServer]);
 
         // When we get servers from external
         const results = await assignmentManager.getServers('external');
 
         // Then only 2 unowned external servers are returned
-        expect(results).to.deep.equal([
-          serverV2WithName,
-          serverV2WithoutSession,
-        ]);
+        expect(results).to.deep.equal([serverWithName, serverWithoutSession]);
       });
 
       it('drops orphan unowned servers whose Jupyter client throws a FetchError', async () => {
@@ -919,7 +929,7 @@ describe('AssignmentManager', () => {
 
         const results = await assignmentManager.getServers('external');
 
-        expect(results).to.deep.equal([serverV2WithName]);
+        expect(results).to.deep.equal([serverWithName]);
       });
 
       it('falls back to placeholder label when sessions.list throws a non-FetchError', async () => {
@@ -932,10 +942,7 @@ describe('AssignmentManager', () => {
 
         const results = await assignmentManager.getServers('external');
 
-        expect(results).to.deep.equal([
-          serverV2WithName,
-          serverV2WithoutSession,
-        ]);
+        expect(results).to.deep.equal([serverWithName, serverWithoutSession]);
       });
 
       it('filters out server without name or connection info', async () => {
@@ -980,7 +987,7 @@ describe('AssignmentManager', () => {
 
       await expect(resultsPromise).to.eventually.deep.equal([
         {
-          ...serverV2WithName,
+          ...serverWithName,
           label: UNKNOWN_REMOTE_SERVER_NAME,
         },
       ]);
@@ -997,10 +1004,7 @@ describe('AssignmentManager', () => {
           ],
         });
         // One of the assignments was assigned within VS Code extension
-        const assignedServer = {
-          ...defaultServer,
-          endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
-        };
+        const assignedServer = { ...defaultServer, ...serverWithoutName };
         await serverStorage.store([assignedServer]);
 
         // When we get servers from all
@@ -1012,8 +1016,8 @@ describe('AssignmentManager', () => {
         ]);
 
         expect(results.unowned).to.deep.equal([
-          serverV2WithName,
-          serverV2WithoutSession,
+          serverWithName,
+          serverWithoutSession,
         ]);
       });
 
@@ -1031,11 +1035,7 @@ describe('AssignmentManager', () => {
 
         expect(results).to.deep.equal({
           assigned: [],
-          unowned: [
-            serverV2WithName,
-            serverV2WithoutName,
-            serverV2WithoutSession,
-          ],
+          unowned: [serverWithName, serverWithoutName, serverWithoutSession],
         });
       });
 
@@ -1047,18 +1047,9 @@ describe('AssignmentManager', () => {
             runtimeWithoutSession,
           ],
         });
-        const assignedServer1 = {
-          ...defaultServer,
-          endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-        };
-        const assignedServer2 = {
-          ...defaultServer,
-          endpoint: runtimeWithoutSessionName.connectionInfo.endpoint,
-        };
-        const assignedServer3 = {
-          ...defaultServer,
-          endpoint: runtimeWithoutSession.connectionInfo.endpoint,
-        };
+        const assignedServer1 = { ...defaultServer, ...serverWithName };
+        const assignedServer2 = { ...defaultServer, ...serverWithoutName };
+        const assignedServer3 = { ...defaultServer, ...serverWithoutSession };
         await serverStorage.store([
           assignedServer1,
           assignedServer2,
@@ -1077,13 +1068,10 @@ describe('AssignmentManager', () => {
 
       it('reconciles assigned servers before returning', async () => {
         listRuntimesStub.resolves({ runtimes: [runtimeWithSessionName] });
-        const assignedServer = {
-          ...defaultServer,
-          endpoint: runtimeWithSessionName.connectionInfo.endpoint,
-        };
+        const assignedServer = { ...defaultServer, ...serverWithName };
         const noLongerAssignedServer = {
           ...defaultServer,
-          endpoint: 'no-longer-assigned',
+          id: 'no-longer-assigned',
         };
         await serverStorage.store([assignedServer, noLongerAssignedServer]);
 
@@ -1091,6 +1079,9 @@ describe('AssignmentManager', () => {
 
         expect(stripNetworkOverrides([...results.assigned])).to.deep.equal([
           assignedServer,
+        ]);
+        sinon.assert.calledOnceWithExactly(logPruneServersStub, [
+          noLongerAssignedServer.id,
         ]);
       });
 
@@ -2199,19 +2190,17 @@ describe('AssignmentManager', () => {
 
     it('reconciles servers before resolving', async () => {
       const deadServer = defaultServer;
+      const olderActiveServerId = `r-${randomUUID()}`;
       const olderActiveServer: ColabAssignedServer = {
         ...defaultServer,
-        id: randomUUID(),
+        id: olderActiveServerId,
         endpoint: 'm-s-bar',
         label: 'Older server',
         dateAssigned: new Date(NOW.getTime() - 10000),
       };
       const olderActiveRuntime = {
         ...defaultRuntime,
-        connectionInfo: {
-          ...defaultRuntime.connectionInfo,
-          endpoint: olderActiveServer.endpoint,
-        },
+        name: `runtimes/${olderActiveServerId}`,
       };
       listRuntimesStub.resolves({ runtimes: [olderActiveRuntime] });
       await serverStorage.store([deadServer, olderActiveServer]);
@@ -2240,19 +2229,17 @@ describe('AssignmentManager', () => {
 
     it('reconciles servers before resolving', async () => {
       const deadServer = defaultServer;
+      const olderActiveServerId = `r-${randomUUID()}`;
       const olderActiveServer: ColabAssignedServer = {
         ...defaultServer,
-        id: randomUUID(),
+        id: olderActiveServerId,
         endpoint: 'm-s-bar',
         label: 'Older server',
         dateAssigned: new Date(NOW.getTime() - 10000),
       };
       const olderActiveRuntime = {
         ...defaultRuntime,
-        connectionInfo: {
-          ...defaultRuntime.connectionInfo,
-          endpoint: olderActiveServer.endpoint,
-        },
+        name: `runtimes/${olderActiveServerId}`,
       };
       listRuntimesStub.resolves({ runtimes: [olderActiveRuntime] });
       await serverStorage.store([deadServer, olderActiveServer]);
@@ -2321,6 +2308,7 @@ describe('AssignmentManager', () => {
 
     describe('with a refreshed connection', () => {
       const newToken = 'new-token';
+      const newEndpoint = 'new-endpoint';
       let refreshedServer: ColabAssignedServer;
 
       beforeEach(async () => {
@@ -2333,6 +2321,7 @@ describe('AssignmentManager', () => {
               ...defaultRuntime.connectionInfo,
               token: newToken,
               expireTime: new Date(NOW.getTime() + TOKEN_EXPIRY_MS * 2),
+              endpoint: newEndpoint,
             },
           });
         await serverStorage.store([defaultServer]);
@@ -2346,6 +2335,7 @@ describe('AssignmentManager', () => {
       it('stores and returns the server with updated connection info', () => {
         const expectedServer: ColabAssignedServer = {
           ...defaultServer,
+          endpoint: newEndpoint,
           connectionInformation: {
             ...defaultServer.connectionInformation,
             headers: {
