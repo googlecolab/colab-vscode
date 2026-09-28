@@ -120,7 +120,7 @@ export async function mountServer(
       return undefined;
     });
   } finally {
-    telemetry.logMountServer(source, selectedServer?.endpoint);
+    telemetry.logMountServer(source, selectedServer?.id);
   }
 }
 

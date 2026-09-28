@@ -24,6 +24,8 @@ import {
   normalizeShape,
   normalizeVariant,
   throwIfOperationError,
+  toOperationId,
+  toServerId,
 } from '../colab/client/v2';
 import {
   ConnectionInfo,
@@ -362,7 +364,7 @@ export class AssignmentManager implements Disposable {
       }
 
       assert(runtime.name, MISSING_RUNTIME_NAME_ERR_MSG);
-      const runtimeId = trimPrefix(runtime.name, RUNTIME_NAME_PREFIX);
+      const runtimeId = toServerId(runtime.name);
       const c = runtime.connectionInfo;
       assert(c, `${MISSING_CONNECTION_INFO_ERR_MSG}: ${runtimeId}`);
       const server = this.toAssignedServer(
@@ -594,9 +596,7 @@ export class AssignmentManager implements Disposable {
     storedServers: ColabAssignedServer[],
     liveRuntimes: AssertedRuntime[],
   ): Promise<ColabAssignedServer[]> {
-    const liveServerIds = new Set(
-      liveRuntimes.map((r) => trimPrefix(r.name, RUNTIME_NAME_PREFIX)),
-    );
+    const liveServerIds = new Set(liveRuntimes.map((r) => toServerId(r.name)));
     const removed: ColabAssignedServer[] = [];
     const reconciled: ColabAssignedServer[] = [];
     for (const s of storedServers) {
@@ -731,10 +731,7 @@ export class AssignmentManager implements Disposable {
     return (
       await Promise.all(
         allAssignedRuntimes
-          .filter(
-            (r) =>
-              !storedServerIds.has(trimPrefix(r.name, RUNTIME_NAME_PREFIX)),
-          )
+          .filter((r) => !storedServerIds.has(toServerId(r.name)))
           .map(async (r): Promise<UnownedServer | undefined> => {
             // For any remote servers created in Colab web UI, assuming there
             // is only one session per assignment.
@@ -957,7 +954,7 @@ export class AssignmentManager implements Disposable {
     }
 
     assert(createRuntimeOperation.name, MISSING_OPERATION_NAME_ERR_MSG);
-    const operationId = trimPrefix(createRuntimeOperation.name, 'operations/');
+    const operationId = toOperationId(createRuntimeOperation.name);
     const operation = await this.vs.window.withProgress(
       {
         location: this.vs.ProgressLocation.Notification,
@@ -1002,8 +999,6 @@ export class AssignmentManager implements Disposable {
 enum AssignmentsExceededActions {
   REMOVE_SERVER = 'Remove Server',
 }
-
-const RUNTIME_NAME_PREFIX = 'runtimes/';
 
 // Internal CreateAssignment RPC deadline of 180s + network buffer
 const WAIT_OPERATION_TIMEOUT = '200s';
@@ -1092,7 +1087,7 @@ function toUnownedServer(
   runtime: AssertedRuntime,
 ): UnownedServer {
   return {
-    id: trimPrefix(runtime.name, RUNTIME_NAME_PREFIX),
+    id: toServerId(runtime.name),
     label,
     endpoint: runtime.connectionInfo.endpoint,
     variant: normalizeVariant(runtime.runtimeSpec.variant),
@@ -1119,11 +1114,4 @@ function errorToAssignmentOutcome(error: unknown): AssignmentOutcome {
     return AssignmentOutcome.ASSIGNMENT_OUTCOME_DENYLISTED;
   }
   return AssignmentOutcome.ASSIGNMENT_OUTCOME_OTHER_FAILURE;
-}
-
-function trimPrefix(str: string, prefix: string): string {
-  if (str.startsWith(prefix)) {
-    return str.slice(prefix.length);
-  }
-  return str;
 }

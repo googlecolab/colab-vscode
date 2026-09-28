@@ -18,6 +18,7 @@ import {
   ColabApiClient,
   denormalizeShape,
   denormalizeVariant,
+  toServerId,
 } from '../colab/client/v2';
 import {
   ColaboratoryApi,
@@ -959,7 +960,7 @@ describe('AssignmentManager', () => {
         ).to.eventually.deep.equal([
           {
             ...defaultServerDescriptor,
-            id: trimPrefix(defaultRuntime.name, 'runtimes/'),
+            id: toServerId(defaultRuntime.name),
             label: UNKNOWN_REMOTE_SERVER_NAME,
             endpoint: defaultRuntime.connectionInfo.endpoint,
           },
@@ -2567,11 +2568,4 @@ function stripNetworkOverrides(
   servers: ColabAssignedServer[],
 ): ColabAssignedServer[] {
   return servers.map(stripNetworkOverride);
-}
-
-function trimPrefix(str: string, prefix: string): string {
-  if (str.startsWith(prefix)) {
-    return str.slice(prefix.length);
-  }
-  return str;
 }

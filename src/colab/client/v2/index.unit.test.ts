@@ -30,6 +30,8 @@ import {
   normalizeShape,
   normalizeVariant,
   throwIfOperationError,
+  toOperationId,
+  toServerId,
 } from '.';
 
 const COLAB_API_HOST = 'colab.example.com';
@@ -73,6 +75,7 @@ describe('ColabApiClient', () => {
     sinon.restore();
     server.resetHandlers();
   });
+
   after(() => {
     server.close();
   });
@@ -1458,5 +1461,31 @@ describe('throwIfOperationError', () => {
     expect(() => {
       throwIfOperationError(errorOperation);
     }).to.throw(/(reason: ANY_RANDOM_REASON)/);
+  });
+});
+
+describe('toServerId', () => {
+  const tests = [
+    { name: 'abc123', expected: 'abc123' },
+    { name: 'runtimes/abc123', expected: 'abc123' },
+    { name: 'nonRuntimes/abc123', expected: 'nonRuntimes/abc123' },
+  ];
+  tests.forEach(({ name, expected }) => {
+    it(`converts ${name}`, () => {
+      expect(toServerId(name)).to.eq(expected);
+    });
+  });
+});
+
+describe('toOperationId', () => {
+  const tests = [
+    { name: 'abc123', expected: 'abc123' },
+    { name: 'operations/abc123', expected: 'abc123' },
+    { name: 'nonOperations/abc123', expected: 'nonOperations/abc123' },
+  ];
+  tests.forEach(({ name, expected }) => {
+    it(`converts ${name}`, () => {
+      expect(toOperationId(name)).to.eq(expected);
+    });
   });
 });

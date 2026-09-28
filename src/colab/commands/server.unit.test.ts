@@ -209,11 +209,7 @@ describe('Server Commands', () => {
 
       sinon.assert.notCalled(vsCodeStub.window.createQuickPick);
       sinon.assert.calledOnceWithExactly(fsStub.mount, defaultServer);
-      sinon.assert.calledOnceWithExactly(
-        logStub,
-        source,
-        defaultServer.endpoint,
-      );
+      sinon.assert.calledOnceWithExactly(logStub, source, defaultServer.id);
     });
 
     describe('when multiple servers are assigned', () => {
@@ -264,11 +260,7 @@ describe('Server Commands', () => {
 
         await expect(mount).to.eventually.be.fulfilled;
         sinon.assert.calledOnceWithExactly(fsStub.mount, defaultServer);
-        sinon.assert.calledOnceWithExactly(
-          logStub,
-          source,
-          defaultServer.endpoint,
-        );
+        sinon.assert.calledOnceWithExactly(logStub, source, defaultServer.id);
       });
 
       it('does not mount if selection is cancelled', async () => {
