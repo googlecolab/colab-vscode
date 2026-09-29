@@ -144,7 +144,7 @@ export class ProxiedJupyterClient implements JupyterClient {
 
 class RefreshingClient extends ProxiedJupyterClient implements Disposable {
   private changeListener: Disposable;
-  private endpoint: string;
+  private serverId: string;
   private token: string;
   private isDisposed = false;
 
@@ -154,10 +154,10 @@ class RefreshingClient extends ProxiedJupyterClient implements Disposable {
   ) {
     const baseUrl = server.connectionInformation.baseUrl.toString();
     super(baseUrl, () => Promise.resolve(this.token));
-    this.endpoint = server.endpoint;
+    this.serverId = server.id;
     this.token = server.connectionInformation.token;
     this.changeListener = changes((e) => {
-      if (e.removed.find((s) => s.server.endpoint === this.endpoint)) {
+      if (e.removed.find((s) => s.server.id === this.serverId)) {
         this.dispose();
         return;
       }
@@ -165,7 +165,7 @@ class RefreshingClient extends ProxiedJupyterClient implements Disposable {
         return;
       }
       e.changed
-        .filter((s) => s.endpoint === this.endpoint)
+        .filter((s) => s.id === this.serverId)
         .forEach((s) => (this.token = s.connectionInformation.token));
     });
   }

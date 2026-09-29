@@ -31,7 +31,7 @@ import { JupyterClient, ProxiedJupyterClient } from './index';
 
 const TOKEN = 'access-token';
 const DEFAULT_SERVER: ColabAssignedServer = {
-  id: randomUUID(),
+  id: `r-${randomUUID()}`,
   label: 'Colab GPU A100',
   variant: Variant.GPU,
   accelerator: 'A100',
@@ -227,6 +227,41 @@ describe('ProxiedJupyterClient', () => {
       expect(() => client.sessions).to.throw(/disposed/);
       expect(() => client.status).to.throw(/disposed/);
       expect(() => client.terminals).to.throw(/disposed/);
+    });
+
+    it('does nothing if an unrelated server is changed', async () => {
+      await client.status.get();
+      expect(lastToken()).to.equal(TOKEN);
+
+      const unrelatedServerWithDifferentToken = {
+        ...defaultServerWithToken('a-different-token'),
+        id: `r-${randomUUID()}`,
+      };
+      changeEmitter.fire({
+        added: [],
+        changed: [unrelatedServerWithDifferentToken],
+        removed: [],
+      });
+
+      await client.status.get();
+      expect(lastToken()).to.equal(TOKEN);
+    });
+
+    it('does nothing if an unrelated server is removed', async () => {
+      await client.status.get();
+      expect(lastToken()).to.equal(TOKEN);
+
+      const unrelatedServer = {
+        ...DEFAULT_SERVER,
+        id: `r-${randomUUID()}`,
+      };
+      changeEmitter.fire({
+        added: [],
+        changed: [],
+        removed: [{ server: unrelatedServer, userInitiated: true }],
+      });
+
+      expect(() => client.status).to.not.throw();
     });
   });
 });

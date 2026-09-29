@@ -72,6 +72,26 @@ export function createColabApiClient(
 }
 
 /**
+ * Converts a Colab runtime resource name to a Colab server ID.
+ *
+ * @param runtimeName - Colab runtime resource name.
+ * @returns Colab server ID without resource prefix.
+ */
+export function toServerId(runtimeName: string): string {
+  return trimPrefix(runtimeName, RUNTIME_NAME_PREFIX);
+}
+
+/**
+ * Converts an Operation resource name to ID.
+ *
+ * @param operationName - Operation resource name.
+ * @returns Operation ID without resource prefix.
+ */
+export function toOperationId(operationName: string): string {
+  return trimPrefix(operationName, OPERATION_NAME_PREFIX);
+}
+
+/**
  * Normalizes the API {@link Variant} to the common {@link CommonVariant}.
  *
  * @param variant - Variant returned from public Colab API.
@@ -197,6 +217,9 @@ export function throwIfOperationError(
   }
 }
 
+const RUNTIME_NAME_PREFIX = 'runtimes/';
+const OPERATION_NAME_PREFIX = 'operations/';
+
 class ColabApiClientImpl implements ColabApiClient {
   private readonly colabApi: ColaboratoryApi;
   private readonly operationsApi: OperationsApi;
@@ -278,4 +301,11 @@ function isErrorInfo(obj: unknown): obj is ErrorInfo {
     'reason' in obj &&
     typeof obj.reason === 'string'
   );
+}
+
+function trimPrefix(str: string, prefix: string): string {
+  if (str.startsWith(prefix)) {
+    return str.slice(prefix.length);
+  }
+  return str;
 }
