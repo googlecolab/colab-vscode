@@ -22,8 +22,8 @@ import { ResourceItem, ResourceType } from './resource-item';
 import { ResourceTreeProvider } from './resource-tree';
 
 const DEFAULT_SERVER = {
+  id: 'r-abc123',
   label: 'Colab GPU A100',
-  endpoint: 'm-s-foo',
   connectionInformation: {
     baseUrl: Uri.parse('https://example.com'),
     token: '123',
@@ -181,9 +181,9 @@ describe('ResourceTreeProvider', () => {
           await expect(
             tree.getChildren(rootServerItem),
           ).to.eventually.deep.equal([
-            ResourceItem.fromMemory(DEFAULT_SERVER.endpoint, DEFAULT_MEMORY),
-            ResourceItem.fromGpus(DEFAULT_SERVER.endpoint, [DEFAULT_GPU]),
-            ResourceItem.fromDisk(DEFAULT_SERVER.endpoint, DEFAULT_DISK),
+            ResourceItem.fromMemory(DEFAULT_SERVER.id, DEFAULT_MEMORY),
+            ResourceItem.fromGpus(DEFAULT_SERVER.id, [DEFAULT_GPU]),
+            ResourceItem.fromDisk(DEFAULT_SERVER.id, DEFAULT_DISK),
           ]);
         });
 
@@ -200,8 +200,8 @@ describe('ResourceTreeProvider', () => {
           await expect(
             tree.getChildren(rootServerItem),
           ).to.eventually.deep.equal([
-            ResourceItem.fromMemory(DEFAULT_SERVER.endpoint, DEFAULT_MEMORY),
-            ResourceItem.fromDisk(DEFAULT_SERVER.endpoint, DEFAULT_DISK),
+            ResourceItem.fromMemory(DEFAULT_SERVER.id, DEFAULT_MEMORY),
+            ResourceItem.fromDisk(DEFAULT_SERVER.id, DEFAULT_DISK),
           ]);
         });
       });
@@ -210,7 +210,7 @@ describe('ResourceTreeProvider', () => {
     describe('with multiple servers', () => {
       const secondServer: ColabAssignedServer = {
         ...DEFAULT_SERVER,
-        endpoint: 'm-s-bar',
+        id: 'r-def456',
         label: 'Colab TPU v2',
       };
 
@@ -253,14 +253,14 @@ describe('ResourceTreeProvider', () => {
           // First server failed fetching resources
           expect(result1).to.deep.equal([
             new ResourceItem(
-              DEFAULT_SERVER.endpoint,
+              DEFAULT_SERVER.id,
               'Failed to fetch resources',
               ResourceType.ERROR,
             ),
           ]);
           // Second server succeeded fetching resources
           expect(result2).to.deep.equal([
-            ResourceItem.fromMemory(secondServer.endpoint, DEFAULT_MEMORY),
+            ResourceItem.fromMemory(secondServer.id, DEFAULT_MEMORY),
           ]);
         });
       });

@@ -37,33 +37,33 @@ export class ResourceItem extends TreeItem {
    * @returns A {@link ResourceItem} instance for the given server.
    */
   static fromServer(server: ColabAssignedServer): ResourceItem {
-    return new ResourceItem(server.endpoint, server.label, ResourceType.SERVER);
+    return new ResourceItem(server.id, server.label, ResourceType.SERVER);
   }
 
   /**
    * Creates a new instance of {@link ResourceItem} representing memory usage.
    *
-   * @param endpoint - The server endpoint URL.
+   * @param serverId - The server ID.
    * @param memory - Colab server memory usage information.
    * @returns A {@link ResourceItem} instance representing memory usage.
    */
-  static fromMemory(endpoint: string, memory: Memory): ResourceItem {
+  static fromMemory(serverId: string, memory: Memory): ResourceItem {
     const usedBytes = memory.totalBytes - memory.freeBytes;
     const used = bytesToGbString(usedBytes);
     const total = bytesToGbString(memory.totalBytes);
     const label = `System RAM: ${used} / ${total} GB`;
     const tooltip = asPercentUsed(usedBytes, memory.totalBytes);
-    return new ResourceItem(endpoint, label, ResourceType.MEMORY, tooltip);
+    return new ResourceItem(serverId, label, ResourceType.MEMORY, tooltip);
   }
 
   /**
    * Creates a new instance of {@link ResourceItem} representing disk usage.
    *
-   * @param endpoint - The server endpoint URL.
+   * @param serverId - The server ID.
    * @param disk - Colab server disk usage information.
    * @returns A {@link ResourceItem} instance representing disk usage.
    */
-  static fromDisk(endpoint: string, disk: Disk): ResourceItem {
+  static fromDisk(serverId: string, disk: Disk): ResourceItem {
     const filesystem = disk.filesystem;
     let diskSubLabel = '';
     if (filesystem.label?.length && filesystem.label !== 'kernel') {
@@ -76,7 +76,7 @@ export class ResourceItem extends TreeItem {
     const total = bytesToGbString(filesystem.totalBytes);
     const label = `Disk${diskSubLabel}: ${used} / ${total} GB`;
     const tooltip = asPercentUsed(filesystem.usedBytes, filesystem.totalBytes);
-    return new ResourceItem(endpoint, label, ResourceType.DISK, tooltip);
+    return new ResourceItem(serverId, label, ResourceType.DISK, tooltip);
   }
 
   /**
@@ -85,11 +85,11 @@ export class ResourceItem extends TreeItem {
    * If multiple GPUs are present, their memory usage is aggregated into a
    * single item.
    *
-   * @param endpoint - The server endpoint URL.
+   * @param serverId - The server ID.
    * @param gpus - An array of GPU usage information.
    * @returns A {@link ResourceItem} instance representing GPU usage.
    */
-  static fromGpus(endpoint: string, gpus: GpuInfo[]): ResourceItem {
+  static fromGpus(serverId: string, gpus: GpuInfo[]): ResourceItem {
     const gpuUsage = gpus.reduce(
       (acc, gpu) => ({
         memoryUsedBytes: acc.memoryUsedBytes + gpu.memoryUsedBytes,
@@ -104,19 +104,19 @@ export class ResourceItem extends TreeItem {
       gpuUsage.memoryUsedBytes,
       gpuUsage.memoryTotalBytes,
     );
-    return new ResourceItem(endpoint, label, ResourceType.GPU, tooltip);
+    return new ResourceItem(serverId, label, ResourceType.GPU, tooltip);
   }
 
   /**
    * Initializes a new {@link ResourceItem} instance.
    *
-   * @param endpoint - The server endpoint URL.
+   * @param serverId - The server ID.
    * @param label - The display label.
    * @param type - The item type.
    * @param tooltip - Optional tooltip text to show on hover.
    */
   constructor(
-    readonly endpoint: string,
+    readonly serverId: string,
     label: string,
     readonly type: ResourceType,
     override tooltip?: string,

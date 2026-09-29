@@ -21,13 +21,13 @@ export class ContentItem extends TreeItem {
   /**
    * Initializes a new instance.
    *
-   * @param endpoint - The server endpoint URL.
+   * @param serverId - The server ID (authority).
    * @param label - The display label.
    * @param type - The item type.
    * @param uri - The URI of the resource.
    */
   constructor(
-    readonly endpoint: string,
+    readonly serverId: string,
     label: string,
     readonly type: FileType,
     readonly uri: Uri,

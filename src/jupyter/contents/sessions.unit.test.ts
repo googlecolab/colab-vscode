@@ -30,7 +30,7 @@ import { ColabAssignedServer } from '../servers';
 import { JupyterConnectionManager, ServerNotFound } from './sessions';
 
 const DEFAULT_SERVER: ColabAssignedServer = {
-  id: randomUUID(),
+  id: `r-${randomUUID()}`,
   label: 'Colab GPU A100',
   variant: Variant.GPU,
   accelerator: 'A100',
@@ -150,7 +150,7 @@ describe('JupyterConnectionManager', () => {
       (assignmentManager.getServers as sinon.SinonStub)
         .withArgs('extension')
         .returns(deferred.promise);
-      const create = manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      const create = manager.getOrCreate(DEFAULT_SERVER.id);
 
       // Dispose manager before promise resolves
       manager.dispose();
@@ -177,31 +177,31 @@ describe('JupyterConnectionManager', () => {
         (assignmentManager.getServers as sinon.SinonStub).resolves([
           DEFAULT_SERVER,
         ]);
-        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+        await manager.getOrCreate(DEFAULT_SERVER.id);
 
         toggleAuth(AuthState.SIGNED_OUT);
 
-        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.id]);
         await expect(manager.get('anything')).to.eventually.be.rejectedWith(
           /unauthorized/,
         );
       });
 
       it('fires single event with multiple servers when user becomes unauthorized', async () => {
-        const server2 = { ...DEFAULT_SERVER, endpoint: 'm-s-bar' };
+        const server2 = { ...DEFAULT_SERVER, id: `r-${randomUUID()}` };
         // Cast needed due to overload.
         (assignmentManager.getServers as sinon.SinonStub).resolves([
           DEFAULT_SERVER,
           server2,
         ]);
-        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
-        await manager.getOrCreate(server2.endpoint);
+        await manager.getOrCreate(DEFAULT_SERVER.id);
+        await manager.getOrCreate(server2.id);
 
         toggleAuth(AuthState.SIGNED_OUT);
 
         sinon.assert.calledOnceWithExactly(listener, [
-          DEFAULT_SERVER.endpoint,
-          server2.endpoint,
+          DEFAULT_SERVER.id,
+          server2.id,
         ]);
         await expect(manager.get('anything')).to.eventually.be.rejectedWith(
           /unauthorized/,
@@ -225,36 +225,34 @@ describe('JupyterConnectionManager', () => {
         (assignmentManager.getServers as sinon.SinonStub).resolves([
           DEFAULT_SERVER,
         ]);
-        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+        await manager.getOrCreate(DEFAULT_SERVER.id);
 
         serverMountingEnabled = false;
         configChangeEmitter.fire({ affectsConfiguration: affectsConfigStub });
 
-        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
-        await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
-          .undefined;
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.id]);
+        await expect(manager.get(DEFAULT_SERVER.id)).to.eventually.be.undefined;
       });
 
       it('fires event with multiple servers when disabled', async () => {
-        const server2 = { ...DEFAULT_SERVER, endpoint: 'm-s-bar' };
+        const server2 = { ...DEFAULT_SERVER, id: `r-${randomUUID()}` };
         // Cast needed due to overload.
         (assignmentManager.getServers as sinon.SinonStub).resolves([
           DEFAULT_SERVER,
           server2,
         ]);
-        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
-        await manager.getOrCreate(server2.endpoint);
+        await manager.getOrCreate(DEFAULT_SERVER.id);
+        await manager.getOrCreate(server2.id);
 
         serverMountingEnabled = false;
         configChangeEmitter.fire({ affectsConfiguration: affectsConfigStub });
 
         sinon.assert.calledOnceWithExactly(listener, [
-          DEFAULT_SERVER.endpoint,
-          server2.endpoint,
+          DEFAULT_SERVER.id,
+          server2.id,
         ]);
-        await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
-          .undefined;
-        await expect(manager.get(server2.endpoint)).to.eventually.be.undefined;
+        await expect(manager.get(DEFAULT_SERVER.id)).to.eventually.be.undefined;
+        await expect(manager.get(server2.id)).to.eventually.be.undefined;
       });
 
       it('ignores unrelated config changes', async () => {
@@ -262,7 +260,7 @@ describe('JupyterConnectionManager', () => {
         (assignmentManager.getServers as sinon.SinonStub).resolves([
           DEFAULT_SERVER,
         ]);
-        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+        await manager.getOrCreate(DEFAULT_SERVER.id);
 
         configChangeEmitter.fire({ affectsConfiguration: () => false });
 
@@ -275,13 +273,13 @@ describe('JupyterConnectionManager', () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         DEFAULT_SERVER,
       ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      await manager.getOrCreate(DEFAULT_SERVER.id);
 
       toggleAuth(AuthState.SIGNED_OUT);
       toggleAuth(AuthState.SIGNED_OUT);
       toggleAuth(AuthState.SIGNED_OUT);
 
-      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.id]);
     });
 
     it('fires event when managed server is removed', async () => {
@@ -289,7 +287,7 @@ describe('JupyterConnectionManager', () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         DEFAULT_SERVER,
       ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      await manager.getOrCreate(DEFAULT_SERVER.id);
 
       assignmentEmitter.fire({
         added: [],
@@ -297,18 +295,17 @@ describe('JupyterConnectionManager', () => {
         removed: [{ server: DEFAULT_SERVER, userInitiated: true }],
       });
 
-      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
-      await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
-        .undefined;
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.id]);
+      await expect(manager.get(DEFAULT_SERVER.id)).to.eventually.be.undefined;
     });
 
     it('does not fire for unrelated assignment changes', async () => {
-      const otherServer = { ...DEFAULT_SERVER, endpoint: 'other' };
+      const otherServer = { ...DEFAULT_SERVER, id: `r-${randomUUID()}` };
       // Cast needed due to overload.
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         DEFAULT_SERVER,
       ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      await manager.getOrCreate(DEFAULT_SERVER.id);
 
       assignmentEmitter.fire({
         added: [],
@@ -317,17 +314,17 @@ describe('JupyterConnectionManager', () => {
       });
 
       sinon.assert.notCalled(listener);
-      await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.not.be
+      await expect(manager.get(DEFAULT_SERVER.id)).to.eventually.not.be
         .undefined;
     });
 
     it('revokes managed connections even when unrelated removals are included first', async () => {
-      const otherServer = { ...DEFAULT_SERVER, endpoint: 'other' };
+      const otherServer = { ...DEFAULT_SERVER, id: `r-${randomUUID()}` };
       // Cast needed due to overload.
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         DEFAULT_SERVER,
       ]);
-      await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      await manager.getOrCreate(DEFAULT_SERVER.id);
 
       assignmentEmitter.fire({
         added: [],
@@ -338,9 +335,8 @@ describe('JupyterConnectionManager', () => {
         ],
       });
 
-      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
-      await expect(manager.get(DEFAULT_SERVER.endpoint)).to.eventually.be
-        .undefined;
+      sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.id]);
+      await expect(manager.get(DEFAULT_SERVER.id)).to.eventually.be.undefined;
     });
   });
 
@@ -355,7 +351,7 @@ describe('JupyterConnectionManager', () => {
       expect(manager.get('foo')).to.be.rejectedWith(/unauthorized/);
     });
 
-    it('returns undefined when endpoint is not connected', async () => {
+    it('returns undefined when server is not connected', async () => {
       toggleAuth(AuthState.SIGNED_IN);
 
       const result = await manager.get('foo');
@@ -371,8 +367,8 @@ describe('JupyterConnectionManager', () => {
         .withArgs('extension')
         .returns(deferred.promise);
 
-      const createPromise = manager.getOrCreate(DEFAULT_SERVER.endpoint);
-      const getPromise = manager.get(DEFAULT_SERVER.endpoint);
+      const createPromise = manager.getOrCreate(DEFAULT_SERVER.id);
+      const getPromise = manager.get(DEFAULT_SERVER.id);
       deferred.resolve([DEFAULT_SERVER]);
 
       const createRes = await createPromise;
@@ -386,9 +382,9 @@ describe('JupyterConnectionManager', () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         DEFAULT_SERVER,
       ]);
-      const create = await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      const create = await manager.getOrCreate(DEFAULT_SERVER.id);
 
-      const get = await manager.get(DEFAULT_SERVER.endpoint);
+      const get = await manager.get(DEFAULT_SERVER.id);
 
       expect(create).to.equal(get);
     });
@@ -409,9 +405,9 @@ describe('JupyterConnectionManager', () => {
     it('throws if server is not found', async () => {
       toggleAuth(AuthState.SIGNED_IN);
       (assignmentManager.getServers as sinon.SinonStub).resolves([]);
-      await expect(
-        manager.getOrCreate(DEFAULT_SERVER.endpoint),
-      ).to.be.rejectedWith(ServerNotFound);
+      await expect(manager.getOrCreate(DEFAULT_SERVER.id)).to.be.rejectedWith(
+        ServerNotFound,
+      );
     });
 
     it('establishes a new connection', async () => {
@@ -421,7 +417,7 @@ describe('JupyterConnectionManager', () => {
         DEFAULT_SERVER,
       ]);
 
-      const contents = await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      const contents = await manager.getOrCreate(DEFAULT_SERVER.id);
 
       expect(contents).to.equal(jupyterClientStub.contents);
     });
@@ -450,7 +446,7 @@ describe('JupyterConnectionManager', () => {
         const headers = new Headers(req?.headers);
         return headers.get(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key);
       };
-      const contents = await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      const contents = await manager.getOrCreate(DEFAULT_SERVER.id);
       try {
         await contents.get({ path: 'foo123' });
       } catch {
@@ -489,8 +485,8 @@ describe('JupyterConnectionManager', () => {
         .withArgs('extension')
         .returns(deferred.promise);
 
-      const firstPromise = manager.getOrCreate(DEFAULT_SERVER.endpoint);
-      const secondPromise = manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      const firstPromise = manager.getOrCreate(DEFAULT_SERVER.id);
+      const secondPromise = manager.getOrCreate(DEFAULT_SERVER.id);
       deferred.resolve([DEFAULT_SERVER]);
 
       const firstRes = await firstPromise;
@@ -504,9 +500,9 @@ describe('JupyterConnectionManager', () => {
       (assignmentManager.getServers as sinon.SinonStub).resolves([
         DEFAULT_SERVER,
       ]);
-      const first = await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+      const first = await manager.getOrCreate(DEFAULT_SERVER.id);
 
-      const second = await manager.get(DEFAULT_SERVER.endpoint);
+      const second = await manager.get(DEFAULT_SERVER.id);
 
       expect(first).to.equal(second);
     });
@@ -521,10 +517,10 @@ describe('JupyterConnectionManager', () => {
         .onSecondCall()
         .resolves([DEFAULT_SERVER]);
 
-      await expect(manager.getOrCreate(DEFAULT_SERVER.endpoint)).to.eventually
-        .be.rejected;
-      await expect(manager.getOrCreate(DEFAULT_SERVER.endpoint)).to.eventually
-        .be.fulfilled;
+      await expect(manager.getOrCreate(DEFAULT_SERVER.id)).to.eventually.be
+        .rejected;
+      await expect(manager.getOrCreate(DEFAULT_SERVER.id)).to.eventually.be
+        .fulfilled;
     });
   });
 
@@ -561,26 +557,23 @@ describe('JupyterConnectionManager', () => {
         (assignmentManager.getServers as sinon.SinonStub).resolves([
           DEFAULT_SERVER,
         ]);
-        await manager.getOrCreate(DEFAULT_SERVER.endpoint);
+        await manager.getOrCreate(DEFAULT_SERVER.id);
       });
 
       it('drops it and events the revocation', async () => {
         const clientDisposed = waitForClientDisposed();
 
-        const dropped = manager.drop(DEFAULT_SERVER.endpoint);
+        const dropped = manager.drop(DEFAULT_SERVER.id);
 
         expect(dropped).to.be.true;
         await expect(clientDisposed).to.be.eventually.fulfilled;
-        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.endpoint]);
+        sinon.assert.calledOnceWithExactly(listener, [DEFAULT_SERVER.id]);
       });
 
       it('drops it silently', async () => {
         const clientDisposed = waitForClientDisposed();
 
-        const dropped = manager.drop(
-          DEFAULT_SERVER.endpoint,
-          /* silent= */ true,
-        );
+        const dropped = manager.drop(DEFAULT_SERVER.id, /* silent= */ true);
 
         expect(dropped).to.be.true;
         await expect(clientDisposed).to.be.eventually.fulfilled;

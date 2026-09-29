@@ -9,33 +9,33 @@ import { ColabAssignedServer } from '../../jupyter/servers';
 import { ResourceItem, ResourceType } from './resource-item';
 
 describe('ResourceItem', () => {
-  const SERVER_ENDPOINT = 'colab-server-1';
+  const SERVER_ID = 'r-colab-server-1';
 
   describe('fromServer', () => {
     it('constructs a server resource item', () => {
       const server = {
-        endpoint: SERVER_ENDPOINT,
+        id: SERVER_ID,
         label: 'Colab Server 1',
       } as ColabAssignedServer;
 
       const resourceItem = ResourceItem.fromServer(server);
 
       expect(resourceItem).to.deep.equal(
-        new ResourceItem(SERVER_ENDPOINT, server.label, ResourceType.SERVER),
+        new ResourceItem(SERVER_ID, server.label, ResourceType.SERVER),
       );
     });
   });
 
   describe('fromMemory', () => {
     it('constructs a memory resource item', () => {
-      const resourceItem = ResourceItem.fromMemory(SERVER_ENDPOINT, {
+      const resourceItem = ResourceItem.fromMemory(SERVER_ID, {
         totalBytes: 100 * 1024 * 1024 * 1024,
         freeBytes: 80 * 1024 * 1024 * 1024,
       });
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'System RAM: 20.00 / 100.00 GB',
           ResourceType.MEMORY,
           /* tooltip= */ '20.00%',
@@ -44,14 +44,14 @@ describe('ResourceItem', () => {
     });
 
     it('constructs a memory resource item with 0 bytes', () => {
-      const resourceItem = ResourceItem.fromMemory(SERVER_ENDPOINT, {
+      const resourceItem = ResourceItem.fromMemory(SERVER_ID, {
         totalBytes: 0,
         freeBytes: 0,
       });
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'System RAM: 0.00 / 0.00 GB',
           ResourceType.MEMORY,
         ),
@@ -82,7 +82,7 @@ describe('ResourceItem', () => {
     ];
     tests.forEach(({ name, label, expectedLabel }) => {
       it(`constructs a disk resource item ${name}`, () => {
-        const resourceItem = ResourceItem.fromDisk(SERVER_ENDPOINT, {
+        const resourceItem = ResourceItem.fromDisk(SERVER_ID, {
           filesystem: {
             label,
             totalBytes: 100 * 1024 * 1024 * 1024,
@@ -92,7 +92,7 @@ describe('ResourceItem', () => {
 
         expect(resourceItem).to.deep.equal(
           new ResourceItem(
-            SERVER_ENDPOINT,
+            SERVER_ID,
             /* label= */ `${expectedLabel} 80.00 / 100.00 GB`,
             ResourceType.DISK,
             /* tooltip= */ '80.00%',
@@ -102,7 +102,7 @@ describe('ResourceItem', () => {
     });
 
     it('constructs a disk resource item with 0 bytes', () => {
-      const resourceItem = ResourceItem.fromDisk(SERVER_ENDPOINT, {
+      const resourceItem = ResourceItem.fromDisk(SERVER_ID, {
         filesystem: {
           label: 'kernel',
           totalBytes: 0,
@@ -112,7 +112,7 @@ describe('ResourceItem', () => {
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'Disk: 0.00 / 0.00 GB',
           ResourceType.DISK,
         ),
@@ -122,7 +122,7 @@ describe('ResourceItem', () => {
 
   describe('fromGpus', () => {
     it('constructs a GPU resource item', () => {
-      const resourceItem = ResourceItem.fromGpus(SERVER_ENDPOINT, [
+      const resourceItem = ResourceItem.fromGpus(SERVER_ID, [
         {
           memoryTotalBytes: 100 * 1024 * 1024 * 1024,
           memoryUsedBytes: 80 * 1024 * 1024 * 1024,
@@ -131,7 +131,7 @@ describe('ResourceItem', () => {
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'GPU RAM: 80.00 / 100.00 GB',
           ResourceType.GPU,
           /* tooltip= */ '80.00%',
@@ -140,7 +140,7 @@ describe('ResourceItem', () => {
     });
 
     it('constructs a GPU resource item from multiple GPUs', () => {
-      const resourceItem = ResourceItem.fromGpus(SERVER_ENDPOINT, [
+      const resourceItem = ResourceItem.fromGpus(SERVER_ID, [
         {
           memoryTotalBytes: 100 * 1024 * 1024 * 1024,
           memoryUsedBytes: 80 * 1024 * 1024 * 1024,
@@ -153,7 +153,7 @@ describe('ResourceItem', () => {
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'GPU RAM: 100.00 / 200.00 GB',
           ResourceType.GPU,
           /* tooltip= */ '50.00%',
@@ -162,7 +162,7 @@ describe('ResourceItem', () => {
     });
 
     it('constructs a GPU resource item with 0 bytes', () => {
-      const resourceItem = ResourceItem.fromGpus(SERVER_ENDPOINT, [
+      const resourceItem = ResourceItem.fromGpus(SERVER_ID, [
         {
           memoryTotalBytes: 0,
           memoryUsedBytes: 0,
@@ -171,7 +171,7 @@ describe('ResourceItem', () => {
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'GPU RAM: 0.00 / 0.00 GB',
           ResourceType.GPU,
         ),
@@ -179,11 +179,11 @@ describe('ResourceItem', () => {
     });
 
     it('constructs a GPU resource item with no GPUs', () => {
-      const resourceItem = ResourceItem.fromGpus(SERVER_ENDPOINT, []);
+      const resourceItem = ResourceItem.fromGpus(SERVER_ID, []);
 
       expect(resourceItem).to.deep.equal(
         new ResourceItem(
-          SERVER_ENDPOINT,
+          SERVER_ID,
           /* label= */ 'GPU RAM: 0.00 / 0.00 GB',
           ResourceType.GPU,
         ),

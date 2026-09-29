@@ -17,7 +17,7 @@ import { Variant } from '../types';
 import { upload } from './files';
 
 const DEFAULT_SERVER = {
-  id: randomUUID(),
+  id: `r-${randomUUID()}`,
   label: 'foo',
   variant: Variant.DEFAULT,
   accelerator: undefined,
@@ -103,7 +103,7 @@ describe('File Commands', () => {
       sinon.assert.notCalled(vsCodeStub.window.showQuickPick);
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/content/my-file.txt'),
+        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/my-file.txt`),
         fileContent,
       );
       sinon.assert.calledWith(
@@ -115,8 +115,7 @@ describe('File Commands', () => {
     it('prompts user to select a server when multiple are assigned', async () => {
       const otherServer = {
         ...DEFAULT_SERVER,
-        id: randomUUID(),
-        endpoint: 'm-s-bar',
+        id: `r-${randomUUID()}`,
         label: 'bar',
       };
       (assignmentManagerStub.getServers as sinon.SinonStub)
@@ -138,7 +137,7 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-bar/content/my-file.txt'),
+        TestUri.parse(`colab://${otherServer.id}/content/my-file.txt`),
         fileContent,
       );
       sinon.assert.calledWith(
@@ -150,8 +149,7 @@ describe('File Commands', () => {
     it('does nothing if server selection is cancelled', async () => {
       const otherServer = {
         ...DEFAULT_SERVER,
-        id: randomUUID(),
-        endpoint: 'm-s-bar',
+        id: `r-${randomUUID()}`,
         label: 'bar',
       };
       (assignmentManagerStub.getServers as sinon.SinonStub)
@@ -203,12 +201,12 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/content/my-file.txt'),
+        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/my-file.txt`),
         content1,
       );
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/content/other.txt'),
+        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/other.txt`),
         content2,
       );
       sinon.assert.calledWith(progressSpy, {
@@ -264,11 +262,11 @@ describe('File Commands', () => {
 
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.createDirectory,
-        TestUri.parse('colab://m-s-foo/content/dir'),
+        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/dir`),
       );
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
-        TestUri.parse('colab://m-s-foo/content/dir/sub.txt'),
+        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/dir/sub.txt`),
         subContent,
       );
       sinon.assert.calledWith(
@@ -435,8 +433,7 @@ describe('File Commands', () => {
       it('logs OUTCOME_CANCELLED when the user dismisses the server picker', async () => {
         const otherServer = {
           ...DEFAULT_SERVER,
-          id: randomUUID(),
-          endpoint: 'm-s-bar',
+          id: `r-${randomUUID()}`,
           label: 'bar',
         };
         (assignmentManagerStub.getServers as sinon.SinonStub)

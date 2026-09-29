@@ -38,7 +38,7 @@ const SOME_FILE: FileStat = {
 function buildContentItem(type: 'file' | 'folder', uri: string): ContentItem {
   const u = TestUri.parse(uri);
   return {
-    endpoint: u.authority,
+    serverId: u.authority,
     type: type === 'file' ? FileType.File : FileType.Directory,
     contextValue: type,
     uri: u,

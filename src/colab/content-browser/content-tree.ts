@@ -121,7 +121,7 @@ export class ContentTreeProvider
     const servers = await this.assignments.getServers('extension');
     const items: ContentItem[] = [];
     for (const s of servers) {
-      const rootUri = Uri.parse(`${this.scheme}://${s.endpoint}/content`);
+      const rootUri = Uri.parse(`${this.scheme}://${s.id}/content`);
       const uriString = rootUri.toString();
       const existing = this.contentItemsByUri.get(uriString);
       if (existing) {
@@ -129,12 +129,7 @@ export class ContentTreeProvider
         continue;
       }
 
-      const root = new ContentItem(
-        s.endpoint,
-        s.label,
-        FileType.Directory,
-        rootUri,
-      );
+      const root = new ContentItem(s.id, s.label, FileType.Directory, rootUri);
       items.push(root);
       this.contentItemsByUri.set(uriString, root);
     }

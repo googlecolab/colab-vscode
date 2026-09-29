@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import { describe } from 'mocha';
 import { TestUri } from '../test/helpers/uri';
@@ -13,7 +12,7 @@ import { buildColabFileUri } from './files';
 import { Variant } from './types';
 
 const DEFAULT_SERVER = {
-  id: randomUUID(),
+  id: 'r-abc123',
   label: 'foo',
   variant: Variant.DEFAULT,
   accelerator: undefined,
@@ -38,13 +37,13 @@ describe('files', () => {
     it('builds root URIs when no file path is provided', () => {
       expect(
         buildColabFileUri(vs.asVsCode(), DEFAULT_SERVER).toString(),
-      ).to.equal('colab://m-s-foo/');
+      ).to.equal('colab://r-abc123/');
     });
 
     it('builds file URIs', () => {
       expect(
         buildColabFileUri(vs.asVsCode(), DEFAULT_SERVER, 'foo.txt').toString(),
-      ).to.equal('colab://m-s-foo/foo.txt');
+      ).to.equal('colab://r-abc123/foo.txt');
     });
 
     it('builds relative file URIs', () => {
@@ -54,7 +53,7 @@ describe('files', () => {
           DEFAULT_SERVER,
           'foo/../bar.txt',
         ).toString(),
-      ).to.equal('colab://m-s-foo/bar.txt');
+      ).to.equal('colab://r-abc123/bar.txt');
     });
   });
 });

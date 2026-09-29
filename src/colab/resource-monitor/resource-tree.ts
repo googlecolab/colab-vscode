@@ -41,9 +41,9 @@ export class ResourceTreeProvider
   private readonly assignmentListener: Disposable;
   private readonly authListener: Disposable;
   private readonly refreshRunner?: SequentialTaskRunner;
-  // Cache of resource items by server endpoint to avoid invoking resource API
-  // too frequently.
-  private resourceItemsByEndpoint = new Map<string, ResourceItem[]>();
+  // Cache of resource items by server ID to avoid invoking resource API too
+  // frequently.
+  private resourceItemsByServerId = new Map<string, ResourceItem[]>();
   private isAuthorized = false;
   private isDisposed = false;
 
@@ -98,7 +98,7 @@ export class ResourceTreeProvider
     this.refreshRunner?.dispose();
     this.authListener.dispose();
     this.assignmentListener.dispose();
-    this.resourceItemsByEndpoint.clear();
+    this.resourceItemsByServerId.clear();
     this.isDisposed = true;
   }
 
@@ -107,7 +107,7 @@ export class ResourceTreeProvider
    */
   refresh(): void {
     this.guardDisposed();
-    this.resourceItemsByEndpoint.clear();
+    this.resourceItemsByServerId.clear();
     this.changeEmitter.fire(undefined);
   }
 
@@ -148,7 +148,7 @@ export class ResourceTreeProvider
         return [];
       }
       // Otherwise, return corresponding cached resources.
-      return this.resourceItemsByEndpoint.get(element.endpoint) ?? [];
+      return this.resourceItemsByServerId.get(element.serverId) ?? [];
     }
 
     // If no element is passed (requested at root level), fetch and return
@@ -172,8 +172,8 @@ export class ResourceTreeProvider
           const errLabel = 'Failed to fetch resources';
           log.error(`${errLabel}:`, e);
           // Add an error item when fetch failed
-          this.resourceItemsByEndpoint.set(s.endpoint, [
-            new ResourceItem(s.endpoint, errLabel, ResourceType.ERROR),
+          this.resourceItemsByServerId.set(s.id, [
+            new ResourceItem(s.id, errLabel, ResourceType.ERROR),
           ]);
         }
         return ResourceItem.fromServer(s);
@@ -184,17 +184,16 @@ export class ResourceTreeProvider
   private async fetchAndCacheResourceItems(
     server: ColabAssignedServer,
   ): Promise<void> {
-    const endpoint = server.endpoint;
     const resources = await this.client.getResources(server);
     const resourceItems: ResourceItem[] = [];
-    resourceItems.push(ResourceItem.fromMemory(endpoint, resources.memory));
+    resourceItems.push(ResourceItem.fromMemory(server.id, resources.memory));
     if (resources.gpus.length > 0) {
-      resourceItems.push(ResourceItem.fromGpus(endpoint, resources.gpus));
+      resourceItems.push(ResourceItem.fromGpus(server.id, resources.gpus));
     }
     for (const disk of resources.disks) {
-      resourceItems.push(ResourceItem.fromDisk(endpoint, disk));
+      resourceItems.push(ResourceItem.fromDisk(server.id, disk));
     }
-    this.resourceItemsByEndpoint.set(endpoint, resourceItems);
+    this.resourceItemsByServerId.set(server.id, resourceItems);
   }
 
   private guardDisposed() {

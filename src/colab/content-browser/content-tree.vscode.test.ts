@@ -32,7 +32,7 @@ import { ContentTreeProvider } from './content-tree';
 const TEST_SCHEME = 'colab-test';
 
 const DEFAULT_SERVER: ColabAssignedServer = {
-  id: randomUUID(),
+  id: `r-${randomUUID()}`,
   label: 'Colab GPU A100',
   variant: Variant.GPU,
   accelerator: 'A100',
@@ -50,7 +50,7 @@ const DEFAULT_SERVER: ColabAssignedServer = {
 };
 
 function buildTestUri(filePath: string): Uri {
-  return Uri.parse(`${TEST_SCHEME}://${DEFAULT_SERVER.endpoint}/${filePath}`);
+  return Uri.parse(`${TEST_SCHEME}://${DEFAULT_SERVER.id}/${filePath}`);
 }
 
 const DEFAULT_SERVER_URI = buildTestUri('content');
@@ -188,7 +188,7 @@ describe('ContentTreeProvider', () => {
           await expect(tree.getChildren(undefined)).to.eventually.deep.equal([
             {
               id: DEFAULT_SERVER_URI.toString(),
-              endpoint: DEFAULT_SERVER.endpoint,
+              serverId: DEFAULT_SERVER.id,
               type: FileType.Directory,
               uri: DEFAULT_SERVER_URI,
               resourceUri: DEFAULT_SERVER_URI,
@@ -211,7 +211,7 @@ describe('ContentTreeProvider', () => {
           ).to.eventually.deep.equal([
             {
               id: fileUri.toString(),
-              endpoint: DEFAULT_SERVER.endpoint,
+              serverId: DEFAULT_SERVER.id,
               type: FileType.File,
               uri: fileUri,
               resourceUri: fileUri,
@@ -241,7 +241,7 @@ describe('ContentTreeProvider', () => {
           ).to.eventually.deep.equal([
             {
               id: folderUri.toString(),
-              endpoint: DEFAULT_SERVER.endpoint,
+              serverId: DEFAULT_SERVER.id,
               type: FileType.Directory,
               uri: folderUri,
               resourceUri: folderUri,
@@ -331,8 +331,7 @@ describe('ContentTreeProvider', () => {
     describe('with multiple servers', () => {
       const secondServer: ColabAssignedServer = {
         ...DEFAULT_SERVER,
-        id: randomUUID(),
-        endpoint: 'm-s-bar',
+        id: `r-${randomUUID()}`,
         label: 'Colab TPU v2',
       };
 
