@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { status } from '@grpc/grpc-js';
 import { expect } from 'chai';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -1303,6 +1302,10 @@ describe('denormalizeShape', () => {
 describe('throwIfOperationError', () => {
   const OPERATION_NAME = 'operations/test-operation-id';
   const ERROR_MESSAGE = 'test error message';
+  // `google.rpc.Code` values, as documented for `Status.code`.
+  const UNKNOWN = 2;
+  const ALREADY_EXISTS = 6;
+  const FAILED_PRECONDITION = 9;
 
   it('does not throw if operation does not contain an error', () => {
     const nonErrorOperation: Operation = {
@@ -1323,7 +1326,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: status.FAILED_PRECONDITION,
+        code: FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [{ reason: 'TOO_MANY_ACTIVE_RUNTIMES' }],
       },
@@ -1339,7 +1342,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: status.FAILED_PRECONDITION,
+        code: FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [{ reason: 'DENYLISTED' }],
       },
@@ -1355,7 +1358,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: status.FAILED_PRECONDITION,
+        code: FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [{ reason: 'QUOTA_EXCEEDED_USAGE_TIME' }],
       },
@@ -1374,7 +1377,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: status.FAILED_PRECONDITION,
+        code: FAILED_PRECONDITION,
         message: ERROR_MESSAGE,
         details: [{ reason: 'ANY_RANDOM_REASON' }],
       },
@@ -1388,16 +1391,16 @@ describe('throwIfOperationError', () => {
   const tests = [
     {
       name: 'failed precondition without accelerator',
-      code: status.FAILED_PRECONDITION,
+      code: FAILED_PRECONDITION,
     },
     {
       name: 'failed precondition with NONE accelerator',
-      code: status.FAILED_PRECONDITION,
+      code: FAILED_PRECONDITION,
       accelerator: 'NONE',
     },
     {
       name: 'other error code with accelerator',
-      code: status.ALREADY_EXISTS,
+      code: ALREADY_EXISTS,
       accelerator: 'T4',
     },
   ];
@@ -1423,7 +1426,7 @@ describe('throwIfOperationError', () => {
   });
 
   it(`throws LongRunningOperationError if no error details`, () => {
-    const code = status.FAILED_PRECONDITION;
+    const code = FAILED_PRECONDITION;
     const errorOperation: Operation = {
       name: OPERATION_NAME,
       done: true,
@@ -1446,7 +1449,7 @@ describe('throwIfOperationError', () => {
       name: OPERATION_NAME,
       done: true,
       error: {
-        code: status.UNKNOWN,
+        code: UNKNOWN,
         message: ERROR_MESSAGE,
         details: [
           // Intentionally add an unrelated detail here to ensure that it will

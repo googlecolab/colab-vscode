@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { status } from '@grpc/grpc-js';
 import { log } from '../../../common/logging';
 import { telemetry } from '../../../telemetry';
 import {
@@ -35,6 +34,16 @@ import {
   ColaboratoryApi as OperationsApi,
   Configuration as OperationsConfig,
 } from './generated/operations';
+
+/**
+ * `google.rpc.Code.FAILED_PRECONDITION`.
+ *
+ * The Colab API documents `Status.code` as "an enum value of google.rpc.Code".
+ *
+ * @see
+ * https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
+ */
+const FAILED_PRECONDITION = 9;
 
 /** A runtime that has been asserted with a name and connection info. */
 export type AssertedRuntime = Runtime & {
@@ -198,7 +207,7 @@ export function throwIfOperationError(
             );
           default:
             if (
-              code === status.FAILED_PRECONDITION &&
+              code === FAILED_PRECONDITION &&
               accelerator &&
               accelerator !== 'NONE'
             ) {
