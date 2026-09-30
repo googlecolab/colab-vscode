@@ -28,7 +28,6 @@ import {
   Shape as ApiShape,
   Variant as ApiVariant,
 } from '../colab/client/v2/generated/colab';
-import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import { REMOVE_SERVER } from '../colab/commands/constants';
 import {
   DenylistedError,
@@ -193,10 +192,7 @@ describe('AssignmentManager', () => {
     fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
-    colabApiClientStub = {
-      colab: sinon.createStubInstance(ColaboratoryApi),
-      operations: sinon.createStubInstance(OperationsApi),
-    };
+    colabApiClientStub = sinon.createStubInstance(ColaboratoryApi);
     serverStorage = new ServerStorageFake() as ServerStorage;
     assignmentManager = new AssignmentManager(
       vsCodeStub.asVsCode(),
@@ -211,16 +207,13 @@ describe('AssignmentManager', () => {
       'withStaticConnection',
     );
 
-    listRuntimeSpecsStub = colabApiClientStub.colab
-      .listRuntimeSpecs as sinon.SinonStub;
-    createRuntimeStub = colabApiClientStub.colab
-      .createRuntime as sinon.SinonStub;
-    deleteRuntimeStub = colabApiClientStub.colab
-      .deleteRuntime as sinon.SinonStub;
-    getRuntimeStub = colabApiClientStub.colab.getRuntime as sinon.SinonStub;
-    listRuntimesStub = colabApiClientStub.colab.listRuntimes as sinon.SinonStub;
-    waitOperationStub = colabApiClientStub.operations
-      .waitOperation as sinon.SinonStub;
+    listRuntimeSpecsStub =
+      colabApiClientStub.listRuntimeSpecs as sinon.SinonStub;
+    createRuntimeStub = colabApiClientStub.createRuntime as sinon.SinonStub;
+    deleteRuntimeStub = colabApiClientStub.deleteRuntime as sinon.SinonStub;
+    getRuntimeStub = colabApiClientStub.getRuntime as sinon.SinonStub;
+    listRuntimesStub = colabApiClientStub.listRuntimes as sinon.SinonStub;
+    waitOperationStub = colabApiClientStub.waitOperation as sinon.SinonStub;
   });
 
   afterEach(() => {

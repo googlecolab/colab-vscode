@@ -149,7 +149,7 @@ export class AssignmentManager implements Disposable {
     // The ListRuntimeSpecs API already takes user's subscription tier into
     // account, returning with the correct eligibility info and additional
     // high-memory shapes where applicable.
-    const response = await this.colabApiClient.colab.listRuntimeSpecs(
+    const response = await this.colabApiClient.listRuntimeSpecs(
       /* requestParameters= */ {},
       /* initOverrides= */ { signal },
     );
@@ -469,7 +469,7 @@ export class AssignmentManager implements Disposable {
 
     let runtime: Runtime;
     try {
-      runtime = await this.colabApiClient.colab.getRuntime(
+      runtime = await this.colabApiClient.getRuntime(
         { runtime: id },
         { signal },
       );
@@ -895,7 +895,7 @@ export class AssignmentManager implements Disposable {
   ): Promise<AssertedRuntime[]> {
     const runtimes =
       (
-        await this.colabApiClient.colab.listRuntimes(
+        await this.colabApiClient.listRuntimes(
           /* requestParameters= */ {},
           { signal },
         )
@@ -929,7 +929,7 @@ export class AssignmentManager implements Disposable {
     // a runtimeId explicitly because the rest of the code relies on the
     // auto-generated runtimeId from the server to be non-UUID format.
     const requestId = randomUUID();
-    let createRuntimeOperation = await this.colabApiClient.colab.createRuntime(
+    let createRuntimeOperation = await this.colabApiClient.createRuntime(
       {
         runtime: {
           runtimeSpec: {
@@ -962,7 +962,7 @@ export class AssignmentManager implements Disposable {
         cancellable: false,
       },
       () => {
-        return this.colabApiClient.operations.waitOperation(
+        return this.colabApiClient.waitOperation(
           { operationsId: operationId, timeout: WAIT_OPERATION_TIMEOUT },
           { signal },
         );
@@ -989,7 +989,7 @@ export class AssignmentManager implements Disposable {
    * @param signal - The cancellation signal.
    */
   private async deleteRuntime(id: string, signal?: AbortSignal): Promise<void> {
-    await this.colabApiClient.colab.deleteRuntime(
+    await this.colabApiClient.deleteRuntime(
       { runtime: id, allowMissing: true },
       { signal },
     );

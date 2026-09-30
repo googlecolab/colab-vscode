@@ -18,7 +18,6 @@ import { CancellationToken, CancellationTokenSource } from 'vscode';
 import { AuthChangeEvent } from '../auth/auth-provider';
 import { ColabApiClient } from '../colab/client/v2';
 import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
-import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import {
   AUTO_CONNECT,
   NEW_SERVER,
@@ -160,12 +159,8 @@ describe('ColabJupyterServerProvider', () => {
     Object.defineProperty(assignmentStub, 'onDidAssignmentsChange', {
       value: sinon.stub(),
     });
-    colabApiClientStub = {
-      colab: sinon.createStubInstance(ColaboratoryApi),
-      operations: sinon.createStubInstance(OperationsApi),
-    };
-    getSubscriptionStub = colabApiClientStub.colab
-      .getSubscription as sinon.SinonStub;
+    colabApiClientStub = sinon.createStubInstance(ColaboratoryApi);
+    getSubscriptionStub = colabApiClientStub.getSubscription as sinon.SinonStub;
     serverPickerStub = sinon.createStubInstance(ServerPicker);
 
     serverProvider = new ColabJupyterServerProvider(

@@ -183,7 +183,7 @@ export class ColabJupyterServerProvider
     commands.push(AUTO_CONNECT, NEW_SERVER, OPEN_COLAB_WEB);
     if (this.isAuthorized) {
       try {
-        const subs = await this.colabApiClient.colab.getSubscription();
+        const subs = await this.colabApiClient.getSubscription();
         if (subs.tier === SubscriptionTier.SubscriptionTierFree) {
           commands.push(UPGRADE_TO_PRO);
         }
