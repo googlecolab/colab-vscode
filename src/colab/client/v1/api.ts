@@ -212,8 +212,6 @@ export const FilesystemSchema = z
     totalBytes: totalBytes ?? 0,
     usedBytes: usedBytes ?? 0,
   }));
-/** A filesystem on a Colab runtime. */
-export type Filesystem = z.infer<typeof FilesystemSchema>;
 
 /** Information about a disk on a Colab runtime. */
 export const DiskSchema = z.object({
