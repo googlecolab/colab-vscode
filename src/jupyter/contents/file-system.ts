@@ -426,13 +426,8 @@ export class ContentsFileSystemProvider
     }
   }
 
-  private async getOrCreateClient(
-    serverAuthorityOrUri: string | Uri,
-  ): Promise<ContentsApi> {
-    const serverId =
-      serverAuthorityOrUri instanceof this.vs.Uri
-        ? serverAuthorityOrUri.authority
-        : serverAuthorityOrUri;
+  private async getOrCreateClient(uri: Uri): Promise<ContentsApi> {
+    const serverId = uri.authority;
     try {
       const client = await this.jupyterConnections.getOrCreate(serverId);
       return client;
