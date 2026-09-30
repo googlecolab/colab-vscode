@@ -21,19 +21,18 @@ interface ServerConnection {
 }
 
 /**
- * Error thrown when a server corresponding to a provided endpoint is not found.
+ * Error thrown when a server corresponding to a provided ID is not found.
  */
 export class ServerNotFound extends Error {
   override name = 'ServerNotFound' as const;
 
   /**
-   * Initializes the error with a message indicating the missing server
-   * endpoint.
+   * Initializes the error with a message indicating the missing server ID.
    *
-   * @param endpoint - The server endpoint URL.
+   * @param id - The server ID.
    */
-  constructor(endpoint: string) {
-    super(`Server corresponding to "${endpoint}" does not exist`);
+  constructor(id: string) {
+    super(`Server corresponding to "${id}" does not exist`);
   }
 }
 
@@ -50,7 +49,7 @@ export class JupyterConnectionManager implements Disposable {
   private disposables: Disposable[] = [];
 
   /**
-   * Fires with the endpoints of server connections which are revoked.
+   * Fires with the IDs of server connections which are revoked.
    *
    * A server connection is revoked when an assignment is removed or the user
    * logs out.
@@ -100,19 +99,19 @@ export class JupyterConnectionManager implements Disposable {
   }
 
   /**
-   * Gets the {@link ContentsApi} client for the provided endpoint, or undefined
-   * if it has not been created.
+   * Gets the {@link ContentsApi} client for the provided server ID, or
+   * undefined if it has not been created.
    *
-   * @param endpoint - The endpoint of the server to get the client for.
-   * @returns the {@link ContentsApi} client for the provided endpoint.
+   * @param serverId - The ID of the server to get the client for.
+   * @returns the {@link ContentsApi} client for the provided server ID.
    */
-  async get(endpoint: string): Promise<ContentsApi | undefined> {
+  async get(serverId: string): Promise<ContentsApi | undefined> {
     this.guardDisposed();
     if (!this.isAuthorized) {
       throw new Error('Cannot get connections while unauthorized');
     }
 
-    const promise = this.connections.get(endpoint);
+    const promise = this.connections.get(serverId);
     if (!promise) {
       return undefined;
     }
@@ -121,27 +120,27 @@ export class JupyterConnectionManager implements Disposable {
   }
 
   /**
-   * Gets or creates the {@link ContentsApi} client for the provided endpoint.
+   * Gets or creates the {@link ContentsApi} client for the provided server ID.
    *
-   * @param endpoint - The endpoint of the server to get or create the client
+   * @param serverId - The ID of the server to get or create the client
    * for.
-   * @returns The {@link ContentsApi} client for the provided endpoint.
+   * @returns The {@link ContentsApi} client for the provided server ID.
    * @throws {@link ServerNotFound} when a server corresponding to the provided
-   * endpoint is not found.
+   * ID is not found.
    */
-  async getOrCreate(endpoint: string): Promise<ContentsApi> {
+  async getOrCreate(serverId: string): Promise<ContentsApi> {
     this.guardDisposed();
     if (!this.isAuthorized) {
       throw new Error('Cannot get or create connections while unauthorized');
     }
 
-    let connectionPromise = this.connections.get(endpoint);
+    let connectionPromise = this.connections.get(serverId);
     if (connectionPromise) {
       return (await connectionPromise).contents;
     }
 
-    connectionPromise = this.createClient(endpoint);
-    this.connections.set(endpoint, connectionPromise);
+    connectionPromise = this.createClient(serverId);
+    this.connections.set(serverId, connectionPromise);
 
     try {
       const conn = await connectionPromise;
@@ -149,27 +148,27 @@ export class JupyterConnectionManager implements Disposable {
     } catch (e) {
       // If initialization failed, clear the map so the next attempt can try
       // again
-      this.connections.delete(endpoint);
+      this.connections.delete(serverId);
       throw e;
     }
   }
 
   /**
-   * Removes the {@link ContentsApi} client for the provided endpoint.
+   * Removes the {@link ContentsApi} client for the provided server ID.
    *
-   * @param endpoint - The endpoint of the server to remove the client of.
+   * @param serverId - The ID of the server to remove the client of.
    * @param silent - When true, suppresses firing the
    * {@link JupyterConnectionManager.onDidRevokeConnections} event. Useful if
    * the caller has already updated the UI and does not need the event to fire
    * again.
    * @returns true if there was a connection which was removed, otherwise false.
    */
-  drop(endpoint: string, silent = false): boolean {
+  drop(serverId: string, silent = false): boolean {
     this.guardDisposed();
-    if (!this.connections.has(endpoint)) {
+    if (!this.connections.has(serverId)) {
       return false;
     }
-    this.revoke([endpoint], silent);
+    this.revoke([serverId], silent);
     return true;
   }
 
@@ -181,14 +180,14 @@ export class JupyterConnectionManager implements Disposable {
     }
   }
 
-  private async createClient(endpoint: string): Promise<ServerConnection> {
+  private async createClient(serverId: string): Promise<ServerConnection> {
     const servers = await this.assignments.getServers('extension');
     if (this.isDisposed) {
       throw new Error('JupyterConnectionManager is disposed');
     }
-    const server = servers.find((s) => s.endpoint === endpoint);
+    const server = servers.find((s) => s.id === serverId);
     if (!server) {
-      throw new ServerNotFound(endpoint);
+      throw new ServerNotFound(serverId);
     }
     const client = ProxiedJupyterClient.withRefreshingConnection(
       server,
@@ -226,26 +225,26 @@ export class JupyterConnectionManager implements Disposable {
   }
 
   private handleAssignmentChange(e: AssignmentChangeEvent) {
-    this.revoke(e.removed.map((r) => r.server.endpoint));
+    this.revoke(e.removed.map((r) => r.server.id));
   }
 
   private revokeAll() {
     this.revoke(Array.from(this.connections.keys()));
   }
 
-  private revoke(endpoints: string[], silent = false) {
-    if (!endpoints.length) {
+  private revoke(serverIds: string[], silent = false) {
+    if (!serverIds.length) {
       return;
     }
     const revoked: string[] = [];
-    for (const endpoint of endpoints) {
-      const promise = this.connections.get(endpoint);
+    for (const serverId of serverIds) {
+      const promise = this.connections.get(serverId);
       if (!promise) {
         continue;
       }
       bestEffortDisposeConnection(promise);
-      this.connections.delete(endpoint);
-      revoked.push(endpoint);
+      this.connections.delete(serverId);
+      revoked.push(serverId);
     }
     if (!silent && revoked.length) {
       this.revokeConnectionEmitter.fire(revoked);

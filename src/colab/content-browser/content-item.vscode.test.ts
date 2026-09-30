@@ -11,18 +11,19 @@ import { ContentItem } from './content-item';
 
 describe('ContentItem', () => {
   it('constructs servers', () => {
-    const serverUri = Uri.parse('colab://m-s-foo/content');
+    const serverId = 'r-abc123';
+    const serverUri = Uri.parse(`colab://${serverId}/content`);
 
     const item = new ContentItem(
-      'm-s-foo',
+      serverId,
       'Foo Server',
       FileType.Directory,
       serverUri,
     );
 
     expect(item).to.deep.equal({
-      id: 'colab://m-s-foo/content',
-      endpoint: 'm-s-foo',
+      id: `colab://${serverId}/content`,
+      serverId,
       type: FileType.Directory,
       uri: serverUri,
       resourceUri: serverUri,
@@ -33,18 +34,19 @@ describe('ContentItem', () => {
   });
 
   it('constructs files', () => {
-    const serverUri = Uri.parse('colab://m-s-foo/bar.txt');
+    const serverId = 'r-abc123';
+    const serverUri = Uri.parse(`colab://${serverId}/bar.txt`);
 
     const item = new ContentItem(
-      'm-s-foo',
+      serverId,
       'Foo Server',
       FileType.File,
       serverUri,
     );
 
     expect(item).to.deep.equal({
-      id: 'colab://m-s-foo/bar.txt',
-      endpoint: 'm-s-foo',
+      id: `colab://${serverId}/bar.txt`,
+      serverId,
       type: FileType.File,
       uri: serverUri,
       resourceUri: serverUri,
@@ -60,18 +62,19 @@ describe('ContentItem', () => {
   });
 
   it('constructs folders', () => {
-    const serverUri = Uri.parse('colab://m-s-foo/bar');
+    const serverId = 'r-abc123';
+    const serverUri = Uri.parse(`colab://${serverId}/bar`);
 
     const item = new ContentItem(
-      'm-s-foo',
+      serverId,
       'Foo Server',
       FileType.Directory,
       serverUri,
     );
 
     expect(item).to.deep.equal({
-      id: 'colab://m-s-foo/bar',
-      endpoint: 'm-s-foo',
+      id: `colab://${serverId}/bar`,
+      serverId,
       type: FileType.Directory,
       uri: serverUri,
       resourceUri: serverUri,

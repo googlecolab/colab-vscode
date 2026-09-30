@@ -426,18 +426,16 @@ export class ContentsFileSystemProvider
     }
   }
 
-  private async getOrCreateClient(
-    endpoint: string | Uri,
-  ): Promise<ContentsApi> {
-    endpoint = endpoint instanceof this.vs.Uri ? endpoint.authority : endpoint;
+  private async getOrCreateClient(uri: Uri): Promise<ContentsApi> {
+    const serverId = uri.authority;
     try {
-      const client = await this.jupyterConnections.getOrCreate(endpoint);
+      const client = await this.jupyterConnections.getOrCreate(serverId);
       return client;
     } catch (e: unknown) {
-      log.error(`Unable to get or create Jupyter client for ${endpoint}`, e);
-      // This should only happen if a file-system call was made to and endpoint
+      log.error(`Unable to get or create Jupyter client for ${serverId}`, e);
+      // This should only happen if a file-system call was made to a server
       // which hasn't been mounted.
-      throw this.vs.FileSystemError.Unavailable(endpoint);
+      throw this.vs.FileSystemError.Unavailable(serverId);
     }
   }
 
@@ -494,7 +492,7 @@ export class ContentsFileSystemProvider
     }
   }
 
-  private removeWorkspaceFolders(endpoints: string[]): void {
+  private removeWorkspaceFolders(serverIds: string[]): void {
     const currentFolders = this.vs.workspace.workspaceFolders;
     if (!currentFolders || currentFolders.length === 0) {
       return;
@@ -502,7 +500,7 @@ export class ContentsFileSystemProvider
     const foldersToKeep = currentFolders
       .filter(
         (f) =>
-          !(f.uri.scheme === 'colab' && endpoints.includes(f.uri.authority)),
+          !(f.uri.scheme === 'colab' && serverIds.includes(f.uri.authority)),
       )
       .map((f) => ({
         uri: f.uri,
