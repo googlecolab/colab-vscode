@@ -19,8 +19,7 @@ import {
 } from '../../errors';
 import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import { Shape as CommonShape, Variant as CommonVariant } from '../../types';
-import { FetchAPI, Key, Shape, Variant } from './generated/colab';
-import { Operation } from './generated/operations';
+import { FetchAPI, Key, Operation, Shape, Variant } from './generated/colab';
 import {
   ColabApiClient,
   createColabApiClient,
@@ -94,13 +93,13 @@ describe('ColabApiClient', () => {
     });
 
     it('returns the subscription', async () => {
-      await expect(client.colab.getSubscription()).to.eventually.deep.equal(
+      await expect(client.getSubscription()).to.eventually.deep.equal(
         subscription,
       );
     });
 
     it('sends client agent header', async () => {
-      await client.colab.getSubscription();
+      await client.getSubscription();
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -116,7 +115,7 @@ describe('ColabApiClient', () => {
     });
 
     it('sends authorization header', async () => {
-      await client.colab.getSubscription();
+      await client.getSubscription();
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -133,7 +132,7 @@ describe('ColabApiClient', () => {
     it('does not send authorization header if token is empty', async () => {
       sessionStub.resolves('');
 
-      await client.colab.getSubscription();
+      await client.getSubscription();
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -152,7 +151,7 @@ describe('ColabApiClient', () => {
         ),
       );
 
-      await expect(client.colab.getSubscription()).to.be.rejected;
+      await expect(client.getSubscription()).to.be.rejected;
 
       sinon.assert.calledOnce(logErrorStub);
     });
@@ -173,20 +172,20 @@ describe('ColabApiClient', () => {
         });
 
         it('throws an error and logs to telemetry', async () => {
-          await expect(client.colab.getSubscription()).to.be.rejected;
+          await expect(client.getSubscription()).to.be.rejected;
 
           sinon.assert.calledOnce(logErrorStub);
         });
 
         if (onAuthErrorCalled) {
           it('calls onAuthError', async () => {
-            await expect(client.colab.getSubscription()).to.be.rejected;
+            await expect(client.getSubscription()).to.be.rejected;
 
             sinon.assert.calledOnce(onAuthErrorStub);
           });
         } else {
           it('does not call onAuthError', async () => {
-            await expect(client.colab.getSubscription()).to.be.rejected;
+            await expect(client.getSubscription()).to.be.rejected;
 
             sinon.assert.notCalled(onAuthErrorStub);
           });
@@ -232,13 +231,13 @@ describe('ColabApiClient', () => {
     });
 
     it('returns a list of runtime specs', async () => {
-      await expect(client.colab.listRuntimeSpecs()).to.eventually.deep.equal({
+      await expect(client.listRuntimeSpecs()).to.eventually.deep.equal({
         runtimeSpecs,
       });
     });
 
     it('sends client agent header', async () => {
-      await client.colab.listRuntimeSpecs();
+      await client.listRuntimeSpecs();
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -254,7 +253,7 @@ describe('ColabApiClient', () => {
     });
 
     it('sends authorization header', async () => {
-      await client.colab.listRuntimeSpecs();
+      await client.listRuntimeSpecs();
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -271,7 +270,7 @@ describe('ColabApiClient', () => {
     it('does not send authorization header if token is empty', async () => {
       sessionStub.resolves('');
 
-      await client.colab.listRuntimeSpecs();
+      await client.listRuntimeSpecs();
 
       sinon.assert.calledOnceWithMatch(
         fetchSpy,
@@ -290,7 +289,7 @@ describe('ColabApiClient', () => {
         ),
       );
 
-      await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+      await expect(client.listRuntimeSpecs()).to.be.rejected;
 
       sinon.assert.calledOnce(logErrorStub);
     });
@@ -311,20 +310,20 @@ describe('ColabApiClient', () => {
         });
 
         it('throws an error and logs to telemetry', async () => {
-          await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+          await expect(client.listRuntimeSpecs()).to.be.rejected;
 
           sinon.assert.calledOnce(logErrorStub);
         });
 
         if (onAuthErrorCalled) {
           it('calls onAuthError', async () => {
-            await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+            await expect(client.listRuntimeSpecs()).to.be.rejected;
 
             sinon.assert.calledOnce(onAuthErrorStub);
           });
         } else {
           it('does not call onAuthError', async () => {
-            await expect(client.colab.listRuntimeSpecs()).to.be.rejected;
+            await expect(client.listRuntimeSpecs()).to.be.rejected;
 
             sinon.assert.notCalled(onAuthErrorStub);
           });
@@ -383,13 +382,13 @@ describe('ColabApiClient', () => {
       });
 
       it('returns a list of runtimes', async () => {
-        await expect(client.colab.listRuntimes()).to.eventually.deep.equal({
+        await expect(client.listRuntimes()).to.eventually.deep.equal({
           runtimes,
         });
       });
 
       it('sends client agent header', async () => {
-        await client.colab.listRuntimes();
+        await client.listRuntimes();
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -405,7 +404,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.colab.listRuntimes();
+        await client.listRuntimes();
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -422,7 +421,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.colab.listRuntimes();
+        await client.listRuntimes();
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -441,7 +440,7 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.colab.listRuntimes()).to.be.rejected;
+        await expect(client.listRuntimes()).to.be.rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -462,20 +461,20 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(client.colab.listRuntimes()).to.be.rejected;
+            await expect(client.listRuntimes()).to.be.rejected;
 
             sinon.assert.calledOnce(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(client.colab.listRuntimes()).to.be.rejected;
+              await expect(client.listRuntimes()).to.be.rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(client.colab.listRuntimes()).to.be.rejected;
+              await expect(client.listRuntimes()).to.be.rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -498,12 +497,12 @@ describe('ColabApiClient', () => {
 
       it('returns the runtime', async () => {
         await expect(
-          client.colab.getRuntime({ runtime: runtimeId }),
+          client.getRuntime({ runtime: runtimeId }),
         ).to.eventually.deep.equal(runtime);
       });
 
       it('sends client agent header', async () => {
-        await client.colab.getRuntime({ runtime: runtimeId });
+        await client.getRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -519,7 +518,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.colab.getRuntime({ runtime: runtimeId });
+        await client.getRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -536,7 +535,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.colab.getRuntime({ runtime: runtimeId });
+        await client.getRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -556,8 +555,7 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.colab.getRuntime({ runtime: runtimeId })).to.be
-          .rejected;
+        await expect(client.getRuntime({ runtime: runtimeId })).to.be.rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -579,7 +577,7 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(client.colab.getRuntime({ runtime: runtimeId })).to.be
+            await expect(client.getRuntime({ runtime: runtimeId })).to.be
               .rejected;
 
             sinon.assert.calledOnce(logErrorStub);
@@ -587,15 +585,15 @@ describe('ColabApiClient', () => {
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(client.colab.getRuntime({ runtime: runtimeId })).to
-                .be.rejected;
+              await expect(client.getRuntime({ runtime: runtimeId })).to.be
+                .rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(client.colab.getRuntime({ runtime: runtimeId })).to
-                .be.rejected;
+              await expect(client.getRuntime({ runtime: runtimeId })).to.be
+                .rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -638,7 +636,7 @@ describe('ColabApiClient', () => {
 
       it('returns an operation', async () => {
         await expect(
-          client.colab.createRuntime({
+          client.createRuntime({
             runtime: { runtimeSpec },
             runtimeId,
             requestId,
@@ -651,7 +649,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends client agent header', async () => {
-        await client.colab.createRuntime({
+        await client.createRuntime({
           runtime: { runtimeSpec },
           runtimeId,
           requestId,
@@ -671,7 +669,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.colab.createRuntime({
+        await client.createRuntime({
           runtime: { runtimeSpec },
           runtimeId,
           requestId,
@@ -692,7 +690,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.colab.createRuntime({
+        await client.createRuntime({
           runtime: { runtimeSpec },
           runtimeId,
           requestId,
@@ -716,7 +714,7 @@ describe('ColabApiClient', () => {
         );
 
         await expect(
-          client.colab.createRuntime({
+          client.createRuntime({
             runtime: { runtimeSpec },
             runtimeId,
             requestId,
@@ -743,7 +741,7 @@ describe('ColabApiClient', () => {
 
           it('throws an error and logs to telemetry', async () => {
             await expect(
-              client.colab.createRuntime({
+              client.createRuntime({
                 runtime: { runtimeSpec },
                 runtimeId,
                 requestId,
@@ -756,7 +754,7 @@ describe('ColabApiClient', () => {
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
               await expect(
-                client.colab.createRuntime({
+                client.createRuntime({
                   runtime: { runtimeSpec },
                   runtimeId,
                   requestId,
@@ -768,7 +766,7 @@ describe('ColabApiClient', () => {
           } else {
             it('does not call onAuthError', async () => {
               await expect(
-                client.colab.createRuntime({
+                client.createRuntime({
                   runtime: { runtimeSpec },
                   runtimeId,
                   requestId,
@@ -793,11 +791,11 @@ describe('ColabApiClient', () => {
       });
 
       it('executes successfully', async () => {
-        await client.colab.deleteRuntime({ runtime: runtimeId });
+        await client.deleteRuntime({ runtime: runtimeId });
       });
 
       it('sends client agent header', async () => {
-        await client.colab.deleteRuntime({ runtime: runtimeId });
+        await client.deleteRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -813,7 +811,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.colab.deleteRuntime({ runtime: runtimeId });
+        await client.deleteRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -830,7 +828,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.colab.deleteRuntime({ runtime: runtimeId });
+        await client.deleteRuntime({ runtime: runtimeId });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -850,7 +848,7 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(client.colab.deleteRuntime({ runtime: runtimeId })).to.be
+        await expect(client.deleteRuntime({ runtime: runtimeId })).to.be
           .rejected;
 
         sinon.assert.calledOnce(logErrorStub);
@@ -873,23 +871,23 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(client.colab.deleteRuntime({ runtime: runtimeId })).to
-              .be.rejected;
+            await expect(client.deleteRuntime({ runtime: runtimeId })).to.be
+              .rejected;
 
             sinon.assert.calledOnce(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(client.colab.deleteRuntime({ runtime: runtimeId }))
-                .to.be.rejected;
+              await expect(client.deleteRuntime({ runtime: runtimeId })).to.be
+                .rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(client.colab.deleteRuntime({ runtime: runtimeId }))
-                .to.be.rejected;
+              await expect(client.deleteRuntime({ runtime: runtimeId })).to.be
+                .rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -934,7 +932,7 @@ describe('ColabApiClient', () => {
 
       it('returns the operation', async () => {
         await expect(
-          client.operations.getOperation({ operationsId: OPERATION_ID }),
+          client.getOperation({ operationsId: OPERATION_ID }),
         ).to.eventually.deep.equal({
           ...operation,
           error: undefined,
@@ -942,7 +940,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends client agent header', async () => {
-        await client.operations.getOperation({ operationsId: OPERATION_ID });
+        await client.getOperation({ operationsId: OPERATION_ID });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -958,7 +956,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.operations.getOperation({ operationsId: OPERATION_ID });
+        await client.getOperation({ operationsId: OPERATION_ID });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -975,7 +973,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.operations.getOperation({ operationsId: OPERATION_ID });
+        await client.getOperation({ operationsId: OPERATION_ID });
 
         sinon.assert.calledOnceWithMatch(
           fetchSpy,
@@ -995,9 +993,8 @@ describe('ColabApiClient', () => {
           ),
         );
 
-        await expect(
-          client.operations.getOperation({ operationsId: OPERATION_ID }),
-        ).to.be.rejected;
+        await expect(client.getOperation({ operationsId: OPERATION_ID })).to.be
+          .rejected;
 
         sinon.assert.calledOnce(logErrorStub);
       });
@@ -1019,26 +1016,23 @@ describe('ColabApiClient', () => {
           });
 
           it('throws an error and logs to telemetry', async () => {
-            await expect(
-              client.operations.getOperation({ operationsId: OPERATION_ID }),
-            ).to.be.rejected;
+            await expect(client.getOperation({ operationsId: OPERATION_ID })).to
+              .be.rejected;
 
             sinon.assert.calledOnce(logErrorStub);
           });
 
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
-              await expect(
-                client.operations.getOperation({ operationsId: OPERATION_ID }),
-              ).to.be.rejected;
+              await expect(client.getOperation({ operationsId: OPERATION_ID }))
+                .to.be.rejected;
 
               sinon.assert.calledOnce(onAuthErrorStub);
             });
           } else {
             it('does not call onAuthError', async () => {
-              await expect(
-                client.operations.getOperation({ operationsId: OPERATION_ID }),
-              ).to.be.rejected;
+              await expect(client.getOperation({ operationsId: OPERATION_ID }))
+                .to.be.rejected;
 
               sinon.assert.notCalled(onAuthErrorStub);
             });
@@ -1065,7 +1059,7 @@ describe('ColabApiClient', () => {
 
       it('returns the operation', async () => {
         await expect(
-          client.operations.waitOperation({
+          client.waitOperation({
             operationsId: OPERATION_ID,
             timeout: TIMEOUT,
           }),
@@ -1076,7 +1070,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends client agent header', async () => {
-        await client.operations.waitOperation({
+        await client.waitOperation({
           operationsId: OPERATION_ID,
           timeout: TIMEOUT,
         });
@@ -1095,7 +1089,7 @@ describe('ColabApiClient', () => {
       });
 
       it('sends authorization header', async () => {
-        await client.operations.waitOperation({
+        await client.waitOperation({
           operationsId: OPERATION_ID,
           timeout: TIMEOUT,
         });
@@ -1115,7 +1109,7 @@ describe('ColabApiClient', () => {
       it('does not send authorization header if token is empty', async () => {
         sessionStub.resolves('');
 
-        await client.operations.waitOperation({
+        await client.waitOperation({
           operationsId: OPERATION_ID,
           timeout: TIMEOUT,
         });
@@ -1139,7 +1133,7 @@ describe('ColabApiClient', () => {
         );
 
         await expect(
-          client.operations.waitOperation({
+          client.waitOperation({
             operationsId: OPERATION_ID,
             timeout: TIMEOUT,
           }),
@@ -1166,7 +1160,7 @@ describe('ColabApiClient', () => {
 
           it('throws an error and logs to telemetry', async () => {
             await expect(
-              client.operations.waitOperation({
+              client.waitOperation({
                 operationsId: OPERATION_ID,
                 timeout: TIMEOUT,
               }),
@@ -1178,7 +1172,7 @@ describe('ColabApiClient', () => {
           if (onAuthErrorCalled) {
             it('calls onAuthError', async () => {
               await expect(
-                client.operations.waitOperation({
+                client.waitOperation({
                   operationsId: OPERATION_ID,
                   timeout: TIMEOUT,
                 }),
@@ -1189,7 +1183,7 @@ describe('ColabApiClient', () => {
           } else {
             it('does not call onAuthError', async () => {
               await expect(
-                client.operations.waitOperation({
+                client.waitOperation({
                   operationsId: OPERATION_ID,
                   timeout: TIMEOUT,
                 }),

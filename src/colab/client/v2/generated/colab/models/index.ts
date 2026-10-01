@@ -8,6 +8,7 @@ export * from './CreateRuntimeOperation';
 export * from './ErrorInfo';
 export * from './ExecuteCodeResult';
 export * from './Key';
+export * from './ListOperationsResponse';
 export * from './ListRuntimeSpecsResponse';
 export * from './ListRuntimesResponse';
 export * from './ModelError';

@@ -24,14 +24,33 @@ https://colaboratory.googleapis.com/$discovery/OPENAPI3_0?version={version}&key=
 
 ## `@openapitools/openapi-generator-cli`
 
-We use `@openapitools/openapi-generator-cli` to generate the OpenAPI TypeScript
-clients. It depends on Java and expects `java` to be available on the `PATH` of
-the machine running the tool. More info can be found at https://openapi-generator.tech.
+We use `@openapitools/openapi-generator-cli` to generate a single OpenAPI
+TypeScript client, in `generated/colab`, covering both specs. It depends on Java
+and expects `java` to be available on the `PATH` of the machine running the
+tool. More info can be found at https://openapi-generator.tech.
 
-Some preprocessing is required for `@openapitools/openapi-generator-cli` to work
-properly with `google.protobuf.Empty` returned by `DELETE` APIs. The
-preprocessing logic can be found in `generate.mts`, and can be ran with:
-`npm run generate:colabclient`.
+The pipeline lives in `generate.mts` and can be run with
+`npm run generate:colabclient`. It has three steps:
+
+1. **Preprocess.** Some preprocessing is required for
+   `@openapitools/openapi-generator-cli` to work properly with
+   `google.protobuf.Empty` returned by `DELETE` APIs. Each spec is rewritten to
+   a `*-api-fixed.json` intermediate.
+
+2. **Merge.** The two fixed specs are folded into a single `merged-api.json`
+   intermediate, with `colab-api.json` as the base, so the merged document
+   keeps the Colab API's `info`, and hence its `v1beta` version. The two specs
+   describe the same host and their paths are already version-prefixed, so the
+   only real overlap is in `components`: both define `Operation`, `Status`,
+   `Error` and friends, identically. The merge only skips an overlapping member
+   after proving it deep-equal, and throws otherwise. That assertion is the
+   signal that the two specs have diverged and the merge is no longer safe.
+
+3. **Generate.** `openapi-generator-cli` runs once over `merged-api.json`.
+
+Both source spec files stay checked in and unmodified, so re-downloading either
+one from the discovery endpoint is a straight overwrite. The intermediates are
+gitignored.
 
 ## Special Sauce
 

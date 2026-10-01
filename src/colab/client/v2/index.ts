@@ -17,23 +17,19 @@ import { AUTHORIZATION_HEADER, COLAB_CLIENT_AGENT_HEADER } from '../../headers';
 import { Shape as CommonShape, Variant as CommonVariant } from '../../types';
 import {
   ColaboratoryApi,
-  Configuration as ColabConfig,
+  Configuration,
   ConnectionInfo,
   ErrorContext,
   ErrorInfo,
   FetchParams,
   Middleware,
+  Operation,
   RequestContext,
   ResponseContext,
   Runtime,
   Shape,
   Variant,
 } from './generated/colab';
-import {
-  Operation,
-  ColaboratoryApi as OperationsApi,
-  Configuration as OperationsConfig,
-} from './generated/operations';
 
 /**
  * `google.rpc.Code.FAILED_PRECONDITION`.
@@ -51,18 +47,11 @@ export type AssertedRuntime = Runtime & {
   connectionInfo: ConnectionInfo;
 };
 
-/** A client to interact with public Colab API. */
-export interface ColabApiClient {
-  /**
-   * A client instance to access the Colab APIs
-   */
-  colab: ColaboratoryApi;
-
-  /**
-   * A client instance to access the Operations APIs.
-   */
-  operations: OperationsApi;
-}
+/**
+ * A client to interact with the public Colab API, including the Operations
+ * API it shares a host with.
+ */
+export type ColabApiClient = ColaboratoryApi;
 
 /**
  * Creates a new {@link ColabApiClient} instance.
@@ -77,7 +66,16 @@ export function createColabApiClient(
   getAccessToken: () => Promise<string>,
   onAuthError?: () => Promise<void>,
 ): ColabApiClient {
-  return new ColabApiClientImpl(basePath, getAccessToken, onAuthError);
+  return new ColaboratoryApi(
+    new Configuration({
+      basePath,
+      headers: HEADERS,
+      middleware: [
+        new AuthMiddleware(getAccessToken),
+        new ErrorMiddleware(onAuthError),
+      ],
+    }),
+  );
 }
 
 /**
@@ -228,36 +226,6 @@ export function throwIfOperationError(
 
 const RUNTIME_NAME_PREFIX = 'runtimes/';
 const OPERATION_NAME_PREFIX = 'operations/';
-
-class ColabApiClientImpl implements ColabApiClient {
-  private readonly colabApi: ColaboratoryApi;
-  private readonly operationsApi: OperationsApi;
-
-  constructor(
-    basePath: string,
-    getAccessToken: () => Promise<string>,
-    onAuthError?: () => Promise<void>,
-  ) {
-    const middleware = [
-      new AuthMiddleware(getAccessToken),
-      new ErrorMiddleware(onAuthError),
-    ];
-    this.colabApi = new ColaboratoryApi(
-      new ColabConfig({ basePath, headers: HEADERS, middleware }),
-    );
-    this.operationsApi = new OperationsApi(
-      new OperationsConfig({ basePath, headers: HEADERS, middleware }),
-    );
-  }
-
-  get colab() {
-    return this.colabApi;
-  }
-
-  get operations() {
-    return this.operationsApi;
-  }
-}
 
 const HEADERS = {
   [COLAB_CLIENT_AGENT_HEADER.key]: COLAB_CLIENT_AGENT_HEADER.value,

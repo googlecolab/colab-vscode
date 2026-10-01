@@ -7,6 +7,7 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { isDeepStrictEqual } from 'util';
 import { findTsFiles } from '../../../../scripts/common.js';
 
 const DIR = import.meta.dirname;
@@ -14,10 +15,10 @@ const COLAB_API_SPEC = path.join(DIR, 'colab-api.json');
 const COLAB_API_SPEC_FIXED = path.join(DIR, 'colab-api-fixed.json');
 const OPERATIONS_API_SPEC = path.join(DIR, 'operations-api.json');
 const OPERATIONS_API_SPEC_FIXED = path.join(DIR, 'operations-api-fixed.json');
+const MERGED_API_SPEC = path.join(DIR, 'merged-api.json');
 
 const OUT_DIR = path.join(DIR, 'generated');
 const COLAB_API_OUT_DIR = path.join(OUT_DIR, 'colab');
-const OPERATIONS_API_OUT_DIR = path.join(OUT_DIR, 'operations');
 
 // Define minimal TypeScript interfaces for type safety
 interface Operation {
@@ -45,6 +46,8 @@ interface PathItem {
 
 interface OpenApi3Doc {
   paths?: Record<string, PathItem>;
+  components?: Record<string, Record<string, unknown>>;
+  servers?: unknown;
   [key: string]: unknown;
 }
 
@@ -61,51 +64,117 @@ function main() {
   preProcessOpenApiSpec(OPERATIONS_API_SPEC, OPERATIONS_API_SPEC_FIXED);
   console.log(`✅ Done fixing OpenAPI spec documents.`);
 
-  // 2. Generate TS clients with `openapi-generator-cli`.
-  console.log(`🏃 Running openapi-generator-cli on ${COLAB_API_SPEC_FIXED}...`);
+  // 2. Merge the two specs into one so a single client is generated.
+  console.log('🔀 Merging OpenAPI spec documents...');
+  mergeOpenApiSpecs(
+    COLAB_API_SPEC_FIXED,
+    OPERATIONS_API_SPEC_FIXED,
+    MERGED_API_SPEC,
+  );
+  console.log('✅ Done merging OpenAPI spec documents.');
+
+  // 3. Generate the TS client with `openapi-generator-cli`.
+  console.log(`🏃 Running openapi-generator-cli on ${MERGED_API_SPEC}...`);
   execSync(
     `npx openapi-generator-cli generate \
-        -i "${COLAB_API_SPEC_FIXED}" \
+        -i "${MERGED_API_SPEC}" \
         -g typescript-fetch \
         -o "${COLAB_API_OUT_DIR}" \
         --global-property=apiDocs=false,modelDocs=false \
         --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
     { stdio: 'inherit' },
   );
+  console.log('✅ Done generating client.');
 
-  console.log(
-    `🏃 Running openapi-generator-cli on ${OPERATIONS_API_SPEC_FIXED}...`,
-  );
-  execSync(
-    `npx openapi-generator-cli generate \
-        -i "${OPERATIONS_API_SPEC_FIXED}" \
-        -g typescript-fetch \
-        -o "${OPERATIONS_API_OUT_DIR}" \
-        --global-property=apiDocs=false,modelDocs=false \
-        --additional-properties=typescriptThreePlus=true,supportsES6=true,withInterfaces=true`,
-    { stdio: 'inherit' },
-  );
-  console.log('✅ Done generating clients.');
-
-  // 3. Post-process generated files by prepending @ts-nocheck.
+  // 4. Post-process generated files by prepending @ts-nocheck.
   console.log('✏️ Post-processing generated files...');
   postProcessGeneratedFiles();
   console.log(`✅ Done post-processing generated files.`);
 }
 
+/**
+ * Folds the Operations API spec into the Colab API spec.
+ *
+ * The base spec wins on every document-level field, so the merged document
+ * keeps the Colab API's `info` (and hence its `v1beta` version). Paths are
+ * already version-prefixed and disjoint; components overlap but the shared
+ * definitions are identical, so an overlapping member is only skipped after it
+ * is proven deep-equal. A real conflict throws rather than silently picking a
+ * winner — that assertion is the signal that the two specs have diverged and
+ * the merge is no longer safe.
+ *
+ * @param basePath - Spec whose document-level fields the merge keeps.
+ * @param overlayPath - Spec whose paths and components are folded in.
+ * @param outputPath - Where to write the merged spec.
+ */
+function mergeOpenApiSpecs(
+  basePath: string,
+  overlayPath: string,
+  outputPath: string,
+) {
+  const base = readOpenApi3Doc(basePath);
+  const overlay = readOpenApi3Doc(overlayPath);
+
+  if (!isDeepStrictEqual(base.servers, overlay.servers)) {
+    throw new Error(
+      `Cannot merge ${overlayPath} into ${basePath}: "servers" differ, so the ` +
+        `merged client would target the wrong host for one of the APIs.`,
+    );
+  }
+
+  const paths = (base.paths ??= {});
+  for (const [route, pathItem] of Object.entries(overlay.paths ?? {})) {
+    if (route in paths) {
+      throw new Error(
+        `Cannot merge ${overlayPath} into ${basePath}: path "${route}" is ` +
+          `defined in both specs.`,
+      );
+    }
+    paths[route] = pathItem;
+  }
+
+  const components = (base.components ??= {});
+  for (const [section, members] of Object.entries(overlay.components ?? {})) {
+    const target = (components[section] ??= {});
+    for (const [name, member] of Object.entries(members)) {
+      if (name in target) {
+        if (!isDeepStrictEqual(target[name], member)) {
+          throw new Error(
+            `Cannot merge ${overlayPath} into ${basePath}: components.` +
+              `${section}."${name}" is defined in both specs and they no ` +
+              `longer agree. Resolve the divergence before regenerating.`,
+          );
+        }
+        continue;
+      }
+      target[name] = member;
+    }
+  }
+
+  fs.writeFileSync(
+    path.resolve(outputPath),
+    JSON.stringify(base, null, 2),
+    'utf-8',
+  );
+  console.log(
+    `📦 Merged ${String(Object.keys(overlay.paths ?? {}).length)} path(s) into ${outputPath}`,
+  );
+}
+
+function readOpenApi3Doc(specPath: string): OpenApi3Doc {
+  const absolutePath = path.resolve(specPath);
+  console.log(`📚 Reading: ${absolutePath}`);
+  const doc = JSON.parse(fs.readFileSync(absolutePath, 'utf-8')) as unknown;
+  if (!isOpenApi3Doc(doc)) {
+    throw new Error(`${absolutePath} is not a valid OpenAPI document.`);
+  }
+  return doc;
+}
+
 function preProcessOpenApiSpec(inputPath: string, outputPath: string) {
   try {
     // 1. Read and parse the input OpenAPI spec file
-    const absoluteInputPath = path.resolve(inputPath);
-    console.log(`📚 Reading: ${absoluteInputPath}`);
-    const fileContent = fs.readFileSync(absoluteInputPath, 'utf-8');
-    const doc = JSON.parse(fileContent) as unknown;
-
-    if (!isOpenApi3Doc(doc)) {
-      throw new Error(
-        "Parsed JSON is not a valid OpenAPI document (missing 'paths').",
-      );
-    }
+    const doc = readOpenApi3Doc(inputPath);
 
     if (!doc.paths) {
       console.warn('⚠️ No "paths" object found in the OpenAPI document.');

@@ -7,6 +7,7 @@ out/
 src/colab-config.ts
 src/colab/client/v2/colab-api-fixed.json
 src/colab/client/v2/generated/*/.openapi-generator/FILES
+src/colab/client/v2/merged-api.json
 src/colab/client/v2/operations-api-fixed.json
 src/jupyter/client/post-processed-api.yaml
 src/jupyter/client/generated/.openapi-generator/FILES

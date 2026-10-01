@@ -18,7 +18,6 @@ import { GoogleAuthProvider } from '../auth/auth-provider';
 import { ColabClient } from '../colab/client/v1';
 import { ColabApiClient } from '../colab/client/v2';
 import { ColaboratoryApi } from '../colab/client/v2/generated/colab';
-import { ColaboratoryApi as OperationsApi } from '../colab/client/v2/generated/operations';
 import {
   COLAB_TOOLBAR,
   MOUNT_DRIVE,
@@ -74,10 +73,7 @@ describe('createJupyterModule', () => {
       value: new EventEmitter<unknown>().event,
     });
     colabClient = sinon.createStubInstance(ColabClient);
-    colabApiClient = {
-      colab: sinon.createStubInstance(ColaboratoryApi),
-      operations: sinon.createStubInstance(OperationsApi),
-    };
+    colabApiClient = sinon.createStubInstance(ColaboratoryApi);
 
     // The integration host already has the activated extension's `colab` FS
     // provider, the two tree views, and all of the command IDs registered.
