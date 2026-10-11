@@ -5,6 +5,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { expect } from 'chai';
 import sinon, { SinonStubbedFunction, SinonStubbedInstance } from 'sinon';
 import { FileType, QuickPickItem } from 'vscode';
 import { AssignmentManager } from '../../jupyter/assignments';
@@ -15,9 +16,6 @@ import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { Variant } from '../types';
 import { upload } from './files';
-import { expect } from 'chai';
-import { dir } from 'console';
-import { string } from 'zod';
 
 const DEFAULT_SERVER = {
   id: `r-${randomUUID()}`,
