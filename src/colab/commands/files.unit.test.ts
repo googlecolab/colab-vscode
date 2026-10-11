@@ -213,11 +213,11 @@ describe('File Commands', () => {
         content2,
       );
       sinon.assert.calledWith(progressSpy, {
-        message: 'Importing my-file.txt...',
+        message: 'Importing 1 of 2 files',
         increment: 50,
       });
       sinon.assert.calledWith(progressSpy, {
-        message: 'Importing other.txt...',
+        message: 'Importing 2 of 2 files',
         increment: 50,
       });
       sinon.assert.calledWith(
@@ -419,7 +419,7 @@ describe('File Commands', () => {
 
       sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, 200);
       sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
-      expect(maxInFlight).to.equal(8); // hardcoded max concurrent upload
+      expect(maxInFlight).to.equal(16); // hardcoded max concurrent upload
     });
 
     it('handles error during planning phase', async () => {
