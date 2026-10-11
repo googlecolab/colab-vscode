@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import sinon, { SinonStubbedFunction, SinonStubbedInstance } from 'sinon';
-import { QuickPickItem } from 'vscode';
+import { FileType, QuickPickItem } from 'vscode';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { telemetry } from '../../telemetry';
 import { CommandSource, Outcome } from '../../telemetry/api';
@@ -15,6 +15,9 @@ import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { Variant } from '../types';
 import { upload } from './files';
+import { expect } from 'chai';
+import { dir } from 'console';
+import { string } from 'zod';
 
 const DEFAULT_SERVER = {
   id: `r-${randomUUID()}`,
@@ -367,6 +370,56 @@ describe('File Commands', () => {
         'Successfully uploaded 1 item to foo',
       );
       sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
+    });
+
+    it('upload file concurrently up to the limit', async () => {
+      (assignmentManagerStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([DEFAULT_SERVER]);
+      const dirUri = TestUri.parse('file:///local/dir');
+      vsCodeStub.workspace.fs.stat.withArgs(dirUri).resolves({
+        type: vsCodeStub.FileType.Directory,
+        ctime: 0,
+        mtime: 0,
+        size: 0,
+      });
+      vsCodeStub.workspace.fs.readDirectory
+        .withArgs(dirUri)
+        .resolves(
+          Array.from({ length: 200 }, (_, i): [string, FileType] => [
+            `file-${i.toString()}.txt`,
+            vsCodeStub.FileType.File,
+          ]),
+        );
+      vsCodeStub.workspace.fs.readFile.resolves(new Uint8Array([1]));
+
+      let inFlight = 0;
+      let maxInFlight = 0;
+
+      vsCodeStub.workspace.fs.writeFile.callsFake(async () => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((r) => setImmediate(r));
+        inFlight--;
+      });
+
+      vsCodeStub.workspace.fs.readDirectory.resolves([
+        ['file.txt', vsCodeStub.FileType.File],
+      ]);
+      vsCodeStub.workspace.fs.readFile.resolves(new Uint8Array([]));
+      const fileExistsError = vsCodeStub.FileSystemError.FileExists('Exists');
+      vsCodeStub.workspace.fs.createDirectory.rejects(fileExistsError);
+
+      await upload(
+        vsCodeStub.asVsCode(),
+        assignmentManagerStub,
+        CommandSource.COMMAND_SOURCE_EXPLORER_CONTEXT,
+        dirUri,
+      );
+
+      sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, 200);
+      sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
+      expect(maxInFlight).to.equal(8); // hardcoded max concurrent upload
     });
 
     it('handles error during planning phase', async () => {

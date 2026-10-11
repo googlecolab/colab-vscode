@@ -85,8 +85,10 @@ export async function upload(
             }
           }
 
-          const uploadResults = await Promise.all(
-            fileOps.map(async (op) => {
+          const uploadResults = await mapWithConcurrency(
+            fileOps,
+            8, // max concurrent upload
+            async (op) => {
               const result = await uploadFile(vs, op.source, op.dest);
               const fileName = op.source.path.split('/').pop() ?? '';
               progress.report({
@@ -94,7 +96,7 @@ export async function upload(
                 increment: incrementPerFile,
               });
               return result;
-            }),
+            },
           );
 
           for (const result of uploadResults) {
@@ -271,4 +273,38 @@ async function uploadFile(
     log.error(`Failed to process ${dest.toString()}`, err);
     return { success: false, bytes: 0 };
   }
+}
+
+/**
+ * Maps over items with an async function, running at most `limit` calls at
+ * once. Results keep the order of the input.
+ *
+ * If `fn` rejects, the returned promise rejects, but calls already started
+ * keep running.
+ *
+ * @param items - The items to process.
+ * @param limit - The maximum number of concurrent calls to `fn`.
+ * @param fn - The async function applied to each item.
+ * @returns The results, in the same order as `items`.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+
+  return results;
 }
