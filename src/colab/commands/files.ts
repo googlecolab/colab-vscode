@@ -84,15 +84,15 @@ export async function upload(
               failCount++;
             }
           }
-
+          let done = 0;
           const uploadResults = await mapWithConcurrency(
             fileOps,
-            8, // max concurrent upload
+            16, // max concurrent upload
             async (op) => {
               const result = await uploadFile(vs, op.source, op.dest);
-              const fileName = op.source.path.split('/').pop() ?? '';
+              done++;
               progress.report({
-                message: `Importing ${fileName}...`,
+                message: `Importing ${done.toString()} of ${fileOps.length.toString()} files`,
                 increment: incrementPerFile,
               });
               return result;
