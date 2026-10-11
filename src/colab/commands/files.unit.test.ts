@@ -370,7 +370,7 @@ describe('File Commands', () => {
       sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
     });
 
-    it('upload file concurrently up to the limit', async () => {
+    it('uploads files concurrently up to the limit', async () => {
       (assignmentManagerStub.getServers as sinon.SinonStub)
         .withArgs('extension')
         .resolves([DEFAULT_SERVER]);
@@ -400,13 +400,6 @@ describe('File Commands', () => {
         await new Promise((r) => setImmediate(r));
         inFlight--;
       });
-
-      vsCodeStub.workspace.fs.readDirectory.resolves([
-        ['file.txt', vsCodeStub.FileType.File],
-      ]);
-      vsCodeStub.workspace.fs.readFile.resolves(new Uint8Array([]));
-      const fileExistsError = vsCodeStub.FileSystemError.FileExists('Exists');
-      vsCodeStub.workspace.fs.createDirectory.rejects(fileExistsError);
 
       await upload(
         vsCodeStub.asVsCode(),
