@@ -138,16 +138,12 @@ describe('AuthStorage', () => {
       );
     });
 
-    it('stores a session when no sessions with the same ID exist', async () => {
+    it('replaces a stored session with a different ID', async () => {
       await authStorage.storeSession(SESSION_1);
       await authStorage.storeSession(SESSION_2);
 
       const sessions = await authStorage.getSessions();
-      expect(sessions.length).to.equal(2);
-
-      const lastCall = secretsStub.store.lastCall;
-      expect(lastCall.args[1]).to.contain(SESSION_1.id);
-      expect(lastCall.args[1]).to.contain(SESSION_2.id);
+      expect(sessions).to.deep.equal([SESSION_2]);
     });
 
     it('updates an existing session if the ID matches', async () => {
