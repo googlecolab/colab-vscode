@@ -13,6 +13,8 @@ import { CommandSource, Outcome } from '../../telemetry/api';
 import { buildColabFileUri } from '../files';
 import { UPLOAD } from './constants';
 
+const MAX_CONCURRENT_FILES_UPLOAD = 16;
+
 /**
  * Uploads one or more files or directories to a selected Colab server.
  *
@@ -87,7 +89,7 @@ export async function upload(
           let done = 0;
           const uploadResults = await mapWithConcurrency(
             fileOps,
-            16, // max concurrent upload
+            MAX_CONCURRENT_FILES_UPLOAD,
             async (op) => {
               const result = await uploadFile(vs, op.source, op.dest);
               done++;
