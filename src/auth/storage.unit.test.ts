@@ -138,7 +138,7 @@ describe('AuthStorage', () => {
       );
     });
 
-    it('replaces a stored session with a different ID', async () => {
+    it('overwrites the stored session', async () => {
       await authStorage.storeSession(SESSION_1);
       await authStorage.storeSession(SESSION_2);
 
