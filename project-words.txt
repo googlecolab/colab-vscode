@@ -19,6 +19,7 @@ ipynb
 jupyterclient
 kernelspecs
 KHTML
+labelledby
 milli
 millis
 mocharc

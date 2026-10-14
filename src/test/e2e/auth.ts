@@ -59,10 +59,18 @@ export async function doOAuthSignIn(
 
   // Click Allow or Continue to authorize the scope (handles both v1 and v2
   // consent screens).
-  await chromeDriver.wait(until.urlContains('consent'), ELEMENT_WAIT_MS);
+  // Match the path, not just "consent": the OAuth query carries
+  // `prompt=consent`, so a bare substring matches the ID screen too.
+  await chromeDriver.wait(
+    until.urlMatches(/accounts\.google\.com\/signin\/oauth\/(v\d+\/)?consent/),
+    ELEMENT_WAIT_MS,
+  );
+  const consentButton = By.xpath("//span[text()='Allow' or text()='Continue']");
+  await chromeDriver.wait(until.elementLocated(consentButton), ELEMENT_WAIT_MS);
+  await grantAllGranularScopes(chromeDriver);
   await safeClick(
     chromeDriver,
-    By.xpath("//span[text()='Allow' or text()='Continue']"),
+    consentButton,
     '"Allow" or "Continue" button not visible on consent screen',
   );
 
@@ -71,6 +79,41 @@ export async function doOAuthSignIn(
     until.urlContains(expectedRedirectUrl),
     ELEMENT_WAIT_MS,
   );
+}
+
+/**
+ * Ticks "Select all" on a granular consent screen
+ * (`enable_granular_consent=true`), whose per-scope checkboxes start
+ * unchecked. Continuing without them grants nothing, yet still redirects.
+ *
+ * @param chromeDriver - The Chrome driver, on the consent screen.
+ */
+async function grantAllGranularScopes(chromeDriver: WebDriver): Promise<void> {
+  const selectAll = await chromeDriver.findElements(
+    By.xpath(
+      "//input[@type='checkbox'][@aria-labelledby=//*[normalize-space()='Select all']/@id]",
+    ),
+  );
+  if (selectAll.length === 0) {
+    console.log('No "Select all" on the consent screen; nothing to tick');
+    return;
+  }
+  // The native input sits under Material styling, so a WebDriver click can be
+  // intercepted; a DOM click fires the same change handler.
+  await chromeDriver.executeScript(
+    'if (!arguments[0].checked) arguments[0].click();',
+    selectAll[0],
+  );
+  const unchecked = await chromeDriver.executeScript<number>(
+    `return [...document.querySelectorAll('input[type="checkbox"]')]
+      .filter((c) => !c.checked).length;`,
+  );
+  if (unchecked > 0) {
+    throw new Error(
+      `${unchecked.toString()} consent checkbox(es) still unchecked after "Select all"`,
+    );
+  }
+  console.log('Ticked "Select all" on the consent screen');
 }
 
 /**
