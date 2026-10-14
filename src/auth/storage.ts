@@ -67,16 +67,15 @@ export class AuthStorage {
   }
 
   /**
-   * Stores a session, replacing the session with a matching ID
-   * if it has already been stored.
+   * Stores a session, replacing any previously stored sessions.
+   *
+   * Only a single account is supported, so storing never appends.
    *
    * @param session - The session to store.
    * @returns A promise that resolves when the session has been stored.
    */
   async storeSession(session: RefreshableAuthenticationSession): Promise<void> {
-    const sessions = await this.getSessions();
-    const otherSessions = sessions.filter((s) => s.id !== session.id);
-    await this.save([...otherSessions, session]);
+    await this.save([session]);
   }
 
   /**

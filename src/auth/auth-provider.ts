@@ -471,12 +471,17 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
 
   private async getSession() {
     const sessions = await this.storage.getSessions();
-    if (sessions.length > 1) {
-      throw new Error(
-        `Expected at most 1 session, but found ${sessions.length.toString()}`,
+    const newest = sessions.at(-1);
+    if (newest && sessions.length > 1) {
+      // Older versions appended sessions, so overlapping sign-ins could store
+      // several. Only one account is supported: keep the newest (last stored)
+      // rather than failing activation, which would make sign out unreachable.
+      log.warn(
+        `Expected at most 1 session, but found ${sessions.length.toString()}. Keeping the newest.`,
       );
+      await this.storage.storeSession(newest);
     }
-    return sessions.length > 0 ? sessions[0] : undefined;
+    return newest;
   }
 
   private assertReady(): void {

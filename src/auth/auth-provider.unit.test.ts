@@ -10,7 +10,7 @@ import { OAuth2Client } from 'google-auth-library';
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
-import { AuthenticationSession } from 'vscode';
+import { AuthenticationSession, SecretStorage } from 'vscode';
 import {
   AUTHORIZATION_HEADER,
   CONTENT_TYPE_JSON_HEADER,
@@ -18,6 +18,7 @@ import {
 import { Toggleable } from '../common/toggleable';
 import { PROVIDER_ID } from '../config/constants';
 import { Deferred } from '../test/helpers/async';
+import { SecretStorageFake } from '../test/helpers/secret-storage';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { AuthChangeEvent, GoogleAuthProvider } from './auth-provider';
 import { Credentials, LoginOptions } from './login';
@@ -344,15 +345,22 @@ describe('GoogleAuthProvider', () => {
         });
       });
 
-      it('rejects when there are multiple stored session', async () => {
-        storageStub.getSessions.resolves([
-          DEFAULT_REFRESH_SESSION,
-          DEFAULT_REFRESH_SESSION,
-        ]);
+      it('keeps only the newest when there are multiple stored sessions', async () => {
+        const newest = { ...DEFAULT_REFRESH_SESSION, id: 'newest' };
+        storageStub.getSessions.resolves([DEFAULT_REFRESH_SESSION, newest]);
+        sinon.stub(oauth2Client, 'refreshAccessToken').callsFake(() => {
+          oauth2Client.credentials.access_token = DEFAULT_ACCESS_TOKEN;
+        });
 
-        await expect(authProvider.initialize()).to.eventually.be.rejectedWith(
-          /at most 1 session/,
-        );
+        await expect(authProvider.initialize()).to.eventually.be.fulfilled;
+
+        sinon.assert.calledOnceWithExactly(storageStub.storeSession, newest);
+        sinon.assert.calledOnceWithExactly(onDidChangeSessionsStub, {
+          added: [],
+          removed: [],
+          changed: [{ ...DEFAULT_AUTH_SESSION, id: 'newest' }],
+          hasValidSession: true,
+        });
       });
     });
   });
@@ -852,6 +860,28 @@ describe('GoogleAuthProvider', () => {
         });
       });
 
+      it('replaces the newest of multiple stored sessions', async () => {
+        const older = {
+          ...DEFAULT_REFRESH_SESSION,
+          id: 'older',
+          account: { id: 'older@example.com', label: 'Older' },
+        };
+        const newest = { ...DEFAULT_REFRESH_SESSION, id: 'newest' };
+        storageStub.getSessions.resolves([older, newest]);
+
+        const session = await authProvider.createSession(SCOPES);
+
+        expect(session.id).to.equal('newest');
+        sinon.assert.calledOnceWithExactly(loginStub, SCOPES, {
+          includeGrantedScopes: true,
+          loginHint: newest.account.id,
+        });
+        sinon.assert.match(storageStub.storeSession.lastCall.args[0], {
+          id: 'newest',
+          refreshToken: DEFAULT_CREDENTIALS.refresh_token,
+        });
+      });
+
       it('creates a upgraded session', async () => {
         const signedInContext = signedInContextCalledWith();
         const session = await authProvider.createSession(UPGRADED_SCOPES);
@@ -902,17 +932,55 @@ describe('GoogleAuthProvider', () => {
           loginHint: UPGRADED_AUTH_SESSION.account.id,
         });
       });
+    });
 
-      it('rejects if there are multiple stored sessions', async () => {
-        storageStub.getSessions.resolves([
-          DEFAULT_REFRESH_SESSION,
-          DEFAULT_REFRESH_SESSION,
-        ]);
+    // Windows share the extension's secret storage but each runs its own
+    // provider, so VS Code does not serialize their sign-ins (#729).
+    it('stores one session when sign-ins in two windows overlap', async () => {
+      const secrets = new SecretStorageFake();
+      fetchStub.callsFake(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(DEFAULT_USER_INFO), {
+            status: 200,
+            headers: {
+              [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+            },
+          }),
+        ),
+      );
+      async function newWindow() {
+        const loginStarted = new Deferred<void>();
+        const loginDone = new Deferred<Credentials>();
+        const provider = new GoogleAuthProvider(
+          newVsCodeStub().asVsCode(),
+          new AuthStorage(secrets as Partial<SecretStorage> as SecretStorage),
+          new OAuth2Client(CLIENT_ID),
+          () => {
+            loginStarted.resolve();
+            return loginDone.promise;
+          },
+        );
+        await provider.initialize();
+        return { provider, loginStarted, loginDone };
+      }
+      const a = await newWindow();
+      const b = await newWindow();
 
-        await expect(
-          authProvider.createSession(SCOPES),
-        ).to.eventually.be.rejectedWith(/at most 1 session/);
-      });
+      // Both read the (empty) storage before either login completes.
+      const createA = a.provider.createSession(SCOPES);
+      const createB = b.provider.createSession(SCOPES);
+      await Promise.all([a.loginStarted.promise, b.loginStarted.promise]);
+      b.loginDone.resolve(UPGRADED_CREDENTIALS);
+      await createB;
+      a.loginDone.resolve(DEFAULT_CREDENTIALS);
+      const sessionA = await createA;
+
+      const stored = await new AuthStorage(
+        secrets as Partial<SecretStorage> as SecretStorage,
+      ).getSessions();
+      expect(stored.map((s) => s.id)).to.deep.equal([sessionA.id]);
+      a.provider.dispose();
+      b.provider.dispose();
     });
   });
 
