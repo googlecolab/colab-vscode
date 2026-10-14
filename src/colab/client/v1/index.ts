@@ -314,15 +314,11 @@ function extractUnauthorizedRedirectUri(error: unknown): string | undefined {
     return undefined;
   }
 
-  const details = errorBody.error.details ?? [];
-  if (
-    details.length !== 1 ||
-    !isErrorInfo(details[0]) ||
-    details[0].reason !== 'OAUTH_CONSENT_REQUIRED'
-  ) {
-    return undefined;
-  }
-  return details[0].metadata?.unauthorized_redirect_uri;
+  // Other details (e.g. DebugInfo for internal accounts) may ride along.
+  const consentRequired = (errorBody.error.details ?? [])
+    .filter(isErrorInfo)
+    .find((d) => d.reason === 'OAUTH_CONSENT_REQUIRED');
+  return consentRequired?.metadata?.unauthorized_redirect_uri;
 }
 
 function isOnePlatformError(obj: unknown): obj is OnePlatformError {

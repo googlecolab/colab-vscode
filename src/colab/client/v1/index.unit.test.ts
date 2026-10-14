@@ -365,47 +365,62 @@ describe('ColabClient', () => {
       });
     });
 
-    it('extracts unauthorized redirect URI from OAUTH_CONSENT_REQUIRED error', async () => {
-      const oauthUrl = 'test-unauthorized-redirect-uri';
-      const errorBody = {
-        error: {
-          code: 400,
-          message: 'Precondition check failed.',
-          status: 'FAILED_PRECONDITION',
-          details: [
-            {
-              '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
-              reason: 'OAUTH_CONSENT_REQUIRED',
-              domain: COLAB_HOST,
-              metadata: {
-                unauthorized_redirect_uri: oauthUrl,
+    for (const { name, extraDetails } of [
+      { name: 'a lone ErrorInfo', extraDetails: [] },
+      {
+        // The server attaches DebugInfo for some (e.g. internal) accounts.
+        name: 'an ErrorInfo alongside DebugInfo',
+        extraDetails: [
+          {
+            '@type': 'type.googleapis.com/google.rpc.DebugInfo',
+            detail: '[ORIGINAL ERROR] generic::failed_precondition',
+          },
+        ],
+      },
+    ]) {
+      it(`extracts unauthorized redirect URI from OAUTH_CONSENT_REQUIRED error with ${name}`, async () => {
+        const oauthUrl = 'test-unauthorized-redirect-uri';
+        const errorBody = {
+          error: {
+            code: 400,
+            message: 'Precondition check failed.',
+            status: 'FAILED_PRECONDITION',
+            details: [
+              {
+                '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                reason: 'OAUTH_CONSENT_REQUIRED',
+                domain: COLAB_HOST,
+                metadata: {
+                  unauthorized_redirect_uri: oauthUrl,
+                },
               },
-            },
-          ],
-        },
-      };
-      fetchStub
-        .withArgs(
-          urlMatcher({
-            method: 'POST',
-            host: GOOGLE_APIS_HOST,
-            path: '/v1/credential-propagation:enable',
-            otherHeaders: {
-              [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
-            },
-            withAuthUser: false,
-          }),
-        )
-        .resolves(new Response(JSON.stringify(errorBody), { status: 400 }));
-      const endpoint = 'mock-server';
+              ...extraDetails,
+            ],
+          },
+        };
+        fetchStub
+          .withArgs(
+            urlMatcher({
+              method: 'POST',
+              host: GOOGLE_APIS_HOST,
+              path: '/v1/credential-propagation:enable',
+              otherHeaders: {
+                [CONTENT_TYPE_JSON_HEADER.key]: CONTENT_TYPE_JSON_HEADER.value,
+              },
+              withAuthUser: false,
+            }),
+          )
+          .resolves(new Response(JSON.stringify(errorBody), { status: 400 }));
+        const endpoint = 'mock-server';
 
-      const result = client.propagateCredentials(endpoint, {
-        authType: AuthType.DFS_EPHEMERAL,
-        dryRun: true,
+        const result = client.propagateCredentials(endpoint, {
+          authType: AuthType.DFS_EPHEMERAL,
+          dryRun: true,
+        });
+
+        await expect(result).to.eventually.equal(oauthUrl);
       });
-
-      await expect(result).to.eventually.equal(oauthUrl);
-    });
+    }
 
     const errorTests = [
       {
@@ -423,13 +438,6 @@ describe('ColabClient', () => {
       {
         name: 'errors with non-ErrorInfo details',
         status: 400,
-        hasNonErrorInfoDetail: true,
-      },
-      {
-        name: 'errors with more than one detail',
-        status: 400,
-        hasErrorInfo: true,
-        reason: 'OAUTH_CONSENT_REQUIRED',
         hasNonErrorInfoDetail: true,
       },
     ];
