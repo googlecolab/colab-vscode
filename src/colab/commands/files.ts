@@ -108,9 +108,8 @@ export async function upload(
                   increment: incrementPerFile,
                 });
               }
-            }
-            ),
-          )
+            }),
+          );
         },
       );
     }
