@@ -72,10 +72,14 @@ export async function upload(
           cancellable: false,
         },
         async (progress) => {
-          const dirOps = operations.filter((op) => op.type === 'directory');
+          // `workspace.fs.writeFile` creates missing parent directories, so
+          // only empty directories need to be created explicitly.
+          const emptyDirOps = operations.filter(
+            (op) => op.type === 'directory' && op.empty,
+          );
           const fileOps = operations.filter((op) => op.type === 'file');
 
-          for (const op of dirOps) {
+          for (const op of emptyDirOps) {
             try {
               await createDirectory(vs, op.dest);
             } catch (err) {
@@ -194,7 +198,7 @@ interface ServerItem extends QuickPickItem {
 }
 
 type UploadOperation =
-  | { type: 'directory'; dest: vscode.Uri }
+  | { type: 'directory'; dest: vscode.Uri; empty: boolean }
   | { type: 'file'; source: vscode.Uri; dest: vscode.Uri };
 
 async function buildUploadPlan(
@@ -214,8 +218,8 @@ async function buildUploadPlan(
     if (stat.type === vs.FileType.File) {
       operations.push({ type: 'file', source, dest });
     } else if (stat.type === vs.FileType.Directory) {
-      operations.push({ type: 'directory', dest });
       const entries = await vs.workspace.fs.readDirectory(source);
+      operations.push({ type: 'directory', dest, empty: entries.length === 0 });
       for (const [name] of entries) {
         try {
           await planUploadsRecursively(
