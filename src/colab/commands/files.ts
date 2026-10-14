@@ -91,28 +91,26 @@ export async function upload(
             }
           }
           let done = 0;
-          const uploadResults = await mapWithConcurrency(
-            fileOps,
-            MAX_CONCURRENT_FILES_UPLOAD,
-            async (op) => {
-              const result = await uploadFile(vs, op.source, op.dest);
-              done++;
-              progress.report({
-                message: `Importing ${done.toString()} of ${fileOps.length.toString()} files`,
-                increment: incrementPerFile,
-              });
-              return result;
-            },
-          );
-
-          for (const result of uploadResults) {
-            if (result.success) {
-              successCount++;
-              uploadedBytes += result.bytes;
-            } else {
-              failCount++;
+          const queue = fileOps.values();
+          await Promise.all(
+            Array.from({ length: MAX_CONCURRENT_FILES_UPLOAD }, async () => {
+              for (const op of queue) {
+                const bytes = await uploadFile(vs, op.source, op.dest);
+                if (bytes === undefined) {
+                  failCount++;
+                } else {
+                  successCount++;
+                  uploadedBytes += bytes;
+                }
+                done++;
+                progress.report({
+                  message: `Importing ${done.toString()} of ${fileOps.length.toString()} files`,
+                  increment: incrementPerFile,
+                });
+              }
             }
-          }
+            ),
+          )
         },
       );
     }
@@ -270,47 +268,13 @@ async function uploadFile(
   vs: typeof vscode,
   source: vscode.Uri,
   dest: vscode.Uri,
-): Promise<{ success: boolean; bytes: number }> {
+): Promise<number | undefined> {
   try {
     const content = await vs.workspace.fs.readFile(source);
     await vs.workspace.fs.writeFile(dest, content);
-    return { success: true, bytes: content.byteLength };
+    return content.byteLength;
   } catch (err) {
     log.error(`Failed to process ${dest.toString()}`, err);
-    return { success: false, bytes: 0 };
+    return undefined;
   }
-}
-
-/**
- * Maps over items with an async function, running at most `limit` calls at
- * once. Results keep the order of the input.
- *
- * If `fn` rejects, the returned promise rejects, but calls already started
- * keep running.
- *
- * @param items - The items to process.
- * @param limit - The maximum number of concurrent calls to `fn`.
- * @param fn - The async function applied to each item.
- * @returns The results, in the same order as `items`.
- */
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i]);
-    }
-  };
-
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, worker),
-  );
-
-  return results;
 }
