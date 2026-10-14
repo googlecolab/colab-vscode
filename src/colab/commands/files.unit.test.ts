@@ -261,10 +261,8 @@ describe('File Commands', () => {
         dirUri,
       );
 
-      sinon.assert.calledWith(
-        vsCodeStub.workspace.fs.createDirectory,
-        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/dir`),
-      );
+      // `workspace.fs.writeFile` creates the parent directory.
+      sinon.assert.notCalled(vsCodeStub.workspace.fs.createDirectory);
       sinon.assert.calledWith(
         vsCodeStub.workspace.fs.writeFile,
         TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/dir/sub.txt`),
@@ -334,6 +332,7 @@ describe('File Commands', () => {
         .resolves([DEFAULT_SERVER]);
       const dirUri = TestUri.parse('file:///local/dir');
       const subFileUri = TestUri.parse('file:///local/dir/file.txt');
+      const emptyDirUri = TestUri.parse('file:///local/dir/empty');
       vsCodeStub.workspace.fs.stat
         .withArgs(dirUri)
         .resolves({
@@ -348,10 +347,22 @@ describe('File Commands', () => {
           ctime: 0,
           mtime: 0,
           size: 0,
+        })
+        .withArgs(emptyDirUri)
+        .resolves({
+          type: vsCodeStub.FileType.Directory,
+          ctime: 0,
+          mtime: 0,
+          size: 0,
         });
-      vsCodeStub.workspace.fs.readDirectory.resolves([
-        ['file.txt', vsCodeStub.FileType.File],
-      ]);
+      vsCodeStub.workspace.fs.readDirectory
+        .withArgs(dirUri)
+        .resolves([
+          ['file.txt', vsCodeStub.FileType.File],
+          ['empty', vsCodeStub.FileType.Directory],
+        ])
+        .withArgs(emptyDirUri)
+        .resolves([]);
       vsCodeStub.workspace.fs.readFile.resolves(new Uint8Array([]));
       const fileExistsError = vsCodeStub.FileSystemError.FileExists('Exists');
       vsCodeStub.workspace.fs.createDirectory.rejects(fileExistsError);
@@ -363,6 +374,10 @@ describe('File Commands', () => {
         dirUri,
       );
 
+      sinon.assert.calledOnceWithExactly(
+        vsCodeStub.workspace.fs.createDirectory,
+        TestUri.parse(`colab://${DEFAULT_SERVER.id}/content/dir/empty`),
+      );
       sinon.assert.calledWith(
         vsCodeStub.window.showInformationMessage,
         'Successfully uploaded 1 item to foo',
@@ -411,6 +426,81 @@ describe('File Commands', () => {
       sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, 200);
       sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
       expect(maxInFlight).to.equal(16); // hardcoded max concurrent upload
+    });
+
+    it('uploads a deeply nested tree with many files', async () => {
+      (assignmentManagerStub.getServers as sinon.SinonStub)
+        .withArgs('extension')
+        .resolves([DEFAULT_SERVER]);
+
+      // Every directory holds a few files and two subdirectories, down to
+      // DEPTH levels. Each leaf directory also holds an empty directory.
+      const DEPTH = 6;
+      const FILES_PER_DIR = 3;
+      const localDirs = new Map<string, [string, FileType][]>();
+      const localFiles = new Map<string, Uint8Array>();
+      const buildLocal = (path: string, depth: number) => {
+        const entries: [string, FileType][] = [];
+        for (let i = 0; i < FILES_PER_DIR; i++) {
+          const name = `file-${i.toString()}.txt`;
+          localFiles.set(`${path}/${name}`, new TextEncoder().encode(path));
+          entries.push([name, vsCodeStub.FileType.File]);
+        }
+        if (depth < DEPTH) {
+          for (const sub of ['a', 'b']) {
+            buildLocal(`${path}/${sub}`, depth + 1);
+            entries.push([sub, vsCodeStub.FileType.Directory]);
+          }
+        } else {
+          localDirs.set(`${path}/empty`, []);
+          entries.push(['empty', vsCodeStub.FileType.Directory]);
+        }
+        localDirs.set(path, entries);
+      };
+      buildLocal('/local/deep', 1);
+      vsCodeStub.workspace.fs.stat.callsFake((uri) =>
+        Promise.resolve({
+          type: localDirs.has(uri.path)
+            ? vsCodeStub.FileType.Directory
+            : vsCodeStub.FileType.File,
+          ctime: 0,
+          mtime: 0,
+          size: 0,
+        }),
+      );
+      vsCodeStub.workspace.fs.readDirectory.callsFake((uri) =>
+        Promise.resolve(localDirs.get(uri.path) ?? []),
+      );
+      vsCodeStub.workspace.fs.readFile.callsFake((uri) =>
+        Promise.resolve(localFiles.get(uri.path) ?? new Uint8Array()),
+      );
+
+      await upload(
+        vsCodeStub.asVsCode(),
+        assignmentManagerStub,
+        CommandSource.COMMAND_SOURCE_EXPLORER_CONTEXT,
+        TestUri.parse('file:///local/deep'),
+      );
+
+      // 63 directories × 3 files each. `workspace.fs.writeFile` creates
+      // missing parent directories, so only the 32 empty leaf directories are
+      // created explicitly.
+      sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, 189);
+      sinon.assert.callCount(vsCodeStub.workspace.fs.createDirectory, 32);
+      for (const [path, content] of localFiles) {
+        sinon.assert.calledWith(
+          vsCodeStub.workspace.fs.writeFile,
+          TestUri.parse(
+            `colab://${DEFAULT_SERVER.id}${path.replace('/local/', '/content/')}`,
+          ),
+          content,
+        );
+      }
+      sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
+      sinon.assert.calledWith(
+        vsCodeStub.window.showInformationMessage,
+        `Successfully uploaded ${localFiles.size.toString()} items to foo`,
+      );
     });
 
     it('handles error during planning phase', async () => {
