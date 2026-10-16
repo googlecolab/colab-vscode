@@ -13,6 +13,8 @@ import { CommandSource, Outcome } from '../../telemetry/api';
 import { buildColabFileUri } from '../files';
 import { UPLOAD } from './constants';
 
+const MAX_CONCURRENT_FILES_UPLOAD = 16;
+
 /**
  * Uploads one or more files or directories to a selected Colab server.
  *
@@ -70,26 +72,44 @@ export async function upload(
           cancellable: false,
         },
         async (progress) => {
-          for (const op of operations) {
+          // `workspace.fs.writeFile` creates missing parent directories, so
+          // only empty directories need to be created explicitly.
+          const emptyDirOps = operations.filter(
+            (op) => op.type === 'directory' && op.empty,
+          );
+          const fileOps = operations.filter((op) => op.type === 'file');
+
+          for (const op of emptyDirOps) {
             try {
-              if (op.type === 'directory') {
-                await createDirectory(vs, op.dest);
-              } else {
-                const fileName = op.source.path.split('/').pop() ?? '';
-                progress.report({
-                  message: `Importing ${fileName}...`,
-                  increment: incrementPerFile,
-                });
-                const content = await vs.workspace.fs.readFile(op.source);
-                await vs.workspace.fs.writeFile(op.dest, content);
-                successCount++;
-                uploadedBytes += content.byteLength;
-              }
+              await createDirectory(vs, op.dest);
             } catch (err) {
-              log.error(`Failed to process ${op.dest.toString()}`, err);
+              log.error(
+                `Failed to create directory ${op.dest.toString()}`,
+                err,
+              );
               failCount++;
             }
           }
+          let done = 0;
+          const queue = fileOps.values();
+          await Promise.all(
+            Array.from({ length: MAX_CONCURRENT_FILES_UPLOAD }, async () => {
+              for (const op of queue) {
+                const bytes = await uploadFile(vs, op.source, op.dest);
+                if (bytes === undefined) {
+                  failCount++;
+                } else {
+                  successCount++;
+                  uploadedBytes += bytes;
+                }
+                done++;
+                progress.report({
+                  message: `Importing ${done.toString()} of ${fileOps.length.toString()} files`,
+                  increment: incrementPerFile,
+                });
+              }
+            }),
+          );
         },
       );
     }
@@ -175,7 +195,7 @@ interface ServerItem extends QuickPickItem {
 }
 
 type UploadOperation =
-  | { type: 'directory'; dest: vscode.Uri }
+  | { type: 'directory'; dest: vscode.Uri; empty: boolean }
   | { type: 'file'; source: vscode.Uri; dest: vscode.Uri };
 
 async function buildUploadPlan(
@@ -195,8 +215,8 @@ async function buildUploadPlan(
     if (stat.type === vs.FileType.File) {
       operations.push({ type: 'file', source, dest });
     } else if (stat.type === vs.FileType.Directory) {
-      operations.push({ type: 'directory', dest });
       const entries = await vs.workspace.fs.readDirectory(source);
+      operations.push({ type: 'directory', dest, empty: entries.length === 0 });
       for (const [name] of entries) {
         try {
           await planUploadsRecursively(
@@ -240,5 +260,20 @@ async function createDirectory(vs: typeof vscode, uri: vscode.Uri) {
     if (!dirExists) {
       throw err;
     }
+  }
+}
+
+async function uploadFile(
+  vs: typeof vscode,
+  source: vscode.Uri,
+  dest: vscode.Uri,
+): Promise<number | undefined> {
+  try {
+    const content = await vs.workspace.fs.readFile(source);
+    await vs.workspace.fs.writeFile(dest, content);
+    return content.byteLength;
+  } catch (err) {
+    log.error(`Failed to process ${dest.toString()}`, err);
+    return undefined;
   }
 }
