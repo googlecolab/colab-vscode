@@ -35,7 +35,7 @@ Activate the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P` on Mac.
 
 | Command                                  | Description                                                         |
 | ---------------------------------------- | ------------------------------------------------------------------- |
-| `Colab: Remove Server`                   | Select an assigned Colab server to remove.                          |
+| `Colab: Remove Server`                   | Select one or more assigned Colab servers to remove.                |
 | `Colab: Sign Out`                        | Sign out of Colab.                                                  |
 | `Colab: Mount Google Drive to Server...` | Append a code snippet to the active notebook to mount Google Drive. |
 
