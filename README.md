@@ -51,7 +51,7 @@ experience. Telemetry collection respects VS Code's built-in telemetry setting.
 To opt out, set `telemetry.telemetryLevel` to `"off"` in your VS Code settings.
 
 See Colab's
-[Terms of Service](https://research.google.com/colaboratory/tos_v5.html) and the
+[Terms of Service](https://research.google.com/colaboratory/tos_v6.html) and the
 [Google Privacy Policy](https://policies.google.com/privacy), which apply to
 usage of this extension.
 
