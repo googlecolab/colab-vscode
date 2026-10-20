@@ -15,11 +15,10 @@ import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { Variant } from '../types';
-import {
-  MAX_CONCURRENT_FILES_UPLOAD,
-  MAX_IN_FLIGHT_UPLOAD_BYTES,
-  upload,
-} from './files';
+import { upload } from './files';
+
+const MAX_CONCURRENT_FILES_UPLOAD = 16;
+const MAX_IN_FLIGHT_UPLOAD_BYTES = 64 * 1024 * 1024;
 
 const DEFAULT_SERVER = {
   id: `r-${randomUUID()}`,
