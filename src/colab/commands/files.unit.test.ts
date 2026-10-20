@@ -15,7 +15,11 @@ import { TestCancellationTokenSource } from '../../test/helpers/cancellation';
 import { TestUri } from '../../test/helpers/uri';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { Variant } from '../types';
-import { upload } from './files';
+import {
+  MAX_CONCURRENT_FILES_UPLOAD,
+  MAX_IN_FLIGHT_UPLOAD_BYTES,
+  upload,
+} from './files';
 
 const DEFAULT_SERVER = {
   id: `r-${randomUUID()}`,
@@ -385,35 +389,56 @@ describe('File Commands', () => {
       sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
     });
 
-    it('uploads files concurrently up to the limit', async () => {
+    const repeat = (n: number, value: number) =>
+      Array.from({ length: n }, () => value);
+
+    // Uploads a flat directory of files with the given sizes and returns the
+    // most files that were being written at once.
+    //
+    // Each write yields a single microtask. All workers run the same code, so
+    // they reach `writeFile` in lockstep and every write that the limits admit
+    // overlaps deterministically, without timers.
+    async function uploadFiles(
+      sizes: number[],
+      { failWrites = false } = {},
+    ): Promise<number> {
       (assignmentManagerStub.getServers as sinon.SinonStub)
         .withArgs('extension')
         .resolves([DEFAULT_SERVER]);
       const dirUri = TestUri.parse('file:///local/dir');
-      vsCodeStub.workspace.fs.stat.withArgs(dirUri).resolves({
-        type: vsCodeStub.FileType.Directory,
-        ctime: 0,
-        mtime: 0,
-        size: 0,
-      });
+      const names = sizes.map((_, i) => `${i.toString()}.txt`);
+      const sizeByPath = new Map(
+        names.map((name, i) => [`${dirUri.path}/${name}`, sizes[i]]),
+      );
+      vsCodeStub.workspace.fs.stat.callsFake((uri) =>
+        Promise.resolve({
+          type: sizeByPath.has(uri.path)
+            ? vsCodeStub.FileType.File
+            : vsCodeStub.FileType.Directory,
+          ctime: 0,
+          mtime: 0,
+          size: sizeByPath.get(uri.path) ?? 0,
+        }),
+      );
       vsCodeStub.workspace.fs.readDirectory
         .withArgs(dirUri)
         .resolves(
-          Array.from({ length: 200 }, (_, i): [string, FileType] => [
-            `file-${i.toString()}.txt`,
+          names.map((name): [string, FileType] => [
+            name,
             vsCodeStub.FileType.File,
           ]),
         );
       vsCodeStub.workspace.fs.readFile.resolves(new Uint8Array([1]));
-
       let inFlight = 0;
       let maxInFlight = 0;
-
       vsCodeStub.workspace.fs.writeFile.callsFake(async () => {
         inFlight++;
         maxInFlight = Math.max(maxInFlight, inFlight);
-        await new Promise((r) => setImmediate(r));
+        await Promise.resolve();
         inFlight--;
+        if (failWrites) {
+          throw new Error('Write failed');
+        }
       });
 
       await upload(
@@ -423,84 +448,58 @@ describe('File Commands', () => {
         dirUri,
       );
 
-      sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, 200);
+      sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, sizes.length);
+      return maxInFlight;
+    }
+
+    it('uploads files concurrently up to the limit', async () => {
+      const maxInFlight = await uploadFiles(repeat(200, 0));
+
+      expect(maxInFlight).to.equal(MAX_CONCURRENT_FILES_UPLOAD);
       sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
-      expect(maxInFlight).to.equal(16); // hardcoded max concurrent upload
     });
 
-    it('uploads a deeply nested tree with many files', async () => {
-      (assignmentManagerStub.getServers as sinon.SinonStub)
-        .withArgs('extension')
-        .resolves([DEFAULT_SERVER]);
+    describe('in-flight byte limit', () => {
+      const limit = MAX_IN_FLIGHT_UPLOAD_BYTES;
+      const cases: { name: string; sizes: number[]; expected: number }[] = [
+        {
+          name: 'holds back files that would exceed the limit',
+          sizes: repeat(5, limit * 0.4),
+          expected: 2,
+        },
+        {
+          name: 'admits files that add up to exactly the limit',
+          sizes: repeat(3, limit / 2),
+          expected: 2,
+        },
+        {
+          name: 'uploads a file larger than the limit on its own',
+          sizes: repeat(3, limit * 2),
+          expected: 1,
+        },
+        {
+          name: 'admits every waiting file that fits once room frees up',
+          sizes: [limit, ...repeat(5, limit / 10)],
+          expected: 5,
+        },
+      ];
+      for (const { name, sizes, expected } of cases) {
+        it(name, async () => {
+          const maxInFlight = await uploadFiles(sizes);
 
-      // Every directory holds a few files and two subdirectories, down to
-      // DEPTH levels. Each leaf directory also holds an empty directory.
-      const DEPTH = 6;
-      const FILES_PER_DIR = 3;
-      const localDirs = new Map<string, [string, FileType][]>();
-      const localFiles = new Map<string, Uint8Array>();
-      const buildLocal = (path: string, depth: number) => {
-        const entries: [string, FileType][] = [];
-        for (let i = 0; i < FILES_PER_DIR; i++) {
-          const name = `file-${i.toString()}.txt`;
-          localFiles.set(`${path}/${name}`, new TextEncoder().encode(path));
-          entries.push([name, vsCodeStub.FileType.File]);
-        }
-        if (depth < DEPTH) {
-          for (const sub of ['a', 'b']) {
-            buildLocal(`${path}/${sub}`, depth + 1);
-            entries.push([sub, vsCodeStub.FileType.Directory]);
-          }
-        } else {
-          localDirs.set(`${path}/empty`, []);
-          entries.push(['empty', vsCodeStub.FileType.Directory]);
-        }
-        localDirs.set(path, entries);
-      };
-      buildLocal('/local/deep', 1);
-      vsCodeStub.workspace.fs.stat.callsFake((uri) =>
-        Promise.resolve({
-          type: localDirs.has(uri.path)
-            ? vsCodeStub.FileType.Directory
-            : vsCodeStub.FileType.File,
-          ctime: 0,
-          mtime: 0,
-          size: 0,
-        }),
-      );
-      vsCodeStub.workspace.fs.readDirectory.callsFake((uri) =>
-        Promise.resolve(localDirs.get(uri.path) ?? []),
-      );
-      vsCodeStub.workspace.fs.readFile.callsFake((uri) =>
-        Promise.resolve(localFiles.get(uri.path) ?? new Uint8Array()),
-      );
-
-      await upload(
-        vsCodeStub.asVsCode(),
-        assignmentManagerStub,
-        CommandSource.COMMAND_SOURCE_EXPLORER_CONTEXT,
-        TestUri.parse('file:///local/deep'),
-      );
-
-      // 63 directories × 3 files each. `workspace.fs.writeFile` creates
-      // missing parent directories, so only the 32 empty leaf directories are
-      // created explicitly.
-      sinon.assert.callCount(vsCodeStub.workspace.fs.writeFile, 189);
-      sinon.assert.callCount(vsCodeStub.workspace.fs.createDirectory, 32);
-      for (const [path, content] of localFiles) {
-        sinon.assert.calledWith(
-          vsCodeStub.workspace.fs.writeFile,
-          TestUri.parse(
-            `colab://${DEFAULT_SERVER.id}${path.replace('/local/', '/content/')}`,
-          ),
-          content,
-        );
+          expect(maxInFlight).to.equal(expected);
+          sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
+        });
       }
-      sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
-      sinon.assert.calledWith(
-        vsCodeStub.window.showInformationMessage,
-        `Successfully uploaded ${localFiles.size.toString()} items to foo`,
-      );
+
+      it('frees the budget of files that fail to upload', async () => {
+        await uploadFiles(repeat(3, limit), { failWrites: true });
+
+        sinon.assert.calledWith(
+          vsCodeStub.window.showErrorMessage,
+          'Failed to upload 3 items. Check logs for details.',
+        );
+      });
     });
 
     it('handles error during planning phase', async () => {

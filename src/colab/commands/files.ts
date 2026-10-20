@@ -13,7 +13,18 @@ import { CommandSource, Outcome } from '../../telemetry/api';
 import { buildColabFileUri } from '../files';
 import { UPLOAD } from './constants';
 
-const MAX_CONCURRENT_FILES_UPLOAD = 16;
+/**
+ * Maximum number of files read and written at once. Caps request fan-out to
+ * the Colab server while still hiding per-file round-trip latency.
+ */
+export const MAX_CONCURRENT_FILES_UPLOAD = 16;
+
+/**
+ * Maximum combined size of the files being uploaded at once. Each file is read
+ * fully into memory and base64-encoded for the request, so memory use is a few
+ * times this raw byte count. A single larger file is still uploaded on its own.
+ */
+export const MAX_IN_FLIGHT_UPLOAD_BYTES = 64 * 1024 * 1024;
 
 /**
  * Uploads one or more files or directories to a selected Colab server.
@@ -91,11 +102,18 @@ export async function upload(
             }
           }
           let done = 0;
+          const budget = new ByteBudget(MAX_IN_FLIGHT_UPLOAD_BYTES);
           const queue = fileOps.values();
           await Promise.all(
             Array.from({ length: MAX_CONCURRENT_FILES_UPLOAD }, async () => {
               for (const op of queue) {
-                const bytes = await uploadFile(vs, op.source, op.dest);
+                await budget.acquire(op.size);
+                let bytes: number | undefined;
+                try {
+                  bytes = await uploadFile(vs, op.source, op.dest);
+                } finally {
+                  budget.release(op.size);
+                }
                 if (bytes === undefined) {
                   failCount++;
                 } else {
@@ -196,7 +214,7 @@ interface ServerItem extends QuickPickItem {
 
 type UploadOperation =
   | { type: 'directory'; dest: vscode.Uri; empty: boolean }
-  | { type: 'file'; source: vscode.Uri; dest: vscode.Uri };
+  | { type: 'file'; source: vscode.Uri; dest: vscode.Uri; size: number };
 
 async function buildUploadPlan(
   vs: typeof vscode,
@@ -213,7 +231,7 @@ async function buildUploadPlan(
   ) => {
     const stat = await vs.workspace.fs.stat(source);
     if (stat.type === vs.FileType.File) {
-      operations.push({ type: 'file', source, dest });
+      operations.push({ type: 'file', source, dest, size: stat.size });
     } else if (stat.type === vs.FileType.Directory) {
       const entries = await vs.workspace.fs.readDirectory(source);
       operations.push({ type: 'directory', dest, empty: entries.length === 0 });
@@ -275,5 +293,30 @@ async function uploadFile(
   } catch (err) {
     log.error(`Failed to process ${dest.toString()}`, err);
     return undefined;
+  }
+}
+
+/**
+ * Admits work while the combined size of admitted items stays within `limit`.
+ * An item larger than `limit` is admitted once nothing else is in flight.
+ */
+class ByteBudget {
+  private used = 0;
+  private waiters: (() => void)[] = [];
+
+  constructor(private readonly limit: number) {}
+
+  async acquire(bytes: number): Promise<void> {
+    while (this.used > 0 && this.used + bytes > this.limit) {
+      await new Promise<void>((resolve) => this.waiters.push(resolve));
+    }
+    this.used += bytes;
+  }
+
+  release(bytes: number): void {
+    this.used -= bytes;
+    for (const wake of this.waiters.splice(0)) {
+      wake();
+    }
   }
 }
