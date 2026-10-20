@@ -174,43 +174,18 @@ export async function removeServer(
       })
     )
       .map((item) => item.value)
-      .filter((s): s is ColabAssignedServer | UnownedServer => !!s);
-    if (selectedServers.length === 0) {
-      return;
-    }
+      .filter((s) => s !== undefined);
 
-    const failed: (ColabAssignedServer | UnownedServer)[] = [];
-    await vs.window.withProgress(
-      {
-        cancellable: false,
-        location: vs.ProgressLocation.Notification,
-        title:
-          selectedServers.length === 1
-            ? `Removing server "${selectedServers[0].label}"...`
-            : `Removing ${selectedServers.length.toString()} servers...`,
-      },
-      async () => {
-        // Remove one at a time: `ServerStorage.remove` does a read-modify-write
-        // of the stored servers, so concurrent removals can overwrite each
-        // other and leave a removed server in storage.
-        for (const server of selectedServers) {
-          try {
-            await assignmentManager.unassignServer(server);
-          } catch (err) {
-            // Catching lets the remaining removals proceed, but also hides the
-            // error from the command's error tracking, so report it here.
-            log.error(`Failed to remove server "${server.label}"`, err);
-            telemetry.logError(err);
-            failed.push(server);
-          }
-        }
-      },
-    );
-    if (failed.length > 0) {
-      const labels = failed.map((s) => `"${s.label}"`).join(', ');
-      const countPart = failed.length > 1 ? 'servers' : 'server';
-      void vs.window.showErrorMessage(
-        `Failed to remove ${countPart} ${labels}. Check logs for details.`,
+    // Remove one at a time, since concurrent removals race to update the
+    // stored servers.
+    for (const server of selectedServers) {
+      await vs.window.withProgress(
+        {
+          cancellable: false,
+          location: vs.ProgressLocation.Notification,
+          title: `Removing server "${server.label}"...`,
+        },
+        () => assignmentManager.unassignServer(server),
       );
     }
     return undefined;

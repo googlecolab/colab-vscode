@@ -171,12 +171,11 @@ async function signIn(
     );
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
-      // The picker is multi-select: selecting checks the item, and confirming
-      // removes the checked servers.
       await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
+      // The picker is multi-select, so selecting only checks the item.
       await confirmInputBoxWithDefault(vsCodeDriver, 'Remove Server');
     } catch (err: unknown) {
-      console.warn('Could not remove "Colab CPU" for cleanup.', err);
+      console.warn('Could not select "Colab CPU" for cleanup.', err);
     }
     await safeExecuteCommand(workbench, 'View: Close All Editors');
     await pushDialogButtonIfShown(vsCodeDriver, "Don't Save", DIALOG_WAIT_MS);
