@@ -298,6 +298,60 @@ export async function selectQuickPickItemIfShown(
   }
 }
 
+/**
+ * Like {@link selectQuickPickItem} but for a multi-select QuickPick, where
+ * clicking an item only checks it. Confirm the picker afterwards (e.g. with
+ * {@link confirmInputBoxWithDefault}) to accept the checked items.
+ *
+ * `selectQuickPickItem` can't be used for these pickers: their items render
+ * as checkboxes, which `InputBox.findQuickPick` doesn't find.
+ *
+ * @param driver - The driver instance.
+ * @param expectedPickerSubstring - A substring uniquely identifying the
+ * picker the caller expects on screen. See {@link selectQuickPickItem} for
+ * how this is matched.
+ * @param item - The QuickPick item label substring to check.
+ */
+export async function checkQuickPickItem(
+  driver: WebDriver,
+  expectedPickerSubstring: string,
+  item: string,
+): Promise<void> {
+  await driver.wait(
+    async () => {
+      try {
+        const inputBox = await InputBox.create(DIALOG_CHECK_WAIT_MS);
+        const identity = await pickerIdentity(inputBox);
+        if (
+          !pickerIdentityMatches(
+            [identity.title, identity.ariaLabel, identity.placeholder],
+            expectedPickerSubstring,
+          )
+        ) {
+          return false;
+        }
+        await inputBox.setText(item);
+        for (const checkbox of await inputBox.getCheckboxes()) {
+          if (!(await checkbox.getLabel()).includes(item)) {
+            continue;
+          }
+          // Only click when unchecked, so that a retry doesn't uncheck it.
+          if (!(await checkbox.isSelected())) {
+            await checkbox.select();
+          }
+          return await checkbox.isSelected();
+        }
+        return false;
+      } catch {
+        // Swallow errors so we keep polling until the timeout fires.
+        return false;
+      }
+    },
+    ELEMENT_WAIT_MS,
+    `Could not check "${item}" in QuickPick matching "${expectedPickerSubstring}"`,
+  );
+}
+
 function formatSelectTimeoutMessage(
   expectedPickerSubstring: string | undefined,
   item: string,

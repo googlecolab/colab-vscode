@@ -14,6 +14,7 @@ import { CodeUtil } from 'vscode-extension-tester/out/util/codeUtil';
 import { CONFIG } from '../../colab-config';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
+  checkQuickPickItem,
   confirmInputBoxWithDefault,
   createNotebook,
   dismissAnyOpenInput,
@@ -171,8 +172,7 @@ async function signIn(
     );
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
-      await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
-      // The picker is multi-select, so selecting only checks the item.
+      await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
       await confirmInputBoxWithDefault(vsCodeDriver, 'Remove Server');
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);
