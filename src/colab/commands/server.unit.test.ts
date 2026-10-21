@@ -6,8 +6,17 @@
 
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
-import sinon, { SinonStubbedInstance, SinonStubbedFunction } from 'sinon';
-import { InputBox, QuickPick, QuickPickItem } from 'vscode';
+import sinon, {
+  SinonStub,
+  SinonStubbedInstance,
+  SinonStubbedFunction,
+} from 'sinon';
+import {
+  CancellationTokenSource,
+  InputBox,
+  QuickPick,
+  QuickPickItem,
+} from 'vscode';
 import { AssignmentManager } from '../../jupyter/assignments';
 import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer } from '../../jupyter/servers';
@@ -297,24 +306,17 @@ describe('Server Commands', () => {
 
   describe('removeServer', () => {
     let assignmentManagerStub: SinonStubbedInstance<AssignmentManager>;
+    let reportStub: SinonStub;
+    let tokenSource: CancellationTokenSource;
 
     beforeEach(() => {
       assignmentManagerStub = sinon.createStubInstance(AssignmentManager);
+      reportStub = sinon.stub();
+      tokenSource = new vsCodeStub.CancellationTokenSource();
       vsCodeStub.window.withProgress.callsFake((_options, task) =>
-        task(
-          { report: sinon.stub() },
-          new vsCodeStub.CancellationTokenSource().token,
-        ),
+        task({ report: reportStub }, tokenSource.token),
       );
     });
-
-    function selectAndAccept(...servers: ColabAssignedServer[]) {
-      quickPickStub.selectedItems = servers.map((s) => ({
-        label: s.label,
-        value: s,
-      }));
-      quickPickStub.onDidAccept.yield();
-    }
 
     it('does not open the Quick Pick when no servers are assigned', async () => {
       assignmentManagerStub.getServers.withArgs('all').resolves({
@@ -412,7 +414,7 @@ describe('Server Commands', () => {
         ]);
       });
 
-      describe('when a server is removed', () => {
+      describe('when there is one server', () => {
         let remove: Promise<void>;
 
         beforeEach(async () => {
@@ -422,7 +424,15 @@ describe('Server Commands', () => {
           });
           remove = removeServer(vsCodeStub.asVsCode(), assignmentManagerStub);
           await quickPickStub.nextShow();
-          selectAndAccept(defaultServer);
+          quickPickStub.onDidChangeSelection.yield([
+            { label: defaultServer.label, value: defaultServer },
+          ]);
+        });
+
+        it('allows selecting only one server', async () => {
+          await expect(remove).to.eventually.be.fulfilled;
+
+          expect(quickPickStub.canSelectMany).to.equal(false);
         });
 
         it('unassigns the selected server', async () => {
@@ -437,45 +447,122 @@ describe('Server Commands', () => {
         it('notifies the user while server unassignment is in progress', async () => {
           await expect(remove).to.eventually.be.fulfilled;
 
-          sinon.assert.calledWithMatch(
+          sinon.assert.calledOnceWithMatch(
             vsCodeStub.window.withProgress,
             {
-              cancellable: false,
+              cancellable: true,
               location: vsCodeStub.ProgressLocation.Notification,
-              title: `Removing server "${defaultServer.label}"...`,
+              title: 'Removing server',
             },
             sinon.match.func,
           );
+          expect(reportStub.args).to.deep.equal([
+            [{ message: `"${defaultServer.label}"...` }],
+            [{ increment: 100 }],
+          ]);
         });
       });
 
-      it('unassigns multiple selected servers one at a time', async () => {
-        const additionalVsCodeServer = { ...defaultServer, label: 'bar' };
-        assignmentManagerStub.getServers.withArgs('all').resolves({
-          assigned: [defaultServer, additionalVsCodeServer],
-          unowned: [],
-        });
-        let inFlight = 0;
-        let maxInFlight = 0;
-        assignmentManagerStub.unassignServer.callsFake(async () => {
-          inFlight++;
-          maxInFlight = Math.max(maxInFlight, inFlight);
-          await new Promise((r) => setTimeout(r, 0));
-          inFlight--;
+      describe('when there are multiple servers', () => {
+        // One of each kind, since both count towards allowing multiple
+        // selection.
+        const nonVsCodeServer = {
+          id: 'test-id',
+          label: 'test.ipynb',
+          endpoint: 'test-endpoint',
+          variant: Variant.DEFAULT,
+        };
+
+        beforeEach(() => {
+          assignmentManagerStub.getServers.withArgs('all').resolves({
+            assigned: [defaultServer],
+            unowned: [nonVsCodeServer],
+          });
         });
 
-        const remove = removeServer(
-          vsCodeStub.asVsCode(),
-          assignmentManagerStub,
-        );
-        await quickPickStub.nextShow();
-        selectAndAccept(defaultServer, additionalVsCodeServer);
+        async function removeBoth(): Promise<void> {
+          const remove = removeServer(
+            vsCodeStub.asVsCode(),
+            assignmentManagerStub,
+          );
+          await quickPickStub.nextShow();
+          quickPickStub.selectedItems = [defaultServer, nonVsCodeServer].map(
+            (s) => ({ label: s.label, value: s }),
+          );
+          quickPickStub.onDidAccept.yield();
+          await remove;
+        }
 
-        await expect(remove).to.eventually.be.fulfilled;
-        expect(
-          assignmentManagerStub.unassignServer.getCalls().map((c) => c.args),
-        ).to.deep.equal([[defaultServer], [additionalVsCodeServer]]);
-        expect(maxInFlight).to.equal(1);
+        it('allows selecting multiple servers', async () => {
+          await removeBoth();
+
+          expect(quickPickStub.canSelectMany).to.equal(true);
+        });
+
+        it('unassigns the selected servers one at a time', async () => {
+          let inFlight = 0;
+          let maxInFlight = 0;
+          assignmentManagerStub.unassignServer.callsFake(async () => {
+            inFlight++;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            await new Promise((r) => setTimeout(r, 0));
+            inFlight--;
+          });
+
+          await removeBoth();
+
+          expect(
+            assignmentManagerStub.unassignServer.getCalls().map((c) => c.args),
+          ).to.deep.equal([[defaultServer], [nonVsCodeServer]]);
+          expect(maxInFlight).to.equal(1);
+        });
+
+        it('reports the progress of each removal', async () => {
+          await removeBoth();
+
+          sinon.assert.calledOnceWithMatch(
+            vsCodeStub.window.withProgress,
+            {
+              cancellable: true,
+              location: vsCodeStub.ProgressLocation.Notification,
+              title: 'Removing 2 servers',
+            },
+            sinon.match.func,
+          );
+          expect(reportStub.args).to.deep.equal([
+            [{ message: `"${defaultServer.label}"...` }],
+            [{ increment: 50 }],
+            [{ message: `"${nonVsCodeServer.label}"...` }],
+            [{ increment: 50 }],
+          ]);
+        });
+
+        it('stops removing servers once cancelled', async () => {
+          assignmentManagerStub.unassignServer.onFirstCall().callsFake(() => {
+            tokenSource.cancel();
+            return Promise.resolve();
+          });
+
+          await removeBoth();
+
+          sinon.assert.calledOnceWithExactly(
+            assignmentManagerStub.unassignServer,
+            defaultServer,
+          );
+        });
+
+        it('does nothing when no servers are selected', async () => {
+          const remove = removeServer(
+            vsCodeStub.asVsCode(),
+            assignmentManagerStub,
+          );
+          await quickPickStub.nextShow();
+          quickPickStub.onDidAccept.yield();
+          await remove;
+
+          sinon.assert.notCalled(vsCodeStub.window.withProgress);
+          sinon.assert.notCalled(assignmentManagerStub.unassignServer);
+        });
       });
     });
   });

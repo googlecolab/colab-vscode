@@ -172,8 +172,17 @@ async function signIn(
     );
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
-      await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
-      await confirmInputBoxWithDefault(vsCodeDriver, 'Remove Server');
+      // The picker is single-select when "Colab CPU" is the only server, and
+      // multi-select (check, then confirm) when there are more.
+      const selected = await selectQuickPickItemIfShown(
+        vsCodeDriver,
+        'Remove Server',
+        'Colab CPU',
+      );
+      if (!selected) {
+        await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
+        await confirmInputBoxWithDefault(vsCodeDriver, 'Remove Server');
+      }
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);
     }

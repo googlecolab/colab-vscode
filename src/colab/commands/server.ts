@@ -166,28 +166,47 @@ export async function removeServer(
         value: s,
       })),
     );
-    const selectedServers = (
-      await input.showQuickPickMany({
-        title: REMOVE_SERVER.label,
-        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
-        items,
-      })
-    )
+    const quickPickOptions = {
+      title: REMOVE_SERVER.label,
+      buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
+      items,
+    };
+    // Only allow selecting multiple servers when there's more than one, so a
+    // single server is still removed with one click.
+    const selectedItems =
+      vsCodeServers.length + nonVsCodeServers.length === 1
+        ? [await input.showQuickPick(quickPickOptions)]
+        : await input.showQuickPickMany(quickPickOptions);
+    const selectedServers = selectedItems
       .map((item) => item.value)
       .filter((s) => s !== undefined);
-
-    // Remove one at a time, since concurrent removals race to update the
-    // stored servers.
-    for (const server of selectedServers) {
-      await vs.window.withProgress(
-        {
-          cancellable: false,
-          location: vs.ProgressLocation.Notification,
-          title: `Removing server "${server.label}"...`,
-        },
-        () => assignmentManager.unassignServer(server),
-      );
+    if (selectedServers.length === 0) {
+      return;
     }
+
+    const count = selectedServers.length;
+    await vs.window.withProgress(
+      {
+        cancellable: true,
+        location: vs.ProgressLocation.Notification,
+        title:
+          count > 1
+            ? `Removing ${count.toString()} servers`
+            : 'Removing server',
+      },
+      async (progress, token) => {
+        // Remove one at a time, since concurrent removals race to update the
+        // stored servers.
+        for (const server of selectedServers) {
+          if (token.isCancellationRequested) {
+            break;
+          }
+          progress.report({ message: `"${server.label}"...` });
+          await assignmentManager.unassignServer(server);
+          progress.report({ increment: 100 / count });
+        }
+      },
+    );
     return undefined;
   });
 }
