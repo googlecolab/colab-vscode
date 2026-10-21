@@ -187,7 +187,9 @@ export async function removeServer(
     const count = selectedServers.length;
     await vs.window.withProgress(
       {
-        cancellable: true,
+        // Cancelling stops before the next server, so it's only useful when
+        // there's more than one.
+        cancellable: count > 1,
         location: vs.ProgressLocation.Notification,
         title:
           count > 1

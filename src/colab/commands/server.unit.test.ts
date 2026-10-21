@@ -450,7 +450,7 @@ describe('Server Commands', () => {
           sinon.assert.calledOnceWithMatch(
             vsCodeStub.window.withProgress,
             {
-              cancellable: true,
+              cancellable: false,
               location: vsCodeStub.ProgressLocation.Notification,
               title: 'Removing server',
             },
