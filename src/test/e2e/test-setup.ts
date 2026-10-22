@@ -181,7 +181,7 @@ async function signIn(
       // The picker is single-select when "Colab CPU" is the only server, and
       // multi-select (check, then accept) when there are more.
       await waitForQuickPick(vsCodeDriver, 'Remove Server');
-      if (await isMultiSelectQuickPick()) {
+      if (await isMultiSelectQuickPick(vsCodeDriver)) {
         await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
         // Like selecting in the single-select picker, accept without waiting
         // for the picker to close, which it only does once the removal ends.

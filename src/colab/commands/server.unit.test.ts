@@ -580,6 +580,32 @@ describe('Server Commands', () => {
           sinon.assert.notCalled(assignmentManagerStub.unassignServer);
         });
 
+        it('does not remove servers if the selection is cancelled', async () => {
+          const remove = removeServer(
+            vsCodeStub.asVsCode(),
+            assignmentManagerStub,
+          );
+          await quickPickStub.nextShow();
+          quickPickStub.onDidHide.yield();
+
+          await expect(remove).to.eventually.be.fulfilled;
+          sinon.assert.notCalled(vsCodeStub.window.withProgress);
+          sinon.assert.notCalled(assignmentManagerStub.unassignServer);
+        });
+
+        it('shows back button when requested', async () => {
+          void removeServer(
+            vsCodeStub.asVsCode(),
+            assignmentManagerStub,
+            /* withBackButton= */ true,
+          );
+          await quickPickStub.nextShow();
+
+          expect(quickPickStub.buttons).to.deep.equal([
+            vsCodeStub.QuickInputButtons.Back,
+          ]);
+        });
+
         it('keeps removing servers after one fails', async () => {
           const error = new Error('Failed to delete the runtime');
           assignmentManagerStub.unassignServer

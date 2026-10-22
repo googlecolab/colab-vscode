@@ -331,21 +331,33 @@ export async function waitForQuickPick(
 /**
  * Whether the QuickPick on screen allows selecting multiple items.
  *
+ * @param driver - The driver instance.
  * @returns Whether the QuickPick's items render as checkboxes, as only those
  * of a multi-select QuickPick do.
  */
-export async function isMultiSelectQuickPick(): Promise<boolean> {
+export async function isMultiSelectQuickPick(
+  driver: WebDriver,
+): Promise<boolean> {
   const inputBox = await InputBox.create(DIALOG_CHECK_WAIT_MS);
-  const checkboxes = await inputBox.findElements(
-    By.css('.monaco-list-row[role="checkbox"]'),
+  const findRows = () => inputBox.findElements(By.className('monaco-list-row'));
+  // Wait for the items to render before checking how they render.
+  await driver.wait(
+    async () => (await findRows()).length > 0,
+    ELEMENT_WAIT_MS,
+    'QuickPick items were not shown',
   );
-  return checkboxes.length > 0;
+  for (const row of await findRows()) {
+    if ((await row.getAttribute('role')) === 'checkbox') {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
  * Like {@link selectQuickPickItem} but for a multi-select QuickPick, where
  * clicking an item only checks it. Confirm the picker afterwards (e.g. with
- * {@link confirmInputBoxWithDefault}) to accept the checked items.
+ * `InputBox.confirm`) to accept the checked items.
  *
  * `selectQuickPickItem` can't be used for these pickers: their items render
  * as checkboxes, which `InputBox.findQuickPick` doesn't find.
