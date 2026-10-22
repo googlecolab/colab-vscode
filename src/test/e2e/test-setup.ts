@@ -9,16 +9,21 @@ import path from 'path';
 import { assert } from 'chai';
 import clipboard from 'clipboardy';
 import dotenv from 'dotenv';
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import {
+  InputBox,
+  VSBrowser,
+  WebDriver,
+  Workbench,
+} from 'vscode-extension-tester';
 import { CodeUtil } from 'vscode-extension-tester/out/util/codeUtil';
 import { CONFIG } from '../../colab-config';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
   checkQuickPickItem,
-  confirmInputBoxWithDefault,
   createNotebook,
   dismissAnyOpenInput,
   hasQuickPickItem,
+  isMultiSelectQuickPick,
   KERNEL_SELECT_WAIT_MS,
   pushDialogButton,
   pushDialogButtonIfShown,
@@ -54,12 +59,6 @@ assert.equal(
 );
 
 const DIALOG_WAIT_MS = 3000;
-
-/**
- * How long to try picking an item from a QuickPick that's already shown
- * before assuming it's multi-select.
- */
-const SINGLE_SELECT_WAIT_MS = 3000;
 
 before(async function () {
   console.log('Starting global E2E test setup...');
@@ -180,18 +179,15 @@ async function signIn(
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
       // The picker is single-select when "Colab CPU" is the only server, and
-      // multi-select (check, then confirm) when there are more. Wait for it
-      // first, so the single-select attempt can give up quickly.
+      // multi-select (check, then accept) when there are more.
       await waitForQuickPick(vsCodeDriver, 'Remove Server');
-      const selected = await selectQuickPickItemIfShown(
-        vsCodeDriver,
-        'Remove Server',
-        'Colab CPU',
-        SINGLE_SELECT_WAIT_MS,
-      );
-      if (!selected) {
+      if (await isMultiSelectQuickPick()) {
         await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
-        await confirmInputBoxWithDefault(vsCodeDriver, 'Remove Server');
+        // Like selecting in the single-select picker, accept without waiting
+        // for the picker to close, which it only does once the removal ends.
+        await (await InputBox.create()).confirm();
+      } else {
+        await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
       }
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);

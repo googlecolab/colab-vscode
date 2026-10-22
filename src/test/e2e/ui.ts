@@ -329,6 +329,20 @@ export async function waitForQuickPick(
 }
 
 /**
+ * Whether the QuickPick on screen allows selecting multiple items.
+ *
+ * @returns Whether the QuickPick's items render as checkboxes, as only those
+ * of a multi-select QuickPick do.
+ */
+export async function isMultiSelectQuickPick(): Promise<boolean> {
+  const inputBox = await InputBox.create(DIALOG_CHECK_WAIT_MS);
+  const checkboxes = await inputBox.findElements(
+    By.css('.monaco-list-row[role="checkbox"]'),
+  );
+  return checkboxes.length > 0;
+}
+
+/**
  * Like {@link selectQuickPickItem} but for a multi-select QuickPick, where
  * clicking an item only checks it. Confirm the picker afterwards (e.g. with
  * {@link confirmInputBoxWithDefault}) to accept the checked items.
