@@ -299,6 +299,36 @@ export async function selectQuickPickItemIfShown(
 }
 
 /**
+ * Waits for the QuickPick matching {@link expectedPickerSubstring} to be shown.
+ *
+ * @param driver - The driver instance.
+ * @param expectedPickerSubstring - A substring uniquely identifying the
+ * picker. See {@link selectQuickPickItem} for how this is matched.
+ */
+export async function waitForQuickPick(
+  driver: WebDriver,
+  expectedPickerSubstring: string,
+): Promise<void> {
+  await driver.wait(
+    async () => {
+      try {
+        const inputBox = await InputBox.create(DIALOG_CHECK_WAIT_MS);
+        const identity = await pickerIdentity(inputBox);
+        return pickerIdentityMatches(
+          [identity.title, identity.ariaLabel, identity.placeholder],
+          expectedPickerSubstring,
+        );
+      } catch {
+        // Swallow errors so we keep polling until the timeout fires.
+        return false;
+      }
+    },
+    ELEMENT_WAIT_MS,
+    `QuickPick matching "${expectedPickerSubstring}" was not shown`,
+  );
+}
+
+/**
  * Like {@link selectQuickPickItem} but for a multi-select QuickPick, where
  * clicking an item only checks it. Confirm the picker afterwards (e.g. with
  * {@link confirmInputBoxWithDefault}) to accept the checked items.

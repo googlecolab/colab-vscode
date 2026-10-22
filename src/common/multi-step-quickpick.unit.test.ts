@@ -140,6 +140,7 @@ describe('MultiStepQuickPick', () => {
         onDidTriggerButtonDisposeStub,
         onDidHideDisposeStub,
         onDidChangeSelectionDisposeStub,
+        onDidAcceptDisposeStub: { dispose: sinon.stub() },
       });
       vsCodeStub.window.createQuickPick.returns(
         quickPickStub as Partial<
@@ -256,10 +257,23 @@ describe('MultiStepQuickPick', () => {
   });
 
   describe('showQuickPickMany', () => {
+    const FOO: QuickPickItem = { label: 'foo' };
+    const BAR: QuickPickItem = { label: 'bar' };
+    let onDidTriggerButtonDisposeStub: sinon.SinonStubbedInstance<Disposable>;
+    let onDidHideDisposeStub: sinon.SinonStubbedInstance<Disposable>;
+    let onDidAcceptDisposeStub: sinon.SinonStubbedInstance<Disposable>;
     let quickPickStub: QuickPickStub & { nextShow: () => Promise<void> };
 
     beforeEach(() => {
-      quickPickStub = buildQuickPickStub();
+      onDidTriggerButtonDisposeStub = { dispose: sinon.stub() };
+      onDidHideDisposeStub = { dispose: sinon.stub() };
+      onDidAcceptDisposeStub = { dispose: sinon.stub() };
+      quickPickStub = buildQuickPickStub({
+        onDidTriggerButtonDisposeStub,
+        onDidHideDisposeStub,
+        onDidChangeSelectionDisposeStub: { dispose: sinon.stub() },
+        onDidAcceptDisposeStub,
+      });
       vsCodeStub.window.createQuickPick.returns(
         quickPickStub as Partial<
           QuickPick<QuickPickItem>
@@ -267,26 +281,66 @@ describe('MultiStepQuickPick', () => {
       );
     });
 
-    it('allows selecting multiple items', async () => {
-      let selected: QuickPickItem[] | undefined;
-      const step: InputStep = async (input: MultiStepInput) => {
-        selected = await input.showQuickPickMany({
+    /**
+     * Shows a quick pick of "foo" and "bar", then accepts it with the given
+     * items selected and highlighted.
+     *
+     * @param selected - The checked items.
+     * @param active - The highlighted items.
+     * @returns The items the quick pick resolved with.
+     */
+    async function accept(
+      selected: QuickPickItem[],
+      active: QuickPickItem[],
+    ): Promise<QuickPickItem[] | undefined> {
+      let picked: QuickPickItem[] | undefined;
+      const inputShown = quickPickStub.nextShow();
+      const input = MultiStepInput.run(vsCodeStub.asVsCode(), async (i) => {
+        picked = await i.showQuickPickMany({
           title: 'Select foo and bar',
-          items: [{ label: 'foo' }, { label: 'bar' }],
+          items: [FOO, BAR],
         });
         return undefined;
-      };
-
-      const inputShown = quickPickStub.nextShow();
-      const input = MultiStepInput.run(vsCodeStub.asVsCode(), step);
-      // Once the quick pick has been shown, select "foo" and "bar" and accept.
+      });
       await inputShown;
-      quickPickStub.selectedItems = [{ label: 'foo' }, { label: 'bar' }];
+      quickPickStub.selectedItems = selected;
+      quickPickStub.activeItems = active;
       quickPickStub.onDidAccept.yield();
-
       await expect(input).to.eventually.be.fulfilled;
+      return picked;
+    }
+
+    it('allows selecting multiple items', async () => {
+      // The highlighted item is ignored when items are selected.
+      const picked = await accept([FOO, BAR], [FOO]);
+
       expect(quickPickStub.canSelectMany).to.equal(true);
-      expect(selected).to.deep.equal([{ label: 'foo' }, { label: 'bar' }]);
+      expect(picked).to.deep.equal([FOO, BAR]);
+    });
+
+    it('picks the highlighted item when accepted with nothing selected', async () => {
+      const picked = await accept([], [BAR]);
+
+      expect(picked).to.deep.equal([BAR]);
+    });
+
+    it('resolves no items when accepted with nothing selected or highlighted', async () => {
+      const picked = await accept([], []);
+
+      expect(picked).to.deep.equal([]);
+    });
+
+    it('disposes the input and registered listeners', async () => {
+      await accept([FOO], []);
+
+      sinon.assert.calledOnce(quickPickStub.dispose);
+      for (const disposable of [
+        onDidTriggerButtonDisposeStub,
+        onDidHideDisposeStub,
+        onDidAcceptDisposeStub,
+      ]) {
+        sinon.assert.calledOnce(disposable.dispose);
+      }
     });
   });
 

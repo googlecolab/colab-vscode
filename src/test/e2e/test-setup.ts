@@ -25,6 +25,7 @@ import {
   safeExecuteCommand,
   selectQuickPickItem,
   selectQuickPickItemIfShown,
+  waitForQuickPick,
 } from './ui';
 
 console.log('Running global E2E test setup...');
@@ -53,6 +54,12 @@ assert.equal(
 );
 
 const DIALOG_WAIT_MS = 3000;
+
+/**
+ * How long to try picking an item from a QuickPick that's already shown
+ * before assuming it's multi-select.
+ */
+const SINGLE_SELECT_WAIT_MS = 3000;
 
 before(async function () {
   console.log('Starting global E2E test setup...');
@@ -173,11 +180,14 @@ async function signIn(
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
       // The picker is single-select when "Colab CPU" is the only server, and
-      // multi-select (check, then confirm) when there are more.
+      // multi-select (check, then confirm) when there are more. Wait for it
+      // first, so the single-select attempt can give up quickly.
+      await waitForQuickPick(vsCodeDriver, 'Remove Server');
       const selected = await selectQuickPickItemIfShown(
         vsCodeDriver,
         'Remove Server',
         'Colab CPU',
+        SINGLE_SELECT_WAIT_MS,
       );
       if (!selected) {
         await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');

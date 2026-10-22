@@ -50,6 +50,7 @@ export function buildQuickPickStub(
     onDidTriggerButtonDisposeStub: sinon.SinonStubbedInstance<Disposable>;
     onDidHideDisposeStub: sinon.SinonStubbedInstance<Disposable>;
     onDidChangeSelectionDisposeStub: sinon.SinonStubbedInstance<Disposable>;
+    onDidAcceptDisposeStub: sinon.SinonStubbedInstance<Disposable>;
   } = {
     onDidTriggerButtonDisposeStub: {
       dispose: sinon.stub(),
@@ -58,6 +59,9 @@ export function buildQuickPickStub(
       dispose: sinon.stub(),
     },
     onDidChangeSelectionDisposeStub: {
+      dispose: sinon.stub(),
+    },
+    onDidAcceptDisposeStub: {
       dispose: sinon.stub(),
     },
   },
@@ -85,7 +89,7 @@ export function buildQuickPickStub(
       .returns(opts.onDidChangeSelectionDisposeStub),
     onDidAccept: sinon
       .stub<Listener, Disposable>()
-      .returns({ dispose: sinon.stub() }),
+      .returns(opts.onDidAcceptDisposeStub),
     show: showStub,
     dispose: sinon.stub(),
     /**

@@ -166,11 +166,13 @@ export class MultiStepInput {
    * items.
    *
    * Unlike {@link MultiStepInput.showQuickPick}, the input resolves when the
-   * user accepts the selection rather than on each change to it.
+   * user accepts the selection rather than on each change to it. Accepting
+   * with nothing selected picks the highlighted item, as a single-select quick
+   * pick would.
    *
    * @param opts - The options for the quick pick input.
-   * @returns The selected items. Empty if the user accepted with nothing
-   * selected.
+   * @returns The selected items, or the highlighted item if none are
+   * selected. Empty if there are neither.
    */
   async showQuickPickMany<T extends QuickPickItem>(
     opts: QuickPickOptions<T>,
@@ -179,7 +181,11 @@ export class MultiStepInput {
       input.canSelectMany = true;
       return [
         input.onDidAccept(() => {
-          resolve([...input.selectedItems]);
+          const items =
+            input.selectedItems.length > 0
+              ? input.selectedItems
+              : input.activeItems;
+          resolve([...items]);
         }),
       ];
     });

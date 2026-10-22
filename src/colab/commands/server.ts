@@ -185,6 +185,7 @@ export async function removeServer(
     }
 
     const count = selectedServers.length;
+    const failed: string[] = [];
     await vs.window.withProgress(
       {
         // Cancelling stops before the next server, so it's only useful when
@@ -204,11 +205,26 @@ export async function removeServer(
             break;
           }
           progress.report({ message: `"${server.label}"...` });
-          await assignmentManager.unassignServer(server);
+          try {
+            await assignmentManager.unassignServer(server);
+          } catch (err) {
+            // Keep removing the rest. Catching the error keeps it from the
+            // command's error tracking, so report it here.
+            log.error(`Failed to remove server "${server.label}"`, err);
+            telemetry.logError(err);
+            failed.push(server.label);
+          }
           progress.report({ increment: 100 / count });
         }
       },
     );
+    if (failed.length > 0) {
+      const countPart = failed.length > 1 ? 'servers' : 'server';
+      const labels = failed.map((label) => `"${label}"`).join(', ');
+      void vs.window.showErrorMessage(
+        `Failed to remove ${countPart} ${labels}. Check logs for details.`,
+      );
+    }
     return undefined;
   });
 }
