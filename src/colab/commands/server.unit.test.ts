@@ -480,17 +480,24 @@ describe('Server Commands', () => {
           });
         });
 
+        /** The state of the Quick Pick when it's accepted. */
+        interface Acceptance {
+          /** The servers to check. */
+          checked: (ColabAssignedServer | UnownedServer)[];
+          /** The servers to highlight. None if omitted. */
+          highlighted?: (ColabAssignedServer | UnownedServer)[];
+        }
+
         /**
-         * Starts removing servers, then accepts the Quick Pick with the given
-         * servers checked and highlighted.
+         * Starts removing servers, then accepts the Quick Pick in the given
+         * state.
          *
-         * @param checked - The servers to check.
-         * @param highlighted - The servers to highlight.
+         * @param acceptance - The state to accept the Quick Pick in.
          */
-        async function accept(
-          checked: (ColabAssignedServer | UnownedServer)[],
-          highlighted: (ColabAssignedServer | UnownedServer)[] = [],
-        ): Promise<void> {
+        async function accept({
+          checked,
+          highlighted = [],
+        }: Acceptance): Promise<void> {
           const remove = removeServer(
             vsCodeStub.asVsCode(),
             assignmentManagerStub,
@@ -507,7 +514,7 @@ describe('Server Commands', () => {
         }
 
         it('allows selecting multiple servers', async () => {
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           expect(quickPickStub.canSelectMany).to.equal(true);
         });
@@ -522,7 +529,7 @@ describe('Server Commands', () => {
             inFlight--;
           });
 
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           expect(
             assignmentManagerStub.unassignServer.getCalls().map((c) => c.args),
@@ -531,7 +538,7 @@ describe('Server Commands', () => {
         });
 
         it('reports the progress of each removal', async () => {
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           sinon.assert.calledOnceWithMatch(
             vsCodeStub.window.withProgress,
@@ -556,7 +563,7 @@ describe('Server Commands', () => {
             return Promise.resolve();
           });
 
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           sinon.assert.calledOnceWithExactly(
             assignmentManagerStub.unassignServer,
@@ -565,7 +572,7 @@ describe('Server Commands', () => {
         });
 
         it('removes the highlighted server when accepted with none checked', async () => {
-          await accept([], [nonVsCodeServer]);
+          await accept({ checked: [], highlighted: [nonVsCodeServer] });
 
           sinon.assert.calledOnceWithExactly(
             assignmentManagerStub.unassignServer,
@@ -574,7 +581,7 @@ describe('Server Commands', () => {
         });
 
         it('does nothing when no servers are checked or highlighted', async () => {
-          await accept([]);
+          await accept({ checked: [] });
 
           sinon.assert.notCalled(vsCodeStub.window.withProgress);
           sinon.assert.notCalled(assignmentManagerStub.unassignServer);
@@ -613,12 +620,18 @@ describe('Server Commands', () => {
             .rejects(error);
           const logErrorStub = sinon.stub(telemetry, 'logError');
 
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           expect(
             assignmentManagerStub.unassignServer.getCalls().map((c) => c.args),
           ).to.deep.equal([[defaultServer], [nonVsCodeServer]]);
           sinon.assert.calledOnceWithExactly(logErrorStub, error);
+          expect(reportStub.args).to.deep.equal([
+            [{ message: `"${defaultServer.label}"...` }],
+            [{ increment: 50 }],
+            [{ message: `"${nonVsCodeServer.label}"...` }],
+            [{ increment: 50 }],
+          ]);
           sinon.assert.calledOnce(vsCodeStub.window.showErrorMessage);
           sinon.assert.calledWith(
             vsCodeStub.window.showErrorMessage,
@@ -630,7 +643,7 @@ describe('Server Commands', () => {
           assignmentManagerStub.unassignServer.rejects(new Error('Failed'));
           sinon.stub(telemetry, 'logError');
 
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           sinon.assert.calledOnce(vsCodeStub.window.showErrorMessage);
           sinon.assert.calledWith(
@@ -640,7 +653,7 @@ describe('Server Commands', () => {
         });
 
         it('does not show an error when all servers are removed', async () => {
-          await accept([defaultServer, nonVsCodeServer]);
+          await accept({ checked: [defaultServer, nonVsCodeServer] });
 
           sinon.assert.notCalled(vsCodeStub.window.showErrorMessage);
         });

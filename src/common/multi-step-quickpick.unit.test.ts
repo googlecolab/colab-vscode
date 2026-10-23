@@ -259,6 +259,7 @@ describe('MultiStepQuickPick', () => {
   describe('showQuickPickMany', () => {
     const FOO: QuickPickItem = { label: 'foo' };
     const BAR: QuickPickItem = { label: 'bar' };
+    const BAZ: QuickPickItem = { label: 'baz' };
     let onDidTriggerButtonDisposeStub: sinon.SinonStubbedInstance<Disposable>;
     let onDidHideDisposeStub: sinon.SinonStubbedInstance<Disposable>;
     let onDidAcceptDisposeStub: sinon.SinonStubbedInstance<Disposable>;
@@ -281,25 +282,31 @@ describe('MultiStepQuickPick', () => {
       );
     });
 
+    /** The state of a quick pick when it's accepted. */
+    interface Acceptance {
+      /** The items to pick from. */
+      items: QuickPickItem[];
+      /** The checked items. */
+      selected: QuickPickItem[];
+      /** The highlighted items. */
+      active: QuickPickItem[];
+    }
+
     /**
-     * Shows a quick pick of "foo" and "bar", then accepts it with the given
-     * items selected and highlighted.
+     * Shows a quick pick, then accepts it in the given state.
      *
-     * @param selected - The checked items.
-     * @param active - The highlighted items.
+     * @param acceptance - The state to accept the quick pick in.
      * @returns The items the quick pick resolved with.
      */
-    async function accept(
-      selected: QuickPickItem[],
-      active: QuickPickItem[],
-    ): Promise<QuickPickItem[] | undefined> {
+    async function accept({
+      items,
+      selected,
+      active,
+    }: Acceptance): Promise<QuickPickItem[] | undefined> {
       let picked: QuickPickItem[] | undefined;
       const inputShown = quickPickStub.nextShow();
       const input = MultiStepInput.run(vsCodeStub.asVsCode(), async (i) => {
-        picked = await i.showQuickPickMany({
-          title: 'Select foo and bar',
-          items: [FOO, BAR],
-        });
+        picked = await i.showQuickPickMany({ title: 'Select items', items });
         return undefined;
       });
       await inputShown;
@@ -311,27 +318,116 @@ describe('MultiStepQuickPick', () => {
     }
 
     it('allows selecting multiple items', async () => {
-      // The highlighted item is ignored when items are selected.
-      const picked = await accept([FOO, BAR], [FOO]);
+      await accept({ items: [FOO, BAR], selected: [FOO, BAR], active: [] });
 
       expect(quickPickStub.canSelectMany).to.equal(true);
-      expect(picked).to.deep.equal([FOO, BAR]);
     });
 
-    it('picks the highlighted item when accepted with nothing selected', async () => {
-      const picked = await accept([], [BAR]);
-
-      expect(picked).to.deep.equal([BAR]);
-    });
-
-    it('resolves no items when accepted with nothing selected or highlighted', async () => {
-      const picked = await accept([], []);
-
-      expect(picked).to.deep.equal([]);
-    });
+    // Resolves with the selected items, or the highlighted item if none are
+    // selected.
+    const ONE = [FOO];
+    const THREE = [FOO, BAR, BAZ];
+    const cases: (Acceptance & { name: string; picked: QuickPickItem[] })[] = [
+      {
+        name: 'one item, neither selected nor active',
+        items: ONE,
+        selected: [],
+        active: [],
+        picked: [],
+      },
+      {
+        name: 'one item, selected but not active',
+        items: ONE,
+        selected: [FOO],
+        active: [],
+        picked: [FOO],
+      },
+      {
+        name: 'one item, active but not selected',
+        items: ONE,
+        selected: [],
+        active: [FOO],
+        picked: [FOO],
+      },
+      {
+        name: 'three items, none selected nor active',
+        items: THREE,
+        selected: [],
+        active: [],
+        picked: [],
+      },
+      {
+        name: 'three items, none selected and one active',
+        items: THREE,
+        selected: [],
+        active: [BAR],
+        picked: [BAR],
+      },
+      {
+        name: 'three items, one selected and none active',
+        items: THREE,
+        selected: [FOO],
+        active: [],
+        picked: [FOO],
+      },
+      {
+        name: 'three items, one selected and active',
+        items: THREE,
+        selected: [FOO],
+        active: [FOO],
+        picked: [FOO],
+      },
+      {
+        name: 'three items, one selected and another active',
+        items: THREE,
+        selected: [FOO],
+        active: [BAR],
+        picked: [FOO],
+      },
+      {
+        name: 'three items, two selected and none active',
+        items: THREE,
+        selected: [FOO, BAR],
+        active: [],
+        picked: [FOO, BAR],
+      },
+      {
+        name: 'three items, two selected and one of them active',
+        items: THREE,
+        selected: [FOO, BAR],
+        active: [BAR],
+        picked: [FOO, BAR],
+      },
+      {
+        name: 'three items, two selected and the other active',
+        items: THREE,
+        selected: [FOO, BAR],
+        active: [BAZ],
+        picked: [FOO, BAR],
+      },
+      {
+        name: 'three items, all selected and none active',
+        items: THREE,
+        selected: THREE,
+        active: [],
+        picked: THREE,
+      },
+      {
+        name: 'three items, all selected and one active',
+        items: THREE,
+        selected: THREE,
+        active: [BAR],
+        picked: THREE,
+      },
+    ];
+    for (const { name, picked, ...acceptance } of cases) {
+      it(`resolves the right items when accepted with ${name}`, async () => {
+        expect(await accept(acceptance)).to.deep.equal(picked);
+      });
+    }
 
     it('disposes the input and registered listeners', async () => {
-      await accept([FOO], []);
+      await accept({ items: [FOO, BAR], selected: [FOO], active: [] });
 
       sinon.assert.calledOnce(quickPickStub.dispose);
       for (const disposable of [
