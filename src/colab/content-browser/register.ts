@@ -16,6 +16,7 @@ import {
 } from './commands';
 import { ContentItem } from './content-item';
 import { ContentTreeProvider } from './content-tree';
+import { FileDownloader } from './file-downloader';
 
 /** Dependencies required to register content-browser commands. */
 export interface ContentBrowserCommandDeps {
@@ -23,6 +24,8 @@ export interface ContentBrowserCommandDeps {
   readonly contentTree: ContentTreeProvider;
   /** Used by the refresh-resource-view command. */
   readonly resourceTree: ResourceTreeProvider;
+  /** Used by the download command. */
+  readonly fileDownloader: FileDownloader;
 }
 
 /**
@@ -37,7 +40,7 @@ export function registerContentBrowserCommands(
   vs: typeof vscode,
   deps: ContentBrowserCommandDeps,
 ): Disposable[] {
-  const { contentTree, resourceTree } = deps;
+  const { contentTree, resourceTree, fileDownloader } = deps;
   return [
     registerCommand(vs, 'colab.refreshServerContentView', () => {
       contentTree.refresh();
@@ -52,7 +55,7 @@ export function registerContentBrowserCommands(
       void newFolder(vs, item);
     }),
     registerCommand(vs, 'colab.download', (item: ContentItem) => {
-      void download(vs, item);
+      void download(vs, fileDownloader, item);
     }),
     registerCommand(vs, 'colab.renameFile', (item: ContentItem) => {
       void renameFile(vs, item);
