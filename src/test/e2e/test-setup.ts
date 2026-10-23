@@ -9,20 +9,28 @@ import path from 'path';
 import { assert } from 'chai';
 import clipboard from 'clipboardy';
 import dotenv from 'dotenv';
-import { VSBrowser, WebDriver, Workbench } from 'vscode-extension-tester';
+import {
+  InputBox,
+  VSBrowser,
+  WebDriver,
+  Workbench,
+} from 'vscode-extension-tester';
 import { CodeUtil } from 'vscode-extension-tester/out/util/codeUtil';
 import { CONFIG } from '../../colab-config';
 import { doOAuthSignIn, getOAuthDriver } from './auth';
 import {
+  checkQuickPickItem,
   createNotebook,
   dismissAnyOpenInput,
   hasQuickPickItem,
+  isMultiSelectQuickPick,
   KERNEL_SELECT_WAIT_MS,
   pushDialogButton,
   pushDialogButtonIfShown,
   safeExecuteCommand,
   selectQuickPickItem,
   selectQuickPickItemIfShown,
+  waitForQuickPick,
 } from './ui';
 
 console.log('Running global E2E test setup...');
@@ -170,7 +178,17 @@ async function signIn(
     );
     await safeExecuteCommand(workbench, 'Colab: Remove Server');
     try {
-      await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
+      // The picker is single-select when "Colab CPU" is the only server, and
+      // multi-select (check, then accept) when there are more.
+      await waitForQuickPick(vsCodeDriver, 'Remove Server');
+      if (await isMultiSelectQuickPick(vsCodeDriver)) {
+        await checkQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
+        // Like selecting in the single-select picker, accept without waiting
+        // for the picker to close, which it only does once the removal ends.
+        await (await InputBox.create()).confirm();
+      } else {
+        await selectQuickPickItem(vsCodeDriver, 'Remove Server', 'Colab CPU');
+      }
     } catch (err: unknown) {
       console.warn('Could not select "Colab CPU" for cleanup.', err);
     }

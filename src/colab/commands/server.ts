@@ -125,14 +125,13 @@ export async function mountServer(
 }
 
 /**
- * Prompts the user to select an assigned Colab server to remove.
+ * Prompts the user to select one or more assigned Colab servers to remove.
  *
  * @param vs - The VS Code API instance.
  * @param assignmentManager - The assignment manager instance.
  * @param withBackButton - Whether to show a back button in the UI.
  * @param source - The source of the command invocation.
  */
-// TODO: Consider making this multi-select.
 // TODO: Update MultiStepInput to handle a single-step case.
 export async function removeServer(
   vs: typeof vscode,
@@ -167,25 +166,65 @@ export async function removeServer(
         value: s,
       })),
     );
-    const selectedServer = (
-      await input.showQuickPick({
-        title: REMOVE_SERVER.label,
-        buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
-        items,
-      })
-    ).value;
-    if (!selectedServer) {
+    const quickPickOptions = {
+      title: REMOVE_SERVER.label,
+      buttons: withBackButton ? [vs.QuickInputButtons.Back] : undefined,
+      items,
+    };
+    // Only allow selecting multiple servers when there's more than one, so a
+    // single server is still removed with one click.
+    const selectedItems =
+      vsCodeServers.length + nonVsCodeServers.length === 1
+        ? [await input.showQuickPick(quickPickOptions)]
+        : await input.showQuickPickMany(quickPickOptions);
+    const selectedServers = selectedItems
+      .map((item) => item.value)
+      .filter((s) => s !== undefined);
+    if (selectedServers.length === 0) {
       return;
     }
 
+    const count = selectedServers.length;
+    const failed: string[] = [];
     await vs.window.withProgress(
       {
-        cancellable: false,
+        // Cancelling stops before the next server, so it's only useful when
+        // there's more than one.
+        cancellable: count > 1,
         location: vs.ProgressLocation.Notification,
-        title: `Removing server "${selectedServer.label}"...`,
+        title:
+          count > 1
+            ? `Removing ${count.toString()} servers`
+            : 'Removing server',
       },
-      () => assignmentManager.unassignServer(selectedServer),
+      async (progress, token) => {
+        // Remove one at a time, since concurrent removals race to update the
+        // stored servers.
+        for (const server of selectedServers) {
+          if (token.isCancellationRequested) {
+            break;
+          }
+          progress.report({ message: `"${server.label}"...` });
+          try {
+            await assignmentManager.unassignServer(server);
+          } catch (err) {
+            // Keep removing the rest. Catching the error keeps it from the
+            // command's error tracking, so report it here.
+            log.error(`Failed to remove server "${server.label}"`, err);
+            telemetry.logError(err);
+            failed.push(server.label);
+          }
+          progress.report({ increment: 100 / count });
+        }
+      },
     );
+    if (failed.length > 0) {
+      const countPart = failed.length > 1 ? 'servers' : 'server';
+      const labels = failed.map((label) => `"${label}"`).join(', ');
+      void vs.window.showErrorMessage(
+        `Failed to remove ${countPart} ${labels}. Check logs for details.`,
+      );
+    }
     return undefined;
   });
 }

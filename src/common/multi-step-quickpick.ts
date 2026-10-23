@@ -10,6 +10,7 @@ import {
   QuickInput,
   Event,
   QuickInputButton,
+  QuickPick,
 } from 'vscode';
 import vscode from 'vscode';
 
@@ -153,10 +154,63 @@ export class MultiStepInput {
   async showQuickPick<T extends QuickPickItem>(
     opts: QuickPickOptions<T>,
   ): Promise<T> {
+    return this.runQuickPick<T, T>(opts, (input, resolve) => [
+      input.onDidChangeSelection((selectedItems) => {
+        resolve(selectedItems[0]);
+      }),
+    ]);
+  }
+
+  /**
+   * Creates and shows a quick pick input which allows selecting multiple
+   * items.
+   *
+   * Unlike {@link MultiStepInput.showQuickPick}, the input resolves when the
+   * user accepts the selection rather than on each change to it. Accepting
+   * with nothing selected picks the highlighted item, as a single-select quick
+   * pick would.
+   *
+   * @param opts - The options for the quick pick input.
+   * @returns The selected items, or the highlighted item if none are
+   * selected. Empty if there are neither.
+   */
+  async showQuickPickMany<T extends QuickPickItem>(
+    opts: QuickPickOptions<T>,
+  ): Promise<T[]> {
+    return this.runQuickPick<T, T[]>(opts, (input, resolve) => {
+      input.canSelectMany = true;
+      return [
+        input.onDidAccept(() => {
+          const items =
+            input.selectedItems.length > 0
+              ? input.selectedItems
+              : input.activeItems;
+          resolve([...items]);
+        }),
+      ];
+    });
+  }
+
+  /**
+   * Creates, configures and shows a quick pick input.
+   *
+   * @param opts - The options for the quick pick input.
+   * @param configure - Applies any additional configuration to the input and
+   * registers the listeners which resolve it. Returns the disposables for those
+   * listeners.
+   * @returns The value the input resolves with.
+   */
+  private async runQuickPick<T extends QuickPickItem, R>(
+    opts: QuickPickOptions<T>,
+    configure: (
+      input: QuickPick<T>,
+      resolve: (value: R) => void,
+    ) => Disposable[],
+  ): Promise<R> {
     const disposables: Disposable[] = [];
 
     try {
-      return await new Promise<T>((resolve, reject) => {
+      return await new Promise<R>((resolve, reject) => {
         const input = this.vs.window.createQuickPick<T>();
         input.title = opts.title;
         input.step = opts.step;
@@ -176,9 +230,7 @@ export class MultiStepInput {
         disposables.push(
           nav.onDidHide,
           nav.onDidTriggerButton,
-          input.onDidChangeSelection((selectedItems) => {
-            resolve(selectedItems[0]);
-          }),
+          ...configure(input, resolve),
         );
 
         this.current?.dispose();
