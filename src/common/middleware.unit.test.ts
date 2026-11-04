@@ -5,7 +5,6 @@
  */
 
 import { expect } from 'chai';
-import { Request, Response } from 'node-fetch';
 import * as sinon from 'sinon';
 import { ColabRequestError } from '../colab/errors';
 import {

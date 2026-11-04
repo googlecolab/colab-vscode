@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 
 const XSSI_PREFIX = ")]}'\n";

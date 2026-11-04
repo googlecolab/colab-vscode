@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 import { fetchAndParse } from '../../../common/fetch-utils';
 import {

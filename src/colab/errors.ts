@@ -5,7 +5,6 @@
  */
 
 import { URL } from 'url';
-import { Request, Response } from 'node-fetch';
 
 /**
  * Cap on the response body carried in an error message.
@@ -21,25 +20,21 @@ const MAX_BODY_CHARS = 512;
  * E.g. `https://example.com/path?foo=bar&baz=quux` becomes
  * `https://example.com/path?foo=REDACTED&baz=REDACTED`.
  *
- * Given an invalid, unparsable URL, the URL without the query string or
- * fragment is returned.
+ * Only ever called with a `Request.url`, which the Fetch spec guarantees is an
+ * absolute, parsable URL.
  *
  * @param url - The URL to redact.
  * @returns The URL with all search parameter values redacted.
  */
 function redactUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    for (const key of u.searchParams.keys()) {
-      u.searchParams.set(key, 'REDACTED');
-    }
-    if (u.hash) {
-      u.hash = 'REDACTED';
-    }
-    return u.toString();
-  } catch {
-    return url.split(/[?#]/)[0];
+  const u = new URL(url);
+  for (const key of u.searchParams.keys()) {
+    u.searchParams.set(key, 'REDACTED');
   }
+  if (u.hash) {
+    u.hash = 'REDACTED';
+  }
+  return u.toString();
 }
 
 /**

@@ -5,7 +5,6 @@
  */
 
 import { expect } from 'chai';
-import { RequestInit, Response } from 'node-fetch';
 import * as sinon from 'sinon';
 import { z } from 'zod';
 import { fetchAndParse } from './fetch-utils';

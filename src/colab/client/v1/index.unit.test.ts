@@ -6,7 +6,6 @@
 
 import { randomUUID } from 'crypto';
 import { expect } from 'chai';
-import fetch, { Request, Response } from 'node-fetch';
 import { SinonStub, SinonMatcher } from 'sinon';
 import * as sinon from 'sinon';
 import { ColabAssignedServer } from '../../../jupyter/servers';
@@ -38,13 +37,13 @@ const APP_NAME = 'mock-app';
 const EXTENSION_VERSION = '1.2.3';
 
 describe('ColabClient', () => {
-  let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
+  let fetchStub: sinon.SinonStub<Parameters<typeof fetch>, Promise<Response>>;
   let sessionStub: SinonStub<[], Promise<string>>;
   let client: ColabClient;
   let onAuthErrorStub: SinonStub<[], Promise<void>>;
 
   beforeEach(() => {
-    fetchStub = sinon.stub(fetch, 'default').callsFake(() => {
+    fetchStub = sinon.stub(globalThis, 'fetch').callsFake(() => {
       throw new Error('fetch was called with non-matching call');
     });
     sessionStub = sinon.stub<[], Promise<string>>().resolves(BEARER_TOKEN);

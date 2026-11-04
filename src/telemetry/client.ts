@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fetch, { Request } from 'node-fetch';
 import vscode from 'vscode';
 import { Disposable } from 'vscode';
 import { ExperimentFlag } from '../colab/client/v1/api';

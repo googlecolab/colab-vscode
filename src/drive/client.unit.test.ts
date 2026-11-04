@@ -5,7 +5,6 @@
  */
 
 import { expect } from 'chai';
-import fetch, { Request, Response } from 'node-fetch';
 import sinon, { SinonStub } from 'sinon';
 import { AUTHORIZATION_HEADER } from '../colab/headers';
 import { DriveClient } from './client';
@@ -14,13 +13,13 @@ const FILES_ENDPOINT = 'https://www.googleapis.com/drive/v3/files';
 const BEARER_TOKEN = 'mock-token';
 
 describe('DriveClient', () => {
-  let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
+  let fetchStub: sinon.SinonStub<Parameters<typeof fetch>, Promise<Response>>;
   let getAccessTokenStub: SinonStub<[], Promise<string>>;
   let onAuthErrorStub: SinonStub<[], Promise<void>>;
   let client: DriveClient;
 
   beforeEach(() => {
-    fetchStub = sinon.stub(fetch, 'default').callsFake(() => {
+    fetchStub = sinon.stub(globalThis, 'fetch').callsFake(() => {
       throw new Error('Unexpected fetch call');
     });
     getAccessTokenStub = sinon

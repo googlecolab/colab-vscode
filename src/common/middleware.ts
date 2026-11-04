@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Request, RequestInit, Response } from 'node-fetch';
 import { ColabRequestError } from '../colab/errors';
 import { ACCEPT_JSON_HEADER, AUTHORIZATION_HEADER } from '../colab/headers';
 

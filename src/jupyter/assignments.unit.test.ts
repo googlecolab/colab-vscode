@@ -6,7 +6,6 @@
 
 import { randomUUID } from 'crypto';
 import { assert, expect } from 'chai';
-import fetch, { Headers, Request } from 'node-fetch';
 import sinon, {
   SinonFakeTimers,
   SinonStubbedFunction,
@@ -189,7 +188,13 @@ describe('AssignmentManager', () => {
   }
 
   beforeEach(() => {
-    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
+    // Fake only the clock and timers. An empty `toFake` means "fake
+    // everything", which patches `queueMicrotask`/`nextTick` and stalls the
+    // global `Response` body reads that `colabProxyFetch` callers await.
+    fakeClock = sinon.useFakeTimers({
+      now: NOW,
+      toFake: ['Date', 'setTimeout', 'clearTimeout'],
+    });
     vsCodeStub = newVsCodeStub();
     colabClientStub = sinon.createStubInstance(ColabClient);
     colabApiClientStub = sinon.createStubInstance(ColaboratoryApi);
@@ -751,7 +756,7 @@ describe('AssignmentManager', () => {
           assert.lengthOf(servers, 1);
           const server = servers[0];
           assert.isDefined(server.connectionInformation.fetch);
-          const fetchStub = sinon.stub(fetch, 'default');
+          const fetchStub = sinon.stub(globalThis, 'fetch');
 
           await server.connectionInformation.fetch('https://example.com');
 
@@ -769,7 +774,7 @@ describe('AssignmentManager', () => {
           assert.lengthOf(servers, 1);
           const server = servers[0];
           assert.isDefined(server.connectionInformation.fetch);
-          const fetchStub = sinon.stub(fetch, 'default');
+          const fetchStub = sinon.stub(globalThis, 'fetch');
           const request = new Request('https://example.com', {
             headers: {
               Accept: 'application/json',
@@ -795,12 +800,95 @@ describe('AssignmentManager', () => {
           );
         });
 
+        it('rebuilds a non-global Request-like, keeping method, headers and body', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(globalThis, 'fetch');
+          // Mimics the Jupyter extension's bundled `node-fetch` Request, which
+          // is not an instance of the global `Request`.
+          class ForeignRequest {
+            readonly url = 'https://example.com/api/contents';
+            readonly method = 'PUT';
+            readonly headers = new Map([['x-test', 'existing-value']]);
+            arrayBuffer(): Promise<ArrayBuffer> {
+              const bytes = new TextEncoder().encode('{"a":1}');
+              const buffer = new ArrayBuffer(bytes.byteLength);
+              new Uint8Array(buffer).set(bytes);
+              return Promise.resolve(buffer);
+            }
+          }
+
+          await server.connectionInformation.fetch(new ForeignRequest());
+
+          sinon.assert.calledOnce(fetchStub);
+          const [sent, init] = fetchStub.firstCall.args;
+          assert.instanceOf(sent, Request);
+          const request = new Request(sent, init);
+          expect(request.url).to.equal('https://example.com/api/contents');
+          expect(request.method).to.equal('PUT');
+          expect(request.headers.get('x-test')).to.equal('existing-value');
+          expect(
+            request.headers.get(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key),
+          ).to.equal(server.connectionInformation.token);
+          expect(await request.text()).to.equal('{"a":1}');
+        });
+
+        it('forwards a foreign GET without reading its body, keeping signal and redirect', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(globalThis, 'fetch');
+          const arrayBuffer = sinon.stub<[], Promise<ArrayBuffer>>();
+          const abort = new AbortController();
+
+          await server.connectionInformation.fetch({
+            url: 'https://example.com/api/kernels',
+            method: 'GET',
+            redirect: 'manual',
+            signal: abort.signal,
+            arrayBuffer,
+          });
+
+          sinon.assert.notCalled(arrayBuffer);
+          const [sent] = fetchStub.firstCall.args;
+          assert.instanceOf(sent, Request);
+          expect(sent.redirect).to.equal('manual');
+          // A Request follows the given signal rather than holding it.
+          expect(sent.signal.aborted).to.be.false;
+          abort.abort();
+          expect(sent.signal.aborted).to.be.true;
+        });
+
+        it('drops a non-native signal and an empty foreign body', async () => {
+          const servers = await assignmentManager.getServers('extension');
+          assert.lengthOf(servers, 1);
+          const server = servers[0];
+          assert.isDefined(server.connectionInformation.fetch);
+          const fetchStub = sinon.stub(globalThis, 'fetch');
+
+          await server.connectionInformation.fetch({
+            url: 'https://example.com/api/contents',
+            method: 'POST',
+            signal: { aborted: false, addEventListener: () => undefined },
+            arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+          });
+
+          const [sent] = fetchStub.firstCall.args;
+          assert.instanceOf(sent, Request);
+          expect(sent.method).to.equal('POST');
+          expect(sent.signal.aborted).to.be.false;
+          expect(sent.body).to.be.null;
+        });
+
         it('allows init headers to override request headers', async () => {
           const servers = await assignmentManager.getServers('extension');
           assert.lengthOf(servers, 1);
           const server = servers[0];
           assert.isDefined(server.connectionInformation.fetch);
-          const fetchStub = sinon.stub(fetch, 'default');
+          const fetchStub = sinon.stub(globalThis, 'fetch');
           const request = new Request('https://example.com', {
             headers: {
               Accept: 'text/plain',
@@ -836,7 +924,7 @@ describe('AssignmentManager', () => {
           assert.lengthOf(servers, 1);
           const server = servers[0];
           assert.isDefined(server.connectionInformation.fetch);
-          const fetchStub = sinon.stub(fetch, 'default');
+          const fetchStub = sinon.stub(globalThis, 'fetch');
           const request = new Request('https://example.com', {
             headers: {
               [COLAB_RUNTIME_PROXY_TOKEN_HEADER.key]: 'spoofed-request-token',
@@ -1256,7 +1344,7 @@ describe('AssignmentManager', () => {
 
       it('includes a fetch implementation that attaches Colab connection info', async () => {
         assert.isDefined(assignedServer.connectionInformation.fetch);
-        const fetchStub = sinon.stub(fetch, 'default');
+        const fetchStub = sinon.stub(globalThis, 'fetch');
 
         await assignedServer.connectionInformation.fetch('https://example.com');
 
@@ -2347,7 +2435,7 @@ describe('AssignmentManager', () => {
 
       it('includes a fetch implementation that attaches Colab connection info', async () => {
         assert.isDefined(refreshedServer.connectionInformation.fetch);
-        const fetchStub = sinon.stub(fetch, 'default');
+        const fetchStub = sinon.stub(globalThis, 'fetch');
 
         await refreshedServer.connectionInformation.fetch(
           'https://example.com',
