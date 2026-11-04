@@ -12,7 +12,6 @@ import type vscode from 'vscode';
 import { ExperimentFlag } from '../colab/client/v1/api';
 import { TEST_ONLY as FLAGS_TEST_ONLY } from '../colab/experiment-state';
 import { CONTENT_TYPE_JSON_HEADER } from '../colab/headers';
-import { Deferred } from '../test/helpers/async';
 import { newVsCodeStub } from '../test/helpers/vscode';
 import { ColabLogEvent, LOG_SOURCE } from './api';
 import { ClearcutClient, LOG_ENDPOINT } from './client';
@@ -65,7 +64,7 @@ describe('ClearcutClient', () => {
 
   describe('log', () => {
     it('flushes an event to Clearcut', async () => {
-      const fetchCalled = new Deferred<void>();
+      const fetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         fetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);
@@ -107,7 +106,7 @@ describe('ClearcutClient', () => {
         ...DEFAULT_LOG,
         timestamp: new Date(NOW + 1).toISOString(),
       };
-      const fetchCalled = new Deferred<void>();
+      const fetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         fetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);
@@ -131,7 +130,7 @@ describe('ClearcutClient', () => {
     });
 
     it('drops events when Clearcut responds with a non-500 status', async () => {
-      const firstFetchCalled = new Deferred<void>();
+      const firstFetchCalled = Promise.withResolvers<void>();
       fetchStub.onFirstCall().callsFake(() => {
         firstFetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_400);
@@ -147,7 +146,7 @@ describe('ClearcutClient', () => {
         ...DEFAULT_LOG,
         timestamp: new Date(fakeClock.now).toISOString(),
       };
-      const secondFetchCalled = new Deferred<void>();
+      const secondFetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         secondFetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);
@@ -161,7 +160,7 @@ describe('ClearcutClient', () => {
     const requeueStatuses = [500, 501];
     for (const status of requeueStatuses) {
       it(`requeues events when Clearcut responds with a ${status.toString()}`, async () => {
-        const firstFetchCalled = new Deferred<void>();
+        const firstFetchCalled = Promise.withResolvers<void>();
         fetchStub.onFirstCall().callsFake(() => {
           firstFetchCalled.resolve();
           return Promise.resolve(new Response('', { status }));
@@ -177,7 +176,7 @@ describe('ClearcutClient', () => {
           ...DEFAULT_LOG,
           timestamp: new Date(fakeClock.now).toISOString(),
         };
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -193,14 +192,14 @@ describe('ClearcutClient', () => {
     }
 
     describe('on requeue', () => {
-      let pendingFlush: Deferred<void>;
-      let fetchCalled: Deferred<void>;
+      let pendingFlush: PromiseWithResolvers<void>;
+      let fetchCalled: PromiseWithResolvers<void>;
 
       beforeEach(() => {
-        fetchCalled = new Deferred<void>();
+        fetchCalled = Promise.withResolvers<void>();
         client.log(DEFAULT_LOG); // Ensure next events are queued.
         fetchStub.reset();
-        pendingFlush = new Deferred<void>();
+        pendingFlush = Promise.withResolvers<void>();
         fetchStub.onFirstCall().callsFake(async () => {
           fetchCalled.resolve();
           await pendingFlush.promise;
@@ -231,7 +230,7 @@ describe('ClearcutClient', () => {
         await fakeClock.tickAsync(1);
         fetchStub.reset();
 
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.onFirstCall().callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -268,7 +267,7 @@ describe('ClearcutClient', () => {
         await fakeClock.tickAsync(1);
         fetchStub.reset();
 
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.onFirstCall().callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -304,7 +303,7 @@ describe('ClearcutClient', () => {
         pendingFlush.resolve();
         fetchStub.reset();
 
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.onFirstCall().callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -320,7 +319,7 @@ describe('ClearcutClient', () => {
       const firstLog = DEFAULT_LOG;
 
       it('queues events to send in batch when the flush interval has not passed', async () => {
-        const firstFetchCalled = new Deferred<void>();
+        const firstFetchCalled = Promise.withResolvers<void>();
         fetchStub.callsFake(() => {
           firstFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -348,7 +347,7 @@ describe('ClearcutClient', () => {
           ...DEFAULT_LOG,
           timestamp: new Date(fakeClock.now).toISOString(),
         };
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -364,8 +363,8 @@ describe('ClearcutClient', () => {
       });
 
       it('queues events to send in batch when a flush is already pending', async () => {
-        const flushPending = new Deferred<void>();
-        const firstFetchCalled = new Deferred<void>();
+        const flushPending = Promise.withResolvers<void>();
+        const firstFetchCalled = Promise.withResolvers<void>();
         fetchStub.onFirstCall().callsFake(async () => {
           firstFetchCalled.resolve();
           await flushPending.promise;
@@ -397,7 +396,7 @@ describe('ClearcutClient', () => {
           ...DEFAULT_LOG,
           timestamp: new Date(fakeClock.now).toISOString(),
         };
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -413,7 +412,7 @@ describe('ClearcutClient', () => {
       });
 
       it('drops oldest events when max pending events is exceeded', async () => {
-        const firstFetchCalled = new Deferred<void>();
+        const firstFetchCalled = Promise.withResolvers<void>();
         fetchStub.callsFake(() => {
           firstFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -440,7 +439,7 @@ describe('ClearcutClient', () => {
           ...DEFAULT_LOG,
           timestamp: new Date(fakeClock.now).toISOString(),
         };
-        const secondFetchCalled = new Deferred<void>();
+        const secondFetchCalled = Promise.withResolvers<void>();
         fetchStub.callsFake(() => {
           secondFetchCalled.resolve();
           return Promise.resolve(FETCH_RESPONSE_OK);
@@ -459,7 +458,7 @@ describe('ClearcutClient', () => {
   });
 
   it('uses the flush interval in the log response', async () => {
-    const firstFetchCalled = new Deferred<void>();
+    const firstFetchCalled = Promise.withResolvers<void>();
     fetchStub.callsFake(() => {
       firstFetchCalled.resolve();
       return Promise.resolve(FETCH_RESPONSE_OK);
@@ -482,7 +481,7 @@ describe('ClearcutClient', () => {
     await fakeClock.tickAsync(remainingInterval);
 
     // Trigger flush
-    const secondFetchCalled = new Deferred<void>();
+    const secondFetchCalled = Promise.withResolvers<void>();
     fetchStub.callsFake(() => {
       secondFetchCalled.resolve();
       return Promise.resolve(FETCH_RESPONSE_OK);
@@ -515,7 +514,7 @@ describe('ClearcutClient', () => {
   ];
   for (const { condition, responseBody } of conditions) {
     it(`defaults to the minimum flush interval when ${condition}`, async () => {
-      const firstFetchCalled = new Deferred<void>();
+      const firstFetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         firstFetchCalled.resolve();
         return Promise.resolve(new Response(responseBody, { status: 200 }));
@@ -533,7 +532,7 @@ describe('ClearcutClient', () => {
       sinon.assert.notCalled(fetchStub);
 
       // Trigger flush
-      const secondFetchCalled = new Deferred<void>();
+      const secondFetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         secondFetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);
@@ -552,7 +551,7 @@ describe('ClearcutClient', () => {
     });
 
     it('forces a flush when the flush interval has not passed', async () => {
-      const firstFetchCalled = new Deferred<void>();
+      const firstFetchCalled = Promise.withResolvers<void>();
       fetchStub.onFirstCall().callsFake(() => {
         firstFetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);
@@ -573,7 +572,7 @@ describe('ClearcutClient', () => {
       client.log(otherLog);
       sinon.assert.notCalled(fetchStub);
 
-      const secondFetchCalled = new Deferred<void>();
+      const secondFetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         secondFetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);
@@ -588,8 +587,8 @@ describe('ClearcutClient', () => {
     });
 
     it('forces a flush when a flush is already pending', async () => {
-      const flushPending = new Deferred<void>();
-      const firstFetchCalled = new Deferred<void>();
+      const flushPending = Promise.withResolvers<void>();
+      const firstFetchCalled = Promise.withResolvers<void>();
       fetchStub.onFirstCall().callsFake(async () => {
         firstFetchCalled.resolve();
         await flushPending.promise; // Never resolved
@@ -611,7 +610,7 @@ describe('ClearcutClient', () => {
       client.log(otherLog);
       sinon.assert.notCalled(fetchStub);
 
-      const secondFetchCalled = new Deferred<void>();
+      const secondFetchCalled = Promise.withResolvers<void>();
       fetchStub.callsFake(() => {
         secondFetchCalled.resolve();
         return Promise.resolve(FETCH_RESPONSE_OK);

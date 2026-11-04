@@ -137,6 +137,18 @@ export default defineConfig(
     },
   },
   {
+    // Tests use `Promise.withResolvers<void>()`.
+    files: [
+      '**/*.unit.test.ts',
+      '**/*.vscode.test.ts',
+      '**/*.e2e.test.ts',
+      'src/test/helpers/**/*.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-invalid-void-type': 'off',
+    },
+  },
+  {
     files: ['**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2022,

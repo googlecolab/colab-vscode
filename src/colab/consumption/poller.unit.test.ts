@@ -12,7 +12,6 @@ import {
   createStubInstance,
 } from 'sinon';
 import { AssignmentChangeEvent } from '../../jupyter/assignments';
-import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
 import { ColabClient } from '../client/v1';
@@ -194,7 +193,7 @@ describe('ConsumptionPoller', () => {
       });
 
       it('triggers a poll and emits an event', async () => {
-        const runGetConsumptionUserInfo = new Deferred<void>();
+        const runGetConsumptionUserInfo = Promise.withResolvers<void>();
         clientStub.getConsumptionUserInfo.callsFake(() => {
           runGetConsumptionUserInfo.resolve();
           return Promise.resolve(newCcuInfo);
@@ -208,13 +207,13 @@ describe('ConsumptionPoller', () => {
       });
 
       it('aborts an in-flight scheduled poll', async () => {
-        const ccuInfoChanged = new Deferred<void>();
+        const ccuInfoChanged = Promise.withResolvers<void>();
         onDidChangeCcuInfo.callsFake(() => {
           ccuInfoChanged.resolve();
         });
-        const firstCallStarted = new Deferred<void>();
-        const firstCallCompleter = new Deferred<void>();
-        const secondCallStarted = new Deferred<void>();
+        const firstCallStarted = Promise.withResolvers<void>();
+        const firstCallCompleter = Promise.withResolvers<void>();
+        const secondCallStarted = Promise.withResolvers<void>();
         clientStub.getConsumptionUserInfo
           .onFirstCall()
           .callsFake(async () => {
@@ -468,8 +467,8 @@ describe('ConsumptionPoller', () => {
     });
 
     it('aborts the running worker', async () => {
-      const workerStarted = new Deferred<void>();
-      const workerCompleter = new Deferred<void>();
+      const workerStarted = Promise.withResolvers<void>();
+      const workerCompleter = Promise.withResolvers<void>();
       clientStub.getConsumptionUserInfo.callsFake(async () => {
         workerStarted.resolve();
         await workerCompleter.promise;

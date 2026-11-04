@@ -17,7 +17,6 @@ import {
 } from '../colab/headers';
 import { Toggleable } from '../common/toggleable';
 import { PROVIDER_ID } from '../config/constants';
-import { Deferred } from '../test/helpers/async';
 import { SecretStorageFake } from '../test/helpers/secret-storage';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { AuthChangeEvent, GoogleAuthProvider } from './auth-provider';
@@ -641,12 +640,12 @@ describe('GoogleAuthProvider', () => {
       });
 
       describe('when the session is cleared while a refresh is in flight', () => {
-        let refreshStarted: Deferred<void>;
-        let finishRefresh: Deferred<void>;
+        let refreshStarted: PromiseWithResolvers<void>;
+        let finishRefresh: PromiseWithResolvers<void>;
 
         beforeEach(() => {
-          refreshStarted = new Deferred<void>();
-          finishRefresh = new Deferred<void>();
+          refreshStarted = Promise.withResolvers<void>();
+          finishRefresh = Promise.withResolvers<void>();
           // Cast necessary due to OAuth2Client.refreshAccessToken overload.
           (refreshAccessTokenStub as SinonStub).callsFake(async () => {
             refreshStarted.resolve();
@@ -949,8 +948,8 @@ describe('GoogleAuthProvider', () => {
         ),
       );
       async function newWindow() {
-        const loginStarted = new Deferred<void>();
-        const loginDone = new Deferred<Credentials>();
+        const loginStarted = Promise.withResolvers<void>();
+        const loginDone = Promise.withResolvers<Credentials>();
         const provider = new GoogleAuthProvider(
           newVsCodeStub().asVsCode(),
           new AuthStorage(secrets as Partial<SecretStorage> as SecretStorage),

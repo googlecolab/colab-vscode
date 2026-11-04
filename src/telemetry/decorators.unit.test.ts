@@ -6,7 +6,6 @@
 
 import { expect } from 'chai';
 import sinon, { SinonStub } from 'sinon';
-import { Deferred } from '../test/helpers/async';
 import { trackErrors, withErrorTracking } from './decorators';
 import { telemetry } from '.';
 
@@ -103,7 +102,7 @@ describe('withErrorTracking', () => {
 
   describe('on an async function', () => {
     it('logs and rethrows errors', async () => {
-      const fnCalled = new Deferred<void>();
+      const fnCalled = Promise.withResolvers<void>();
       const error = new Error('error');
       const fn = async () => {
         await fnCalled.promise;
@@ -118,7 +117,7 @@ describe('withErrorTracking', () => {
     });
 
     it('does not log when an error is not thrown', async () => {
-      const fnCalled = new Deferred<void>();
+      const fnCalled = Promise.withResolvers<void>();
       const fn = async (input: string) => {
         await fnCalled.promise;
         return input + 'bar';

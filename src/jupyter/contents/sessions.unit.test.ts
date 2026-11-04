@@ -16,7 +16,6 @@ import {
 import { AuthChangeEvent } from '../../auth/auth-provider';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../../colab/headers';
 import { Variant } from '../../colab/types';
-import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import {
   createJupyterClientStub,
@@ -145,7 +144,7 @@ describe('JupyterConnectionManager', () => {
 
     it('aborts client creation if disposed while in-flight', async () => {
       toggleAuth(AuthState.SIGNED_IN);
-      const deferred = new Deferred<ColabAssignedServer[]>();
+      const deferred = Promise.withResolvers<ColabAssignedServer[]>();
       // Cast needed due to overload.
       (assignmentManager.getServers as sinon.SinonStub)
         .withArgs('extension')
@@ -361,7 +360,7 @@ describe('JupyterConnectionManager', () => {
 
     it('returns in-flight connection creations', async () => {
       toggleAuth(AuthState.SIGNED_IN);
-      const deferred = new Deferred<ColabAssignedServer[]>();
+      const deferred = Promise.withResolvers<ColabAssignedServer[]>();
       // Cast needed due to overload.
       (assignmentManager.getServers as sinon.SinonStub)
         .withArgs('extension')
@@ -479,7 +478,7 @@ describe('JupyterConnectionManager', () => {
 
     it('returns in-flight connection creations', async () => {
       toggleAuth(AuthState.SIGNED_IN);
-      const deferred = new Deferred<ColabAssignedServer[]>();
+      const deferred = Promise.withResolvers<ColabAssignedServer[]>();
       // Cast needed due to overload.
       (assignmentManager.getServers as sinon.SinonStub)
         .withArgs('extension')

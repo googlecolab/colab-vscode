@@ -13,7 +13,6 @@ import {
   AssignmentManager,
 } from '../../jupyter/assignments';
 import { ColabAssignedServer } from '../../jupyter/servers';
-import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { ColabClient } from '../client/v1';
 import { ExperimentFlag, Disk, GpuInfo, Memory } from '../client/v1/api';
@@ -276,8 +275,8 @@ describe('ResourceTreeProvider', () => {
       // The first getServers stub honours the AbortSignal so the in-flight
       // worker rejects when LatestCancelable aborts it, faithfully reproducing
       // how the real getServers/listAssignments forwards the signal into fetch.
-      const firstRunStarted = new Deferred<void>();
-      const firstRunCompleter = new Deferred<void>();
+      const firstRunStarted = Promise.withResolvers<void>();
+      const firstRunCompleter = Promise.withResolvers<void>();
       (assignmentStub.getServers as sinon.SinonStub)
         .onFirstCall()
         .callsFake(async (_from: 'extension', signal?: AbortSignal) => {
@@ -318,8 +317,8 @@ describe('ResourceTreeProvider', () => {
       // list, but VS Code wouldn't necessarily re-query. After the fix,
       // getChildren must always observe the current state when invoked,
       // regardless of how many change events fire.
-      const firstRunStarted = new Deferred<void>();
-      const firstRunCompleter = new Deferred<void>();
+      const firstRunStarted = Promise.withResolvers<void>();
+      const firstRunCompleter = Promise.withResolvers<void>();
       (assignmentStub.getServers as sinon.SinonStub)
         .onFirstCall()
         .callsFake(async (_from: 'extension', signal?: AbortSignal) => {

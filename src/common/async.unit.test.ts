@@ -6,7 +6,6 @@
 
 import { expect } from 'chai';
 import sinon, { SinonFakeTimers } from 'sinon';
-import { Deferred } from '../test/helpers/async';
 import { ColabLogWatcher } from '../test/helpers/logging';
 import { newVsCodeStub } from '../test/helpers/vscode';
 import { LatestCancelable, waitForTimeout } from './async';
@@ -35,10 +34,10 @@ describe('LatestCancelable', () => {
   });
 
   it('should cancel previous worker and not affect the running state of a new task', async () => {
-    const firstRunStarted = new Deferred<void>();
-    const firstRunCompleter = new Deferred<void>();
-    const secondRunStarted = new Deferred<void>();
-    const secondRunCompleter = new Deferred<void>();
+    const firstRunStarted = Promise.withResolvers<void>();
+    const firstRunCompleter = Promise.withResolvers<void>();
+    const secondRunStarted = Promise.withResolvers<void>();
+    const secondRunCompleter = Promise.withResolvers<void>();
 
     worker
       .onFirstCall()
@@ -93,8 +92,8 @@ describe('LatestCancelable', () => {
   });
 
   it('should report running state correctly', async () => {
-    const d = new Deferred<void>();
-    const workerStarted = new Deferred<void>();
+    const d = Promise.withResolvers<void>();
+    const workerStarted = Promise.withResolvers<void>();
     worker.callsFake(async () => {
       workerStarted.resolve();
       await d.promise;
@@ -114,8 +113,8 @@ describe('LatestCancelable', () => {
   });
 
   it('should cancel in-flight work', async () => {
-    const d = new Deferred<void>();
-    const workerStarted = new Deferred<void>();
+    const d = Promise.withResolvers<void>();
+    const workerStarted = Promise.withResolvers<void>();
     worker.callsFake(async (...args) => {
       workerStarted.resolve();
       const signal = args.pop() as AbortSignal;

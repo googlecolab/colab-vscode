@@ -2497,19 +2497,16 @@ describe('AssignmentManager', () => {
   });
 
   describe('when the notification to reload notebooks is shown', () => {
-    let showInfoMessageResolver: (value: MessageItem | undefined) => void;
-    let showInfoMessage: Promise<MessageItem | undefined>;
+    let showInfoMessage: PromiseWithResolvers<MessageItem | undefined>;
 
     beforeEach(() => {
       /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
       const assignmentChangeEmitter = (assignmentManager as any)
         .assignmentChange as TestEventEmitter<AssignmentChangeEvent>;
       /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
-      showInfoMessage = new Promise<MessageItem | undefined>((resolve) => {
-        showInfoMessageResolver = resolve;
-      });
+      showInfoMessage = Promise.withResolvers<MessageItem | undefined>();
       vsCodeStub.window.showInformationMessage.callsFake(() => {
-        return showInfoMessage;
+        return showInfoMessage.promise;
       });
       assignmentChangeEmitter.fire({
         added: [],
@@ -2524,11 +2521,11 @@ describe('AssignmentManager', () => {
     });
 
     it('opens the Jupyter Github issue when the notification is clicked', async () => {
-      showInfoMessageResolver({
+      showInfoMessage.resolve({
         title: 'View Issue',
       });
 
-      await expect(showInfoMessage).to.eventually.be.fulfilled;
+      await expect(showInfoMessage.promise).to.eventually.be.fulfilled;
       sinon.assert.calledWithMatch(
         vsCodeStub.env.openExternal,
         vsCodeStub.Uri.parse(
@@ -2538,9 +2535,9 @@ describe('AssignmentManager', () => {
     });
 
     it('does not open the Jupyter Github issue when the notification is dismissed', async () => {
-      showInfoMessageResolver(undefined);
+      showInfoMessage.resolve(undefined);
 
-      await expect(showInfoMessage).to.eventually.be.fulfilled;
+      await expect(showInfoMessage.promise).to.eventually.be.fulfilled;
       sinon.assert.notCalled(vsCodeStub.env.openExternal);
     });
   });

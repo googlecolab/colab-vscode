@@ -5,7 +5,7 @@
  */
 
 import sinon from 'sinon';
-import { ControllableAsyncToggle, Deferred } from '../test/helpers/async';
+import { ControllableAsyncToggle } from '../test/helpers/async';
 import { ColabLogWatcher } from '../test/helpers/logging';
 import { newVsCodeStub } from '../test/helpers/vscode';
 import { LogLevel } from './logging';
@@ -37,8 +37,8 @@ class TestToggle extends AsyncToggle {
     call: number,
   ): { resolve: () => void; aborted: Promise<void> } {
     const turn = turning === 'turnOn' ? this.turnOnStub : this.turnOffStub;
-    const d = new Deferred<void>();
-    const aborted = new Deferred<void>();
+    const d = Promise.withResolvers<void>();
+    const aborted = Promise.withResolvers<void>();
     turn.onCall(call).callsFake(async (signal: AbortSignal) => {
       signal.addEventListener('abort', () => {
         aborted.resolve();

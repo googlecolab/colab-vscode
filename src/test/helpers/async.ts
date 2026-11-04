@@ -7,28 +7,6 @@
 import { AsyncToggle } from '../../common/toggleable';
 
 /**
- * A simple Deferred promise helper.
- *
- * This is useful for testing async code, allowing you to create a promise and
- * control when it resolves or rejects
- */
-export class Deferred<T> {
-  readonly promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: unknown) => void;
-
-  /**
-   * Initializes a new instance.
-   */
-  constructor() {
-    this.promise = new Promise<T>((resolve, reject) => {
-      this.resolve = resolve;
-      this.reject = reject;
-    });
-  }
-}
-
-/**
  * A handle for an individual call.
  */
 export interface ControllableCall {
@@ -141,8 +119,8 @@ abstract class PublicToggle extends AsyncToggle {
  * A handle for an individual call.
  */
 class CallHandleImpl implements ControllableCall {
-  started = new Deferred<void>();
-  completed = new Deferred<void>();
+  started = Promise.withResolvers<void>();
+  completed = Promise.withResolvers<void>();
 
   /**
    * Wait for the method to start.

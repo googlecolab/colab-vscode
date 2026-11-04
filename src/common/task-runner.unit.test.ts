@@ -41,10 +41,7 @@ class TestTask implements Task {
   readonly run = sinon.stub<[AbortSignal], Promise<void>>();
 
   nextRun(): TestRun {
-    let abortResolver: () => void;
-    const aborted = new Promise<void>((resolve) => {
-      abortResolver = resolve;
-    });
+    const aborted = Promise.withResolvers<void>();
 
     // Only stub the next call to run.
     const callIndex = this.run.callCount;
@@ -61,7 +58,7 @@ class TestTask implements Task {
     const started = new Promise<void>((resolveStarted) => {
       this.run.onCall(callIndex).callsFake((signal: AbortSignal) => {
         signal.addEventListener('abort', () => {
-          abortResolver();
+          aborted.resolve();
         });
 
         return new Promise<void>((res, rej) => {
@@ -81,7 +78,7 @@ class TestTask implements Task {
       reject: (reason: unknown) => {
         rejectRun(reason);
       },
-      aborted,
+      aborted: aborted.promise,
     };
   }
 }

@@ -9,7 +9,6 @@ import sinon from 'sinon';
 import vscode, { MessageItem } from 'vscode';
 import { COLAB_EXT_IDENTIFIER } from '../config/constants';
 import { JUPYTER_EXT_IDENTIFIER } from '../jupyter/jupyter-extension';
-import { Deferred } from '../test/helpers/async';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
 import { ClearcutClient } from './client';
 import { initializeTelemetryWithNotice } from './notice';
@@ -17,11 +16,11 @@ import { initializeTelemetryWithNotice } from './notice';
 describe('initializeTelemetryWithNotice', () => {
   let vs: VsCodeStub;
   let disposable: vscode.Disposable | undefined;
-  let dialog: Deferred<MessageItem | undefined>;
+  let dialog: PromiseWithResolvers<MessageItem | undefined>;
 
   beforeEach(() => {
     vs = newVsCodeStub();
-    dialog = new Deferred<MessageItem | undefined>();
+    dialog = Promise.withResolvers<MessageItem | undefined>();
     (vs.window.showInformationMessage as sinon.SinonStub).returns(
       dialog.promise,
     );

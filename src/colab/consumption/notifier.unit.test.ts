@@ -102,18 +102,13 @@ describe('ConsumptionNotifier', () => {
           message: string,
           ...actions: string[]
         ): Promise<string | undefined> => {
-          let resolveNotificationAction: (
-            value: string | PromiseLike<string | undefined> | undefined,
-          ) => void;
-          const res = new Promise<string | undefined>((resolve) => {
-            resolveNotificationAction = resolve;
-          });
+          const action = Promise.withResolvers<string | undefined>();
           const click = (clickedAction: string) => {
             assert(actions.includes(clickedAction));
-            resolveNotificationAction(clickedAction);
+            action.resolve(clickedAction);
           };
           resolve({ message, actions, click });
-          return res;
+          return action.promise;
         },
       );
     });

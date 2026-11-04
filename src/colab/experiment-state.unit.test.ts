@@ -6,7 +6,6 @@
 
 import { expect } from 'chai';
 import sinon, { SinonFakeTimers, SinonStubbedInstance } from 'sinon';
-import { Deferred } from '../test/helpers/async';
 import { ColabClient } from './client/v1';
 import { ExperimentFlag, ExperimentFlagValue } from './client/v1/api';
 import {
@@ -125,7 +124,7 @@ describe('ExperimentStateProvider', () => {
   });
 
   it('handles errors when fetching experiment state', async () => {
-    const getExperimentStateRun = new Deferred<void>();
+    const getExperimentStateRun = Promise.withResolvers<void>();
     colabClientStub.getExperimentState.callsFake(async () => {
       getExperimentStateRun.resolve();
       return Promise.reject(new Error('Network error'));
@@ -139,8 +138,8 @@ describe('ExperimentStateProvider', () => {
   });
 
   it('updates flags when state changes', async () => {
-    const firstCall = new Deferred<void>();
-    const secondCall = new Deferred<void>();
+    const firstCall = Promise.withResolvers<void>();
+    const secondCall = Promise.withResolvers<void>();
     colabClientStub.getExperimentState
       .onFirstCall()
       .callsFake(async () => {
@@ -173,8 +172,8 @@ describe('ExperimentStateProvider', () => {
   });
 
   it('does not update flags if response is empty', async () => {
-    const firstCall = new Deferred<void>();
-    const secondCall = new Deferred<void>();
+    const firstCall = Promise.withResolvers<void>();
+    const secondCall = Promise.withResolvers<void>();
     colabClientStub.getExperimentState
       .onFirstCall()
       .callsFake(async () => {
@@ -244,7 +243,7 @@ describe('ExperimentStateProvider', () => {
     experiments?: Map<ExperimentFlag, ExperimentFlagValue>,
     selectedIds?: number[],
   ): Promise<void> {
-    const runGetExperimentState = new Deferred<void>();
+    const runGetExperimentState = Promise.withResolvers<void>();
     colabClientStub.getExperimentState.callsFake(async () => {
       runGetExperimentState.resolve();
       return Promise.resolve({ experiments, selectedIds });
