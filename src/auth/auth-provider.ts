@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GaxiosError } from 'gaxios';
-import { OAuth2Client } from 'google-auth-library';
+// Use google-auth-library's re-export so this is the exact gaxios copy it
+// throws from: GaxiosError's `instanceof` matches on the gaxios version.
+import { gaxios, OAuth2Client } from 'google-auth-library';
 import fetch from 'node-fetch';
 import { v4 as uuid } from 'uuid';
 import vscode, {
@@ -496,14 +497,14 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
 
 function isInvalidGrantError(err: unknown): boolean {
   return (
-    err instanceof GaxiosError &&
+    err instanceof gaxios.GaxiosError &&
     err.status === 400 &&
     err.message.includes('invalid_grant')
   );
 }
 
 function isOAuthClientSwitchedError(err: unknown): boolean {
-  return err instanceof GaxiosError && err.status === 401;
+  return err instanceof gaxios.GaxiosError && err.status === 401;
 }
 
 /**

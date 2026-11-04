@@ -5,8 +5,7 @@
  */
 
 import { expect } from 'chai';
-import { GaxiosError, GaxiosResponse } from 'gaxios';
-import { OAuth2Client } from 'google-auth-library';
+import { gaxios, OAuth2Client } from 'google-auth-library';
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
@@ -297,7 +296,7 @@ describe('GoogleAuthProvider', () => {
           it(`clears the session and re-initializes if refreshAccessToken throws a ${status.toString()} GaxiosError`, async () => {
             const headers = new Headers();
             const url = new URL('https://example.com');
-            const gaxiosError: GaxiosError = new GaxiosError(
+            const gaxiosError = new gaxios.GaxiosError(
               message,
               { headers, url },
               {
@@ -306,7 +305,7 @@ describe('GoogleAuthProvider', () => {
                 status,
                 statusText: 'Unauthorized',
                 headers,
-              } as Partial<GaxiosResponse> as GaxiosResponse,
+              } as Partial<gaxios.GaxiosResponse> as gaxios.GaxiosResponse,
             );
             sinon.stub(oauth2Client, 'refreshAccessToken').throws(gaxiosError);
             storageStub.getSessions.onSecondCall().resolves([]);
@@ -320,6 +319,53 @@ describe('GoogleAuthProvider', () => {
               storageStub.removeSession,
               DEFAULT_REFRESH_SESSION.id,
             );
+          });
+        }
+
+        // The tests above fabricate the GaxiosError. These let
+        // google-auth-library build it from a token endpoint response, so they
+        // fail if our `instanceof` checks stop matching what it actually throws
+        // (e.g. a second gaxios copy after a dependency bump).
+        for (const { message, status } of GAXIOS_ERRORS) {
+          it(`clears the session and re-initializes if the token endpoint responds ${status.toString()} ${message}`, async () => {
+            // The real transport schedules timers, which the fake clock
+            // (it fakes all timers despite `toFake: []`) would never fire.
+            fakeClock.restore();
+            const tokenEndpoint = sinon
+              .stub<
+                Parameters<typeof globalThis.fetch>,
+                Promise<globalThis.Response>
+              >()
+              .resolves(
+                new globalThis.Response(JSON.stringify({ error: message }), {
+                  status,
+                  headers: {
+                    [CONTENT_TYPE_JSON_HEADER.key]:
+                      CONTENT_TYPE_JSON_HEADER.value,
+                  },
+                }),
+              );
+            const realTransportProvider = new GoogleAuthProvider(
+              vsCodeStub.asVsCode(),
+              storageStub,
+              new OAuth2Client({
+                clientId: CLIENT_ID,
+                clientSecret: 'testClientSecret',
+                transporterOptions: { fetchImplementation: tokenEndpoint },
+              }),
+              loginStub,
+            );
+            storageStub.getSessions.onSecondCall().resolves([]);
+
+            await expect(realTransportProvider.initialize()).to.eventually.be
+              .fulfilled;
+
+            sinon.assert.calledOnce(tokenEndpoint);
+            sinon.assert.calledOnceWithExactly(
+              storageStub.removeSession,
+              DEFAULT_REFRESH_SESSION.id,
+            );
+            realTransportProvider.dispose();
           });
         }
 
@@ -610,7 +656,7 @@ describe('GoogleAuthProvider', () => {
         it(`clears the session when refreshing the access token throws a ${status.toString()} GaxiosError`, async () => {
           const headers = new Headers();
           const url = new URL('https://example.com');
-          const gaxiosError: GaxiosError = new GaxiosError(
+          const gaxiosError = new gaxios.GaxiosError(
             message,
             { headers, url },
             {
@@ -619,7 +665,7 @@ describe('GoogleAuthProvider', () => {
               status,
               statusText: 'Unauthorized',
               headers,
-            } as Partial<GaxiosResponse> as GaxiosResponse,
+            } as Partial<gaxios.GaxiosResponse> as gaxios.GaxiosResponse,
           );
           refreshAccessTokenStub.throws(gaxiosError);
           sinon.stub(oauth2Client, 'revokeToken').resolves();
