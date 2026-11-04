@@ -5,7 +5,7 @@ runs:
   using: "composite"
   steps:
     - name: Use Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         # Assuming node version is provided via env var in the workflow
         node-version: ${{ env.NODE_VERSION }}
@@ -25,19 +25,19 @@ runs:
       shell: bash
     - name: upload screenshots
       if: failure()
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: screenshots
         path: /tmp/test-resources/screenshots/
     - name: upload exthost.log
       if: failure()
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: exthost_log
         path: /tmp/test-resources/settings/logs/*/window1/exthost/exthost.log
     - name: upload output logs
       if: failure()
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: output_logs
         path: /tmp/test-resources/settings/logs/*/window1/exthost/output_logging_*/
