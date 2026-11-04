@@ -435,7 +435,7 @@
   },
   "dependencies": {
     "@jupyterlab/services": "^7.5.3",
-    "glob": "^11.1.0",
+    "glob": "^14.0.2",
     "google-auth-library": "^10.9.0",
     "node-fetch": "^2.6.7",
     "semver": "^7.7.3",
