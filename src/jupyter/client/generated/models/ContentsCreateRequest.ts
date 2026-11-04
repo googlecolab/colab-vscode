@@ -22,20 +22,14 @@ import { mapValues } from '../runtime';
 export interface ContentsCreateRequest {
     /**
      * 
-     * @type {string}
-     * @memberof ContentsCreateRequest
      */
     copyFrom?: string;
     /**
      * 
-     * @type {string}
-     * @memberof ContentsCreateRequest
      */
     ext?: string;
     /**
      * 
-     * @type {string}
-     * @memberof ContentsCreateRequest
      */
     type?: string;
 }

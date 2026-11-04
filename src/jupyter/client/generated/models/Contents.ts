@@ -30,74 +30,50 @@ import {
 export interface Contents {
     /**
      * Name of file or directory, equivalent to the last part of the path
-     * @type {string}
-     * @memberof Contents
      */
     name: string;
     /**
      * Full path for file or directory
-     * @type {string}
-     * @memberof Contents
      */
     path: string;
     /**
      * Type of content
-     * @type {ContentsTypeEnum}
-     * @memberof Contents
      */
     type: ContentsTypeEnum;
     /**
      * indicates whether the requester has permission to edit the file
-     * @type {boolean}
-     * @memberof Contents
      */
     writable: boolean;
     /**
      * Creation timestamp
-     * @type {string}
-     * @memberof Contents
      */
     created: string;
     /**
      * Last modified timestamp
-     * @type {string}
-     * @memberof Contents
      */
     lastModified: string;
     /**
      * The size of the file or notebook in bytes. If no size is provided, defaults to null.
-     * @type {number}
-     * @memberof Contents
      */
     size?: number;
     /**
      * The mimetype of a file.  If content is not null, and type is 'file', this will contain the mimetype of the file, otherwise this will be null.
-     * @type {string}
-     * @memberof Contents
      */
     mimetype: string;
     /**
      * 
-     * @type {Content}
-     * @memberof Contents
      */
     content?: Content;
     /**
      * Format of content (one of null, 'text', 'base64', 'json')
-     * @type {string}
-     * @memberof Contents
      */
     format: string;
     /**
      * [optional] The hexdigest hash string of content, if requested (otherwise null). It cannot be null if hash_algorithm is defined.
-     * @type {string}
-     * @memberof Contents
      */
     hash?: string;
     /**
      * [optional] The algorithm used to produce the hash, if requested (otherwise null). It cannot be null if hash is defined.
-     * @type {string}
-     * @memberof Contents
      */
     hashAlgorithm?: string;
 }
@@ -109,7 +85,7 @@ export interface Contents {
 export const ContentsTypeEnum = {
     Directory: 'directory',
     File: 'file',
-    Notebook: 'notebook'
+    Notebook: 'notebook',
 } as const;
 export type ContentsTypeEnum = typeof ContentsTypeEnum[keyof typeof ContentsTypeEnum];
 

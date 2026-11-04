@@ -22,14 +22,10 @@ import { mapValues } from '../runtime';
 export interface KernelsStartRequest {
     /**
      * Kernel spec name (defaults to default kernel spec for server)
-     * @type {string}
-     * @memberof KernelsStartRequest
      */
     name: string;
     /**
      * API path from root to the cwd of the kernel
-     * @type {string}
-     * @memberof KernelsStartRequest
      */
     path?: string;
 }

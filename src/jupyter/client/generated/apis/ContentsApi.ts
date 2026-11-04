@@ -46,47 +46,101 @@ import {
 } from '../models/ContentsSaveRequest';
 
 export interface ContentsCreateOperationRequest {
+    /**
+     * file path
+     */
     path: string;
+    /**
+     * Path of file to copy
+     */
     model?: ContentsCreateRequest;
 }
 
 export interface ContentsCreateCheckpointRequest {
+    /**
+     * file path
+     */
     path: string;
 }
 
 export interface ContentsDeleteRequest {
+    /**
+     * file path
+     */
     path: string;
 }
 
 export interface ContentsDeleteCheckpointRequest {
+    /**
+     * file path
+     */
     path: string;
+    /**
+     * Checkpoint id for a file
+     */
     checkpointId: string;
 }
 
 export interface ContentsGetRequest {
+    /**
+     * file path
+     */
     path: string;
+    /**
+     * File type ('file', 'directory')
+     */
     type?: ContentsGetTypeEnum;
+    /**
+     * How file content should be returned ('text', 'base64')
+     */
     format?: ContentsGetFormatEnum;
+    /**
+     * Return content (0 for no content, 1 for return content)
+     */
     content?: number;
+    /**
+     * May return hash hexdigest string of content and the hash algorithm (0 for no hash - default, 1 for return hash). It may be ignored by the content manager.
+     */
     hash?: number;
 }
 
 export interface ContentsListCheckpointsRequest {
+    /**
+     * file path
+     */
     path: string;
 }
 
 export interface ContentsRenameOperationRequest {
+    /**
+     * file path
+     */
     path: string;
+    /**
+     * New path for file or directory.
+     */
     rename: ContentsRenameRequest;
 }
 
 export interface ContentsRestoreCheckpointRequest {
+    /**
+     * file path
+     */
     path: string;
+    /**
+     * Checkpoint id for a file
+     */
     checkpointId: string;
 }
 
 export interface ContentsSaveOperationRequest {
+    /**
+     * file path
+     */
     path: string;
+    /**
+     * New path for file or directory
+     */
     model?: ContentsSaveRequest;
 }
 
@@ -801,7 +855,7 @@ export class ContentsApi extends runtime.BaseAPI implements ContentsApiInterface
  */
 export const ContentsGetTypeEnum = {
     File: 'file',
-    Directory: 'directory'
+    Directory: 'directory',
 } as const;
 export type ContentsGetTypeEnum = typeof ContentsGetTypeEnum[keyof typeof ContentsGetTypeEnum];
 /**
@@ -809,6 +863,6 @@ export type ContentsGetTypeEnum = typeof ContentsGetTypeEnum[keyof typeof Conten
  */
 export const ContentsGetFormatEnum = {
     Text: 'text',
-    Base64: 'base64'
+    Base64: 'base64',
 } as const;
 export type ContentsGetFormatEnum = typeof ContentsGetFormatEnum[keyof typeof ContentsGetFormatEnum];

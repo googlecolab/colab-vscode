@@ -26,22 +26,37 @@ import {
 } from '../models/KernelsStartRequest';
 
 export interface KernelsGetRequest {
+    /**
+     * kernel uuid
+     */
     kernelId: string;
 }
 
 export interface KernelsInterruptRequest {
+    /**
+     * kernel uuid
+     */
     kernelId: string;
 }
 
 export interface KernelsKillRequest {
+    /**
+     * kernel uuid
+     */
     kernelId: string;
 }
 
 export interface KernelsRestartRequest {
+    /**
+     * kernel uuid
+     */
     kernelId: string;
 }
 
 export interface KernelsStartOperationRequest {
+    /**
+     * 
+     */
     options?: KernelsStartRequest;
 }
 

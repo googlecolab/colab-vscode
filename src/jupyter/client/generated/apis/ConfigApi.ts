@@ -16,11 +16,20 @@
 import * as runtime from '../runtime';
 
 export interface ConfigGetRequest {
+    /**
+     * Name of config section
+     */
     sectionName: string;
 }
 
 export interface ConfigUpdateRequest {
+    /**
+     * Name of config section
+     */
     sectionName: string;
+    /**
+     * 
+     */
     _configuration?: object;
 }
 
