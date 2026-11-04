@@ -21,6 +21,13 @@ import {
 } from '../models/IdentityGet200Response';
 
 export interface IdentityGetRequest {
+    /**
+     * JSON-serialized dictionary of `{"resource": ["action",]}`
+     * (dict of lists of strings) to check.
+     * The same dictionary structure will be returned,
+     * containing only the actions for which the user is authorized.
+     * 
+     */
     permissions?: string;
 }
 

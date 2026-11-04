@@ -22,20 +22,14 @@ import { mapValues } from '../runtime';
 export interface KernelSpecResources {
     /**
      * path for kernel.js file
-     * @type {string}
-     * @memberof KernelSpecResources
      */
     kernelJs?: string;
     /**
      * path for kernel.css file
-     * @type {string}
-     * @memberof KernelSpecResources
      */
     kernelCss?: string;
     /**
      * path for logo file.  Logo filenames are of the form `logo-widthxheight`
-     * @type {string}
-     * @memberof KernelSpecResources
      */
     logo?: string;
 }

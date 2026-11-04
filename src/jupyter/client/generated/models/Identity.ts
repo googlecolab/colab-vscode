@@ -23,8 +23,6 @@ export interface Identity {
     /**
      * Unique string identifying the user
      * 
-     * @type {string}
-     * @memberof Identity
      */
     username?: string;
     /**
@@ -32,16 +30,12 @@ export interface Identity {
      * May be the same as `username` in systems where
      * only usernames are available.
      * 
-     * @type {string}
-     * @memberof Identity
      */
     name?: string;
     /**
      * Alternate rendering of name for display.
      * Often the same as `name`.
      * 
-     * @type {string}
-     * @memberof Identity
      */
     displayName?: string;
     /**
@@ -49,16 +43,12 @@ export interface Identity {
      * Initials should not be derived automatically due to localization issues.
      * May be `null` if unavailable.
      * 
-     * @type {string}
-     * @memberof Identity
      */
     initials?: string;
     /**
      * URL of an avatar to be used for the user.
      * May be `null` if unavailable.
      * 
-     * @type {string}
-     * @memberof Identity
      */
     avatarUrl?: string;
     /**
@@ -66,8 +56,6 @@ export interface Identity {
      * such as for collaboration cursors.
      * May be `null` if unavailable.
      * 
-     * @type {string}
-     * @memberof Identity
      */
     color?: string;
 }

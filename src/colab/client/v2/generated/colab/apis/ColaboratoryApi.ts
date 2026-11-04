@@ -99,7 +99,7 @@ export interface CreateRuntimeRequest {
      */
     runtimeId?: string;
     /**
-     * 
+     * Required. Specifications for the runtime to assign.
      */
     runtime?: Omit<Runtime, 'connectionInfo'>;
 }

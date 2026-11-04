@@ -2,7 +2,6 @@
 .vscode-test/
 *.vsix
 node_modules/
-openapitools.json
 out/
 src/colab-config.ts
 src/colab/client/v2/colab-api-fixed.json

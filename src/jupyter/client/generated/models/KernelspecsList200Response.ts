@@ -30,14 +30,10 @@ import {
 export interface KernelspecsList200Response {
     /**
      * Default kernel name
-     * @type {string}
-     * @memberof KernelspecsList200Response
      */
     _default?: string;
     /**
      * 
-     * @type {{ [key: string]: KernelSpec; }}
-     * @memberof KernelspecsList200Response
      */
     kernelspecs?: { [key: string]: KernelSpec; };
 }

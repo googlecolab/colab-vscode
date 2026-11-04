@@ -25,30 +25,22 @@ export interface APIStatus {
     /**
      * ISO8601 timestamp indicating when the notebook server started.
      * 
-     * @type {string}
-     * @memberof APIStatus
      */
     started?: string;
     /**
      * ISO8601 timestamp indicating the last activity on the server,
      * either on the REST API or kernel activity.
      * 
-     * @type {string}
-     * @memberof APIStatus
      */
     lastActivity?: string;
     /**
      * The total number of currently open connections to kernels.
      * 
-     * @type {number}
-     * @memberof APIStatus
      */
     connections?: number;
     /**
      * The total number of running kernels.
      * 
-     * @type {number}
-     * @memberof APIStatus
      */
     kernels?: number;
 }

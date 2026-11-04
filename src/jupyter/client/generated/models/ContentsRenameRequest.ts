@@ -22,8 +22,6 @@ import { mapValues } from '../runtime';
 export interface ContentsRenameRequest {
     /**
      * New path for file or directory
-     * @type {string}
-     * @memberof ContentsRenameRequest
      */
     path?: string;
 }

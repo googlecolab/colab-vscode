@@ -37,20 +37,14 @@ import {
 export interface KernelSpec {
     /**
      * Unique name for kernel
-     * @type {string}
-     * @memberof KernelSpec
      */
     name?: string;
     /**
      * 
-     * @type {KernelSpecFile}
-     * @memberof KernelSpec
      */
     kernelSpecFile?: KernelSpecFile;
     /**
      * 
-     * @type {KernelSpecResources}
-     * @memberof KernelSpec
      */
     resources?: KernelSpecResources;
 }

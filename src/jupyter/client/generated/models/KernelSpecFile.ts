@@ -30,38 +30,26 @@ import {
 export interface KernelSpecFile {
     /**
      * The programming language which this kernel runs. This will be stored in notebook metadata.
-     * @type {string}
-     * @memberof KernelSpecFile
      */
     language: string;
     /**
      * A list of command line arguments used to start the kernel. The text `{connection_file}` in any argument will be replaced with the path to the connection file.
-     * @type {Array<string>}
-     * @memberof KernelSpecFile
      */
     argv: Array<string>;
     /**
      * The kernel's name as it should be displayed in the UI. Unlike the kernel name used in the API, this can contain arbitrary unicode characters.
-     * @type {string}
-     * @memberof KernelSpecFile
      */
     displayName: string;
     /**
      * Codemirror mode.  Can be a string *or* an valid Codemirror mode object.  This defaults to the string from the `language` property.
-     * @type {string}
-     * @memberof KernelSpecFile
      */
     codemirrorMode?: string;
     /**
      * A dictionary of environment variables to set for the kernel. These will be added to the current environment variables.
-     * @type {{ [key: string]: string; }}
-     * @memberof KernelSpecFile
      */
     env?: { [key: string]: string; };
     /**
      * Help items to be displayed in the help menu in the notebook UI.
-     * @type {Array<KernelSpecFileHelpLinksInner>}
-     * @memberof KernelSpecFile
      */
     helpLinks?: Array<KernelSpecFileHelpLinksInner>;
 }
