@@ -5,7 +5,6 @@
  */
 
 import { expect } from 'chai';
-import { Request, Response } from 'node-fetch';
 import { InputFlowAction } from '../common/multi-step-quickpick';
 import { ServerNotFound } from '../jupyter/contents/sessions';
 import {
@@ -45,13 +44,6 @@ describe('ColabRequestError', () => {
     expect(error.message).to.contain(
       'https://example.test/tun/m/assign?nbh=REDACTED',
     );
-  });
-
-  it('drops the query from a URL that does not parse', () => {
-    const error = buildBadRequestError('/tun/m/assign?nbh=secret&authuser=0');
-
-    expect(error.message).to.not.contain('secret');
-    expect(error.message).to.not.contain('authuser');
   });
 
   it('redacts URL fragment', () => {

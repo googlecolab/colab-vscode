@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as https from 'https';
-import fetch, { Headers, Request, RequestInit, Response } from 'node-fetch';
 import { z } from 'zod';
 import { fetchAndParse } from '../../../common/fetch-utils';
 import {
@@ -42,8 +40,6 @@ import {
  * A client for interacting with the Colab APIs.
  */
 export class ColabClient {
-  private readonly httpsAgent?: https.Agent;
-
   /**
    * Creates a new instance of ColabClient.
    *
@@ -95,13 +91,7 @@ export class ColabClient {
       appName: string;
       extensionVersion: string;
     },
-  ) {
-    // TODO: Temporary workaround to allow self-signed certificates
-    // in local development.
-    if (colabDomain.hostname === 'localhost') {
-      this.httpsAgent = new https.Agent({ rejectUnauthorized: false });
-    }
-  }
+  ) {}
 
   /**
    * Gets the current user with Colab Compute Units (CCU) information.
@@ -289,7 +279,6 @@ export class ColabClient {
     const requestInit: RequestInit = {
       ...init,
       headers: requestHeaders,
-      agent: this.httpsAgent,
     };
 
     const fetchImpl = withAuth ? this.fetch : this.unauthenticatedFetch;

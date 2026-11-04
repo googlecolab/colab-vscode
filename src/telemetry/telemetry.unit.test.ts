@@ -41,7 +41,10 @@ describe('Telemetry Module', () => {
   let vs: VsCodeStub;
 
   beforeEach(() => {
-    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
+    // Only fake `Date`. An empty `toFake` means "fake everything", which
+    // patches `queueMicrotask`/`nextTick` and stalls global `Response` body
+    // reads.
+    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: ['Date'] });
     vs = newVsCodeStub();
     const packageJSON = { name: '', publisher: '' };
     vs.extensions.getExtension

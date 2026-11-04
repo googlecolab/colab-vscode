@@ -6,13 +6,6 @@
 
 import assert from 'assert';
 import { randomUUID } from 'crypto';
-import fetch, {
-  Headers,
-  Request,
-  RequestInfo,
-  RequestInit,
-  Response,
-} from 'node-fetch';
 import vscode, { Disposable } from 'vscode';
 import { ColabClient } from '../colab/client/v1';
 import { variantToMachineType } from '../colab/client/v1/api';
@@ -1029,14 +1022,9 @@ class AllAcceleratorsUnavailableError extends Error {
 /**
  * Creates a fetch function that adds the Colab runtime proxy token as a header.
  *
- * Fixes an issue where `fetch` Request objects are not recognized by
- * `node-fetch`, causing them to be treated as URLs instead. This happens
- * because `node-fetch` checks for a specific internal symbol that standard
- * Fetch API requests lack. See:
- * https://github.com/node-fetch/node-fetch/discussions/1598.
- *
- * To work around this, we create a new `Request` instance to ensure
- * compatibility.
+ * The Jupyter extension calls this with `Request` objects from its own bundled
+ * `node-fetch`, which global `fetch` does not recognize and would stringify as
+ * a URL. Such Request-likes are rebuilt as a global {@link Request} first.
  *
  * Colab proxy headers always win over any caller-supplied values for the
  * same keys.
@@ -1047,29 +1035,71 @@ class AllAcceleratorsUnavailableError extends Error {
  */
 function colabProxyFetch(
   token: string,
-): (info: RequestInfo, init?: RequestInit) => Promise<Response> {
-  return async (info: RequestInfo, init?: RequestInit) => {
-    let infoHeaders: Headers | undefined;
-    if (isRequest(info)) {
-      // Ensure compatibility with `node-fetch`
-      info = new Request(info.url, info);
-      infoHeaders = info.headers;
-    }
-
-    const headers = new Headers(infoHeaders);
+): (info: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
+  return async (info: RequestInfo | URL, init?: RequestInit) => {
+    const request = isRequestLike(info) ? await toRequest(info) : info;
+    const headers = new Headers(
+      request instanceof Request ? request.headers : undefined,
+    );
     new Headers(init?.headers).forEach((value, key) => {
       headers.set(key, value);
     });
     headers.set(COLAB_RUNTIME_PROXY_TOKEN_HEADER.key, token);
     headers.set(COLAB_CLIENT_AGENT_HEADER.key, COLAB_CLIENT_AGENT_HEADER.value);
-    init = { ...init, headers };
 
-    return fetch(info, init);
+    return fetch(request, { ...init, headers });
   };
 }
 
-function isRequest(info: RequestInfo): info is Request {
-  return typeof info !== 'string' && !('href' in info);
+/**
+ * The parts of a `Request` (global or `node-fetch`) that are forwarded.
+ */
+interface RequestLike {
+  readonly url: string;
+  readonly method?: string;
+  readonly headers?: {
+    forEach(cb: (value: string, key: string) => void): void;
+  };
+  readonly redirect?: string;
+  readonly signal?: unknown;
+  arrayBuffer?(): Promise<ArrayBuffer>;
+}
+
+function isRequestLike(info: unknown): info is RequestLike {
+  return (
+    typeof info === 'object' &&
+    info !== null &&
+    !(info instanceof URL) &&
+    'url' in info &&
+    typeof info.url === 'string'
+  );
+}
+
+function isRequestRedirect(value: unknown): value is RequestRedirect {
+  return value === 'follow' || value === 'error' || value === 'manual';
+}
+
+async function toRequest(info: RequestLike): Promise<Request> {
+  if (info instanceof Request) {
+    return info;
+  }
+  const method = (info.method ?? 'GET').toUpperCase();
+  const headers = new Headers();
+  info.headers?.forEach((value, key) => {
+    headers.append(key, value);
+  });
+  const canHaveBody = method !== 'GET' && method !== 'HEAD';
+  const body =
+    canHaveBody && info.arrayBuffer ? await info.arrayBuffer() : undefined;
+  return new Request(info.url, {
+    method,
+    headers,
+    body: body?.byteLength ? body : undefined,
+    redirect: isRequestRedirect(info.redirect) ? info.redirect : undefined,
+    // A non-native signal (e.g. an old polyfill) can't be passed to a global
+    // Request, so it is dropped and the request can't be aborted.
+    signal: info.signal instanceof AbortSignal ? info.signal : undefined,
+  });
 }
 
 type ColabServerDescriptorWithAccelerator = ColabServerDescriptor & {

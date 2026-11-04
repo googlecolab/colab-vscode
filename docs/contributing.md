@@ -55,6 +55,10 @@ Guidelines](https://opensource.google/conduct/).
 1. Create or open a Jupyter notebook file (`.ipynb`).
 1. Test and validate your changes.
 
+#### Local Colab Backend
+
+Setting `COLAB_EXTENSION_ENVIRONMENT=local` in `.env` and re-running `npm run generate:config` points the Colab web app domain at `https://localhost:8888`. That domain serves the sign-in redirect pages and `vscode/experiment-state`. The GAPI and public APIs can't be run locally, so they still use the sandbox environment. The extension does not skip TLS verification, so add the local server's development certificate to your OS trust store. VS Code applies OS certificates to the extension's `fetch` calls while `http.systemCertificates` and `http.fetchAdditionalSupport` are enabled (both default).
+
 #### Incremental Build
 
 Launching the extension will automatically kick off the `watch:prod` build task. This can be ran without launching during development by [running the build task](https://code.visualstudio.com/docs/debugtest/tasks).

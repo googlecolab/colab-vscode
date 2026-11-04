@@ -424,7 +424,7 @@ describe('ConsumptionPoller', () => {
     });
 
     it('still backs off when a poll times out', async () => {
-      // node-fetch rejects on abort, so a timeout surfaces as a rejection.
+      // fetch rejects on abort, so a timeout surfaces as a rejection.
       clientStub.getConsumptionUserInfo.callsFake(
         (signal?: AbortSignal) =>
           new Promise((_, reject) => {

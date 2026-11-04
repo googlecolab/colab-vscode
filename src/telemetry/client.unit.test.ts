@@ -5,7 +5,6 @@
  */
 
 import { expect } from 'chai';
-import fetch, { Response, Request } from 'node-fetch';
 import { SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
 import type vscode from 'vscode';
@@ -45,16 +44,19 @@ describe('ClearcutClient', () => {
   let vs: typeof vscode;
   let client: ClearcutClient;
   let fakeClock: SinonFakeTimers;
-  let fetchStub: sinon.SinonStubbedMember<typeof fetch>;
+  let fetchStub: sinon.SinonStub<Parameters<typeof fetch>, Promise<Response>>;
 
   beforeEach(() => {
     vs = newVsCodeStub().asVsCode();
-    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
+    // Only fake `Date`. An empty `toFake` means "fake everything", which
+    // patches `queueMicrotask`/`nextTick` and stalls the global `Response`
+    // body reads that `issueRequest` awaits.
+    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: ['Date'] });
     client = new ClearcutClient(vs, {
       maxPendingEvents: MAX_PENDING_EVENTS,
       minFlushWaitMs: MIN_FLUSH_WAIT_MS,
     });
-    fetchStub = sinon.stub(fetch, 'default');
+    fetchStub = sinon.stub(globalThis, 'fetch');
     FLAGS_TEST_ONLY.setFlagForTest(ExperimentFlag.EnableTelemetry, true);
   });
 
@@ -62,6 +64,29 @@ describe('ClearcutClient', () => {
     sinon.restore();
     FLAGS_TEST_ONLY.resetExperimentsForTest();
   });
+
+  /**
+   * Asserts `fetch` was called exactly once with the expected request.
+   *
+   * A `Request` body is a `ReadableStream`, so two equivalent requests are
+   * never deeply equal. Compare the observable parts instead.
+   *
+   * @param expected - The request `fetch` should have been called with.
+   */
+  async function assertFetchedOnceWith(expected: Request) {
+    sinon.assert.calledOnce(fetchStub);
+    expect(fetchStub.firstCall.args).to.have.length(1);
+    const [actual] = fetchStub.firstCall.args;
+    if (!(actual instanceof Request)) {
+      throw new Error(`Expected a Request, but got ${String(actual)}`);
+    }
+    expect(actual.method).to.equal(expected.method);
+    expect(actual.url).to.equal(expected.url);
+    expect(headerEntries(actual.headers)).to.deep.equal(
+      headerEntries(expected.headers),
+    );
+    expect(await actual.text()).to.equal(await expected.text());
+  }
 
   describe('log', () => {
     it('flushes an event to Clearcut', async () => {
@@ -74,7 +99,7 @@ describe('ClearcutClient', () => {
       client.log(DEFAULT_LOG);
 
       await fetchCalled.promise;
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([DEFAULT_LOG]));
+      await assertFetchedOnceWith(logRequest([DEFAULT_LOG]));
     });
 
     it('does not flush an event to Clearcut when telemetry is disabled by a Colab flag', async () => {
@@ -116,10 +141,7 @@ describe('ClearcutClient', () => {
       client.log(otherLog);
 
       await fetchCalled.promise;
-      sinon.assert.calledOnceWithExactly(
-        fetchStub,
-        logRequest([DEFAULT_LOG, otherLog]),
-      );
+      await assertFetchedOnceWith(logRequest([DEFAULT_LOG, otherLog]));
     });
 
     it('throws when disposed', () => {
@@ -155,7 +177,7 @@ describe('ClearcutClient', () => {
 
       client.log(OTHER_LOG);
       await secondFetchCalled.promise;
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([OTHER_LOG]));
+      await assertFetchedOnceWith(logRequest([OTHER_LOG]));
     });
 
     const requeueStatuses = [500, 501];
@@ -185,10 +207,7 @@ describe('ClearcutClient', () => {
 
         client.log(OTHER_LOG);
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([DEFAULT_LOG, OTHER_LOG]),
-        );
+        await assertFetchedOnceWith(logRequest([DEFAULT_LOG, OTHER_LOG]));
       });
     }
 
@@ -239,10 +258,7 @@ describe('ClearcutClient', () => {
 
         client.dispose(); // Trigger immediate flush
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([...failedLogs, ...newLogs]),
-        );
+        await assertFetchedOnceWith(logRequest([...failedLogs, ...newLogs]));
       });
 
       it('requeues some events when there is limited capacity', async () => {
@@ -276,8 +292,7 @@ describe('ClearcutClient', () => {
 
         client.dispose(); // Trigger immediate flush
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
+        await assertFetchedOnceWith(
           logRequest([...failedLogs.slice(MAX_PENDING_EVENTS / 2), ...newLogs]),
         );
       });
@@ -312,7 +327,7 @@ describe('ClearcutClient', () => {
 
         client.dispose(); // Trigger immediate flush
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(fetchStub, logRequest(newLogs));
+        await assertFetchedOnceWith(logRequest(newLogs));
       });
     });
 
@@ -357,10 +372,7 @@ describe('ClearcutClient', () => {
 
         // Verify that the two queued events were sent in a batch.
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([secondLog, thirdLog]),
-        );
+        await assertFetchedOnceWith(logRequest([secondLog, thirdLog]));
       });
 
       it('queues events to send in batch when a flush is already pending', async () => {
@@ -406,10 +418,7 @@ describe('ClearcutClient', () => {
 
         // Verify that the two queued events were sent in a batch.
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
-          logRequest([secondLog, thirdLog]),
-        );
+        await assertFetchedOnceWith(logRequest([secondLog, thirdLog]));
       });
 
       it('drops oldest events when max pending events is exceeded', async () => {
@@ -450,8 +459,7 @@ describe('ClearcutClient', () => {
         // Verify that the oldest queued events were dropped to maintain
         // capacity.
         await secondFetchCalled.promise;
-        sinon.assert.calledOnceWithExactly(
-          fetchStub,
+        await assertFetchedOnceWith(
           logRequest([...newLogs.slice(1), triggerLog]),
         );
       });
@@ -584,7 +592,7 @@ describe('ClearcutClient', () => {
       // Even though the flush interval has not passed, a second flush should
       // have been triggered by dispose.
       await secondFetchCalled.promise;
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      await assertFetchedOnceWith(logRequest([otherLog]));
     });
 
     it('forces a flush when a flush is already pending', async () => {
@@ -622,7 +630,7 @@ describe('ClearcutClient', () => {
       // Even though the first flush has not resolved, a second flush should
       // have been triggered by dispose.
       await secondFetchCalled.promise;
-      sinon.assert.calledOnceWithExactly(fetchStub, logRequest([otherLog]));
+      await assertFetchedOnceWith(logRequest([otherLog]));
     });
   });
 });
@@ -633,6 +641,14 @@ function createLogEvents(numEvents: number): ColabLogEvent[] {
     events[i] = { ...DEFAULT_LOG, timestamp: new Date(NOW + i).toISOString() };
   }
   return events;
+}
+
+function headerEntries(headers: Headers): Record<string, string> {
+  const entries: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    entries[key] = value;
+  });
+  return entries;
 }
 
 function logRequest(events: ColabLogEvent[]): Request {

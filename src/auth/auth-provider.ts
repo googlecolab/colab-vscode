@@ -6,7 +6,6 @@
 
 import { GaxiosError } from 'gaxios';
 import { OAuth2Client } from 'google-auth-library';
-import fetch from 'node-fetch';
 import { v4 as uuid } from 'uuid';
 import vscode, {
   AuthenticationProvider,

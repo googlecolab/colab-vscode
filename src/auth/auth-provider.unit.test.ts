@@ -7,7 +7,6 @@
 import { expect } from 'chai';
 import { GaxiosError, GaxiosResponse } from 'gaxios';
 import { OAuth2Client } from 'google-auth-library';
-import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { SinonStub, SinonStubbedInstance, SinonFakeTimers } from 'sinon';
 import * as sinon from 'sinon';
 import { AuthenticationSession, SecretStorage } from 'vscode';
@@ -97,10 +96,7 @@ const GAXIOS_ERRORS: { message: string; status: number }[] = [
 describe('GoogleAuthProvider', () => {
   let fakeClock: SinonFakeTimers;
   let vsCodeStub: VsCodeStub;
-  let fetchStub: SinonStub<
-    [url: RequestInfo, init?: RequestInit | undefined],
-    Promise<Response>
-  >;
+  let fetchStub: SinonStub<Parameters<typeof fetch>, Promise<Response>>;
   let storageStub: SinonStubbedInstance<AuthStorage>;
   let loginStub: sinon.SinonStub<
     [scopes: string[], options?: LoginOptions],
@@ -132,9 +128,12 @@ describe('GoogleAuthProvider', () => {
   }
 
   beforeEach(() => {
-    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: [] });
+    // Only fake `Date`. An empty `toFake` means "fake everything", which
+    // patches `queueMicrotask`/`nextTick` and stalls the global `Response`
+    // body reads that `getUserInfo` awaits.
+    fakeClock = sinon.useFakeTimers({ now: NOW, toFake: ['Date'] });
     vsCodeStub = newVsCodeStub();
-    fetchStub = sinon.stub(fetch, 'default');
+    fetchStub = sinon.stub(globalThis, 'fetch');
     storageStub = sinon.createStubInstance(AuthStorage);
     oauth2Client = new OAuth2Client(
       CLIENT_ID,

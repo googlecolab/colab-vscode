@@ -838,7 +838,7 @@ describe('SequentialTaskRunner', () => {
 
       try {
         // Time out the in-flight task, then have it reject with the abort
-        // error, mirroring how `node-fetch` rejects on `AbortSignal`.
+        // error, mirroring how `fetch` rejects on `AbortSignal`.
         await tickPast(TASK_TIMEOUT_MS);
         await expect(run.aborted).to.eventually.be.fulfilled;
         run.reject(new Error('The user aborted a request.'));
