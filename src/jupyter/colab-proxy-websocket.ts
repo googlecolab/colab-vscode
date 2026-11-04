@@ -5,8 +5,8 @@
  */
 
 import assert from 'assert';
+import { randomUUID } from 'crypto';
 import { KernelMessage } from '@jupyterlab/services';
-import { v4 as uuid } from 'uuid';
 import vscode, { Disposable } from 'vscode';
 import WebSocket from 'ws';
 import { z } from 'zod';
@@ -178,7 +178,7 @@ export function colabProxyWebSocket(
       assert(this.clientSessionId);
       const replyMessage: ColabInputReplyMessage = {
         header: {
-          msg_id: uuid(),
+          msg_id: randomUUID(),
           msg_type: 'input_reply',
           session: this.clientSessionId,
           date: new Date().toISOString(),

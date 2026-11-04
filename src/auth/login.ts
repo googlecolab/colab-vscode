@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { randomUUID } from 'crypto';
 import {
   Credentials as OAuth2Credentials,
   OAuth2Client,
 } from 'google-auth-library';
-import { v4 as uuid } from 'uuid';
 import vscode from 'vscode';
 import { log } from '../common/logging';
 import { telemetry } from '../telemetry';
@@ -83,7 +83,7 @@ export async function login(
           cancellable: true,
         },
         async (_, cancel: vscode.CancellationToken) => {
-          const nonce = uuid();
+          const nonce = randomUUID();
           const pkce = await client.generateCodeVerifierAsync();
           const triggerOptions: OAuth2TriggerOptions = {
             cancel,

@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { randomUUID } from 'crypto';
 import { GaxiosError } from 'gaxios';
 import { OAuth2Client } from 'google-auth-library';
-import { v4 as uuid } from 'uuid';
 import vscode, {
   AuthenticationProvider,
   AuthenticationProviderAuthenticationSessionsChangeEvent,
@@ -290,7 +290,7 @@ export class GoogleAuthProvider implements AuthenticationProvider, Disposable {
       });
       const user = await this.getUserInfo(tokenInfo.access_token);
       const newSession: RefreshableAuthenticationSession = {
-        id: existingSession ? existingSession.id : uuid(),
+        id: existingSession ? existingSession.id : randomUUID(),
         refreshToken: tokenInfo.refresh_token,
         account: {
           id: user.email,
