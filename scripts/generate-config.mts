@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
-const ColabEnvironments = ['production', 'sandbox', 'local'] as const;
+const ColabEnvironments = ['production', 'sandbox'] as const;
 
 const envConfig = {
   env: process.env.COLAB_EXTENSION_ENVIRONMENT,
@@ -43,13 +43,6 @@ try {
       break;
     case 'sandbox':
       colabApiDomain = 'https://colab.sandbox.google.com';
-      colabGapiApiDomain = 'https://staging-colab.sandbox.googleapis.com';
-      colabPublicApiDomain =
-        'https://staging-colaboratory.sandbox.googleapis.com';
-      break;
-    case 'local':
-      colabApiDomain = 'https://localhost:8888';
-      // It's not feasible to run this locally.
       colabGapiApiDomain = 'https://staging-colab.sandbox.googleapis.com';
       colabPublicApiDomain =
         'https://staging-colaboratory.sandbox.googleapis.com';
