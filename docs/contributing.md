@@ -80,6 +80,10 @@ The unit tests rely extensively on a [Sinon](https://sinonjs.org/) stub of the `
 
 While there are end-to-end tests, running them requires access to accounts with _automation_ exemptions that only Googlers can use. Pull request automation (once approved by a maintainer) will run them.
 
+#### Dependencies
+
+Do not bump `@vscode/jupyter-extension` to its `latest` npm tag. The proposed API this extension relies on (`JupyterServerConnectionInformation.fetch` and `WebSocket`) only ships under the `proposed` tag.
+
 ### Code Reviews
 
 All submissions, including submissions by project members, require review. We
