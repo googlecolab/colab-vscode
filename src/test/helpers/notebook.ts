@@ -6,22 +6,32 @@
 
 /* eslint-disable jsdoc/require-jsdoc */
 
-import { NotebookCellData, NotebookEdit, NotebookRange } from 'vscode';
+import vscode, { NotebookCellData, NotebookEdit, NotebookRange } from 'vscode';
 
-export enum NotebookCellKind {
+enum FakeNotebookCellKind {
   Markup = 1,
   Code = 2,
 }
+
+// The fake mirrors the real enum's values (the `vscode` module has no runtime
+// outside the extension host) but is a distinct type to TypeScript, so it is
+// presented as the real enum. `object` is the common supertype of the two.
+export const NotebookCellKind =
+  FakeNotebookCellKind as object as typeof vscode.NotebookCellKind;
 
 /**
  * A test fake for {@link NotebookCellData}.
  */
 export class TestNotebookCellData implements NotebookCellData {
-  kind: NotebookCellKind;
+  kind: vscode.NotebookCellKind;
   value: string;
   languageId: string;
 
-  constructor(kind: NotebookCellKind, value: string, languageId: string) {
+  constructor(
+    kind: vscode.NotebookCellKind,
+    value: string,
+    languageId: string,
+  ) {
     this.kind = kind;
     this.value = value;
     this.languageId = languageId;

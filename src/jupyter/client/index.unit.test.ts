@@ -130,7 +130,7 @@ describe('ProxiedJupyterClient', () => {
 
       for (const [prop, ApiClass] of cases) {
         it(`exposes the ${prop} API`, () => {
-          const api = client[prop as keyof typeof client];
+          const api = client[prop];
 
           expect(api).to.be.instanceOf(ApiClass);
         });

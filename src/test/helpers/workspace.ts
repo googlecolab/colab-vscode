@@ -70,7 +70,7 @@ export class TestWorkspaceEdit implements WorkspaceEdit {
       | [NotebookEdit, WorkspaceEditEntryMetadata | undefined]
     )[],
   ): void {
-    this.uri = uri as TestUri;
+    this.uri = uri;
     this.edits = edits as TestNotebookEdit[];
   }
 

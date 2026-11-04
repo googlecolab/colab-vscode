@@ -340,12 +340,17 @@ export const ExperimentStateSchema = z.object({
     .record(z.string(), ExperimentFlagValueSchema.optional())
     .transform((val) => {
       /** Filter out entries where the value is undefined */
-      const validKeys = new Set(Object.values(ExperimentFlag) as string[]);
-      const entries = Object.entries(val).filter(([k, v]) => {
-        return v !== undefined && validKeys.has(k);
-      });
+      const validKeys = new Set<string>(Object.values(ExperimentFlag));
+      const isExperimentFlag = (key: string): key is ExperimentFlag =>
+        validKeys.has(key);
+      const flags = new Map<ExperimentFlag, ExperimentFlagValue>();
+      for (const [k, v] of Object.entries(val)) {
+        if (v !== undefined && isExperimentFlag(k)) {
+          flags.set(k, v);
+        }
+      }
 
-      return new Map(entries) as Map<ExperimentFlag, ExperimentFlagValue>;
+      return flags;
     })
     .optional(),
   /** The selected experiment IDs. */

@@ -114,9 +114,7 @@ describe('importNotebookFromUrl', () => {
         .withArgs(fileId)
         .resolves(fileContent);
       const doc: Partial<NotebookDocument> = { uri: saveUri };
-      vsCodeStub.workspace.openNotebookDocument.resolves(
-        doc as NotebookDocument,
-      );
+      vsCodeStub.workspace.openNotebookDocument.resolves(doc);
 
       await importNotebookFromUrl(
         vsCodeStub.asVsCode(),

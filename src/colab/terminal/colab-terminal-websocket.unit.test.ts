@@ -61,7 +61,7 @@ describe('ColabTerminalWebSocket', () => {
         tokenExpiry: new Date(Date.now() + 3600000),
         headers: {},
         fetch: (() => undefined) as never,
-        WebSocket: (() => undefined) as never,
+        WebSocket: () => undefined,
       },
       dateAssigned: new Date(),
     };

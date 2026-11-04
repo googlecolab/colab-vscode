@@ -24,6 +24,16 @@ import {
   filterNonIPythonWorkspaceDiagnostics,
 } from './middleware';
 
+// The real enum lives in `vscode-languageclient`, which needs the `vscode`
+// runtime. The tests use its string values, presented as the enum's members.
+// The double assertion goes through the one thing a string and the enum share.
+interface StringLike {
+  toString: () => string;
+}
+const FULL = 'full' as StringLike as vsdiag.DocumentDiagnosticReportKind.full;
+const UNCHANGED =
+  'unChanged' as StringLike as vsdiag.DocumentDiagnosticReportKind.unChanged;
+
 function createDiagnostic(
   range: vscode.Range,
   message = '',
@@ -47,7 +57,7 @@ function createReport(
 ): vsdiag.WorkspaceFullDocumentDiagnosticReport {
   return {
     uri,
-    kind: 'full' as vsdiag.DocumentDiagnosticReportKind.full,
+    kind: FULL,
     items,
     version,
     resultId,
@@ -58,7 +68,7 @@ function createUnchangedReport(
   resultId = '1',
 ): vsdiag.RelatedUnchangedDocumentDiagnosticReport {
   return {
-    kind: 'unChanged' as vsdiag.DocumentDiagnosticReportKind.unChanged,
+    kind: UNCHANGED,
     resultId,
   };
 }

@@ -132,7 +132,7 @@ describe('login', () => {
       sinon.stub(oauth2Client, 'getToken').resolves({
         res: { status: 500 },
         tokens: {},
-      } as GetTokenResponse);
+      });
 
       await expect(
         login(vs.asVsCode(), [flow], oauth2Client, SCOPES),
@@ -152,7 +152,7 @@ describe('login', () => {
       sinon.stub(oauth2Client, 'getToken').resolves({
         res: { status: 200 },
         tokens: {},
-      } as GetTokenResponse);
+      });
 
       await expect(
         login(vs.asVsCode(), [flow], oauth2Client, SCOPES),

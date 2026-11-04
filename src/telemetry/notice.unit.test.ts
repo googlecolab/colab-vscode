@@ -76,20 +76,14 @@ describe('initializeTelemetryWithNotice', () => {
     await vs.globalState.update('telemetryNoticeAcknowledged', true);
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
 
-    disposable = initializeTelemetryWithNotice(
-      vs.asVsCode(),
-      vs.globalState as vscode.Memento,
-    );
+    disposable = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
 
     sinon.assert.notCalled(vs.window.showInformationMessage);
     sinon.assert.calledOnce(logStub);
   });
 
   it('shows a modal with correct message and buttons', () => {
-    disposable = initializeTelemetryWithNotice(
-      vs.asVsCode(),
-      vs.globalState as vscode.Memento,
-    );
+    disposable = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
 
     sinon.assert.calledOnce(vs.window.showInformationMessage);
     const args = vs.window.showInformationMessage.firstCall.args;
@@ -105,10 +99,7 @@ describe('initializeTelemetryWithNotice', () => {
   it('persists acknowledgment on "Acknowledge"', async () => {
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
 
-    disposable = initializeTelemetryWithNotice(
-      vs.asVsCode(),
-      vs.globalState as vscode.Memento,
-    );
+    disposable = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
 
     await acknowledge();
 
@@ -119,10 +110,7 @@ describe('initializeTelemetryWithNotice', () => {
   it('persists acknowledgment on dismiss', async () => {
     const logStub = sinon.stub(ClearcutClient.prototype, 'log');
 
-    disposable = initializeTelemetryWithNotice(
-      vs.asVsCode(),
-      vs.globalState as vscode.Memento,
-    );
+    disposable = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
 
     dialog.resolve(undefined);
     await dialog.promise;
@@ -136,10 +124,7 @@ describe('initializeTelemetryWithNotice', () => {
     it('disposes cleanly when telemetry was initialized', async () => {
       await vs.globalState.update('telemetryNoticeAcknowledged', true);
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-      const d = initializeTelemetryWithNotice(
-        vs.asVsCode(),
-        vs.globalState as vscode.Memento,
-      );
+      const d = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
 
       d.dispose();
 
@@ -148,10 +133,7 @@ describe('initializeTelemetryWithNotice', () => {
 
     it('disposes cleanly when telemetry has not yet been initialized', () => {
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-      const d = initializeTelemetryWithNotice(
-        vs.asVsCode(),
-        vs.globalState as vscode.Memento,
-      );
+      const d = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
 
       d.dispose();
 
@@ -161,10 +143,7 @@ describe('initializeTelemetryWithNotice', () => {
 
     it('disposes deferred client after modal resolves', async () => {
       const disposeSpy = sinon.spy(ClearcutClient.prototype, 'dispose');
-      const d = initializeTelemetryWithNotice(
-        vs.asVsCode(),
-        vs.globalState as vscode.Memento,
-      );
+      const d = initializeTelemetryWithNotice(vs.asVsCode(), vs.globalState);
       await acknowledge();
 
       d.dispose();

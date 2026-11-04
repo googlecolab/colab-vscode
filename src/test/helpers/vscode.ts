@@ -31,31 +31,31 @@ class TestQuickInputButtons implements vscode.QuickInputButtons {
   };
 }
 
-enum UIKind {
+enum FakeUIKind {
   Desktop = 1,
   Web = 2,
 }
 
-export enum ExtensionMode {
+enum FakeExtensionMode {
   Production = 1,
   Development = 2,
   Test = 3,
 }
 
-export enum FileType {
+enum FakeFileType {
   Unknown = 0,
   File = 1,
   Directory = 2,
   SymbolicLink = 64,
 }
 
-export enum FileChangeType {
+enum FakeFileChangeType {
   Changed = 1,
   Created = 2,
   Deleted = 3,
 }
 
-enum ProgressLocation {
+enum FakeProgressLocation {
   SourceControl = 1,
   Window = 10,
   Notification = 15,
@@ -66,17 +66,35 @@ enum QuickPickItemKind {
   Default = 0,
 }
 
-export enum DiagnosticSeverity {
+enum FakeDiagnosticSeverity {
   Error = 0,
   Warning = 1,
   Information = 2,
   Hint = 3,
 }
 
-export enum StatusBarAlignment {
+enum FakeStatusBarAlignment {
   Left = 1,
   Right = 2,
 }
+
+// The `vscode` module has no runtime outside the extension host, so the stub
+// mirrors the values of the real enums with the fakes above. TypeScript treats
+// them as distinct types though, so each fake is presented as the real enum it
+// stands in for. Doing so here lets all tests use the real enum types. The
+// double assertion is deliberate: `object` is the common supertype of the two.
+export const UIKind = FakeUIKind as object as typeof vscode.UIKind;
+export const ExtensionMode =
+  FakeExtensionMode as object as typeof vscode.ExtensionMode;
+export const FileType = FakeFileType as object as typeof vscode.FileType;
+export const FileChangeType =
+  FakeFileChangeType as object as typeof vscode.FileChangeType;
+export const ProgressLocation =
+  FakeProgressLocation as object as typeof vscode.ProgressLocation;
+export const DiagnosticSeverity =
+  FakeDiagnosticSeverity as object as typeof vscode.DiagnosticSeverity;
+export const StatusBarAlignment =
+  FakeStatusBarAlignment as object as typeof vscode.StatusBarAlignment;
 
 /**
  * The stubs for the vscode module.
@@ -91,14 +109,14 @@ export interface VsCodeStub {
   CancellationTokenSource: typeof TestCancellationTokenSource;
   EventEmitter: typeof TestEventEmitter;
   QuickPickItemKind: typeof QuickPickItemKind;
-  NotebookCellKind: typeof NotebookCellKind;
+  NotebookCellKind: typeof vscode.NotebookCellKind;
   NotebookCellData: typeof TestNotebookCellData;
   NotebookEdit: typeof TestNotebookEdit;
   NotebookRange: typeof TestNotebookRange;
   WorkspaceEdit: typeof TestWorkspaceEdit;
-  DiagnosticSeverity: typeof DiagnosticSeverity;
+  DiagnosticSeverity: typeof vscode.DiagnosticSeverity;
   FileSystemError: typeof FileSystemError;
-  StatusBarAlignment: typeof StatusBarAlignment;
+  StatusBarAlignment: typeof vscode.StatusBarAlignment;
   commands: {
     executeCommand: sinon.SinonStubbedMember<
       typeof vscode.commands.executeCommand
@@ -107,7 +125,7 @@ export interface VsCodeStub {
       typeof vscode.commands.registerCommand
     >;
   };
-  UIKind: typeof UIKind;
+  UIKind: typeof vscode.UIKind;
   env: {
     appName: string;
     uriScheme: string;
@@ -215,7 +233,7 @@ export interface VsCodeStub {
   ExtensionMode: typeof vscode.ExtensionMode;
   FileType: typeof vscode.FileType;
   FileChangeType: typeof vscode.FileChangeType;
-  ProgressLocation: typeof ProgressLocation;
+  ProgressLocation: typeof vscode.ProgressLocation;
   QuickInputButtons: typeof TestQuickInputButtons;
   extensions: {
     getExtension: sinon.SinonStubbedMember<
@@ -280,17 +298,12 @@ export function newVsCodeStub(): VsCodeStub {
         authentication: { ...this.authentication } as Partial<
           typeof vscode.authentication
         > as typeof vscode.authentication,
-        NotebookCellKind: this
-          .NotebookCellKind as typeof vscode.NotebookCellKind,
-        NotebookCellData: this.NotebookCellData as Partial<
-          typeof vscode.NotebookCellData
-        > as typeof vscode.NotebookCellData,
+        NotebookCellKind: this.NotebookCellKind,
+        NotebookCellData: this.NotebookCellData,
         NotebookEdit: this.NotebookEdit as Partial<
           typeof vscode.NotebookEdit
         > as typeof vscode.NotebookEdit,
-        NotebookRange: this.NotebookRange as Partial<
-          typeof vscode.NotebookRange
-        > as typeof vscode.NotebookRange,
+        NotebookRange: this.NotebookRange,
         WorkspaceEdit: this.WorkspaceEdit as Partial<
           typeof vscode.WorkspaceEdit
         > as typeof vscode.WorkspaceEdit,

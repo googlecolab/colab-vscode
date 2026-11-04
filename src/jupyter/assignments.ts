@@ -784,9 +784,9 @@ export class AssignmentManager implements Disposable {
   private async notifyAllAcceleratorsUnavailable(
     error: AllAcceleratorsUnavailableError,
   ) {
-    void (await this.vs.window.showErrorMessage(
+    await this.vs.window.showErrorMessage(
       `Unable to assign server. ${error.message}`,
-    ));
+    );
   }
 
   private async notifyMaxAssignmentsExceeded() {
