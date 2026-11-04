@@ -22,14 +22,10 @@ import { mapValues } from '../runtime';
 export interface Checkpoints {
     /**
      * Unique id for the checkpoint.
-     * @type {string}
-     * @memberof Checkpoints
      */
     id: string;
     /**
      * Last modified timestamp
-     * @type {string}
-     * @memberof Checkpoints
      */
     lastModified: string;
 }

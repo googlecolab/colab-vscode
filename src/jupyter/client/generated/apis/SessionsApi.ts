@@ -26,19 +26,34 @@ import {
 } from '../models/SessionsCreate501Response';
 
 export interface SessionsCreateRequest {
+    /**
+     * 
+     */
     session?: Session;
 }
 
 export interface SessionsDeleteRequest {
+    /**
+     * session uuid
+     */
     session: string;
 }
 
 export interface SessionsGetRequest {
+    /**
+     * session uuid
+     */
     session: string;
 }
 
 export interface SessionsUpdateRequest {
+    /**
+     * session uuid
+     */
     session: string;
+    /**
+     * 
+     */
     model: Session;
 }
 

@@ -22,14 +22,10 @@ import { mapValues } from '../runtime';
 export interface ContentsGet400Response {
     /**
      * Error condition
-     * @type {string}
-     * @memberof ContentsGet400Response
      */
     error?: string;
     /**
      * Explanation of error reason
-     * @type {string}
-     * @memberof ContentsGet400Response
      */
     reason?: string;
 }
