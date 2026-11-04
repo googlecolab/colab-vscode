@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { existsSync, mkdirSync, cpSync } from 'fs';
+import { existsSync, globSync, mkdirSync, cpSync } from 'fs';
 import * as path from 'path';
 import * as esbuild from 'esbuild';
 import { nodeExternalsPlugin } from 'esbuild-node-externals';
-import { glob } from 'glob';
 
 const isProduction: boolean = process.argv.includes('--production');
 const isTestBuild: boolean = process.argv.includes('--tests');
@@ -118,13 +117,9 @@ function testOptions(
   name: string,
   entrypointGlobPattern: string | string[],
 ): esbuild.BuildOptions {
-  const entryPoints = Array.isArray(entrypointGlobPattern)
-    ? entrypointGlobPattern.flatMap((pattern) => glob.sync(pattern))
-    : glob.sync(entrypointGlobPattern);
-
   return {
     ...baseOptions,
-    entryPoints,
+    entryPoints: globSync(entrypointGlobPattern),
     outdir: 'out/test',
     outbase: 'src',
     plugins: [buildReporter(name), nodeExternalsPlugin()],
