@@ -441,7 +441,7 @@
     "node-fetch": "^2.6.7",
     "semver": "^7.8.6",
     "uuid": "^14.0.1",
-    "vscode-languageclient": "^10.0.0-next.17",
+    "vscode-languageclient": "^11.0.0",
     "ws": "^6.2.6",
     "zod": "^4.6.7"
   }
