@@ -139,18 +139,48 @@ export function getLevel(): LogLevel {
  * Can be used directly after calling `initializeLogger()`.
  */
 export const log: Logger = {
+  /**
+   * Emits an error log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   error: (msg: string, ...args: unknown[]) => {
     doLog(LogLevel.Error, 'error', msg, ...args);
   },
+  /**
+   * Emits a warning log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   warn: (msg: string, ...args: unknown[]) => {
     doLog(LogLevel.Warning, 'warn', msg, ...args);
   },
+  /**
+   * Emits an info log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   info: (msg: string, ...args: unknown[]) => {
     doLog(LogLevel.Info, 'info', msg, ...args);
   },
+  /**
+   * Emits a debug log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   debug: (msg: string, ...args: unknown[]) => {
     doLog(LogLevel.Debug, 'debug', msg, ...args);
   },
+  /**
+   * Emits a trace log.
+   *
+   * @param msg - The log text.
+   * @param args - The arguments to include.
+   */
   trace: (msg: string, ...args: unknown[]) => {
     doLog(LogLevel.Trace, 'trace', msg, ...args);
   },

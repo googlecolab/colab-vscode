@@ -76,12 +76,20 @@ export function initializeTelemetry(vs: typeof vscode): Disposable {
  * A collection of functions for logging telemetry events.
  */
 export const telemetry = {
+  /** Logs that the extension was activated. */
   logActivation: () => {
     log({ activation_event: {} });
   },
+  /** Logs an automatic connection to a server. */
   logAutoConnect: () => {
     log({ auto_connect_event: {} });
   },
+  /**
+   * Logs the outcome of a server assignment request.
+   *
+   * @param outcome - Whether the operation succeeded.
+   * @param config - The requested server configuration.
+   */
   logAssignServer: (
     outcome: AssignmentOutcome,
     config: {
@@ -103,9 +111,17 @@ export const telemetry = {
       },
     });
   },
+  /** Logs use of the Colab toolbar. */
   logColabToolbar: () => {
     log({ colab_toolbar_event: {} });
   },
+  /**
+   * Logs a file operation performed in the content browser.
+   *
+   * @param operation - The operation performed.
+   * @param outcome - Whether the operation succeeded.
+   * @param target - What the operation targeted.
+   */
   logContentBrowserFileOperation: (
     operation: ContentBrowserOperation,
     outcome: Outcome,
@@ -115,11 +131,24 @@ export const telemetry = {
       content_browser_file_operation_event: { operation, outcome, target },
     });
   },
+  /**
+   * Logs the outcome of a file download.
+   *
+   * @param outcome - Whether the operation succeeded.
+   * @param downloadedBytes - Number of bytes downloaded.
+   */
   logDownload: (outcome: Outcome, downloadedBytes: number) => {
     log({
       download_event: { outcome, downloaded_bytes: downloadedBytes },
     });
   },
+  /**
+   * Logs a low compute unit balance notification.
+   *
+   * @param severity - How low the balance is.
+   * @param subscriptionTier - The user's subscription tier.
+   * @param clickedAction - Whether the user clicked the notification action.
+   */
   logLowCcuNotification: (
     severity: LowBalanceSeverity,
     subscriptionTier: ColabSubscriptionTier,
@@ -133,6 +162,11 @@ export const telemetry = {
       },
     });
   },
+  /**
+   * Logs an error, truncating long messages.
+   *
+   * @param e - The error to log; any value is accepted.
+   */
   logError: (e: unknown) => {
     if (e instanceof Error) {
       const causes = describeCauses(e);
@@ -156,30 +190,72 @@ export const telemetry = {
       });
     }
   },
+  /**
+   * Logs the handling of an ephemeral authentication request.
+   *
+   * @param authType - The kind of authentication being handled.
+   */
   logHandleEphemeralAuth: (authType: AuthType) => {
     log({ handle_ephemeral_auth_event: { auth_type: authType } });
   },
+  /**
+   * Logs a notebook import.
+   *
+   * @param source - Where the action was triggered from.
+   * @param notebookSource - Where the notebook was imported from.
+   */
   logImportNotebook: (
     source: CommandSource,
     notebookSource: NotebookSource,
   ) => {
     log({ import_notebook_event: { source, notebook_source: notebookSource } });
   },
+  /**
+   * Logs insertion of the mount Drive snippet.
+   *
+   * @param source - Where the action was triggered from.
+   */
   logMountDriveSnippet: (source: CommandSource) => {
     log({ mount_drive_snippet_event: { source } });
   },
+  /**
+   * Logs mounting a server.
+   *
+   * @param source - Where the action was triggered from.
+   * @param server - The server involved, if any.
+   */
   logMountServer: (source: CommandSource, server?: string) => {
     log({ mount_server_event: { source, server } });
   },
+  /**
+   * Logs opening Colab in the web browser.
+   *
+   * @param source - Where the action was triggered from.
+   */
   logOpenColabWeb: (source: CommandSource) => {
     log({ open_colab_web_event: { source } });
   },
+  /**
+   * Logs opening a terminal on a server.
+   *
+   * @param source - Where the action was triggered from.
+   */
   logOpenTerminal: (source: CommandSource) => {
     log({ open_terminal_event: { source } });
   },
+  /**
+   * Logs pruning of servers.
+   *
+   * @param servers - The pruned servers.
+   */
   logPruneServers: (servers: string[]) => {
     log({ prune_servers_event: { servers } });
   },
+  /**
+   * Logs removal of a server.
+   *
+   * @param source - Where the action was triggered from.
+   */
   logRemoveServer: (source = CommandSource.COMMAND_SOURCE_UNSPECIFIED) => {
     log({
       remove_server_event: {
@@ -187,15 +263,34 @@ export const telemetry = {
       },
     });
   },
+  /**
+   * Logs a sign-in attempt.
+   *
+   * @param flow - The authentication flow used.
+   * @param succeeded - Whether the sign-in succeeded.
+   */
   logSignIn: (flow: AuthFlow, succeeded: boolean) => {
     log({ sign_in_event: { auth_flow: flow, succeeded } });
   },
+  /** Logs a sign-out. */
   logSignOut: () => {
     log({ sign_out_event: {} });
   },
+  /**
+   * Logs an upgrade-to-Pro request.
+   *
+   * @param source - Where the action was triggered from.
+   */
   logUpgradeToPro: (source: CommandSource) => {
     log({ upgrade_to_pro_event: { source } });
   },
+  /**
+   * Logs the outcome of a file upload.
+   *
+   * @param source - Where the action was triggered from.
+   * @param outcome - Whether the operation succeeded.
+   * @param stats - Aggregate counts for the upload.
+   */
   logUpload: (
     source: CommandSource,
     outcome: Outcome,

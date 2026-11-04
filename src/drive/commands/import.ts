@@ -88,6 +88,12 @@ export function handleImportUriEvents(
   }
 }
 
+/**
+ * Validates the URL entered in the import prompt.
+ *
+ * @param url - The user-entered URL.
+ * @returns An error message if the URL is invalid, otherwise `undefined`.
+ */
 function validateImportUrl(url: string): string | undefined {
   if (!url) return undefined;
   try {
