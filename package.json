@@ -402,6 +402,7 @@
     "@types/sinon": "^17.0.3",
     "@types/uuid": "^11.0.0",
     "@types/vscode": "1.101.0",
+    "@types/ws": "^8.18.2",
     "@vscode/jupyter-extension": "1.0.93",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
@@ -442,7 +443,7 @@
     "semver": "^7.8.6",
     "uuid": "^14.0.1",
     "vscode-languageclient": "^10.0.0-next.17",
-    "ws": "^6.2.6",
+    "ws": "^8.22.1",
     "zod": "^4.6.7"
   }
 }

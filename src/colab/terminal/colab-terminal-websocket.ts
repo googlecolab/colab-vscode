@@ -257,9 +257,7 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
       }
 
       try {
-        const message =
-          typeof data === 'string' ? data : (data as Buffer).toString();
-        this.handleMessage(message);
+        this.handleMessage(decodeUtf8(data));
       } catch (error: unknown) {
         log.error('Error handling WebSocket message:', error);
         this.onErrorEmitter.fire(
@@ -409,3 +407,15 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
 }
 
 const UNEXPECTED_RESPONSE_MAX_OUTPUT_SIZE = 2048;
+
+/**
+ * Decodes a WebSocket payload as UTF-8. ws delivers text frames as Buffers too.
+ *
+ * @param data - The raw message payload.
+ * @returns The decoded text.
+ */
+function decodeUtf8(data: WebSocket.RawData): string {
+  return new TextDecoder().decode(
+    Array.isArray(data) ? Buffer.concat(data) : data,
+  );
+}

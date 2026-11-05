@@ -8,8 +8,11 @@ import { randomUUID } from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import WebSocket from 'ws';
+import { LogLevel } from '../../common/logging';
 import { ColabAssignedServer } from '../../jupyter/servers';
+import { ColabLogWatcher } from '../../test/helpers/logging';
 import { newVsCodeStub, VsCodeStub } from '../../test/helpers/vscode';
+import { UnconnectedWebSocket } from '../../test/helpers/ws';
 import { COLAB_RUNTIME_PROXY_TOKEN_HEADER } from '../headers';
 import { Variant } from '../types';
 import { ColabTerminalWebSocket } from './colab-terminal-websocket';
@@ -22,7 +25,7 @@ describe('ColabTerminalWebSocket', () => {
   let capturedUrl: string | undefined;
   let capturedOptions: WebSocket.ClientOptions | undefined;
 
-  class TestWebSocket extends WebSocket {
+  class TestWebSocket extends UnconnectedWebSocket {
     override readyState: 0 | 1 | 2 | 3 = WebSocket.OPEN;
 
     constructor(
@@ -30,7 +33,7 @@ describe('ColabTerminalWebSocket', () => {
       protocols?: string | string[] | WebSocket.ClientOptions,
       options?: WebSocket.ClientOptions,
     ) {
-      super(null); // Avoid real WS connection
+      super(null, undefined, {}); // Avoid real WS connection
       capturedUrl = address.toString();
       if (typeof protocols === 'object' && !Array.isArray(protocols)) {
         capturedOptions = protocols;
@@ -157,7 +160,36 @@ describe('ColabTerminalWebSocket', () => {
         done();
       });
 
-      ws.emit('message', message, false);
+      // ws delivers text frames as Buffers.
+      ws.emit('message', Buffer.from(message), /* isBinary= */ false);
+    });
+  });
+
+  describe('close event', () => {
+    let logs: ColabLogWatcher;
+
+    beforeEach(() => {
+      logs = new ColabLogWatcher(vsCodeStub, LogLevel.Trace);
+      terminalWebSocket.connect();
+    });
+
+    afterEach(() => {
+      logs.dispose();
+    });
+
+    it('logs the close reason as text and fires onClose', () => {
+      const ws = (terminalWebSocket as unknown as { ws?: TestWebSocket }).ws;
+      if (!ws) {
+        throw new Error('WebSocket was not created');
+      }
+      const onClose = sinon.spy();
+      terminalWebSocket.onClose(onClose);
+
+      // ws delivers close reasons as Buffers.
+      ws.emit('close', 4000, Buffer.from('session ended'));
+
+      expect(logs.output).to.include('closed: 4000 session ended');
+      sinon.assert.calledOnce(onClose);
     });
   });
 

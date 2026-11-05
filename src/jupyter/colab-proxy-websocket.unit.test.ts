@@ -8,13 +8,14 @@ import { ClientRequestArgs } from 'http';
 import { expect } from 'chai';
 import sinon, { SinonStubbedInstance } from 'sinon';
 import { Disposable } from 'vscode';
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { handleEphemeralAuth } from '../auth/ephemeral';
 import { ColabClient } from '../colab/client/v1';
 import { AuthType } from '../colab/client/v1/api';
 import { UserCancelledError } from '../common/cancellation';
 import { telemetry } from '../telemetry';
 import { newVsCodeStub, VsCodeStub } from '../test/helpers/vscode';
+import { UnconnectedWebSocket } from '../test/helpers/ws';
 import {
   colabProxyWebSocket,
   ColabInputReplyMessage,
@@ -51,10 +52,18 @@ describe('colabProxyWebSocket', () => {
         options: undefined,
       },
       { name: 'options only', protocols: {}, options: undefined },
-      { name: 'single protocol only', protocols: '', options: undefined },
-      { name: 'protocols only', protocols: [], options: undefined },
-      { name: 'single protocol and options', protocols: '', options: {} },
-      { name: 'protocols and options', protocols: [], options: {} },
+      {
+        name: 'single protocol only',
+        protocols: 'jupyter',
+        options: undefined,
+      },
+      { name: 'protocols only', protocols: ['jupyter'], options: undefined },
+      {
+        name: 'single protocol and options',
+        protocols: 'jupyter',
+        options: {},
+      },
+      { name: 'protocols and options', protocols: ['jupyter'], options: {} },
     ];
 
     tests.forEach(({ name, protocols, options }) => {
@@ -182,7 +191,7 @@ describe('colabProxyWebSocket', () => {
 
         testWebSocket.emit(
           'message',
-          JSON.stringify({
+          textFrame({
             ...rawColabRequestMessage,
             content: { request: { authType } },
           }),
@@ -217,7 +226,7 @@ describe('colabProxyWebSocket', () => {
 
       testWebSocket.emit(
         'message',
-        JSON.stringify(rawColabRequestMessage),
+        textFrame(rawColabRequestMessage),
         /* isBinary= */ false,
       );
 
@@ -248,7 +257,7 @@ describe('colabProxyWebSocket', () => {
 
       testWebSocket.emit(
         'message',
-        JSON.stringify(rawColabRequestMessage),
+        textFrame(rawColabRequestMessage),
         /* isBinary= */ false,
       );
 
@@ -287,7 +296,7 @@ describe('colabProxyWebSocket', () => {
       try {
         testWebSocket.emit(
           'message',
-          JSON.stringify(rawColabRequestMessage),
+          textFrame(rawColabRequestMessage),
           /* isBinary= */ false,
         );
 
@@ -304,7 +313,7 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleEphemeralAuth if message is not a colab_request', () => {
-      const rawMessage = JSON.stringify({
+      const rawMessage = textFrame({
         header: { msg_type: 'execute_reply' },
         content: { request: { authType: AuthType.DFS_EPHEMERAL } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
@@ -316,7 +325,7 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleEphemeralAuth if message is not dfs_ephemeral or auth_user_ephemeral', () => {
-      const rawMessage = JSON.stringify({
+      const rawMessage = textFrame({
         header: { msg_type: 'colab_request' },
         content: { request: { authType: 'dfs_persistent' } },
         metadata: { colab_request_type: 'request_auth', colab_msg_id: 1 },
@@ -328,13 +337,21 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleEphemeralAuth if message is empty', () => {
-      testWebSocket.emit('message', /* message= */ '', /* isBinary= */ false);
+      testWebSocket.emit(
+        'message',
+        /* message= */ Buffer.alloc(0),
+        /* isBinary= */ false,
+      );
 
       sinon.assert.notCalled(handleEphemeralAuthStub);
     });
 
     it('does not trigger handleEphemeralAuth if message is malformed', () => {
-      testWebSocket.emit('message', 'malformed message', /* isBinary= */ false);
+      testWebSocket.emit(
+        'message',
+        Buffer.from('malformed message'),
+        /* isBinary= */ false,
+      );
 
       sinon.assert.notCalled(handleEphemeralAuthStub);
     });
@@ -350,9 +367,137 @@ describe('colabProxyWebSocket', () => {
     });
 
     it('does not trigger handleEphemeralAuth if message data is binary', () => {
-      testWebSocket.emit('message', 'some binary data', /* isBinary= */ true);
+      testWebSocket.emit(
+        'message',
+        textFrame(rawColabRequestMessage),
+        /* isBinary= */ true,
+      );
 
       sinon.assert.notCalled(handleEphemeralAuthStub);
+    });
+
+    // The Jupyter extension subclasses the socket and reads raw message args
+    // in its emit override, treating anything but a string as binary.
+    it('presents text frames to subclass emit overrides as strings', () => {
+      const received: unknown[] = [];
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        TestWebSocket,
+        handleEphemeralAuthStub,
+      );
+      class HookedWebSocket extends wsc {
+        override emit(event: string | symbol, ...args: unknown[]): boolean {
+          if (event === 'message') {
+            received.push(args[0]);
+          }
+          return super.emit(event, ...args);
+        }
+      }
+      const hooked = new HookedWebSocket('ws://example.com/socket');
+      const binary = new ArrayBuffer(16);
+
+      hooked.emit('message', Buffer.from('{"a":1}'), /* isBinary= */ false);
+      hooked.emit('message', binary, /* isBinary= */ true);
+
+      expect(received).to.deep.equal(['{"a":1}', binary]);
+      expect(received[1]).to.equal(binary);
+    });
+  });
+
+  describe('ping', () => {
+    it('reports a still-connecting socket through the callback', () => {
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        TestWebSocket,
+      );
+      const testWebSocket: TestWebSocket = new wsc('ws://example.com/socket');
+      testWebSocket.readyState = WebSocket.CONNECTING;
+      const callback = sinon.spy();
+
+      expect(() => {
+        testWebSocket.ping(callback);
+      }).not.to.throw();
+      sinon.assert.calledOnceWithMatch(
+        callback,
+        sinon.match
+          .instanceOf(Error)
+          .and(sinon.match.has('message', sinon.match(/not open/))),
+      );
+    });
+  });
+
+  describe('against a real server', () => {
+    let server: WebSocketServer;
+    let url: string;
+
+    beforeEach(async () => {
+      server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+      await new Promise((resolve) => server.once('listening', resolve));
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP address');
+      }
+      url = `ws://127.0.0.1:${address.port.toString()}`;
+    });
+
+    afterEach(async () => {
+      for (const client of server.clients) {
+        client.terminate();
+      }
+      await new Promise<void>((resolve) => {
+        server.close(() => {
+          resolve();
+        });
+      });
+    });
+
+    it('sends Colab headers and answers a colab_request text frame', async () => {
+      handleEphemeralAuthStub.resolves();
+      const reply = new Promise<unknown>((resolve) => {
+        server.on('connection', (socket, request) => {
+          expect(request.headers['x-colab-runtime-proxy-token']).to.equal(
+            testServer.connectionInformation.token,
+          );
+          socket.once('message', () => {
+            // The client's session is known; ask it for credentials.
+            socket.send(
+              JSON.stringify({
+                header: { msg_type: 'colab_request' },
+                content: { request: { authType: AuthType.DFS_EPHEMERAL } },
+                metadata: {
+                  colab_request_type: 'request_auth',
+                  colab_msg_id: 7,
+                },
+              }),
+            );
+            socket.once('message', (data, isBinary) => {
+              expect(isBinary).to.be.false;
+              expect(Buffer.isBuffer(data)).to.be.true;
+              resolve(JSON.parse(Buffer.isBuffer(data) ? data.toString() : ''));
+            });
+          });
+        });
+      });
+      const wsc = colabProxyWebSocket(
+        vsCodeStub.asVsCode(),
+        colabClientStub,
+        testServer,
+        WebSocket,
+        handleEphemeralAuthStub,
+      );
+      const client = new wsc(url);
+      await new Promise((resolve) => client.once('open', resolve));
+
+      client.send(JSON.stringify({ header: { session: 'test-session-id' } }));
+
+      const message = await reply;
+      expect(isColabInputReplyMessage(message)).to.be.true;
+      expect(message).to.have.nested.property('content.value.colab_msg_id', 7);
+      client.close();
     });
   });
 
@@ -385,7 +530,7 @@ describe('colabProxyWebSocket', () => {
     });
   });
 
-  class TestWebSocket extends WebSocket {
+  class TestWebSocket extends UnconnectedWebSocket {
     /** Mutable stand-in for the real socket's connection state. */
     override readyState: WebSocket['readyState'] = WebSocket.OPEN;
 
@@ -398,7 +543,7 @@ describe('colabProxyWebSocket', () => {
         | ClientRequestArgs,
       options?: WebSocket.ClientOptions | ClientRequestArgs,
     ) {
-      super(null); // Avoid real WS connection
+      super(null, undefined, {}); // Avoid real WS connection
       if (typeof protocols === 'object' && !Array.isArray(protocols)) {
         verifyColabHeadersPresent(protocols);
       } else {
@@ -420,6 +565,16 @@ describe('colabProxyWebSocket', () => {
     });
   }
 });
+
+/**
+ * Encodes a message the way ws delivers a received text frame: as a Buffer.
+ *
+ * @param message - The message to JSON-encode.
+ * @returns The text frame payload.
+ */
+function textFrame(message: unknown): Buffer {
+  return Buffer.from(JSON.stringify(message));
+}
 
 function isColabInputReplyMessage(
   message: unknown,

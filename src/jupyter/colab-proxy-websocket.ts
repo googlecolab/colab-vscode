@@ -75,12 +75,28 @@ export function colabProxyWebSocket(
         super(address, protocols, addColabHeaders(options));
       }
 
-      this.addListener(
-        'message',
-        (data: WebSocket.RawData, isBinary: boolean) => {
-          withErrorTracking(this.handleMessage.bind(this))(data, isBinary);
-        },
-      );
+      // ws >= 8 emits text frames as Buffers. The Jupyter extension subclasses
+      // this socket and reads raw 'message' event args in its emit override
+      // (for widget support). It was built against ws 6, where text frames are
+      // strings, and treats anything else as a binary message. An own-property
+      // emit runs before any subclass emit, so decode text frames here.
+      const emit = this.emit.bind(this);
+      this.emit = (event: string | symbol, ...args: unknown[]): boolean => {
+        const [data, isBinary] = args;
+        if (
+          event === 'message' &&
+          isBinary === false &&
+          Buffer.isBuffer(data)
+        ) {
+          return emit(event, data.toString('utf8'), isBinary);
+        }
+        return emit(event, ...args);
+      };
+
+      // Text frames have already been decoded to strings by the emit above.
+      this.addListener('message', (data: unknown, isBinary: unknown) => {
+        withErrorTracking(this.handleMessage.bind(this))(data, isBinary);
+      });
     }
 
     dispose(): void {
@@ -97,6 +113,22 @@ export function colabProxyWebSocket(
       cb?: (err?: Error) => void,
     ): void {
       withErrorTracking(this.sendInternal.bind(this))(data, options, cb);
+    }
+
+    // ws >= 7 throws while CONNECTING even when given a callback. The Jupyter
+    // extension pings this socket on a timer with a no-op callback, so keep
+    // ws 6's behavior of reporting the error through the callback instead.
+    override ping(
+      data?: unknown,
+      mask?: boolean,
+      cb?: (err: Error) => void,
+    ): void {
+      const callback = [data, mask, cb].find(isErrorCallback);
+      if (this.readyState === WebSocket.CONNECTING && callback) {
+        callback(new Error('WebSocket is not open: readyState 0 (CONNECTING)'));
+        return;
+      }
+      super.ping(data, mask, cb);
     }
 
     private guardDisposed(): void {
@@ -131,8 +163,8 @@ export function colabProxyWebSocket(
       super.send(data, options, cb);
     }
 
-    private handleMessage(data: WebSocket.RawData, isBinary: boolean): void {
-      if (!isBinary && typeof data === 'string') {
+    private handleMessage(data: unknown, isBinary: unknown): void {
+      if (isBinary === false && typeof data === 'string') {
         let message: unknown;
         try {
           message = JSON.parse(data) as unknown;
@@ -236,6 +268,10 @@ export interface ColabInputReplyMessage
 type SuperSend = WebSocket['send'];
 type BufferLike = Parameters<SuperSend>[0];
 type SendOptions = Parameters<SuperSend>[1];
+
+function isErrorCallback(arg: unknown): arg is (err: Error) => void {
+  return typeof arg === 'function';
+}
 
 function isJupyterKernelMessage(
   message: unknown,
