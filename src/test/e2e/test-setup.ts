@@ -51,7 +51,7 @@ CodeUtil.prototype.open = function (this: CodeUtil, ...paths: string[]) {
   originalOpen.call(this, '--no-sandbox', ...paths);
 };
 
-dotenv.config();
+dotenv.config({ quiet: true });
 assert.equal(
   CONFIG.Environment,
   'production',
