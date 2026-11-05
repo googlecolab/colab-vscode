@@ -5,6 +5,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import net from 'net';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import WebSocket from 'ws';
@@ -227,6 +228,50 @@ describe('ColabTerminalWebSocket', () => {
       expect(() => {
         terminalWebSocket.send('test');
       }).to.throw('ColabTerminalWebSocket is disposed');
+    });
+
+    it('dispose() while connecting does not raise an uncaught error', async () => {
+      // A server that accepts TCP but never answers the upgrade keeps the
+      // client CONNECTING.
+      const sockets: net.Socket[] = [];
+      const server = net.createServer((socket) => {
+        sockets.push(socket);
+      });
+      await new Promise<void>((resolve) => {
+        server.listen(0, '127.0.0.1', resolve);
+      });
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        throw new Error('Expected a TCP address');
+      }
+      const realWebSocket = new ColabTerminalWebSocket(vsCodeStub.asVsCode(), {
+        ...testServer,
+        connectionInformation: {
+          ...testServer.connectionInformation,
+          baseUrl: vsCodeStub.Uri.parse(
+            `http://127.0.0.1:${address.port.toString()}`,
+          ),
+        },
+      });
+      const original = process.listeners('uncaughtException');
+      process.removeAllListeners('uncaughtException');
+      const uncaught: unknown[] = [];
+      process.on('uncaughtException', (e) => {
+        uncaught.push(e);
+      });
+
+      try {
+        realWebSocket.connect();
+        realWebSocket.dispose();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      } finally {
+        process.removeAllListeners('uncaughtException');
+        original.forEach((l) => process.on('uncaughtException', l));
+        sockets.forEach((s) => s.destroy());
+        await new Promise((resolve) => server.close(resolve));
+      }
+
+      expect(uncaught).to.be.empty;
     });
 
     it('dispose() cleans up properly', () => {

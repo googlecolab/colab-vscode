@@ -184,6 +184,9 @@ export class ColabTerminalWebSocket implements ColabTerminalWebSocketLike {
 
     if (this.ws) {
       this.ws.removeAllListeners();
+      // Closing a still-connecting socket emits 'error'; with no listener
+      // that would be an uncaught exception.
+      this.ws.on('error', () => undefined);
       if (
         this.ws.readyState === WebSocket.CONNECTING ||
         this.ws.readyState === WebSocket.OPEN
