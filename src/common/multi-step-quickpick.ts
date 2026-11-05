@@ -55,8 +55,9 @@ export interface QuickInputOptions {
 /**
  * The options for a quick pick input.
  */
-export interface QuickPickOptions<T extends QuickPickItem>
-  extends QuickInputOptions {
+export interface QuickPickOptions<
+  T extends QuickPickItem,
+> extends QuickInputOptions {
   /** Items to pick from. */
   items: T[];
   /** The optional placeholder text shown when no value has been input. */

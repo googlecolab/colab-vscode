@@ -13,10 +13,9 @@ import { SecretStorage } from 'vscode';
  *
  * Methods are stubbed to facilitate test assertions.
  */
-export class SecretStorageFake
-  implements
-    SinonStubbedInstance<Pick<SecretStorage, 'get' | 'store' | 'delete'>>
-{
+export class SecretStorageFake implements SinonStubbedInstance<
+  Pick<SecretStorage, 'get' | 'store' | 'delete'>
+> {
   private lastStore?: string;
 
   get = sinon

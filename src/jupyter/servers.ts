@@ -40,8 +40,7 @@ export interface ColabServerDescriptor {
  * A Jupyter server which includes the Colab descriptor.
  */
 export interface ColabJupyterServer
-  extends ColabServerDescriptor,
-    JupyterServer {
+  extends ColabServerDescriptor, JupyterServer {
   /** The server's unique identifier. */
   readonly id: string;
 }

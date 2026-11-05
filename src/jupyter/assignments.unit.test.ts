@@ -161,30 +161,26 @@ describe('AssignmentManager', () => {
    */
   async function setupRuntimes(servers: ColabServerDescriptor[]) {
     listRuntimesStub.resolves({
-      runtimes: servers.map(
-        (s): Runtime => ({
-          ...defaultRuntime,
-          runtimeSpec: {
-            ...defaultRuntime.runtimeSpec,
-            variant: denormalizeVariant(s.variant),
-            shape: denormalizeShape(s.shape),
-            accelerator: s.accelerator ?? 'NONE',
-          },
-          version: s.version,
-        }),
-      ),
+      runtimes: servers.map((s): Runtime => ({
+        ...defaultRuntime,
+        runtimeSpec: {
+          ...defaultRuntime.runtimeSpec,
+          variant: denormalizeVariant(s.variant),
+          shape: denormalizeShape(s.shape),
+          accelerator: s.accelerator ?? 'NONE',
+        },
+        version: s.version,
+      })),
     });
     await serverStorage.store(
-      servers.map(
-        (s): ColabAssignedServer => ({
-          ...defaultServer,
-          variant: s.variant,
-          accelerator: s.accelerator ?? 'NONE',
-          shape: s.shape,
-          version: s.version,
-          label: s.label,
-        }),
-      ),
+      servers.map((s): ColabAssignedServer => ({
+        ...defaultServer,
+        variant: s.variant,
+        accelerator: s.accelerator ?? 'NONE',
+        shape: s.shape,
+        version: s.version,
+        label: s.label,
+      })),
     );
   }
 

@@ -219,8 +219,10 @@ export function colabProxyWebSocket(
  * with a different `content` and `parent_header` structure from the standard
  * Jupyter {@link KernelMessage.IInputReplyMsg}.
  */
-export interface ColabInputReplyMessage
-  extends Omit<KernelMessage.IInputReplyMsg, 'content' | 'parent_header'> {
+export interface ColabInputReplyMessage extends Omit<
+  KernelMessage.IInputReplyMsg,
+  'content' | 'parent_header'
+> {
   /** The custom Colab reply. */
   content: {
     value: {

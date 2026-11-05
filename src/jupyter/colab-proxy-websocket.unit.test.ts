@@ -392,10 +392,7 @@ describe('colabProxyWebSocket', () => {
     constructor(
       _address: string | URL | null,
       protocols?:
-        | string
-        | string[]
-        | WebSocket.ClientOptions
-        | ClientRequestArgs,
+        string | string[] | WebSocket.ClientOptions | ClientRequestArgs,
       options?: WebSocket.ClientOptions | ClientRequestArgs,
     ) {
       super(null); // Avoid real WS connection

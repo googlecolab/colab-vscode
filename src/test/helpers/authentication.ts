@@ -78,8 +78,7 @@ export class FakeAuthenticationProviderManager {
         })
       | (vscode.AuthenticationGetSessionOptions & {
           forceNewSession:
-            | true
-            | vscode.AuthenticationGetSessionPresentationOptions;
+            true | vscode.AuthenticationGetSessionPresentationOptions;
         })
       | vscode.AuthenticationGetSessionOptions,
   ): Promise<vscode.AuthenticationSession> {

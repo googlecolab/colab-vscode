@@ -44,8 +44,7 @@ interface ColabTerminalResizeMessage {
 }
 
 type ColabTerminalMessage =
-  | ColabTerminalDataMessage
-  | ColabTerminalResizeMessage;
+  ColabTerminalDataMessage | ColabTerminalResizeMessage;
 
 /**
  * WebSocket handler for connecting to Colab's TTY endpoint.
