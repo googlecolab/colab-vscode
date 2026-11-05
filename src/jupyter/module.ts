@@ -12,6 +12,7 @@ import { ColabApiClient } from '../colab/client/v2';
 import { registerColabCommands } from '../colab/commands/register';
 import { ConnectionRefreshController } from '../colab/connection-refresher';
 import { ContentTreeProvider } from '../colab/content-browser/content-tree';
+import { StreamingFileDownloader } from '../colab/content-browser/file-downloader';
 import { registerContentBrowserCommands } from '../colab/content-browser/register';
 import { ResourceTreeProvider } from '../colab/resource-monitor/resource-tree';
 import { ServerPicker } from '../colab/server-picker';
@@ -94,6 +95,7 @@ export function createJupyterModule(
     assignmentManager.onDidAssignmentsChange,
     fs.onDidChangeFile,
   );
+  const fileDownloader = new StreamingFileDownloader(vs, assignmentManager);
   const resourceTree = new ResourceTreeProvider(
     assignmentManager,
     assignmentManager.onDidAssignmentsChange,
@@ -122,6 +124,7 @@ export function createJupyterModule(
   const contentBrowserCommandDisposables = registerContentBrowserCommands(vs, {
     contentTree,
     resourceTree,
+    fileDownloader,
   });
 
   return {

@@ -25,6 +25,7 @@ import {
   renameFile,
 } from './commands';
 import type { ContentItem } from './content-item';
+import type { FileDownloader } from './file-downloader';
 
 const CONTENT_ROOT = buildContentItem('folder', 'colab://m-s-foo/content');
 const FILE_ITEM = buildContentItem('file', 'colab://m-s-foo/content/foo.txt');
@@ -48,10 +49,17 @@ function buildContentItem(type: 'file' | 'folder', uri: string): ContentItem {
 describe('Server Browser Commands', () => {
   let vsStub: VsCodeStub;
   let vs: typeof vscode;
+  let downloadFileStub: sinon.SinonStub<
+    Parameters<FileDownloader['download']>,
+    ReturnType<FileDownloader['download']>
+  >;
+  let fileDownloader: FileDownloader;
 
   beforeEach(() => {
     vsStub = newVsCodeStub();
     vs = vsStub.asVsCode();
+    downloadFileStub = sinon.stub();
+    fileDownloader = { download: downloadFileStub };
   });
 
   describe('newFile', () => {
@@ -248,29 +256,31 @@ describe('Server Browser Commands', () => {
     it('downloads a file successfully', async () => {
       const localUri = TestUri.file('/local/path/foo.txt');
       vsStub.window.showSaveDialog.resolves(localUri);
-      const content = new Uint8Array([1, 2, 3]);
-      vsStub.workspace.fs.readFile.resolves(content);
+      downloadFileStub.resolves(3);
 
-      await download(vs, FILE_ITEM);
+      await download(vs, fileDownloader, FILE_ITEM);
 
-      sinon.assert.calledWith(vsStub.workspace.fs.readFile, FILE_ITEM.uri);
-      sinon.assert.calledWith(vsStub.workspace.fs.writeFile, localUri, content);
+      sinon.assert.calledOnceWithExactly(
+        downloadFileStub,
+        FILE_ITEM.uri,
+        localUri,
+      );
     });
 
     it('does nothing if user cancels save dialog', async () => {
       vsStub.window.showSaveDialog.resolves(undefined);
 
-      await download(vs, FILE_ITEM);
+      await download(vs, fileDownloader, FILE_ITEM);
 
-      sinon.assert.notCalled(vsStub.workspace.fs.readFile);
+      sinon.assert.notCalled(downloadFileStub);
     });
 
     it('shows error message if download fails', async () => {
       const localUri = TestUri.file('/local/path/foo.txt');
       vsStub.window.showSaveDialog.resolves(localUri);
-      vsStub.workspace.fs.readFile.rejects(new Error('fail'));
+      downloadFileStub.rejects(new Error('fail'));
 
-      await download(vs, FILE_ITEM);
+      await download(vs, fileDownloader, FILE_ITEM);
 
       sinon.assert.calledWith(
         vsStub.window.showErrorMessage,
@@ -279,7 +289,7 @@ describe('Server Browser Commands', () => {
     });
 
     it('does nothing if item is not a file', async () => {
-      await download(vs, CONTENT_ROOT);
+      await download(vs, fileDownloader, CONTENT_ROOT);
 
       sinon.assert.notCalled(vsStub.window.showSaveDialog);
     });
@@ -298,9 +308,9 @@ describe('Server Browser Commands', () => {
       it('logs OUTCOME_SUCCEEDED with file size when a file is downloaded', async () => {
         const localUri = TestUri.file('/local/path/foo.txt');
         vsStub.window.showSaveDialog.resolves(localUri);
-        vsStub.workspace.fs.readFile.resolves(new Uint8Array([1, 2, 3, 4, 5]));
+        downloadFileStub.resolves(5);
 
-        await download(vs, FILE_ITEM);
+        await download(vs, fileDownloader, FILE_ITEM);
 
         sinon.assert.calledOnceWithExactly(
           logStub,
@@ -312,7 +322,7 @@ describe('Server Browser Commands', () => {
       it('logs OUTCOME_CANCELLED when the user dismisses the save dialog', async () => {
         vsStub.window.showSaveDialog.resolves(undefined);
 
-        await download(vs, FILE_ITEM);
+        await download(vs, fileDownloader, FILE_ITEM);
 
         sinon.assert.calledOnceWithExactly(
           logStub,
@@ -322,7 +332,7 @@ describe('Server Browser Commands', () => {
       });
 
       it('logs OUTCOME_CANCELLED when the target item is not a file', async () => {
-        await download(vs, CONTENT_ROOT);
+        await download(vs, fileDownloader, CONTENT_ROOT);
 
         sinon.assert.calledOnceWithExactly(
           logStub,
@@ -334,9 +344,9 @@ describe('Server Browser Commands', () => {
       it('logs OUTCOME_FAILED when the underlying read fails', async () => {
         const localUri = TestUri.file('/local/path/foo.txt');
         vsStub.window.showSaveDialog.resolves(localUri);
-        vsStub.workspace.fs.readFile.rejects(new Error('fail'));
+        downloadFileStub.rejects(new Error('fail'));
 
-        await download(vs, FILE_ITEM);
+        await download(vs, fileDownloader, FILE_ITEM);
 
         sinon.assert.calledOnceWithExactly(logStub, Outcome.OUTCOME_FAILED, 0);
       });
