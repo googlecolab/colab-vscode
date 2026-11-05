@@ -430,7 +430,7 @@
     "source-map-support": "^0.5.21",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "~8.58.2",
+    "typescript-eslint": "^8.72.1",
     "vscode-extension-tester": "^8.28.1",
     "yaml": "^2.9.1"
   },
