@@ -577,8 +577,13 @@ export class ContentsFileSystemProvider
 }
 
 /**
- * Formats a byte count as MiB with one decimal place, rounded with `round` so
- * that a size just over a limit never displays as equal to it.
+ * Formats a byte count as MiB with one decimal place.
+ *
+ * @param bytes - The number of bytes.
+ * @param round - How to round to one decimal place, e.g. `Math.ceil` for a
+ * size and `Math.floor` for a limit, so a size just over a limit never displays
+ * as equal to it.
+ * @returns The formatted size, e.g. `74.9 MiB`.
  */
 function formatMiB(bytes: number, round: (x: number) => number): string {
   return `${(round((bytes / (1024 * 1024)) * 10) / 10).toFixed(1)} MiB`;
