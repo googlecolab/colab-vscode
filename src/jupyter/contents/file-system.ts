@@ -35,6 +35,28 @@ import { ColabAssignedServer } from '../servers';
 import { JupyterConnectionManager } from './sessions';
 
 /**
+ * The largest request body the Colab runtime proxy accepts. Larger requests
+ * are rejected with an empty 400 response.
+ */
+const MAX_PROXY_REQUEST_BODY_BYTES = 100 * 1024 * 1024;
+
+/**
+ * Bytes reserved for the JSON envelope around the base64 content in a save
+ * request body.
+ */
+const SAVE_REQUEST_OVERHEAD_BYTES = 1024;
+
+/**
+ * The largest file, in bytes, that can be written through the Contents API.
+ *
+ * The whole file is sent base64-encoded (4 characters per 3 bytes) in a single
+ * JSON request body, which must fit within the proxy's request size limit.
+ */
+export const MAX_WRITE_FILE_BYTES =
+  Math.floor((MAX_PROXY_REQUEST_BODY_BYTES - SAVE_REQUEST_OVERHEAD_BYTES) / 4) *
+  3;
+
+/**
  * Defines what VS Code needs to read, write, discover and manage files and
  * folders on the provided assigned Colab Jupyter
  * {@link ColabAssignedServer | server }.
@@ -306,6 +328,12 @@ export class ContentsFileSystemProvider
   ): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
+    if (content.byteLength > MAX_WRITE_FILE_BYTES) {
+      throw new Error(
+        `File is too large to write (${formatMiB(content.byteLength, Math.ceil)}). ` +
+          `The maximum supported size is ${formatMiB(MAX_WRITE_FILE_BYTES, Math.floor)}.`,
+      );
+    }
     const client = await this.getOrCreateClient(uri);
     const path = uri.path;
     try {
@@ -546,4 +574,17 @@ export class ContentsFileSystemProvider
       throw this.vs.FileSystemError.FileNotFound(uri);
     }
   }
+}
+
+/**
+ * Formats a byte count as MiB with one decimal place.
+ *
+ * @param bytes - The number of bytes.
+ * @param round - How to round to one decimal place, e.g. `Math.ceil` for a
+ * size and `Math.floor` for a limit, so a size just over a limit never displays
+ * as equal to it.
+ * @returns The formatted size, e.g. `74.9 MiB`.
+ */
+function formatMiB(bytes: number, round: (x: number) => number): string {
+  return `${(round((bytes / (1024 * 1024)) * 10) / 10).toFixed(1)} MiB`;
 }
