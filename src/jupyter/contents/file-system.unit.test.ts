@@ -729,8 +729,9 @@ describe('ContentsFileSystemProvider', () => {
       const contentsStub = stubClient('r-abc123');
       // Avoid allocating the full buffer; only the length is inspected.
       const tooLarge = {
-        byteLength: MAX_WRITE_FILE_BYTES + 1,
+        byteLength: 75 * 1024 * 1024,
       } as unknown as Uint8Array;
+      expect(tooLarge.byteLength).to.be.greaterThan(MAX_WRITE_FILE_BYTES);
 
       await expect(
         fs.writeFile(TestUri.parse('colab://r-abc123/foo.txt'), tooLarge, {
@@ -738,7 +739,7 @@ describe('ContentsFileSystemProvider', () => {
           overwrite: true,
         }),
       ).to.eventually.rejectedWith(
-        /^File is too large to write \(\d+\.\d MiB\)\. The maximum supported size is \d+\.\d MiB\.$/,
+        'File is too large to write (75.0 MiB). The maximum supported size is 74.9 MiB.',
       );
       sinon.assert.notCalled(contentsStub.get);
       sinon.assert.notCalled(contentsStub.save);
