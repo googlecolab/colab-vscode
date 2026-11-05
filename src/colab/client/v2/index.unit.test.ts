@@ -49,10 +49,8 @@ describe('ColabApiClient', () => {
     // ensure the msw can inject its version of `fetch` to intercept the
     // requests.
     server.listen({
-      onUnhandledRequest: (request) => {
-        throw new Error(
-          `No request handler found for ${request.method} ${request.url}`,
-        );
+      onUnhandledFrame: async ({ frame }) => {
+        throw new Error(await frame.getUnhandledMessage());
       },
     });
   });
