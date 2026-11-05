@@ -30,11 +30,14 @@ const PROVIDER_ID = 'google';
 const PROVIDER_LABEL = 'Google';
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 
+type SessionsChangeEvent =
+  AuthenticationProviderAuthenticationSessionsChangeEvent;
+
 /**
  * An {@link Event} which fires when an authentication session is added,
  * removed, or changed.
  */
-export interface AuthChangeEvent extends AuthenticationProviderAuthenticationSessionsChangeEvent {
+export interface AuthChangeEvent extends SessionsChangeEvent {
   /**
    * True when there is a valid {@link AuthenticationSession} for the
    * {@link AuthenticationProvider}.
