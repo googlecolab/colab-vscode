@@ -24,7 +24,10 @@ import {
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
-import { ContentsFileSystemProvider } from './file-system';
+import {
+  ContentsFileSystemProvider,
+  MAX_WRITE_FILE_BYTES,
+} from './file-system';
 import { JupyterConnectionManager } from './sessions';
 
 const DEFAULT_SERVER: ColabAssignedServer = {
@@ -720,6 +723,25 @@ describe('ContentsFileSystemProvider', () => {
           },
         ),
       ).to.eventually.rejectedWith(/disposed/);
+    });
+
+    it('throws a readable error without contacting the server when the content is too large', async () => {
+      const contentsStub = stubClient('r-abc123');
+      // Avoid allocating the full buffer; only the length is inspected.
+      const tooLarge = {
+        byteLength: MAX_WRITE_FILE_BYTES + 1,
+      } as unknown as Uint8Array;
+
+      await expect(
+        fs.writeFile(TestUri.parse('colab://r-abc123/foo.txt'), tooLarge, {
+          create: true,
+          overwrite: true,
+        }),
+      ).to.eventually.rejectedWith(
+        /^File is too large to write \(\d+\.\d MiB\)\. The maximum supported size is \d+\.\d MiB\.$/,
+      );
+      sinon.assert.notCalled(contentsStub.get);
+      sinon.assert.notCalled(contentsStub.save);
     });
 
     const existenceChecks: [

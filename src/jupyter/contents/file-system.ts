@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Buffer } from 'buffer';
+import { Buffer, constants as bufferConstants } from 'buffer';
 import vscode, {
   Disposable,
   Event,
@@ -33,6 +33,24 @@ import {
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
 import { JupyterConnectionManager } from './sessions';
+
+/**
+ * Characters reserved for the JSON envelope around the base64 content in a
+ * save request body.
+ */
+const SAVE_REQUEST_OVERHEAD_CHARS = 1024;
+
+/**
+ * The largest file, in bytes, that can be written through the Contents API.
+ *
+ * The whole file is base64-encoded (4 characters per 3 bytes) into a single
+ * JavaScript string, which is then serialized into the JSON request body. Both
+ * strings are capped at the engine's maximum string length.
+ */
+export const MAX_WRITE_FILE_BYTES =
+  Math.floor(
+    (bufferConstants.MAX_STRING_LENGTH - SAVE_REQUEST_OVERHEAD_CHARS) / 4,
+  ) * 3;
 
 /**
  * Defines what VS Code needs to read, write, discover and manage files and
@@ -306,6 +324,12 @@ export class ContentsFileSystemProvider
   ): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
+    if (content.byteLength > MAX_WRITE_FILE_BYTES) {
+      throw new Error(
+        `File is too large to write (${formatMiB(content.byteLength)}). ` +
+          `The maximum supported size is ${formatMiB(MAX_WRITE_FILE_BYTES)}.`,
+      );
+    }
     const client = await this.getOrCreateClient(uri);
     const path = uri.path;
     try {
@@ -546,4 +570,8 @@ export class ContentsFileSystemProvider
       throw this.vs.FileSystemError.FileNotFound(uri);
     }
   }
+}
+
+function formatMiB(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
