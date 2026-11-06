@@ -5,13 +5,20 @@
  */
 
 import vscode, { Disposable, FileChangeEvent, Uri } from 'vscode';
-import { log } from '../../common/logging';
+import {
+  calculateBackoffIntervals,
+  countsAsNetworkFailure,
+} from '../../common/backoff';
 import {
   OverrunPolicy,
   SequentialTaskRunner,
   StartMode,
 } from '../../common/task-runner';
-import { isDirectoryContents, toFileType } from '../client/converters';
+import {
+  DirectoryContents,
+  isDirectoryContents,
+  toFileType,
+} from '../client/converters';
 import {
   Contents,
   ContentsApi,
@@ -19,18 +26,23 @@ import {
   ResponseError,
 } from '../client/generated';
 
-const DEFAULT_INTERVAL_MS = 5000;
-const DEFAULT_MAX_BACKOFF_MS = 5 * 60 * 1000;
-const DEFAULT_TASK_TIMEOUT_MS = 30000;
+const POLL_INTERVAL_MS = 1000 * 5; // 5 seconds.
+const TASK_TIMEOUT_MS = 1000 * 30; // 30 seconds.
+/**
+ * Ceiling on the consecutive intervals skipped while backing off, so a failing
+ * directory is retried at most every 5 minutes.
+ */
+const MAX_BACKOFF_INTERVALS = 60;
 
 interface SnapshotEntry {
   readonly uri: Uri;
   readonly type: vscode.FileType;
-  readonly mtime: number;
-  readonly size: number;
+  readonly lastModified?: string;
+  readonly size?: number;
 }
 
-type DirectorySnapshot = ReadonlyMap<string, SnapshotEntry>;
+/** Direct children of the watched directory, keyed by URI string. */
+type Snapshot = ReadonlyMap<string, SnapshotEntry>;
 
 /** Configuration for a {@link DirectoryPoller}. */
 export interface DirectoryPollerOptions {
@@ -41,332 +53,207 @@ export interface DirectoryPollerOptions {
   /** Returns an existing contents client, or undefined when none is live. */
   readonly getClient: () => Promise<ContentsApi | undefined>;
   /** Receives file change events emitted by this poller. */
-  readonly onDidChangeFile: (events: readonly FileChangeEvent[]) => void;
-  /** Called when this poller reaches a terminal state. */
-  readonly onDidTerminate?: () => void;
-  /** Poll interval in milliseconds. */
-  readonly intervalMs?: number;
-  /** Maximum failed-poll backoff in milliseconds. */
-  readonly maxBackoffMs?: number;
-  /** Per-poll timeout in milliseconds. */
-  readonly taskTimeoutMs?: number;
+  readonly onDidChangeFile: (events: FileChangeEvent[]) => void;
+  /** Called once, after the poller disposed itself because the directory is gone. */
+  readonly onDidTerminate: () => void;
 }
 
 /**
- * Polls one Colab contents directory and emits file events for direct children.
+ * Polls the direct children of one Colab directory and emits created, changed
+ * and deleted events by diffing successive listings.
  *
- * This class intentionally does not own watch registration refcounts or map
- * membership. A higher-level registry owns sharing and removes this poller when
- * {@link DirectoryPollerOptions.onDidTerminate} fires.
+ * Sharing and ref-counting belong to the owner. When the directory is deleted
+ * or replaced by a file, the poller disposes itself and calls
+ * {@link DirectoryPollerOptions.onDidTerminate}. Every public method is safe to
+ * call after disposal.
  */
 export class DirectoryPoller implements Disposable {
   private readonly runner: SequentialTaskRunner;
-  private readonly intervalMs: number;
-  private readonly maxBackoffMs: number;
-  private currentBackoffMs: number;
-  private retryTimeout?: NodeJS.Timeout;
-  private isDisposed = false;
+  private snapshot?: Snapshot;
+  private consecutiveFailures = 0;
+  private intervalsToSkip = 0;
   private isSuspended = false;
-  private isTerminated = false;
-  private snapshot?: DirectorySnapshot;
+  private isDisposed = false;
 
   /**
    * Initializes and immediately starts polling.
    *
-   * @param options - Poller dependencies and timing configuration.
+   * @param options - Poller dependencies and callbacks.
    */
   constructor(private readonly options: DirectoryPollerOptions) {
-    this.intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-    this.maxBackoffMs = options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
-    this.currentBackoffMs = this.intervalMs;
     this.runner = new SequentialTaskRunner(
       {
-        intervalTimeoutMs: this.intervalMs,
-        taskTimeoutMs: options.taskTimeoutMs ?? DEFAULT_TASK_TIMEOUT_MS,
+        intervalTimeoutMs: POLL_INTERVAL_MS,
+        taskTimeoutMs: TASK_TIMEOUT_MS,
+        // Nothing to clean up, abandon immediately.
         abandonGraceMs: 0,
       },
       {
         name: `${DirectoryPoller.name}:${options.uri.toString()}`,
         run: this.poll.bind(this),
       },
-      OverrunPolicy.AbandonAndRun,
+      // A slow listing is left to finish (bounded by TASK_TIMEOUT_MS) instead
+      // of being abandoned and re-sent every interval.
+      OverrunPolicy.AllowToComplete,
     );
     this.runner.start(StartMode.Immediately);
   }
 
-  /** Suspends polling without clearing the last known snapshot. */
+  /** Stops polling, keeping the last listing to diff against on resume. */
   suspend(): void {
-    this.guardDisposed();
-    if (this.isSuspended || this.isTerminated) {
+    if (this.isDisposed || this.isSuspended) {
       return;
     }
     this.isSuspended = true;
-    this.clearRetryTimeout();
     this.runner.stop();
   }
 
   /**
-   * Resumes polling and refreshes immediately.
+   * Resumes polling with an immediate poll, skipping any pending backoff.
    *
-   * Resuming is user-visible through VS Code focus regain, so it intentionally
-   * probes immediately even if a retry delay was pending before suspension.
+   * The failure count is kept, so a directory that still fails backs off
+   * further.
    */
   resume(): void {
-    this.guardDisposed();
-    if (!this.isSuspended || this.isTerminated) {
+    if (this.isDisposed || !this.isSuspended) {
       return;
     }
     this.isSuspended = false;
+    this.intervalsToSkip = 0;
     this.runner.start(StartMode.Immediately);
   }
 
-  /** Disposes this poller and aborts any in-flight poll. */
+  /** Stops polling and aborts any in-flight poll. */
   dispose(): void {
     if (this.isDisposed) {
       return;
     }
     this.isDisposed = true;
-    this.clearRetryTimeout();
     this.runner.dispose();
   }
 
-  /** Throws if the poller has already been disposed. */
-  private guardDisposed(): void {
-    if (this.isDisposed) {
-      throw new Error('Cannot use DirectoryPoller after it has been disposed');
-    }
-  }
-
-  /**
-   * Runs one scheduled poll when not suspended or terminated.
-   *
-   * @param signal - Abort signal for the current scheduled poll.
-   */
   private async poll(signal: AbortSignal): Promise<void> {
-    if (this.shouldIgnorePoll(signal)) {
+    if (this.intervalsToSkip > 0) {
+      this.intervalsToSkip--;
       return;
     }
-
     const client = await this.options.getClient();
-    if (!client || this.shouldIgnorePoll(signal)) {
+    // No live client, or suspended or disposed during the lookup.
+    if (!client || signal.aborted) {
       return;
     }
-
-    try {
-      const snapshot = await this.readSnapshot(client, signal);
-      if (this.shouldIgnorePoll(signal)) {
-        return;
-      }
-      this.handleSuccess(snapshot);
-    } catch (error: unknown) {
-      if (this.shouldIgnorePoll(signal)) {
-        return;
-      }
-      this.handlePollError(error);
-    }
+    await this.refresh(client, signal);
   }
 
   /**
-   * Reads the current direct-child snapshot for the watched directory.
+   * Lists the directory and emits the changes since the previous listing.
    *
-   * @param client - Contents API client to read from.
-   * @param signal - Abort signal for the request.
-   * @returns A snapshot keyed by emitted child URI string.
+   * @param client - The existing contents client to list with.
+   * @param signal - Aborted when the poll is suspended, disposed or times out.
    */
-  private async readSnapshot(
+  private async refresh(
     client: ContentsApi,
     signal: AbortSignal,
-  ): Promise<DirectorySnapshot> {
-    const contents = await client.get(
-      { path: this.options.uri.path, type: ContentsGetTypeEnum.Directory },
-      { signal },
-    );
-    if (!isDirectoryContents(contents)) {
-      // The path exists but is no longer a directory (e.g. it was replaced by a
-      // file). Stock Jupyter rejects this request with HTTP 400 "bad type"
-      // before we get here; a non-compliant contents manager may instead
-      // resolve a coerced model. Both are terminal: see handlePollError.
-      throw new NotADirectoryError(this.options.uri);
+  ): Promise<void> {
+    let contents: Contents;
+    try {
+      contents = await client.get(
+        { path: this.options.uri.path, type: ContentsGetTypeEnum.Directory },
+        { signal },
+      );
+    } catch (err: unknown) {
+      // 404: deleted. 400: Jupyter's "bad type", as the path is now a file.
+      if (
+        err instanceof ResponseError &&
+        (err.response.status === 404 || err.response.status === 400)
+      ) {
+        this.terminate();
+        return;
+      }
+      if (countsAsNetworkFailure(signal)) {
+        this.consecutiveFailures++;
+        this.intervalsToSkip = calculateBackoffIntervals(
+          this.consecutiveFailures,
+          MAX_BACKOFF_INTERVALS,
+        );
+      }
+      throw err;
     }
-
-    return new Map(
-      contents.content.map((child) => {
-        const entry = this.toSnapshotEntry(child);
-        return [entry.uri.toString(), entry];
-      }),
-    );
-  }
-
-  /**
-   * Converts one Jupyter contents child into comparable metadata.
-   *
-   * @param contents - Jupyter contents model for one child entry.
-   * @returns The comparable snapshot entry.
-   */
-  private toSnapshotEntry(contents: Contents): SnapshotEntry {
-    return {
-      uri: this.options.vs.Uri.joinPath(this.options.uri, contents.name),
-      type: toFileType(this.options.vs, contents.type),
-      mtime: contents.lastModified
-        ? new Date(contents.lastModified).getTime()
-        : 0,
-      size: contents.size ?? 0,
-    };
-  }
-
-  /**
-   * Stores a successful snapshot and emits changes after initialization.
-   *
-   * @param snapshot - Snapshot from the latest successful poll.
-   */
-  private handleSuccess(snapshot: DirectorySnapshot): void {
-    if (this.isDisposed || this.isTerminated) {
+    // Suspended or disposed while the listing was in flight.
+    if (signal.aborted) {
       return;
     }
-    const previous = this.snapshot;
-    this.snapshot = snapshot;
-    this.currentBackoffMs = this.intervalMs;
-    this.clearRetryTimeout();
+    this.consecutiveFailures = 0;
+    if (!isDirectoryContents(contents)) {
+      this.terminate();
+      return;
+    }
 
+    const previous = this.snapshot;
+    this.snapshot = this.toSnapshot(contents);
     if (!previous) {
       return;
     }
-
-    const events = this.diffSnapshots(previous, snapshot);
+    const events = this.diff(previous, this.snapshot);
     if (events.length > 0) {
       this.options.onDidChangeFile(events);
     }
   }
 
-  /**
-   * Handles a failed poll, including terminal states and backoff.
-   *
-   * @param error - Error thrown while polling.
-   */
-  private handlePollError(error: unknown): void {
-    if (this.isDisposed || this.isTerminated) {
-      return;
+  private toSnapshot(contents: DirectoryContents): Snapshot {
+    const snapshot = new Map<string, SnapshotEntry>();
+    for (const child of contents.content) {
+      const uri = this.options.vs.Uri.joinPath(this.options.uri, child.name);
+      snapshot.set(uri.toString(), {
+        uri,
+        type: toFileType(this.options.vs, child.type),
+        lastModified: child.lastModified,
+        size: child.size,
+      });
     }
-    // The watched directory no longer exists as a directory, so polling can
-    // never recover: 404 means it was deleted, 400 "bad type" means the path is
-    // now a file, and NotADirectoryError covers a coerced non-directory model.
-    // This request only ever sends type=directory with no format, so the only
-    // 400 it can elicit is "bad type". Auth/transient failures (401/403/5xx)
-    // keep backing off below.
-    if (
-      error instanceof NotADirectoryError ||
-      (error instanceof ResponseError &&
-        (error.response.status === 404 || error.response.status === 400))
-    ) {
-      this.handleTerminalGone();
-      return;
-    }
-
-    log.warn(`Unable to poll ${this.options.uri.toString()}`, error);
-    this.scheduleRetry();
+    return snapshot;
   }
 
-  /** Marks the watched directory gone (deleted or no longer a directory). */
-  private handleTerminalGone(): void {
-    this.isTerminated = true;
-    this.clearRetryTimeout();
-    this.options.onDidChangeFile([
-      { type: this.options.vs.FileChangeType.Deleted, uri: this.options.uri },
-    ]);
-    this.runner.stop();
-    this.options.onDidTerminate?.();
-  }
-
-  private scheduleRetry(): void {
-    this.runner.stop();
-    this.clearRetryTimeout();
-    const retryDelayMs = this.currentBackoffMs;
-    this.currentBackoffMs = Math.min(
-      this.currentBackoffMs * 2,
-      this.maxBackoffMs,
-    );
-    this.retryTimeout = setTimeout(() => {
-      this.retryTimeout = undefined;
-      if (!this.isDisposed && !this.isSuspended && !this.isTerminated) {
-        this.runner.start(StartMode.Immediately);
-      }
-    }, retryDelayMs);
-  }
-
-  private clearRetryTimeout(): void {
-    clearTimeout(this.retryTimeout);
-    this.retryTimeout = undefined;
-  }
-
-  private shouldIgnorePoll(signal: AbortSignal): boolean {
-    return (
-      signal.aborted || this.isDisposed || this.isSuspended || this.isTerminated
-    );
-  }
-
-  /**
-   * Compares two snapshots and returns file events.
-   *
-   * @param previous - Last successful snapshot.
-   * @param current - Latest successful snapshot.
-   * @returns Events describing changes between the snapshots.
-   */
-  private diffSnapshots(
-    previous: DirectorySnapshot,
-    current: DirectorySnapshot,
-  ): FileChangeEvent[] {
-    const deleted: FileChangeEvent[] = [];
-    const changed: FileChangeEvent[] = [];
-    const created: FileChangeEvent[] = [];
-
-    for (const [path, previousEntry] of previous) {
-      const currentEntry = current.get(path);
-      if (!currentEntry) {
-        deleted.push({
-          type: this.options.vs.FileChangeType.Deleted,
-          uri: previousEntry.uri,
-        });
-        continue;
-      }
-      if (currentEntry.type !== previousEntry.type) {
-        deleted.push({
-          type: this.options.vs.FileChangeType.Deleted,
-          uri: previousEntry.uri,
-        });
-        created.push({
-          type: this.options.vs.FileChangeType.Created,
-          uri: currentEntry.uri,
-        });
-        continue;
-      }
-      if (
-        currentEntry.mtime !== previousEntry.mtime ||
-        currentEntry.size !== previousEntry.size
+  private diff(previous: Snapshot, current: Snapshot): FileChangeEvent[] {
+    const { Created, Changed, Deleted } = this.options.vs.FileChangeType;
+    const events: FileChangeEvent[] = [];
+    for (const [key, before] of previous) {
+      const after = current.get(key);
+      if (!after) {
+        events.push({ type: Deleted, uri: before.uri });
+      } else if (after.type !== before.type) {
+        events.push({ type: Deleted, uri: before.uri });
+        events.push({ type: Created, uri: after.uri });
+      } else if (
+        after.lastModified !== before.lastModified ||
+        after.size !== before.size
       ) {
-        changed.push({
-          type: this.options.vs.FileChangeType.Changed,
-          uri: currentEntry.uri,
-        });
+        events.push({ type: Changed, uri: after.uri });
       }
     }
-
-    for (const [path, currentEntry] of current) {
-      if (!previous.has(path)) {
-        created.push({
-          type: this.options.vs.FileChangeType.Created,
-          uri: currentEntry.uri,
-        });
+    for (const [key, after] of current) {
+      if (!previous.has(key)) {
+        events.push({ type: Created, uri: after.uri });
       }
     }
+    return events;
+  }
 
-    return [...deleted, ...changed, ...created];
+  private terminate(): void {
+    // Only report a directory we have listed. VS Code also watches open files,
+    // and a Deleted event for one would mark its editor as deleted.
+    if (this.snapshot) {
+      this.options.onDidChangeFile([
+        { type: this.options.vs.FileChangeType.Deleted, uri: this.options.uri },
+      ]);
+    }
+    this.dispose();
+    this.options.onDidTerminate();
   }
 }
 
-/** Thrown when a watched path resolves to something other than a directory. */
-class NotADirectoryError extends Error {
-  constructor(uri: Uri) {
-    super(`Expected directory contents for ${uri.toString()}`);
-    this.name = 'NotADirectoryError';
-  }
-}
+export const TEST_ONLY = {
+  POLL_INTERVAL_MS,
+  TASK_TIMEOUT_MS,
+  MAX_BACKOFF_INTERVALS,
+};
