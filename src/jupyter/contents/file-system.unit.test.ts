@@ -24,7 +24,10 @@ import {
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
-import { ContentsFileSystemProvider } from './file-system';
+import {
+  ContentsFileSystemProvider,
+  UPLOAD_CHUNK_SIZE_BYTES,
+} from './file-system';
 import { JupyterConnectionManager } from './sessions';
 
 const DEFAULT_SERVER: ColabAssignedServer = {
@@ -811,6 +814,137 @@ describe('ContentsFileSystemProvider', () => {
       });
     }
 
+    describe('with content larger than one chunk', () => {
+      const uri = TestUri.parse('colab://r-abc123/foo.bin');
+      const opts = { create: true, overwrite: true };
+      // Two full chunks and a partial one.
+      const content = Buffer.alloc(2.5 * UPLOAD_CHUNK_SIZE_BYTES);
+      for (let i = 0; i < content.length; i++) {
+        content[i] = i % 251;
+      }
+      const chunkContent = (i: number) =>
+        content
+          .subarray(
+            i * UPLOAD_CHUNK_SIZE_BYTES,
+            (i + 1) * UPLOAD_CHUNK_SIZE_BYTES,
+          )
+          .toString('base64');
+      let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
+
+      beforeEach(() => {
+        contentsStub = stubClient('r-abc123');
+        contentsStub.get.resolves(FOO_CONTENT_FILE);
+      });
+
+      it('saves a file of exactly one chunk in a single request', async () => {
+        const oneChunk = content.subarray(0, UPLOAD_CHUNK_SIZE_BYTES);
+
+        await fs.writeFile(uri, oneChunk, opts);
+
+        sinon.assert.calledOnce(contentsStub.save);
+        const model = contentsStub.save.firstCall.args[0].model;
+        expect(model).to.deep.equal({
+          content: chunkContent(0),
+          format: 'base64',
+          type: ContentsGetTypeEnum.File,
+        });
+      });
+
+      it('saves the chunks in order, marking the last with -1', async () => {
+        await fs.writeFile(uri, content, opts);
+
+        const models = contentsStub.save.getCalls().map((c) => c.args[0].model);
+        expect(
+          contentsStub.save.getCalls().map((c) => c.args[0].path),
+        ).to.deep.equal(['/foo.bin', '/foo.bin', '/foo.bin']);
+        expect(models).to.deep.equal([
+          {
+            content: chunkContent(0),
+            format: 'base64',
+            type: ContentsGetTypeEnum.File,
+            chunk: 1,
+          },
+          {
+            content: chunkContent(1),
+            format: 'base64',
+            type: ContentsGetTypeEnum.File,
+            chunk: 2,
+          },
+          {
+            content: chunkContent(2),
+            format: 'base64',
+            type: ContentsGetTypeEnum.File,
+            chunk: -1,
+          },
+        ]);
+        sinon.assert.calledOnceWithExactly(listener, [
+          { type: FileChangeType.Changed, uri },
+        ]);
+      });
+
+      it('sends a single trailing chunk as -1 when the content is an exact multiple of the chunk size', async () => {
+        const twoChunks = content.subarray(0, 2 * UPLOAD_CHUNK_SIZE_BYTES);
+
+        await fs.writeFile(uri, twoChunks, opts);
+
+        expect(
+          contentsStub.save.getCalls().map((c) => c.args[0].model?.chunk),
+        ).to.deep.equal([1, -1]);
+      });
+
+      it('does not delete anything when the first chunk fails', async () => {
+        contentsStub.save.onFirstCall().rejects(TEAPOT);
+
+        await expect(
+          fs.writeFile(uri, content, opts),
+        ).to.eventually.rejectedWith(TEAPOT.message);
+
+        sinon.assert.calledOnce(contentsStub.save);
+        sinon.assert.notCalled(contentsStub.delete);
+        sinon.assert.notCalled(listener);
+      });
+
+      it('deletes the partial file and rethrows when a later chunk fails', async () => {
+        contentsStub.save.onSecondCall().rejects(TEAPOT);
+
+        await expect(
+          fs.writeFile(uri, content, opts),
+        ).to.eventually.rejectedWith(TEAPOT.message);
+
+        sinon.assert.calledTwice(contentsStub.save);
+        sinon.assert.calledOnceWithExactly(contentsStub.delete, {
+          path: '/foo.bin',
+        });
+        sinon.assert.calledOnceWithExactly(listener, [
+          { type: FileChangeType.Deleted, uri },
+        ]);
+      });
+
+      it('does not emit a deleted event when cleaning up a file that did not exist', async () => {
+        contentsStub.get.rejects(NOT_FOUND);
+        contentsStub.save.onSecondCall().rejects(TEAPOT);
+
+        await expect(
+          fs.writeFile(uri, content, opts),
+        ).to.eventually.rejectedWith(TEAPOT.message);
+
+        sinon.assert.calledOnce(contentsStub.delete);
+        sinon.assert.notCalled(listener);
+      });
+
+      it('rethrows the chunk error when deleting the partial file also fails', async () => {
+        contentsStub.save.onThirdCall().rejects(TEAPOT);
+        contentsStub.delete.rejects(new Error('delete failed'));
+
+        await expect(
+          fs.writeFile(uri, content, opts),
+        ).to.eventually.rejectedWith(TEAPOT.message);
+
+        sinon.assert.calledThrice(contentsStub.save);
+        sinon.assert.calledOnce(contentsStub.delete);
+      });
+    });
+
     it('throws file system no permissions error on content forbidden responses', async () => {
       const contentsStub = stubClient('r-abc123');
       contentsStub.get.rejects(FORBIDDEN);
@@ -861,6 +995,69 @@ describe('ContentsFileSystemProvider', () => {
           { create: true, overwrite: true },
         ),
       ).to.eventually.rejectedWith(TEAPOT.message);
+    });
+
+    describe('includes the Jupyter error in unhandled content response errors', () => {
+      const tests: [string, Response, string][] = [
+        [
+          'message and reason',
+          Response.json(
+            { message: 'Disk full', reason: 'No space left on device' },
+            { status: 500, statusText: 'Internal Server Error' },
+          ),
+          'Jupyter contents error: 500 Disk full (No space left on device)',
+        ],
+        [
+          'message only',
+          Response.json(
+            { message: 'Disk full', reason: null },
+            { status: 500, statusText: 'Internal Server Error' },
+          ),
+          'Jupyter contents error: 500 Disk full',
+        ],
+        [
+          'an empty body, falling back to the status text',
+          new Response(null, { status: 400, statusText: 'Bad Request' }),
+          'Jupyter contents error: 400 Bad Request',
+        ],
+        [
+          'a non-JSON body, falling back to the status text',
+          new Response('<html>oops</html>', {
+            status: 502,
+            statusText: 'Bad Gateway',
+          }),
+          'Jupyter contents error: 502 Bad Gateway',
+        ],
+        [
+          'JSON without a message, falling back to the status text',
+          Response.json(
+            { error: 'nope' },
+            { status: 500, statusText: 'Internal Server Error' },
+          ),
+          'Jupyter contents error: 500 Internal Server Error',
+        ],
+      ];
+      for (const [name, response, expected] of tests) {
+        it(name, async () => {
+          const contentsStub = stubClient('r-abc123');
+          contentsStub.get.rejects(NOT_FOUND);
+          contentsStub.save.rejects(new ResponseError(response));
+
+          const err: unknown = await fs
+            .writeFile(
+              TestUri.parse('colab://r-abc123/foo.txt'),
+              Buffer.from('hello'),
+              { create: true, overwrite: true },
+            )
+            .then(
+              () => undefined,
+              (e: unknown) => e,
+            );
+
+          expect(err).to.be.instanceOf(Error);
+          expect((err as Error).message).to.equal(expected);
+        });
+      }
     });
 
     it('throws unhandled errors', async () => {

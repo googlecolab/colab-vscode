@@ -35,6 +35,14 @@ import { ColabAssignedServer } from '../servers';
 import { JupyterConnectionManager } from './sessions';
 
 /**
+ * Files larger than this are uploaded in chunks of this size, using the
+ * Contents API's chunked save, rather than in a single request. This keeps each
+ * request well below the Colab runtime proxy's request size limit, and matches
+ * the chunk size used by the Colab web client.
+ */
+export const UPLOAD_CHUNK_SIZE_BYTES = 1024 * 1024;
+
+/**
  * Defines what VS Code needs to read, write, discover and manage files and
  * folders on the provided assigned Colab Jupyter
  * {@link ColabAssignedServer | server }.
@@ -179,7 +187,7 @@ export class ContentsFileSystemProvider
       const content = await client.get({ path, content: 0 });
       return toFileStat(this.vs, content);
     } catch (error: unknown) {
-      this.handleError(error);
+      return await this.handleError(error);
     }
   }
 
@@ -211,7 +219,7 @@ export class ContentsFileSystemProvider
         toFileType(this.vs, child.type),
       ]);
     } catch (error: unknown) {
-      this.handleError(error);
+      return await this.handleError(error);
     }
   }
 
@@ -241,7 +249,7 @@ export class ContentsFileSystemProvider
       });
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Created, uri }]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -276,7 +284,7 @@ export class ContentsFileSystemProvider
 
       return Buffer.from(content.content, 'base64');
     } catch (error: unknown) {
-      this.handleError(error);
+      return await this.handleError(error);
     }
   }
 
@@ -317,20 +325,21 @@ export class ContentsFileSystemProvider
         throw this.vs.FileSystemError.FileExists(uri);
       }
 
-      const model: ContentsSaveRequest = {
-        content: Buffer.from(content).toString('base64'),
-        format: 'base64',
-        type: ContentsGetTypeEnum.File,
-      };
-
-      await client.save({ path, model });
+      // A file that fits in one chunk is saved in a single, non-chunked
+      // request. Chunked saves need at least two requests: chunk 1 truncates
+      // the file, but a lone chunk -1 would append to an existing file instead.
+      if (content.byteLength <= UPLOAD_CHUNK_SIZE_BYTES) {
+        await client.save({ path, model: toSaveRequest(content) });
+      } else {
+        await this.saveInChunks(client, uri, content, exists);
+      }
 
       const eventType = exists
         ? this.vs.FileChangeType.Changed
         : this.vs.FileChangeType.Created;
       this.changeEmitter.fire([{ type: eventType, uri }]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -357,7 +366,7 @@ export class ContentsFileSystemProvider
       await this.deleteInternal(uri, options);
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Deleted, uri }]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -414,7 +423,7 @@ export class ContentsFileSystemProvider
         },
       ]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -468,6 +477,89 @@ export class ContentsFileSystemProvider
     await client.delete({ path });
   }
 
+  /**
+   * Uploads `content` with the Contents API's chunked save, one
+   * {@link UPLOAD_CHUNK_SIZE_BYTES} chunk per request, in order. The first
+   * chunk creates or truncates the file, later chunks append to it, and the
+   * last one is sent as chunk `-1` to complete the save.
+   *
+   * If a chunk fails, the partially written file is deleted on a best-effort
+   * basis so that a truncated file isn't left behind, and the error is
+   * rethrown.
+   *
+   * @param client - The Contents API client for the server.
+   * @param uri - The file being written.
+   * @param content - The full file content. Must be larger than one chunk.
+   * @param existed - Whether the file existed before this write.
+   */
+  private async saveInChunks(
+    client: ContentsApi,
+    uri: Uri,
+    content: Uint8Array,
+    existed: boolean,
+  ): Promise<void> {
+    const path = uri.path;
+    const totalBytes = content.byteLength;
+    const chunkCount = Math.ceil(totalBytes / UPLOAD_CHUNK_SIZE_BYTES);
+    const start = Date.now();
+    log.debug(
+      `Uploading ${uri.toString()} (${String(totalBytes)} bytes) in ${String(chunkCount)} chunks`,
+    );
+
+    let index = 1;
+    try {
+      for (; index <= chunkCount; index++) {
+        const begin = (index - 1) * UPLOAD_CHUNK_SIZE_BYTES;
+        const bytes = content.subarray(begin, begin + UPLOAD_CHUNK_SIZE_BYTES);
+        await client.save({
+          path,
+          model: {
+            ...toSaveRequest(bytes),
+            chunk: index === chunkCount ? -1 : index,
+          },
+        });
+        log.trace(
+          `Uploaded chunk ${String(index)}/${String(chunkCount)} of ${uri.toString()}`,
+        );
+      }
+    } catch (error: unknown) {
+      log.warn(
+        `Upload of ${uri.toString()} failed at chunk ${String(index)}/${String(chunkCount)}`,
+        error,
+      );
+      // Nothing has been written if the first chunk failed.
+      if (index > 1) {
+        await this.deletePartialFile(client, uri, existed);
+      }
+      throw error;
+    }
+
+    log.debug(
+      `Uploaded ${uri.toString()} in ${String(chunkCount)} chunks in ${String(Date.now() - start)} ms`,
+    );
+  }
+
+  private async deletePartialFile(
+    client: ContentsApi,
+    uri: Uri,
+    existed: boolean,
+  ): Promise<void> {
+    try {
+      await client.delete({ path: uri.path });
+      log.info(`Deleted partially uploaded file ${uri.toString()}`);
+      if (existed) {
+        this.changeEmitter.fire([
+          { type: this.vs.FileChangeType.Deleted, uri },
+        ]);
+      }
+    } catch (error: unknown) {
+      log.warn(
+        `Failed to delete partially uploaded file ${uri.toString()}`,
+        error,
+      );
+    }
+  }
+
   private async fileExists(
     client: ContentsApi,
     path: string,
@@ -516,7 +608,7 @@ export class ContentsFileSystemProvider
     );
   }
 
-  private handleError(error: unknown): never {
+  private async handleError(error: unknown): Promise<never> {
     if (error instanceof ResponseError) {
       if (error.response.status === 403) {
         throw this.vs.FileSystemError.NoPermissions();
@@ -528,8 +620,10 @@ export class ContentsFileSystemProvider
         throw this.vs.FileSystemError.FileExists();
       }
       const code = error.response.status.toString();
-      const text = error.response.statusText;
-      throw new Error(`Jupyter contents error: ${code} ${text}`);
+      const detail =
+        (await readJupyterErrorMessage(error.response)) ??
+        error.response.statusText;
+      throw new Error(`Jupyter contents error: ${code} ${detail}`);
     }
     throw error;
   }
@@ -546,4 +640,52 @@ export class ContentsFileSystemProvider
       throw this.vs.FileSystemError.FileNotFound(uri);
     }
   }
+}
+
+/**
+ * Reads the error message from a Jupyter Server error response, whose body is
+ * JSON of the form `{"message": "...", "reason": "..."}`.
+ *
+ * @param response - The error response.
+ * @returns The message, with the reason appended when present, or `undefined`
+ * if the body is empty, isn't JSON or has no message (e.g. when the request was
+ * rejected by a proxy before it reached Jupyter).
+ */
+async function readJupyterErrorMessage(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.clone().json();
+    if (typeof body !== 'object' || body === null) {
+      return undefined;
+    }
+    const { message, reason } = body as Record<string, unknown>;
+    if (typeof message !== 'string' || !message) {
+      return undefined;
+    }
+    return typeof reason === 'string' && reason
+      ? `${message} (${reason})`
+      : message;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Builds a Contents API save request for a file with the given bytes.
+ *
+ * @param bytes - The file content, or one chunk of it.
+ * @returns The save request, with the content base64-encoded.
+ */
+function toSaveRequest(bytes: Uint8Array): ContentsSaveRequest {
+  return {
+    // Wrap the existing memory rather than copying it.
+    content: Buffer.from(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength,
+    ).toString('base64'),
+    format: 'base64',
+    type: ContentsGetTypeEnum.File,
+  };
 }
