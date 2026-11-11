@@ -509,6 +509,9 @@ export class ContentsFileSystemProvider
     let index = 1;
     try {
       for (; index <= chunkCount; index++) {
+        // A large upload spans many requests; stop if the provider was
+        // disposed part-way through.
+        this.guardDisposed();
         const begin = (index - 1) * UPLOAD_CHUNK_SIZE_BYTES;
         const bytes = content.subarray(begin, begin + UPLOAD_CHUNK_SIZE_BYTES);
         await client.save({
@@ -608,6 +611,14 @@ export class ContentsFileSystemProvider
     );
   }
 
+  /**
+   * Converts a Contents API error into the error to surface to VS Code, and
+   * throws it. It always throws; it is async only to read the error response
+   * body. Callers that return a value must `return await` it, since TypeScript
+   * doesn't treat awaiting a `Promise<never>` as ending the function.
+   *
+   * @param error - The error thrown by the Contents API client.
+   */
   private async handleError(error: unknown): Promise<never> {
     if (error instanceof ResponseError) {
       if (error.response.status === 403) {

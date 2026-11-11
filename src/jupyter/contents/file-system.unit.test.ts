@@ -814,7 +814,7 @@ describe('ContentsFileSystemProvider', () => {
       });
     }
 
-    describe('with content larger than one chunk', () => {
+    describe('chunked uploads', () => {
       const uri = TestUri.parse('colab://r-abc123/foo.bin');
       const opts = { create: true, overwrite: true };
       // Two full chunks and a partial one.
@@ -836,7 +836,7 @@ describe('ContentsFileSystemProvider', () => {
         contentsStub.get.resolves(FOO_CONTENT_FILE);
       });
 
-      it('saves a file of exactly one chunk in a single request', async () => {
+      it('saves content of exactly one chunk in a single non-chunked request', async () => {
         const oneChunk = content.subarray(0, UPLOAD_CHUNK_SIZE_BYTES);
 
         await fs.writeFile(uri, oneChunk, opts);
@@ -848,6 +848,26 @@ describe('ContentsFileSystemProvider', () => {
           format: 'base64',
           type: ContentsGetTypeEnum.File,
         });
+      });
+
+      it('encodes only the viewed bytes of content backed by a larger buffer', async () => {
+        // A view that starts part-way into its backing buffer and spans one
+        // full chunk plus one byte.
+        const offset = 7;
+        const view = new Uint8Array(
+          content.buffer,
+          content.byteOffset + offset,
+          UPLOAD_CHUNK_SIZE_BYTES + 1,
+        );
+
+        await fs.writeFile(uri, view, opts);
+
+        const models = contentsStub.save.getCalls().map((c) => c.args[0].model);
+        expect(models.map((m) => m?.chunk)).to.deep.equal([1, -1]);
+        const uploaded = Buffer.concat(
+          models.map((m) => Buffer.from(m?.content ?? '', 'base64')),
+        );
+        expect(uploaded.equals(Buffer.from(view))).to.equal(true);
       });
 
       it('saves the chunks in order, marking the last with -1', async () => {
@@ -942,6 +962,22 @@ describe('ContentsFileSystemProvider', () => {
 
         sinon.assert.calledThrice(contentsStub.save);
         sinon.assert.calledOnce(contentsStub.delete);
+      });
+
+      it('stops and deletes the partial file when disposed part-way through', async () => {
+        contentsStub.save.onFirstCall().callsFake(() => {
+          fs.dispose();
+          return Promise.resolve(FOO_CONTENT_FILE);
+        });
+
+        await expect(
+          fs.writeFile(uri, content, opts),
+        ).to.eventually.rejectedWith(/disposed/);
+
+        sinon.assert.calledOnce(contentsStub.save);
+        sinon.assert.calledOnceWithExactly(contentsStub.delete, {
+          path: '/foo.bin',
+        });
       });
     });
 
