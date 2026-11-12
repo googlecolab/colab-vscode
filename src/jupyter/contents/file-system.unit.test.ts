@@ -21,11 +21,14 @@ import {
   Contents,
   ContentsApi,
   ContentsGetTypeEnum,
+  FetchError,
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
 import {
   ContentsFileSystemProvider,
+  UPLOAD_CHUNK_MAX_RETRIES,
+  UPLOAD_CHUNK_RETRY_BASE_DELAY_MS,
   UPLOAD_CHUNK_SIZE_BYTES,
 } from './file-system';
 import { JupyterConnectionManager } from './sessions';
@@ -977,6 +980,260 @@ describe('ContentsFileSystemProvider', () => {
         sinon.assert.calledOnce(contentsStub.save);
         sinon.assert.calledOnceWithExactly(contentsStub.delete, {
           path: '/foo.bin',
+        });
+      });
+
+      describe('retries', () => {
+        const C = UPLOAD_CHUNK_SIZE_BYTES;
+        const serverError = () =>
+          new ResponseError(new Response(null, { status: 503 }));
+        const networkError = () =>
+          new FetchError(new TypeError('fetch failed'), 'network');
+        let clock: sinon.SinonFakeTimers;
+
+        beforeEach(() => {
+          clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+        });
+
+        afterEach(() => {
+          clock.restore();
+        });
+
+        /**
+         * Decodes the chunk index and bytes of each save call.
+         *
+         * @returns One entry per save call, in order.
+         */
+        function savedRanges(): { chunk?: number; bytes: Buffer }[] {
+          return contentsStub.save.getCalls().map((c) => ({
+            chunk: c.args[0].model?.chunk,
+            bytes: Buffer.from(c.args[0].model?.content ?? '', 'base64'),
+          }));
+        }
+
+        /**
+         * Stubs the size the server reports for the file being uploaded.
+         *
+         * @param size - The size in bytes.
+         */
+        function serverSizeIs(size: number) {
+          contentsStub.get
+            .withArgs({ path: '/foo.bin', content: 0 })
+            .resolves({ ...FOO_CONTENT_FILE, size });
+        }
+
+        async function writeAndRunTimers(): Promise<unknown> {
+          const result = fs.writeFile(uri, content, opts).then(
+            () => undefined,
+            (e: unknown) => e,
+          );
+          await clock.runAllAsync();
+          return result;
+        }
+
+        it('retries a failed first chunk by resending it', async () => {
+          contentsStub.save.onFirstCall().rejects(networkError());
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          const saves = savedRanges();
+          expect(saves.map((s) => s.chunk)).to.deep.equal([1, 1, 2, -1]);
+          expect(saves[1].bytes.equals(content.subarray(0, C))).to.equal(true);
+          sinon.assert.notCalled(contentsStub.delete);
+        });
+
+        it('resumes from the server size when a failed append was not written', async () => {
+          contentsStub.save.onSecondCall().rejects(serverError());
+          serverSizeIs(C);
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          const saves = savedRanges();
+          expect(saves.map((s) => s.chunk)).to.deep.equal([1, 2, 2, -1]);
+          expect(
+            Buffer.concat([
+              saves[0].bytes,
+              saves[2].bytes,
+              saves[3].bytes,
+            ]).equals(content),
+          ).to.equal(true);
+          sinon.assert.notCalled(contentsStub.delete);
+        });
+
+        it('resumes mid-chunk when a failed append was partially written', async () => {
+          contentsStub.save.onSecondCall().rejects(networkError());
+          // 100 bytes of chunk 2 made it to disk before the failure.
+          serverSizeIs(C + 100);
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          const saves = savedRanges();
+          expect(saves.map((s) => s.chunk)).to.deep.equal([1, 2, 2, -1]);
+          // The retry starts at the first byte the server doesn't have.
+          expect(
+            saves[2].bytes.equals(content.subarray(C + 100, 2 * C + 100)),
+          ).to.equal(true);
+          expect(saves[3].bytes.equals(content.subarray(2 * C + 100))).to.equal(
+            true,
+          );
+        });
+
+        it('completes without resending when a failed final chunk was fully written', async () => {
+          contentsStub.save.onThirdCall().rejects(networkError());
+          serverSizeIs(content.length);
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          sinon.assert.calledThrice(contentsStub.save);
+          sinon.assert.notCalled(contentsStub.delete);
+          sinon.assert.calledOnceWithExactly(listener, [
+            { type: FileChangeType.Changed, uri },
+          ]);
+        });
+
+        it('backs off exponentially between retries', async () => {
+          const failure = serverError();
+          contentsStub.save.onSecondCall().rejects(failure);
+          contentsStub.save.onThirdCall().rejects(failure);
+          serverSizeIs(C);
+          const write = fs.writeFile(uri, content, opts);
+
+          await clock.tickAsync(UPLOAD_CHUNK_RETRY_BASE_DELAY_MS - 1);
+          sinon.assert.calledTwice(contentsStub.save);
+          await clock.tickAsync(1);
+          sinon.assert.calledThrice(contentsStub.save);
+          await clock.tickAsync(2 * UPLOAD_CHUNK_RETRY_BASE_DELAY_MS - 1);
+          sinon.assert.calledThrice(contentsStub.save);
+          await clock.tickAsync(1);
+          await clock.runAllAsync();
+          await write;
+
+          expect(contentsStub.save.callCount).to.equal(5);
+        });
+
+        it('resets the retry budget after a chunk succeeds', async () => {
+          // Every chunk fails the maximum number of times before succeeding.
+          // The server only grows when a save succeeds.
+          let call = 0;
+          let size = 0;
+          contentsStub.get.callsFake(() =>
+            Promise.resolve({ ...FOO_CONTENT_FILE, size }),
+          );
+          contentsStub.save.callsFake((req) => {
+            call++;
+            const attempt = (call - 1) % (UPLOAD_CHUNK_MAX_RETRIES + 1);
+            if (attempt < UPLOAD_CHUNK_MAX_RETRIES) {
+              return Promise.reject(networkError());
+            }
+            size += Buffer.from(req.model?.content ?? '', 'base64').length;
+            return Promise.resolve(FOO_CONTENT_FILE);
+          });
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          expect(contentsStub.save.callCount).to.equal(
+            3 * (UPLOAD_CHUNK_MAX_RETRIES + 1),
+          );
+          expect(size).to.equal(content.length);
+        });
+
+        it('gives up, deletes the partial file and rethrows after the maximum retries', async () => {
+          const failure = serverError();
+          contentsStub.save.onSecondCall().rejects(failure);
+          contentsStub.save.onThirdCall().rejects(failure);
+          contentsStub.save.onCall(3).rejects(failure);
+          contentsStub.save.onCall(4).rejects(failure);
+          serverSizeIs(C);
+
+          expect(await writeAndRunTimers())
+            .to.be.instanceOf(Error)
+            .with.property('message', 'Jupyter contents error: 503 ');
+
+          // The first chunk, then the second chunk once plus three retries.
+          expect(contentsStub.save.callCount).to.equal(
+            2 + UPLOAD_CHUNK_MAX_RETRIES,
+          );
+          sinon.assert.calledOnceWithExactly(contentsStub.delete, {
+            path: '/foo.bin',
+          });
+        });
+
+        it('leaves the existing file untouched when the first chunk exhausts its retries', async () => {
+          const failure = serverError();
+          contentsStub.save.rejects(failure);
+
+          expect(await writeAndRunTimers())
+            .to.be.instanceOf(Error)
+            .with.property('message', 'Jupyter contents error: 503 ');
+
+          expect(contentsStub.save.callCount).to.equal(
+            1 + UPLOAD_CHUNK_MAX_RETRIES,
+          );
+          sinon.assert.notCalled(contentsStub.delete);
+          sinon.assert.notCalled(listener);
+        });
+
+        it('does not retry client errors', async () => {
+          contentsStub.save.onSecondCall().rejects(TEAPOT);
+
+          expect(await writeAndRunTimers())
+            .to.be.instanceOf(Error)
+            .with.property('message', 'Jupyter contents error: 418 ');
+
+          sinon.assert.calledTwice(contentsStub.save);
+          sinon.assert.calledOnce(contentsStub.delete);
+        });
+
+        it('fails instead of resuming when the server size does not match the upload', async () => {
+          contentsStub.save.onSecondCall().rejects(serverError());
+          // Something else truncated the file.
+          serverSizeIs(10);
+
+          const err = await writeAndRunTimers();
+
+          expect(err).to.be.instanceOf(Error);
+          expect((err as Error).message).to.match(
+            /Cannot resume upload of \/foo\.bin: expected between 1048576 and 2097152 bytes on the server, found 10/,
+          );
+          sinon.assert.calledTwice(contentsStub.save);
+          sinon.assert.calledOnce(contentsStub.delete);
+        });
+
+        it('retries a failed size check', async () => {
+          contentsStub.save.onSecondCall().rejects(serverError());
+          contentsStub.get
+            .withArgs({ path: '/foo.bin', content: 0 })
+            // The existence check before the upload starts.
+            .onFirstCall()
+            .resolves(FOO_CONTENT_FILE)
+            .onSecondCall()
+            .rejects(networkError())
+            .onThirdCall()
+            .resolves({ ...FOO_CONTENT_FILE, size: C });
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          expect(savedRanges().map((s) => s.chunk)).to.deep.equal([
+            1, 2, 2, -1,
+          ]);
+        });
+
+        it('stops retrying when disposed during the backoff', async () => {
+          contentsStub.save.onSecondCall().rejects(serverError());
+          serverSizeIs(C);
+          const write = fs.writeFile(uri, content, opts).then(
+            () => undefined,
+            (e: unknown) => e,
+          );
+          await clock.tickAsync(0);
+
+          fs.dispose();
+          await clock.runAllAsync();
+
+          const err = await write;
+          expect(err).to.be.instanceOf(Error);
+          expect((err as Error).message).to.match(/disposed/);
+          sinon.assert.calledTwice(contentsStub.save);
         });
       });
     });

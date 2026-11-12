@@ -29,6 +29,7 @@ import {
   ContentsGetFormatEnum,
   ContentsGetTypeEnum,
   ContentsSaveRequest,
+  FetchError,
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
@@ -41,6 +42,17 @@ import { JupyterConnectionManager } from './sessions';
  * the chunk size used by the Colab web client.
  */
 export const UPLOAD_CHUNK_SIZE_BYTES = 1024 * 1024;
+
+/**
+ * How many times a failed chunk upload is retried before the upload fails.
+ */
+export const UPLOAD_CHUNK_MAX_RETRIES = 3;
+
+/**
+ * Delay before the first retry of a failed chunk upload. Doubles with each
+ * subsequent retry.
+ */
+export const UPLOAD_CHUNK_RETRY_BASE_DELAY_MS = 500;
 
 /**
  * Defines what VS Code needs to read, write, discover and manage files and
@@ -478,14 +490,18 @@ export class ContentsFileSystemProvider
   }
 
   /**
-   * Uploads `content` with the Contents API's chunked save, one
-   * {@link UPLOAD_CHUNK_SIZE_BYTES} chunk per request, in order. The first
+   * Uploads `content` with the Contents API's chunked save, in order. The first
    * chunk creates or truncates the file, later chunks append to it, and the
    * last one is sent as chunk `-1` to complete the save.
    *
-   * If a chunk fails, the partially written file is deleted on a best-effort
-   * basis so that a truncated file isn't left behind, and the error is
-   * rethrown.
+   * A chunk that fails with a network error or a 5xx response is retried up to
+   * {@link UPLOAD_CHUNK_MAX_RETRIES} times with exponential backoff. Since a
+   * failed append may have been partially written, each retry first reads the
+   * file's size on the server and resumes from that byte.
+   *
+   * If the upload still fails, the partially written file is deleted on a
+   * best-effort basis so that a truncated file isn't left behind, and the
+   * error is rethrown.
    *
    * @param client - The Contents API client for the server.
    * @param uri - The file being written.
@@ -500,46 +516,111 @@ export class ContentsFileSystemProvider
   ): Promise<void> {
     const path = uri.path;
     const totalBytes = content.byteLength;
-    const chunkCount = Math.ceil(totalBytes / UPLOAD_CHUNK_SIZE_BYTES);
     const start = Date.now();
     log.debug(
-      `Uploading ${uri.toString()} (${String(totalBytes)} bytes) in ${String(chunkCount)} chunks`,
+      `Uploading ${uri.toString()} (${String(totalBytes)} bytes) in chunks of ${String(UPLOAD_CHUNK_SIZE_BYTES)} bytes`,
     );
 
-    let index = 1;
+    // The number of bytes the server is known to have.
+    let offset = 0;
+    let chunk = 1;
+    // Retries of the current chunk, and of the whole upload.
+    let retries = 0;
+    let totalRetries = 0;
+    // Whether the server's file size must be re-read before the next append,
+    // because the previous one failed and may have been partially written.
+    let resync = false;
     try {
-      for (; index <= chunkCount; index++) {
+      while (offset < totalBytes) {
         // A large upload spans many requests; stop if the provider was
         // disposed part-way through.
         this.guardDisposed();
-        const begin = (index - 1) * UPLOAD_CHUNK_SIZE_BYTES;
-        const bytes = content.subarray(begin, begin + UPLOAD_CHUNK_SIZE_BYTES);
-        await client.save({
-          path,
-          model: {
-            ...toSaveRequest(bytes),
-            chunk: index === chunkCount ? -1 : index,
-          },
-        });
-        log.trace(
-          `Uploaded chunk ${String(index)}/${String(chunkCount)} of ${uri.toString()}`,
-        );
+        try {
+          if (resync) {
+            offset = await this.resumeOffset(client, path, offset, totalBytes);
+            resync = false;
+            log.debug(
+              `Resuming upload of ${uri.toString()} at byte ${String(offset)} of ${String(totalBytes)}`,
+            );
+            continue;
+          }
+          const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
+          await client.save({
+            path,
+            model: {
+              ...toSaveRequest(content.subarray(offset, end)),
+              chunk: end === totalBytes ? -1 : chunk,
+            },
+          });
+          log.trace(
+            `Uploaded bytes ${String(offset)}-${String(end)} of ${uri.toString()} (chunk ${String(chunk)})`,
+          );
+          offset = end;
+          chunk++;
+          retries = 0;
+        } catch (error: unknown) {
+          if (!shouldRetry(error) || retries >= UPLOAD_CHUNK_MAX_RETRIES) {
+            throw error;
+          }
+          retries++;
+          totalRetries++;
+          const delay = UPLOAD_CHUNK_RETRY_BASE_DELAY_MS * 2 ** (retries - 1);
+          log.warn(
+            `Chunk ${String(chunk)} of ${uri.toString()} failed, retrying in ${String(delay)} ms (${String(retries)}/${String(UPLOAD_CHUNK_MAX_RETRIES)})`,
+            error,
+          );
+          await sleep(delay);
+          // Chunk 1 is written atomically and truncates the file, so it can
+          // simply be sent again. Appends may have been partially written.
+          resync = chunk > 1;
+        }
       }
     } catch (error: unknown) {
       log.warn(
-        `Upload of ${uri.toString()} failed at chunk ${String(index)}/${String(chunkCount)}`,
+        `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}`,
         error,
       );
-      // Nothing has been written if the first chunk failed.
-      if (index > 1) {
+      // Chunk 1 is written atomically, so if it never succeeded, the server
+      // most likely still has the file as it was before this write.
+      if (chunk > 1) {
         await this.deletePartialFile(client, uri, existed);
       }
       throw error;
     }
 
     log.debug(
-      `Uploaded ${uri.toString()} in ${String(chunkCount)} chunks in ${String(Date.now() - start)} ms`,
+      `Uploaded ${uri.toString()} (${String(totalBytes)} bytes) in ${String(Date.now() - start)} ms with ${String(totalRetries)} retries`,
     );
+  }
+
+  /**
+   * Determines where to resume a chunked upload after a failed append.
+   *
+   * @param client - The Contents API client for the server.
+   * @param path - The path of the file being written.
+   * @param offset - The number of bytes the server had before the failed
+   * append.
+   * @param totalBytes - The size of the complete file.
+   * @returns The number of bytes the server now has, which is where the upload
+   * resumes.
+   * @throws Error when the server's file size can't have resulted from the
+   * failed append, which means the file was changed by something other than
+   * this upload.
+   */
+  private async resumeOffset(
+    client: ContentsApi,
+    path: string,
+    offset: number,
+    totalBytes: number,
+  ): Promise<number> {
+    const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
+    const { size } = await client.get({ path, content: 0 });
+    if (size === undefined || size < offset || size > end) {
+      throw new Error(
+        `Cannot resume upload of ${path}: expected between ${String(offset)} and ${String(end)} bytes on the server, found ${String(size)}`,
+      );
+    }
+    return size;
   }
 
   private async deletePartialFile(
@@ -680,6 +761,24 @@ async function readJupyterErrorMessage(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Whether a failed Contents API request may succeed if retried: network errors
+ * and 5xx responses.
+ *
+ * @param error - The error thrown by the Contents API client.
+ * @returns True if the request should be retried.
+ */
+function shouldRetry(error: unknown): boolean {
+  if (error instanceof FetchError) {
+    return true;
+  }
+  return error instanceof ResponseError && error.response.status >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
