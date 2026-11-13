@@ -16,6 +16,7 @@ import vscode, {
   Uri,
   WorkspaceFoldersChangeEvent,
 } from 'vscode';
+import { z } from 'zod';
 import { buildColabFileUri } from '../../colab/files';
 import { log } from '../../common/logging';
 import { traceMethod } from '../../common/logging/decorators';
@@ -29,10 +30,30 @@ import {
   ContentsGetFormatEnum,
   ContentsGetTypeEnum,
   ContentsSaveRequest,
+  FetchError,
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
 import { JupyterConnectionManager } from './sessions';
+
+/**
+ * Files larger than this are uploaded in chunks of this size, using the
+ * Contents API's chunked save, rather than in a single request. This keeps each
+ * request well below the Colab runtime proxy's request size limit, and matches
+ * the chunk size used by the Colab web client.
+ */
+export const UPLOAD_CHUNK_SIZE_BYTES = 1024 * 1024;
+
+/**
+ * How many times a failed chunk upload is retried before the upload fails.
+ */
+export const UPLOAD_CHUNK_MAX_RETRIES = 3;
+
+/**
+ * Delay before the first retry of a failed chunk upload. Doubles with each
+ * subsequent retry.
+ */
+export const UPLOAD_CHUNK_RETRY_BASE_DELAY_MS = 500;
 
 /**
  * Defines what VS Code needs to read, write, discover and manage files and
@@ -179,7 +200,7 @@ export class ContentsFileSystemProvider
       const content = await client.get({ path, content: 0 });
       return toFileStat(this.vs, content);
     } catch (error: unknown) {
-      this.handleError(error);
+      return await this.handleError(error);
     }
   }
 
@@ -211,7 +232,7 @@ export class ContentsFileSystemProvider
         toFileType(this.vs, child.type),
       ]);
     } catch (error: unknown) {
-      this.handleError(error);
+      return await this.handleError(error);
     }
   }
 
@@ -241,7 +262,7 @@ export class ContentsFileSystemProvider
       });
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Created, uri }]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -276,7 +297,7 @@ export class ContentsFileSystemProvider
 
       return Buffer.from(content.content, 'base64');
     } catch (error: unknown) {
-      this.handleError(error);
+      return await this.handleError(error);
     }
   }
 
@@ -317,20 +338,21 @@ export class ContentsFileSystemProvider
         throw this.vs.FileSystemError.FileExists(uri);
       }
 
-      const model: ContentsSaveRequest = {
-        content: Buffer.from(content).toString('base64'),
-        format: 'base64',
-        type: ContentsGetTypeEnum.File,
-      };
-
-      await client.save({ path, model });
+      // A file that fits in one chunk is saved in a single, non-chunked
+      // request. Chunked saves need at least two requests: chunk 1 truncates
+      // the file, but a lone chunk -1 would append to an existing file instead.
+      if (content.byteLength <= UPLOAD_CHUNK_SIZE_BYTES) {
+        await client.save({ path, model: toSaveRequest(content) });
+      } else {
+        await this.saveInChunks(client, uri, content, exists);
+      }
 
       const eventType = exists
         ? this.vs.FileChangeType.Changed
         : this.vs.FileChangeType.Created;
       this.changeEmitter.fire([{ type: eventType, uri }]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -357,7 +379,7 @@ export class ContentsFileSystemProvider
       await this.deleteInternal(uri, options);
       this.changeEmitter.fire([{ type: this.vs.FileChangeType.Deleted, uri }]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -414,7 +436,7 @@ export class ContentsFileSystemProvider
         },
       ]);
     } catch (error: unknown) {
-      this.handleError(error);
+      await this.handleError(error);
     }
   }
 
@@ -468,6 +490,177 @@ export class ContentsFileSystemProvider
     await client.delete({ path });
   }
 
+  /**
+   * Uploads `content` with the Contents API's chunked save.
+   *
+   * The chunks go to a temporary file next to the target, which is moved over
+   * the target once complete, so a failed upload never touches an existing
+   * file. Within the temporary file, the first chunk creates or truncates it,
+   * later chunks append to it, and the last one is sent as chunk `-1` to
+   * complete the save.
+   *
+   * A chunk that fails with a network error or a 5xx response is retried up to
+   * {@link UPLOAD_CHUNK_MAX_RETRIES} times with exponential backoff. Since a
+   * failed append may have been partially written, each retry first reads the
+   * temporary file's size on the server and resumes from that byte.
+   *
+   * If the upload still fails, the error is rethrown and the temporary file is
+   * left in place; the next upload of the same file overwrites it.
+   *
+   * @param client - The Contents API client for the server.
+   * @param uri - The file being written.
+   * @param content - The full file content. Must be larger than one chunk.
+   * @param existed - Whether the file existed before this write.
+   */
+  private async saveInChunks(
+    client: ContentsApi,
+    uri: Uri,
+    content: Uint8Array,
+    existed: boolean,
+  ): Promise<void> {
+    const tempPath = partialPath(uri.path);
+    const totalBytes = content.byteLength;
+    const start = Date.now();
+    log.debug(
+      `Uploading ${uri.toString()} (${String(totalBytes)} bytes) via ${tempPath} in chunks of ${String(UPLOAD_CHUNK_SIZE_BYTES)} bytes`,
+    );
+
+    // The number of bytes the server is known to have.
+    let offset = 0;
+    let chunk = 1;
+    // Retries of the current chunk, and of the whole upload.
+    let retries = 0;
+    let totalRetries = 0;
+    // Whether the server's file size must be re-read before the next append,
+    // because the previous one failed and may have been partially written.
+    let resync = false;
+    try {
+      while (offset < totalBytes) {
+        // A large upload spans many requests; stop if the provider was
+        // disposed part-way through.
+        this.guardDisposed();
+        try {
+          if (resync) {
+            offset = await this.resumeOffset(
+              client,
+              tempPath,
+              offset,
+              totalBytes,
+            );
+            resync = false;
+            log.debug(
+              `Resuming upload of ${uri.toString()} at byte ${String(offset)} of ${String(totalBytes)}`,
+            );
+            continue;
+          }
+          const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
+          await client.save({
+            path: tempPath,
+            model: {
+              ...toSaveRequest(content.subarray(offset, end)),
+              chunk: end === totalBytes ? -1 : chunk,
+            },
+          });
+          log.trace(
+            `Uploaded bytes ${String(offset)}-${String(end)} of ${uri.toString()} (chunk ${String(chunk)})`,
+          );
+          offset = end;
+          chunk++;
+          retries = 0;
+        } catch (error: unknown) {
+          if (!shouldRetry(error) || retries >= UPLOAD_CHUNK_MAX_RETRIES) {
+            throw error;
+          }
+          retries++;
+          totalRetries++;
+          const delay = UPLOAD_CHUNK_RETRY_BASE_DELAY_MS * 2 ** (retries - 1);
+          log.warn(
+            `Chunk ${String(chunk)} of ${uri.toString()} failed, retrying in ${String(delay)} ms (${String(retries)}/${String(UPLOAD_CHUNK_MAX_RETRIES)})`,
+            error,
+          );
+          await sleep(delay);
+          // Chunk 1 is written atomically and truncates the file, so it can
+          // simply be sent again. Appends may have been partially written.
+          resync = chunk > 1;
+        }
+      }
+      this.guardDisposed();
+      await this.replaceWith(client, uri.path, tempPath, existed);
+    } catch (error: unknown) {
+      log.warn(
+        `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
+        error,
+      );
+      throw error;
+    }
+
+    log.debug(
+      `Uploaded ${uri.toString()} (${String(totalBytes)} bytes) in ${String(Date.now() - start)} ms with ${String(totalRetries)} retries`,
+    );
+  }
+
+  /**
+   * Moves a completed upload over its target.
+   *
+   * Jupyter's rename refuses to overwrite, so an existing target is deleted
+   * first. Between the two requests the target briefly doesn't exist.
+   *
+   * @param client - The Contents API client for the server.
+   * @param path - The target path.
+   * @param tempPath - The path of the completed upload.
+   * @param existed - Whether the target existed before this write.
+   */
+  private async replaceWith(
+    client: ContentsApi,
+    path: string,
+    tempPath: string,
+    existed: boolean,
+  ): Promise<void> {
+    if (existed) {
+      try {
+        await client.delete({ path });
+      } catch (error: unknown) {
+        // Something else may have removed it since; that's fine.
+        if (
+          !(error instanceof ResponseError && error.response.status === 404)
+        ) {
+          throw error;
+        }
+      }
+    }
+    await client.rename({ path: tempPath, rename: { path } });
+  }
+
+  /**
+   * Determines where to resume a chunked upload after a failed append.
+   *
+   * @param client - The Contents API client for the server.
+   * @param path - The path of the file being written.
+   * @param offset - The number of bytes the server had before the failed
+   * append.
+   * @param totalBytes - The size of the complete file.
+   * @returns The number of bytes the server now has, which is where the upload
+   * resumes.
+   * @throws Error when the server's file size can't have resulted from the
+   * failed append, which means the file was changed by something other than
+   * this upload.
+   */
+  private async resumeOffset(
+    client: ContentsApi,
+    path: string,
+    offset: number,
+    totalBytes: number,
+  ): Promise<number> {
+    const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
+    const { size } = await client.get({ path, content: 0 });
+    if (size === undefined || size < offset || size > end) {
+      throw new Error(
+        `Cannot resume upload of ${path}: expected between ${String(offset)} and ${String(end)} bytes on the server, found ${String(size)}`,
+      );
+    }
+    return size;
+  }
+
   private async fileExists(
     client: ContentsApi,
     path: string,
@@ -516,7 +709,15 @@ export class ContentsFileSystemProvider
     );
   }
 
-  private handleError(error: unknown): never {
+  /**
+   * Converts a Contents API error into the error to surface to VS Code, and
+   * throws it. It always throws; it is async only to read the error response
+   * body. Callers that return a value must `return await` it, since TypeScript
+   * doesn't treat awaiting a `Promise<never>` as ending the function.
+   *
+   * @param error - The error thrown by the Contents API client.
+   */
+  private async handleError(error: unknown): Promise<never> {
     if (error instanceof ResponseError) {
       if (error.response.status === 403) {
         throw this.vs.FileSystemError.NoPermissions();
@@ -528,8 +729,10 @@ export class ContentsFileSystemProvider
         throw this.vs.FileSystemError.FileExists();
       }
       const code = error.response.status.toString();
-      const text = error.response.statusText;
-      throw new Error(`Jupyter contents error: ${code} ${text}`);
+      const detail =
+        (await readJupyterErrorMessage(error.response)) ??
+        error.response.statusText;
+      throw new Error(`Jupyter contents error: ${code} ${detail}`);
     }
     throw error;
   }
@@ -546,4 +749,91 @@ export class ContentsFileSystemProvider
       throw this.vs.FileSystemError.FileNotFound(uri);
     }
   }
+}
+
+/**
+ * The body of a Jupyter Server API error response. `reason` is `null` for
+ * errors that aren't `HTTPError`s.
+ */
+const JupyterErrorSchema = z.object({
+  message: z.string().min(1),
+  // Optional context; an unexpected value shouldn't cost us the message.
+  reason: z.string().nullish().catch(undefined),
+});
+
+/**
+ * Reads the error message from a Jupyter Server error response.
+ *
+ * @param response - The error response.
+ * @returns The message, with the reason appended when present, or `undefined`
+ * if the body is empty, isn't JSON or has no message (e.g. when the request was
+ * rejected by a proxy before it reached Jupyter).
+ */
+async function readJupyterErrorMessage(
+  response: Response,
+): Promise<string | undefined> {
+  let body: unknown;
+  try {
+    body = await response.clone().json();
+  } catch {
+    return undefined;
+  }
+  const parsed = JupyterErrorSchema.safeParse(body);
+  if (!parsed.success) {
+    return undefined;
+  }
+  const { message, reason } = parsed.data;
+  return reason ? `${message} (${reason})` : message;
+}
+
+/**
+ * Builds the path of the temporary file a chunked upload writes to before it
+ * is moved over `path`. It sits next to the target so the move is a rename
+ * within one directory, and has a fixed name so a partial upload left by a
+ * failed attempt is overwritten by the next one rather than piling up. It must
+ * not start with a dot, since Jupyter refuses to write hidden files unless
+ * configured to allow them.
+ *
+ * @param path - The path of the file being uploaded.
+ * @returns The temporary file's path, e.g. `/content/foo.bin.partial`.
+ */
+export function partialPath(path: string): string {
+  return `${path}.partial`;
+}
+
+/**
+ * Whether a failed Contents API request may succeed if retried: network errors
+ * and 5xx responses.
+ *
+ * @param error - The error thrown by the Contents API client.
+ * @returns True if the request should be retried.
+ */
+function shouldRetry(error: unknown): boolean {
+  if (error instanceof FetchError) {
+    return true;
+  }
+  return error instanceof ResponseError && error.response.status >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Builds a Contents API save request for a file with the given bytes.
+ *
+ * @param bytes - The file content, or one chunk of it.
+ * @returns The save request, with the content base64-encoded.
+ */
+function toSaveRequest(bytes: Uint8Array): ContentsSaveRequest {
+  return {
+    // Wrap the existing memory rather than copying it.
+    content: Buffer.from(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength,
+    ).toString('base64'),
+    format: 'base64',
+    type: ContentsGetTypeEnum.File,
+  };
 }

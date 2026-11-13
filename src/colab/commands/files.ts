@@ -21,8 +21,8 @@ const MAX_CONCURRENT_FILES_UPLOAD = 16;
 
 /**
  * Maximum combined size of the files being uploaded at once. Each file is read
- * fully into memory and base64-encoded for the request, so memory use is a few
- * times this raw byte count. A single larger file is still uploaded on its own.
+ * fully into memory before it is written, so this bounds the memory held by
+ * in-flight uploads. A single larger file is still uploaded on its own.
  */
 const MAX_IN_FLIGHT_UPLOAD_BYTES = 64 * 1024 * 1024;
 
