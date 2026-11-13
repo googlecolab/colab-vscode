@@ -5,6 +5,7 @@
  */
 
 import { Buffer } from 'buffer';
+import { randomUUID } from 'crypto';
 import vscode, {
   Disposable,
   Event,
@@ -16,6 +17,7 @@ import vscode, {
   Uri,
   WorkspaceFoldersChangeEvent,
 } from 'vscode';
+import { z } from 'zod';
 import { buildColabFileUri } from '../../colab/files';
 import { log } from '../../common/logging';
 import { traceMethod } from '../../common/logging/decorators';
@@ -490,18 +492,20 @@ export class ContentsFileSystemProvider
   }
 
   /**
-   * Uploads `content` with the Contents API's chunked save, in order. The first
-   * chunk creates or truncates the file, later chunks append to it, and the
-   * last one is sent as chunk `-1` to complete the save.
+   * Uploads `content` with the Contents API's chunked save.
+   *
+   * The chunks go to a temporary file next to the target, which is moved over
+   * the target once complete, so a failed upload never touches an existing
+   * file. Within the temporary file, the first chunk creates it, later chunks
+   * append to it, and the last one is sent as chunk `-1` to complete the save.
    *
    * A chunk that fails with a network error or a 5xx response is retried up to
    * {@link UPLOAD_CHUNK_MAX_RETRIES} times with exponential backoff. Since a
    * failed append may have been partially written, each retry first reads the
-   * file's size on the server and resumes from that byte.
+   * temporary file's size on the server and resumes from that byte.
    *
-   * If the upload still fails, the partially written file is deleted on a
-   * best-effort basis so that a truncated file isn't left behind, and the
-   * error is rethrown.
+   * If the upload still fails, the temporary file is deleted on a best-effort
+   * basis and the error is rethrown.
    *
    * @param client - The Contents API client for the server.
    * @param uri - The file being written.
@@ -514,11 +518,11 @@ export class ContentsFileSystemProvider
     content: Uint8Array,
     existed: boolean,
   ): Promise<void> {
-    const path = uri.path;
+    const tempPath = partialFiles.pathFor(uri.path);
     const totalBytes = content.byteLength;
     const start = Date.now();
     log.debug(
-      `Uploading ${uri.toString()} (${String(totalBytes)} bytes) in chunks of ${String(UPLOAD_CHUNK_SIZE_BYTES)} bytes`,
+      `Uploading ${uri.toString()} (${String(totalBytes)} bytes) via ${tempPath} in chunks of ${String(UPLOAD_CHUNK_SIZE_BYTES)} bytes`,
     );
 
     // The number of bytes the server is known to have.
@@ -537,7 +541,12 @@ export class ContentsFileSystemProvider
         this.guardDisposed();
         try {
           if (resync) {
-            offset = await this.resumeOffset(client, path, offset, totalBytes);
+            offset = await this.resumeOffset(
+              client,
+              tempPath,
+              offset,
+              totalBytes,
+            );
             resync = false;
             log.debug(
               `Resuming upload of ${uri.toString()} at byte ${String(offset)} of ${String(totalBytes)}`,
@@ -546,7 +555,7 @@ export class ContentsFileSystemProvider
           }
           const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
           await client.save({
-            path,
+            path: tempPath,
             model: {
               ...toSaveRequest(content.subarray(offset, end)),
               chunk: end === totalBytes ? -1 : chunk,
@@ -575,22 +584,52 @@ export class ContentsFileSystemProvider
           resync = chunk > 1;
         }
       }
+      this.guardDisposed();
+      await this.replaceWith(client, uri.path, tempPath, existed);
     } catch (error: unknown) {
       log.warn(
         `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}`,
         error,
       );
-      // Chunk 1 is written atomically, so if it never succeeded, the server
-      // most likely still has the file as it was before this write.
-      if (chunk > 1) {
-        await this.deletePartialFile(client, uri, existed);
-      }
+      await this.deleteTemporaryFile(client, tempPath);
       throw error;
     }
 
     log.debug(
       `Uploaded ${uri.toString()} (${String(totalBytes)} bytes) in ${String(Date.now() - start)} ms with ${String(totalRetries)} retries`,
     );
+  }
+
+  /**
+   * Moves a completed upload over its target.
+   *
+   * Jupyter's rename refuses to overwrite, so an existing target is deleted
+   * first. Between the two requests the target briefly doesn't exist.
+   *
+   * @param client - The Contents API client for the server.
+   * @param path - The target path.
+   * @param tempPath - The path of the completed upload.
+   * @param existed - Whether the target existed before this write.
+   */
+  private async replaceWith(
+    client: ContentsApi,
+    path: string,
+    tempPath: string,
+    existed: boolean,
+  ): Promise<void> {
+    if (existed) {
+      try {
+        await client.delete({ path });
+      } catch (error: unknown) {
+        // Something else may have removed it since; that's fine.
+        if (
+          !(error instanceof ResponseError && error.response.status === 404)
+        ) {
+          throw error;
+        }
+      }
+    }
+    await client.rename({ path: tempPath, rename: { path } });
   }
 
   /**
@@ -623,24 +662,19 @@ export class ContentsFileSystemProvider
     return size;
   }
 
-  private async deletePartialFile(
+  private async deleteTemporaryFile(
     client: ContentsApi,
-    uri: Uri,
-    existed: boolean,
+    tempPath: string,
   ): Promise<void> {
     try {
-      await client.delete({ path: uri.path });
-      log.info(`Deleted partially uploaded file ${uri.toString()}`);
-      if (existed) {
-        this.changeEmitter.fire([
-          { type: this.vs.FileChangeType.Deleted, uri },
-        ]);
-      }
+      await client.delete({ path: tempPath });
+      log.debug(`Deleted temporary upload file ${tempPath}`);
     } catch (error: unknown) {
-      log.warn(
-        `Failed to delete partially uploaded file ${uri.toString()}`,
-        error,
-      );
+      // Nothing to clean up if it was never created.
+      if (error instanceof ResponseError && error.response.status === 404) {
+        return;
+      }
+      log.warn(`Failed to delete temporary upload file ${tempPath}`, error);
     }
   }
 
@@ -735,8 +769,17 @@ export class ContentsFileSystemProvider
 }
 
 /**
- * Reads the error message from a Jupyter Server error response, whose body is
- * JSON of the form `{"message": "...", "reason": "..."}`.
+ * The body of a Jupyter Server API error response. `reason` is `null` for
+ * errors that aren't `HTTPError`s.
+ */
+const JupyterErrorSchema = z.object({
+  message: z.string().min(1),
+  // Optional context; an unexpected value shouldn't cost us the message.
+  reason: z.string().nullish().catch(undefined),
+});
+
+/**
+ * Reads the error message from a Jupyter Server error response.
  *
  * @param response - The error response.
  * @returns The message, with the reason appended when present, or `undefined`
@@ -746,22 +789,40 @@ export class ContentsFileSystemProvider
 async function readJupyterErrorMessage(
   response: Response,
 ): Promise<string | undefined> {
+  let body: unknown;
   try {
-    const body: unknown = await response.clone().json();
-    if (typeof body !== 'object' || body === null) {
-      return undefined;
-    }
-    const { message, reason } = body as Record<string, unknown>;
-    if (typeof message !== 'string' || !message) {
-      return undefined;
-    }
-    return typeof reason === 'string' && reason
-      ? `${message} (${reason})`
-      : message;
+    body = await response.clone().json();
   } catch {
     return undefined;
   }
+  const parsed = JupyterErrorSchema.safeParse(body);
+  if (!parsed.success) {
+    return undefined;
+  }
+  const { message, reason } = parsed.data;
+  return reason ? `${message} (${reason})` : message;
 }
+
+/**
+ * Names the temporary files chunked uploads write to. An object so tests can
+ * stub it.
+ */
+export const partialFiles = {
+  /**
+   * Builds the path of the temporary file a chunked upload writes to before it
+   * is moved over `path`. It sits next to the target so the move is a rename
+   * within one directory, and has a unique suffix so concurrent uploads of the
+   * same file don't collide. It must not start with a dot, since Jupyter
+   * refuses to write hidden files unless configured to allow them.
+   *
+   * @param path - The path of the file being uploaded.
+   * @returns The temporary file's path, e.g.
+   * `/content/foo.bin.1a2b3c4d.partial`.
+   */
+  pathFor(path: string): string {
+    return `${path}.${randomUUID().slice(0, 8)}.partial`;
+  },
+};
 
 /**
  * Whether a failed Contents API request may succeed if retried: network errors
