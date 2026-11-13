@@ -5,8 +5,10 @@
  */
 
 import vscode, { QuickPickItem } from 'vscode';
+import { isCancellation, UserCancelledError } from '../../common/cancellation';
 import { log } from '../../common/logging';
 import { AssignmentManager } from '../../jupyter/assignments';
+import { ContentsFileSystemProvider } from '../../jupyter/contents/file-system';
 import { ColabAssignedServer } from '../../jupyter/servers';
 import { telemetry } from '../../telemetry';
 import { CommandSource, Outcome } from '../../telemetry/api';
@@ -31,12 +33,16 @@ const MAX_IN_FLIGHT_UPLOAD_BYTES = 64 * 1024 * 1024;
  *
  * Prompts the user to select a target server, calculates the total number of
  * files to be uploaded for progress tracking, and performs the upload
- * recursively. It displays a progress notification during the operation and
- * emits a final summary message upon completion.
+ * recursively. It displays a cancellable progress notification during the
+ * operation and emits a final summary message upon completion.
+ *
+ * Cancelling stops any new files from starting and aborts the ones in flight;
+ * files that finished uploading before the cancellation are kept.
  *
  * @param vs - The VS Code module.
  * @param assignmentManager - The manager responsible for handling server
  * assignments.
+ * @param fs - The Colab file system provider to upload through.
  * @param source - The source of the upload command invocation.
  * @param uri - The primary URI of the file or folder to upload, e.g. the URI of
  * the file which was right-clicked in the file explorer.
@@ -48,6 +54,7 @@ const MAX_IN_FLIGHT_UPLOAD_BYTES = 64 * 1024 * 1024;
 export async function upload(
   vs: typeof vscode,
   assignmentManager: AssignmentManager,
+  fs: ContentsFileSystemProvider,
   source: CommandSource,
   uri: vscode.Uri,
   uris?: vscode.Uri[],
@@ -58,6 +65,8 @@ export async function upload(
   let fileCount = 0;
   let directoryCount = 0;
   let uploadedBytes = 0;
+  // Files not attempted, or aborted part-way, because the user cancelled.
+  let skippedCount = 0;
 
   try {
     const selectedServer = await selectServer(vs, assignmentManager);
@@ -76,63 +85,89 @@ export async function upload(
     const incrementPerFile = fileCount > 0 ? 100 / fileCount : 0;
 
     if (operations.length > 0) {
-      await vs.window.withProgress(
+      cancelled = await vs.window.withProgress(
         {
           location: vs.ProgressLocation.Notification,
           title: `Uploading to ${selectedServer.label}...`,
-          cancellable: false,
+          cancellable: true,
         },
-        async (progress) => {
-          // `workspace.fs.writeFile` creates missing parent directories, so
-          // only empty directories need to be created explicitly.
-          const emptyDirOps = operations.filter(
-            (op) => op.type === 'directory' && op.empty,
-          );
-          const fileOps = operations.filter((op) => op.type === 'file');
+        async (progress, token): Promise<boolean> => {
+          const abort = new AbortController();
+          const onCancel = token.onCancellationRequested(() => {
+            log.info(`Upload to ${selectedServer.label} cancelled by the user`);
+            abort.abort(new UserCancelledError('Upload cancelled'));
+          });
+          const { signal } = abort;
+          try {
+            // Uploads create missing parent directories, so only empty
+            // directories need to be created explicitly.
+            const emptyDirOps = operations.filter(
+              (op) => op.type === 'directory' && op.empty,
+            );
+            const fileOps = operations.filter((op) => op.type === 'file');
 
-          for (const op of emptyDirOps) {
-            try {
-              await createDirectory(vs, op.dest);
-            } catch (err) {
-              log.error(
-                `Failed to create directory ${op.dest.toString()}`,
-                err,
-              );
-              failCount++;
-            }
-          }
-          let done = 0;
-          const budget = new ByteBudget(MAX_IN_FLIGHT_UPLOAD_BYTES);
-          const queue = fileOps.values();
-          await Promise.all(
-            Array.from({ length: MAX_CONCURRENT_FILES_UPLOAD }, async () => {
-              for (const op of queue) {
-                await budget.acquire(op.size);
-                let bytes: number | undefined;
-                try {
-                  bytes = await uploadFile(vs, op.source, op.dest);
-                } finally {
-                  budget.release(op.size);
-                }
-                if (bytes === undefined) {
-                  failCount++;
-                } else {
-                  successCount++;
-                  uploadedBytes += bytes;
-                }
-                done++;
-                progress.report({
-                  message: `Importing ${done.toString()} of ${fileOps.length.toString()} files`,
-                  increment: incrementPerFile,
-                });
+            for (const op of emptyDirOps) {
+              if (signal.aborted) {
+                break;
               }
-            }),
-          );
+              try {
+                await createDirectory(vs, op.dest);
+              } catch (err) {
+                log.error(
+                  `Failed to create directory ${op.dest.toString()}`,
+                  err,
+                );
+                failCount++;
+              }
+            }
+            let done = 0;
+            const budget = new ByteBudget(MAX_IN_FLIGHT_UPLOAD_BYTES);
+            const queue = fileOps.values();
+            await Promise.all(
+              Array.from({ length: MAX_CONCURRENT_FILES_UPLOAD }, async () => {
+                for (const op of queue) {
+                  if (!(await budget.acquire(op.size, signal))) {
+                    return;
+                  }
+                  let result: UploadResult;
+                  try {
+                    result = await uploadFile(vs, fs, op, signal);
+                  } finally {
+                    budget.release(op.size);
+                  }
+                  if (result === 'cancelled') {
+                    return;
+                  }
+                  if (result === undefined) {
+                    failCount++;
+                  } else {
+                    successCount++;
+                    uploadedBytes += result;
+                  }
+                  done++;
+                  progress.report({
+                    message: `Importing ${done.toString()} of ${fileOps.length.toString()} files`,
+                    increment: incrementPerFile,
+                  });
+                }
+              }),
+            );
+            skippedCount = fileOps.length - done;
+            // A cancellation that arrives after the last file finished
+            // didn't stop anything.
+            return signal.aborted && skippedCount > 0;
+          } finally {
+            onCancel.dispose();
+          }
         },
       );
     }
 
-    if (successCount > 0) {
+    if (cancelled) {
+      const files = fileCount === 1 ? 'file' : 'files';
+      const msg = `Upload to ${selectedServer.label} cancelled. ${successCount.toString()} of ${fileCount.toString()} ${files} uploaded, ${skippedCount.toString()} not uploaded.`;
+      void vs.window.showWarningMessage(msg);
+    } else if (successCount > 0) {
       const countPart = successCount > 1 ? 'items' : 'item';
       const msg = `Successfully uploaded ${successCount.toString()} ${countPart} to ${selectedServer.label}`;
       void vs.window.showInformationMessage(msg);
@@ -159,8 +194,8 @@ export async function upload(
  * Derives the {@link Outcome} of an upload attempt from the success and
  * failure counts.
  *
- * @param cancelled - Whether the user cancelled before any work was
- * attempted.
+ * @param cancelled - Whether the user cancelled, either before any work was
+ * attempted or part-way through the upload.
  * @param successCount - The number of files that were successfully uploaded.
  * @param failCount - The number of files or directories that failed to
  * upload.
@@ -281,17 +316,26 @@ async function createDirectory(vs: typeof vscode, uri: vscode.Uri) {
   }
 }
 
+/** Bytes uploaded, `undefined` on failure, or `'cancelled'` when aborted. */
+type UploadResult = number | undefined | 'cancelled';
+
 async function uploadFile(
   vs: typeof vscode,
-  source: vscode.Uri,
-  dest: vscode.Uri,
-): Promise<number | undefined> {
+  fs: ContentsFileSystemProvider,
+  op: { source: vscode.Uri; dest: vscode.Uri },
+  signal: AbortSignal,
+): Promise<UploadResult> {
   try {
-    const content = await vs.workspace.fs.readFile(source);
-    await vs.workspace.fs.writeFile(dest, content);
+    const content = await vs.workspace.fs.readFile(op.source);
+    signal.throwIfAborted();
+    await fs.upload(op.dest, content, signal);
     return content.byteLength;
   } catch (err) {
-    log.error(`Failed to process ${dest.toString()}`, err);
+    if (signal.aborted && isCancellation(err)) {
+      log.debug(`Cancelled upload of ${op.dest.toString()}`);
+      return 'cancelled';
+    }
+    log.error(`Failed to process ${op.dest.toString()}`, err);
     return undefined;
   }
 }
@@ -306,11 +350,33 @@ class ByteBudget {
 
   constructor(private readonly limit: number) {}
 
-  async acquire(bytes: number): Promise<void> {
+  /**
+   * Waits until `bytes` fit within the budget, then reserves them.
+   *
+   * @param bytes - The number of bytes to reserve.
+   * @param signal - Stops the wait when aborted.
+   * @returns True once the bytes are reserved, or false if `signal` was aborted
+   * first, in which case nothing is reserved.
+   */
+  async acquire(bytes: number, signal: AbortSignal): Promise<boolean> {
     while (this.used > 0 && this.used + bytes > this.limit) {
-      await new Promise<void>((resolve) => this.waiters.push(resolve));
+      if (signal.aborted) {
+        return false;
+      }
+      await new Promise<void>((resolve) => {
+        const wake = () => {
+          signal.removeEventListener('abort', wake);
+          resolve();
+        };
+        this.waiters.push(wake);
+        signal.addEventListener('abort', wake);
+      });
+    }
+    if (signal.aborted) {
+      return false;
     }
     this.used += bytes;
+    return true;
   }
 
   release(bytes: number): void {
