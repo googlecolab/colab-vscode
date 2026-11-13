@@ -325,26 +325,72 @@ export class ContentsFileSystemProvider
       readonly overwrite: boolean;
     },
   ): Promise<void> {
+    await this.write(uri, content, options);
+  }
+
+  /**
+   * Uploads a file to the server, creating its parent directories and
+   * replacing any existing file. Unlike {@link writeFile}, the upload can be
+   * aborted: aborting `signal` cancels the in-flight request, and for a file
+   * uploaded in chunks, sends no more chunks and leaves any existing file
+   * untouched.
+   *
+   * @param uri - The uri of the file to write.
+   * @param content - The content of the file.
+   * @param signal - Aborts the upload.
+   * @throws The `signal`'s abort reason when the upload is aborted.
+   */
+  // Not traced: `@traceMethod` serializes arguments, including the content.
+  async upload(
+    uri: Uri,
+    content: Uint8Array,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await this.write(
+      uri,
+      content,
+      { create: true, overwrite: true, createParents: true },
+      signal,
+    );
+  }
+
+  private async write(
+    uri: Uri,
+    content: Uint8Array,
+    options: {
+      readonly create: boolean;
+      readonly overwrite: boolean;
+      readonly createParents?: boolean;
+    },
+    signal?: AbortSignal,
+  ): Promise<void> {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
+    signal?.throwIfAborted();
     const client = await this.getOrCreateClient(uri);
     const path = uri.path;
     try {
-      const exists = await this.fileExists(client, path);
+      const exists = await this.fileExists(client, path, signal);
       if (!options.create && !exists) {
         throw this.vs.FileSystemError.FileNotFound(uri);
       }
       if (!options.overwrite && exists) {
         throw this.vs.FileSystemError.FileExists(uri);
       }
+      if (!exists && options.createParents) {
+        await this.createParentDirectories(client, uri, signal);
+      }
 
       // A file that fits in one chunk is saved in a single, non-chunked
       // request. Chunked saves need at least two requests: chunk 1 truncates
       // the file, but a lone chunk -1 would append to an existing file instead.
       if (content.byteLength <= UPLOAD_CHUNK_SIZE_BYTES) {
-        await client.save({ path, model: toSaveRequest(content) });
+        await client.save(
+          { path, model: toSaveRequest(content) },
+          withSignal(signal),
+        );
       } else {
-        await this.saveInChunks(client, uri, content, exists);
+        await this.saveInChunks(client, uri, content, exists, signal);
       }
 
       const eventType = exists
@@ -352,7 +398,58 @@ export class ContentsFileSystemProvider
         : this.vs.FileChangeType.Created;
       this.changeEmitter.fire([{ type: eventType, uri }]);
     } catch (error: unknown) {
+      if (signal?.aborted) {
+        throw signal.reason;
+      }
       await this.handleError(error);
+    }
+  }
+
+  /**
+   * Creates any missing ancestor directories of `uri`, from the top down.
+   * Jupyter's save doesn't, and `vscode.workspace.fs.writeFile` normally does
+   * this before calling the provider.
+   *
+   * @param client - The Contents API client for the server.
+   * @param uri - The file whose ancestors should exist.
+   * @param signal - Aborts the requests.
+   */
+  private async createParentDirectories(
+    client: ContentsApi,
+    uri: Uri,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const segments = uri.path.split('/').filter((s) => s.length > 0);
+    // Walk up until an existing ancestor is found, then create the rest.
+    const missing: string[] = [];
+    for (let i = segments.length - 1; i > 0; i--) {
+      const dir = `/${segments.slice(0, i).join('/')}`;
+      if (await this.fileExists(client, dir, signal)) {
+        break;
+      }
+      missing.unshift(dir);
+    }
+    for (const dir of missing) {
+      try {
+        await client.save(
+          { path: dir, model: { type: ContentsGetTypeEnum.Directory } },
+          withSignal(signal),
+        );
+      } catch (error: unknown) {
+        // Concurrent uploads into the same new directory race to create it,
+        // and Jupyter fails the request that loses. That's fine as long as
+        // the directory now exists.
+        if (signal?.aborted || !(await this.fileExists(client, dir, signal))) {
+          throw error;
+        }
+        continue;
+      }
+      this.changeEmitter.fire([
+        {
+          type: this.vs.FileChangeType.Created,
+          uri: uri.with({ path: dir }),
+        },
+      ]);
     }
   }
 
@@ -507,16 +604,24 @@ export class ContentsFileSystemProvider
    * If the upload still fails, the error is rethrown and the temporary file is
    * left in place; the next upload of the same file overwrites it.
    *
+   * Aborting `signal` stops the upload like a failure: the in-flight request
+   * is cancelled, nothing is retried, and the temporary file is left in place.
+   * Once the completed upload starts moving into place it isn't interrupted,
+   * since stopping between deleting the original and the rename would lose
+   * both.
+   *
    * @param client - The Contents API client for the server.
    * @param uri - The file being written.
    * @param content - The full file content. Must be larger than one chunk.
    * @param existed - Whether the file existed before this write.
+   * @param signal - Aborts the upload.
    */
   private async saveInChunks(
     client: ContentsApi,
     uri: Uri,
     content: Uint8Array,
     existed: boolean,
+    signal?: AbortSignal,
   ): Promise<void> {
     const tempPath = partialPath(uri.path);
     const totalBytes = content.byteLength;
@@ -537,8 +642,9 @@ export class ContentsFileSystemProvider
     try {
       while (offset < totalBytes) {
         // A large upload spans many requests; stop if the provider was
-        // disposed part-way through.
+        // disposed or the upload aborted part-way through.
         this.guardDisposed();
+        signal?.throwIfAborted();
         try {
           if (resync) {
             offset = await this.resumeOffset(
@@ -546,6 +652,7 @@ export class ContentsFileSystemProvider
               tempPath,
               offset,
               totalBytes,
+              signal,
             );
             resync = false;
             log.debug(
@@ -554,13 +661,16 @@ export class ContentsFileSystemProvider
             continue;
           }
           const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
-          await client.save({
-            path: tempPath,
-            model: {
-              ...toSaveRequest(content.subarray(offset, end)),
-              chunk: end === totalBytes ? -1 : chunk,
+          await client.save(
+            {
+              path: tempPath,
+              model: {
+                ...toSaveRequest(content.subarray(offset, end)),
+                chunk: end === totalBytes ? -1 : chunk,
+              },
             },
-          });
+            withSignal(signal),
+          );
           log.trace(
             `Uploaded bytes ${String(offset)}-${String(end)} of ${uri.toString()} (chunk ${String(chunk)})`,
           );
@@ -568,7 +678,12 @@ export class ContentsFileSystemProvider
           chunk++;
           retries = 0;
         } catch (error: unknown) {
-          if (!shouldRetry(error) || retries >= UPLOAD_CHUNK_MAX_RETRIES) {
+          // An aborted request fails like a network error; don't retry it.
+          if (
+            signal?.aborted ||
+            !shouldRetry(error) ||
+            retries >= UPLOAD_CHUNK_MAX_RETRIES
+          ) {
             throw error;
           }
           retries++;
@@ -578,19 +693,26 @@ export class ContentsFileSystemProvider
             `Chunk ${String(chunk)} of ${uri.toString()} failed, retrying in ${String(delay)} ms (${String(retries)}/${String(UPLOAD_CHUNK_MAX_RETRIES)})`,
             error,
           );
-          await sleep(delay);
+          await sleep(delay, signal);
           // Chunk 1 is written atomically and truncates the file, so it can
           // simply be sent again. Appends may have been partially written.
           resync = chunk > 1;
         }
       }
       this.guardDisposed();
+      signal?.throwIfAborted();
       await this.replaceWith(client, uri.path, tempPath, existed);
     } catch (error: unknown) {
-      log.warn(
-        `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
-        error,
-      );
+      if (signal?.aborted) {
+        log.debug(
+          `Upload of ${uri.toString()} aborted at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
+        );
+      } else {
+        log.warn(
+          `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
+          error,
+        );
+      }
       throw error;
     }
 
@@ -639,6 +761,7 @@ export class ContentsFileSystemProvider
    * @param offset - The number of bytes the server had before the failed
    * append.
    * @param totalBytes - The size of the complete file.
+   * @param signal - Aborts the request.
    * @returns The number of bytes the server now has, which is where the upload
    * resumes.
    * @throws Error when the server's file size can't have resulted from the
@@ -650,9 +773,10 @@ export class ContentsFileSystemProvider
     path: string,
     offset: number,
     totalBytes: number,
+    signal?: AbortSignal,
   ): Promise<number> {
     const end = Math.min(offset + UPLOAD_CHUNK_SIZE_BYTES, totalBytes);
-    const { size } = await client.get({ path, content: 0 });
+    const { size } = await client.get({ path, content: 0 }, withSignal(signal));
     if (size === undefined || size < offset || size > end) {
       throw new Error(
         `Cannot resume upload of ${path}: expected between ${String(offset)} and ${String(end)} bytes on the server, found ${String(size)}`,
@@ -664,9 +788,10 @@ export class ContentsFileSystemProvider
   private async fileExists(
     client: ContentsApi,
     path: string,
+    signal?: AbortSignal,
   ): Promise<boolean> {
     try {
-      await client.get({ path, content: 0 });
+      await client.get({ path, content: 0 }, withSignal(signal));
       return true;
     } catch (error: unknown) {
       if (error instanceof ResponseError && error.response.status === 404) {
@@ -815,8 +940,30 @@ function shouldRetry(error: unknown): boolean {
   return error instanceof ResponseError && error.response.status >= 500;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Waits for `ms` milliseconds.
+ *
+ * @param ms - How long to wait.
+ * @param signal - Ends the wait early when aborted.
+ * @returns A promise that resolves after the delay, or rejects with the
+ * `signal`'s abort reason if it's aborted first.
+ */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason as Error);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason as Error);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**
@@ -836,4 +983,15 @@ function toSaveRequest(bytes: Uint8Array): ContentsSaveRequest {
     format: 'base64',
     type: ContentsGetTypeEnum.File,
   };
+}
+
+/**
+ * Builds the request options that abort a Contents API request with `signal`.
+ *
+ * @param signal - The abort signal, if any.
+ * @returns The request options, or `undefined` when there's no signal so that
+ * requests without one are made exactly as before.
+ */
+function withSignal(signal?: AbortSignal): RequestInit | undefined {
+  return signal ? { signal } : undefined;
 }

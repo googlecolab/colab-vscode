@@ -32,7 +32,7 @@ export interface ColabCommandDeps {
   readonly authProvider: GoogleAuthProvider;
   /** Used by mount/remove/upload/toolbar/terminal commands. */
   readonly assignmentManager: AssignmentManager;
-  /** Used by the mount-server command to access remote files. */
+  /** Used by the mount-server and upload commands to access remote files. */
   readonly fs: ContentsFileSystemProvider;
 }
 
@@ -95,6 +95,7 @@ export function registerColabCommands(
         await upload(
           vs,
           assignmentManager,
+          fs,
           source ?? CommandSource.COMMAND_SOURCE_EXPLORER_CONTEXT,
           uri,
           uris,

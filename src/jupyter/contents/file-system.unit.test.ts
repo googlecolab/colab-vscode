@@ -8,7 +8,9 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { FileChangeEvent, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
 import { Variant } from '../../colab/types';
+import { LogLevel } from '../../common/logging';
 import { TestEventEmitter } from '../../test/helpers/events';
+import { ColabLogWatcher } from '../../test/helpers/logging';
 import { TestUri } from '../../test/helpers/uri';
 import {
   FileChangeType,
@@ -1463,6 +1465,325 @@ describe('ContentsFileSystemProvider', () => {
           { create: true, overwrite: true },
         ),
       ).to.eventually.rejectedWith('🤮');
+    });
+  });
+
+  describe('upload', () => {
+    const uri = TestUri.parse('colab://r-abc123/a/b/foo.txt');
+    const content = Buffer.from('hello');
+    let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
+    let abort: AbortController;
+
+    beforeEach(() => {
+      contentsStub = stubClient('r-abc123');
+      abort = new AbortController();
+    });
+
+    function existing(...paths: string[]) {
+      contentsStub.get.callsFake(({ path }) =>
+        paths.includes(path)
+          ? Promise.resolve(FOO_CONTENT_FILE)
+          : Promise.reject(NOT_FOUND),
+      );
+    }
+
+    it('overwrites an existing file without touching its parents', async () => {
+      existing('/a/b/foo.txt');
+
+      await fs.upload(uri, content, abort.signal);
+
+      sinon.assert.calledOnceWithExactly(
+        contentsStub.save,
+        {
+          path: '/a/b/foo.txt',
+          model: {
+            content: content.toString('base64'),
+            format: 'base64',
+            type: ContentsGetTypeEnum.File,
+          },
+        },
+        { signal: abort.signal },
+      );
+      sinon.assert.calledOnceWithExactly(listener, [
+        { type: FileChangeType.Changed, uri },
+      ]);
+    });
+
+    it('creates missing parent directories from the top down', async () => {
+      existing();
+
+      await fs.upload(uri, content, abort.signal);
+
+      expect(contentsStub.save.getCalls().map((c) => c.args[0])).to.deep.equal([
+        { path: '/a', model: { type: ContentsGetTypeEnum.Directory } },
+        { path: '/a/b', model: { type: ContentsGetTypeEnum.Directory } },
+        {
+          path: '/a/b/foo.txt',
+          model: {
+            content: content.toString('base64'),
+            format: 'base64',
+            type: ContentsGetTypeEnum.File,
+          },
+        },
+      ]);
+      expect(
+        listener
+          .getCalls()
+          .map((c) => c.args[0].map((e) => [e.type, e.uri.toString()])),
+      ).to.deep.equal([
+        [[FileChangeType.Created, 'colab://r-abc123/a']],
+        [[FileChangeType.Created, 'colab://r-abc123/a/b']],
+        [[FileChangeType.Created, 'colab://r-abc123/a/b/foo.txt']],
+      ]);
+    });
+
+    it('only creates the parent directories that are missing', async () => {
+      existing('/a');
+
+      await fs.upload(uri, content, abort.signal);
+
+      expect(
+        contentsStub.save.getCalls().map((c) => c.args[0].path),
+      ).to.deep.equal(['/a/b', '/a/b/foo.txt']);
+    });
+
+    it('continues when a concurrent upload created a parent directory first', async () => {
+      // `/a` is missing when checked, then another upload creates it, so this
+      // upload's attempt to create it fails.
+      let aCreated = false;
+      contentsStub.get.callsFake(({ path }) =>
+        path === '/a' && aCreated
+          ? Promise.resolve(FOO_CONTENT_DIR)
+          : Promise.reject(NOT_FOUND),
+      );
+      contentsStub.save.callsFake(({ path }) => {
+        if (path === '/a') {
+          aCreated = true;
+          return Promise.reject(
+            new ResponseError(new Response(null, { status: 500 })),
+          );
+        }
+        return Promise.resolve(FOO_CONTENT_FILE);
+      });
+
+      await fs.upload(uri, content, abort.signal);
+
+      expect(
+        contentsStub.save.getCalls().map((c) => c.args[0].path),
+      ).to.deep.equal(['/a', '/a/b', '/a/b/foo.txt']);
+      // Only the directories this upload created are announced.
+      expect(
+        listener.getCalls().map((c) => c.args[0][0].uri.toString()),
+      ).to.deep.equal(['colab://r-abc123/a/b', 'colab://r-abc123/a/b/foo.txt']);
+    });
+
+    it('fails when a parent directory cannot be created', async () => {
+      existing();
+      contentsStub.save.withArgs(sinon.match({ path: '/a' })).rejects(TEAPOT);
+
+      await expect(
+        fs.upload(uri, content, abort.signal),
+      ).to.eventually.be.rejectedWith(TEAPOT.message);
+
+      sinon.assert.calledOnce(contentsStub.save);
+    });
+
+    it('passes the signal to every request', async () => {
+      existing();
+
+      await fs.upload(uri, content, abort.signal);
+
+      for (const call of [
+        ...contentsStub.get.getCalls(),
+        ...contentsStub.save.getCalls(),
+      ]) {
+        expect(call.args[1]).to.deep.equal({ signal: abort.signal });
+      }
+    });
+
+    it('throws the abort reason without making requests when already aborted', async () => {
+      const reason = new Error('cancelled');
+      abort.abort(reason);
+
+      await expect(
+        fs.upload(uri, content, abort.signal),
+      ).to.eventually.be.rejectedWith(reason);
+
+      sinon.assert.notCalled(contentsStub.get);
+      sinon.assert.notCalled(contentsStub.save);
+    });
+
+    it('throws the abort reason, not a file system error, when aborted mid-request', async () => {
+      existing('/a/b/foo.txt');
+      const reason = new Error('cancelled');
+      contentsStub.save.callsFake(() => {
+        abort.abort(reason);
+        // The generated client wraps fetch failures.
+        return Promise.reject(new FetchError(reason, 'failed'));
+      });
+
+      await expect(
+        fs.upload(uri, content, abort.signal),
+      ).to.eventually.be.rejectedWith(reason);
+
+      sinon.assert.notCalled(listener);
+    });
+
+    it('still maps server errors to file system errors when not aborted', async () => {
+      existing('/a/b/foo.txt');
+      contentsStub.save.rejects(FORBIDDEN);
+
+      await expect(
+        fs.upload(uri, content, abort.signal),
+      ).to.eventually.rejectedWith(/NoPermissions/);
+    });
+
+    describe('of a file larger than one chunk', () => {
+      const TEMP = '/a/b/foo.txt.partial';
+      // Three chunks.
+      const big = Buffer.alloc(2.5 * UPLOAD_CHUNK_SIZE_BYTES);
+      const reason = new Error('cancelled');
+
+      beforeEach(() => {
+        existing('/a/b/foo.txt');
+      });
+
+      /**
+       * Makes the given save call abort the upload, then fail the way an
+       * aborted fetch does.
+       *
+       * @param call - The zero-based save call to abort during.
+       */
+      function abortDuringSave(call: number) {
+        contentsStub.save.onCall(call).callsFake(() => {
+          abort.abort(reason);
+          return Promise.reject(new FetchError(reason, 'aborted'));
+        });
+      }
+
+      it('passes the signal to every chunk', async () => {
+        await fs.upload(uri, big, abort.signal);
+
+        const saves = contentsStub.save.getCalls();
+        expect(saves.map((c) => c.args[0].path)).to.deep.equal([
+          TEMP,
+          TEMP,
+          TEMP,
+        ]);
+        for (const call of saves) {
+          expect(call.args[1]).to.deep.equal({ signal: abort.signal });
+        }
+      });
+
+      it('stops and leaves the original and the temporary file alone when aborted mid-upload', async () => {
+        const logs = new ColabLogWatcher(vs, LogLevel.Warning);
+        abortDuringSave(1);
+
+        try {
+          await expect(
+            fs.upload(uri, big, abort.signal),
+          ).to.eventually.be.rejectedWith(reason);
+
+          // The aborted request isn't retried, and nothing follows it.
+          sinon.assert.calledTwice(contentsStub.save);
+          sinon.assert.notCalled(contentsStub.delete);
+          sinon.assert.notCalled(contentsStub.rename);
+          sinon.assert.notCalled(listener);
+          // A cancellation isn't a failure worth warning about.
+          expect(logs.output).to.not.match(/retrying|failed/);
+        } finally {
+          logs.dispose();
+        }
+      });
+
+      it('makes no further requests once aborted between chunks', async () => {
+        // The abort lands just as a chunk succeeds.
+        contentsStub.save.onCall(0).callsFake(() => {
+          abort.abort(reason);
+          return Promise.resolve(FOO_CONTENT_FILE);
+        });
+
+        await expect(
+          fs.upload(uri, big, abort.signal),
+        ).to.eventually.be.rejectedWith(reason);
+
+        sinon.assert.calledOnce(contentsStub.save);
+        sinon.assert.notCalled(contentsStub.delete);
+      });
+
+      it('does not move the upload into place when aborted as the last chunk completes', async () => {
+        contentsStub.save.onCall(2).callsFake(() => {
+          abort.abort(reason);
+          return Promise.resolve(FOO_CONTENT_FILE);
+        });
+
+        await expect(
+          fs.upload(uri, big, abort.signal),
+        ).to.eventually.be.rejectedWith(reason);
+
+        sinon.assert.notCalled(contentsStub.delete);
+        sinon.assert.notCalled(contentsStub.rename);
+      });
+
+      it('finishes moving the upload into place once it has started, even if aborted', async () => {
+        // Aborting between deleting the original and the rename would lose
+        // both, so the move isn't cancelled once started.
+        contentsStub.delete.callsFake(() => {
+          abort.abort(reason);
+          return Promise.resolve();
+        });
+
+        await fs.upload(uri, big, abort.signal);
+
+        sinon.assert.calledOnceWithExactly(contentsStub.delete, {
+          path: '/a/b/foo.txt',
+        });
+        sinon.assert.calledOnceWithExactly(contentsStub.rename, {
+          path: TEMP,
+          rename: { path: '/a/b/foo.txt' },
+        });
+        sinon.assert.calledOnceWithExactly(listener, [
+          { type: FileChangeType.Changed, uri },
+        ]);
+      });
+
+      describe('while waiting to retry', () => {
+        let clock: sinon.SinonFakeTimers;
+
+        beforeEach(() => {
+          clock = sinon.useFakeTimers({
+            toFake: ['setTimeout', 'clearTimeout'],
+          });
+        });
+
+        afterEach(() => {
+          clock.restore();
+        });
+
+        it('stops waiting immediately and makes no further requests', async () => {
+          contentsStub.save
+            .onCall(1)
+            .rejects(new ResponseError(new Response(null, { status: 503 })));
+          const result = fs.upload(uri, big, abort.signal).then(
+            () => undefined,
+            (e: unknown) => e,
+          );
+          // Let the failed chunk start its backoff.
+          await clock.tickAsync(0);
+
+          abort.abort(reason);
+
+          expect(await result).to.equal(reason);
+          // No timers need to run for the upload to stop.
+          expect(clock.countTimers()).to.equal(0);
+          sinon.assert.calledTwice(contentsStub.save);
+          sinon.assert.neverCalledWith(contentsStub.get, {
+            path: TEMP,
+            content: 0,
+          });
+          sinon.assert.notCalled(contentsStub.delete);
+        });
+      });
     });
   });
 
