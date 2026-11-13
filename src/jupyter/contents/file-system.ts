@@ -5,7 +5,6 @@
  */
 
 import { Buffer } from 'buffer';
-import { randomUUID } from 'crypto';
 import vscode, {
   Disposable,
   Event,
@@ -496,16 +495,17 @@ export class ContentsFileSystemProvider
    *
    * The chunks go to a temporary file next to the target, which is moved over
    * the target once complete, so a failed upload never touches an existing
-   * file. Within the temporary file, the first chunk creates it, later chunks
-   * append to it, and the last one is sent as chunk `-1` to complete the save.
+   * file. Within the temporary file, the first chunk creates or truncates it,
+   * later chunks append to it, and the last one is sent as chunk `-1` to
+   * complete the save.
    *
    * A chunk that fails with a network error or a 5xx response is retried up to
    * {@link UPLOAD_CHUNK_MAX_RETRIES} times with exponential backoff. Since a
    * failed append may have been partially written, each retry first reads the
    * temporary file's size on the server and resumes from that byte.
    *
-   * If the upload still fails, the temporary file is deleted on a best-effort
-   * basis and the error is rethrown.
+   * If the upload still fails, the error is rethrown and the temporary file is
+   * left in place; the next upload of the same file overwrites it.
    *
    * @param client - The Contents API client for the server.
    * @param uri - The file being written.
@@ -518,7 +518,7 @@ export class ContentsFileSystemProvider
     content: Uint8Array,
     existed: boolean,
   ): Promise<void> {
-    const tempPath = partialFiles.pathFor(uri.path);
+    const tempPath = partialPath(uri.path);
     const totalBytes = content.byteLength;
     const start = Date.now();
     log.debug(
@@ -588,10 +588,9 @@ export class ContentsFileSystemProvider
       await this.replaceWith(client, uri.path, tempPath, existed);
     } catch (error: unknown) {
       log.warn(
-        `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}`,
+        `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
         error,
       );
-      await this.deleteTemporaryFile(client, tempPath);
       throw error;
     }
 
@@ -660,22 +659,6 @@ export class ContentsFileSystemProvider
       );
     }
     return size;
-  }
-
-  private async deleteTemporaryFile(
-    client: ContentsApi,
-    tempPath: string,
-  ): Promise<void> {
-    try {
-      await client.delete({ path: tempPath });
-      log.debug(`Deleted temporary upload file ${tempPath}`);
-    } catch (error: unknown) {
-      // Nothing to clean up if it was never created.
-      if (error instanceof ResponseError && error.response.status === 404) {
-        return;
-      }
-      log.warn(`Failed to delete temporary upload file ${tempPath}`, error);
-    }
   }
 
   private async fileExists(
@@ -804,25 +787,19 @@ async function readJupyterErrorMessage(
 }
 
 /**
- * Names the temporary files chunked uploads write to. An object so tests can
- * stub it.
+ * Builds the path of the temporary file a chunked upload writes to before it
+ * is moved over `path`. It sits next to the target so the move is a rename
+ * within one directory, and has a fixed name so a partial upload left by a
+ * failed attempt is overwritten by the next one rather than piling up. It must
+ * not start with a dot, since Jupyter refuses to write hidden files unless
+ * configured to allow them.
+ *
+ * @param path - The path of the file being uploaded.
+ * @returns The temporary file's path, e.g. `/content/foo.bin.partial`.
  */
-export const partialFiles = {
-  /**
-   * Builds the path of the temporary file a chunked upload writes to before it
-   * is moved over `path`. It sits next to the target so the move is a rename
-   * within one directory, and has a unique suffix so concurrent uploads of the
-   * same file don't collide. It must not start with a dot, since Jupyter
-   * refuses to write hidden files unless configured to allow them.
-   *
-   * @param path - The path of the file being uploaded.
-   * @returns The temporary file's path, e.g.
-   * `/content/foo.bin.1a2b3c4d.partial`.
-   */
-  pathFor(path: string): string {
-    return `${path}.${randomUUID().slice(0, 8)}.partial`;
-  },
-};
+export function partialPath(path: string): string {
+  return `${path}.partial`;
+}
 
 /**
  * Whether a failed Contents API request may succeed if retried: network errors

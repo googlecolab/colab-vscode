@@ -27,7 +27,7 @@ import {
 import { ColabAssignedServer } from '../servers';
 import {
   ContentsFileSystemProvider,
-  partialFiles,
+  partialPath,
   UPLOAD_CHUNK_MAX_RETRIES,
   UPLOAD_CHUNK_RETRY_BASE_DELAY_MS,
   UPLOAD_CHUNK_SIZE_BYTES,
@@ -834,13 +834,11 @@ describe('ContentsFileSystemProvider', () => {
           )
           .toString('base64');
       let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
-      const TEMP = '/foo.bin.0000abcd.partial';
-      let stubPathFor: sinon.SinonStub;
+      const TEMP = '/foo.bin.partial';
 
       beforeEach(() => {
         contentsStub = stubClient('r-abc123');
         contentsStub.get.resolves(FOO_CONTENT_FILE);
-        stubPathFor = sinon.stub(partialFiles, 'pathFor').returns(TEMP);
       });
 
       it('saves content of exactly one chunk in a single non-chunked request', async () => {
@@ -961,7 +959,7 @@ describe('ContentsFileSystemProvider', () => {
         ).to.eventually.rejectedWith(/NoPermissions/);
 
         sinon.assert.notCalled(contentsStub.rename);
-        sinon.assert.calledWith(contentsStub.delete, { path: TEMP });
+        sinon.assert.neverCalledWith(contentsStub.delete, { path: TEMP });
       });
 
       it('sends a single trailing chunk as -1 when the content is an exact multiple of the chunk size', async () => {
@@ -978,7 +976,7 @@ describe('ContentsFileSystemProvider', () => {
         ['the first chunk', 0],
         ['a later chunk', 1],
       ] as const) {
-        it(`leaves the original untouched and deletes the temporary file when ${name} fails`, async () => {
+        it(`leaves the original and the temporary file alone when ${name} fails`, async () => {
           contentsStub.save.onCall(failAt).rejects(TEAPOT);
 
           await expect(
@@ -986,41 +984,26 @@ describe('ContentsFileSystemProvider', () => {
           ).to.eventually.rejectedWith(TEAPOT.message);
 
           sinon.assert.callCount(contentsStub.save, failAt + 1);
-          sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-            path: TEMP,
-          });
+          sinon.assert.notCalled(contentsStub.delete);
           sinon.assert.notCalled(contentsStub.rename);
           sinon.assert.notCalled(listener);
         });
       }
 
-      it('rethrows the chunk error when deleting the temporary file also fails', async () => {
-        contentsStub.save.onThirdCall().rejects(TEAPOT);
-        contentsStub.delete.rejects(new Error('delete failed'));
-
-        await expect(
-          fs.writeFile(uri, content, opts),
-        ).to.eventually.rejectedWith(TEAPOT.message);
-
-        sinon.assert.calledThrice(contentsStub.save);
-        sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-          path: TEMP,
-        });
-      });
-
-      it('deletes the temporary file and rethrows when the rename fails', async () => {
+      it('leaves the temporary file alone when the rename fails', async () => {
         contentsStub.rename.rejects(TEAPOT);
 
         await expect(
           fs.writeFile(uri, content, opts),
         ).to.eventually.rejectedWith(TEAPOT.message);
 
-        expect(
-          contentsStub.delete.getCalls().map((c) => c.args[0].path),
-        ).to.deep.equal(['/foo.bin', TEMP]);
+        // Only the original, which had to make way for the rename.
+        sinon.assert.calledOnceWithExactly(contentsStub.delete, {
+          path: '/foo.bin',
+        });
       });
 
-      it('stops and deletes the temporary file when disposed part-way through', async () => {
+      it('stops without cleaning up when disposed part-way through', async () => {
         contentsStub.save.onFirstCall().callsFake(() => {
           fs.dispose();
           return Promise.resolve(FOO_CONTENT_FILE);
@@ -1031,19 +1014,31 @@ describe('ContentsFileSystemProvider', () => {
         ).to.eventually.rejectedWith(/disposed/);
 
         sinon.assert.calledOnce(contentsStub.save);
-        sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-          path: TEMP,
-        });
+        sinon.assert.notCalled(contentsStub.delete);
         sinon.assert.notCalled(contentsStub.rename);
       });
 
-      it('names the temporary file next to the target with a unique, visible name', () => {
-        stubPathFor.restore();
-        const a = partialFiles.pathFor('/content/foo.bin');
-        const b = partialFiles.pathFor('/content/foo.bin');
+      it('overwrites a partial upload left by an earlier attempt', async () => {
+        // A previous failed upload left `foo.bin.partial` behind. The first
+        // chunk of a new upload is a plain (non-append) write, which replaces
+        // it rather than appending to it.
+        contentsStub.get
+          .withArgs({ path: TEMP, content: 0 })
+          .resolves({ ...FOO_CONTENT_FILE, size: 123 });
 
-        expect(a).to.match(/^\/content\/foo\.bin\.[0-9a-f]{8}\.partial$/);
-        expect(a).to.not.equal(b);
+        await fs.writeFile(uri, content, opts);
+
+        expect(contentsStub.save.firstCall.args[0]).to.deep.include({
+          path: TEMP,
+        });
+        expect(contentsStub.save.firstCall.args[0].model?.chunk).to.equal(1);
+        sinon.assert.calledOnce(contentsStub.rename);
+      });
+
+      it('names the temporary file next to the target with a fixed, visible name', () => {
+        expect(partialPath('/content/foo.bin')).to.equal(
+          '/content/foo.bin.partial',
+        );
       });
 
       describe('retries', () => {
@@ -1222,7 +1217,7 @@ describe('ContentsFileSystemProvider', () => {
           expect(size).to.equal(content.length);
         });
 
-        it('gives up, deletes the temporary file and rethrows after the maximum retries', async () => {
+        it('gives up and rethrows after the maximum retries, leaving the temporary file', async () => {
           const failure = serverError();
           contentsStub.save.onSecondCall().rejects(failure);
           contentsStub.save.onThirdCall().rejects(failure);
@@ -1238,9 +1233,7 @@ describe('ContentsFileSystemProvider', () => {
           expect(contentsStub.save.callCount).to.equal(
             2 + UPLOAD_CHUNK_MAX_RETRIES,
           );
-          sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-            path: TEMP,
-          });
+          sinon.assert.notCalled(contentsStub.delete);
           sinon.assert.notCalled(contentsStub.rename);
         });
 
@@ -1255,9 +1248,7 @@ describe('ContentsFileSystemProvider', () => {
           expect(contentsStub.save.callCount).to.equal(
             1 + UPLOAD_CHUNK_MAX_RETRIES,
           );
-          sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-            path: TEMP,
-          });
+          sinon.assert.notCalled(contentsStub.delete);
           sinon.assert.notCalled(contentsStub.rename);
           sinon.assert.notCalled(listener);
         });
@@ -1270,9 +1261,7 @@ describe('ContentsFileSystemProvider', () => {
             .with.property('message', 'Jupyter contents error: 418 ');
 
           sinon.assert.calledTwice(contentsStub.save);
-          sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-            path: TEMP,
-          });
+          sinon.assert.notCalled(contentsStub.delete);
         });
 
         for (const [name, size, expected] of [
@@ -1291,9 +1280,7 @@ describe('ContentsFileSystemProvider', () => {
               `Cannot resume upload of ${TEMP}: expected between ${String(C)} and ${String(2 * C)} bytes on the server, found ${String(expected)}`,
             );
             sinon.assert.calledTwice(contentsStub.save);
-            sinon.assert.calledOnceWithExactly(contentsStub.delete, {
-              path: TEMP,
-            });
+            sinon.assert.notCalled(contentsStub.delete);
             sinon.assert.notCalled(contentsStub.rename);
           });
         }
