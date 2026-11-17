@@ -6,10 +6,13 @@
 
 import vscode, { Disposable, Event, EventEmitter } from 'vscode';
 import {
+  calculateBackoffIntervals,
+  countsAsNetworkFailure,
+} from '../../common/backoff';
+import {
   OverrunPolicy,
   SequentialTaskRunner,
   StartMode,
-  TimeoutError,
 } from '../../common/task-runner';
 import { Toggleable } from '../../common/toggleable';
 import { AssignmentChangeEvent } from '../../jupyter/assignments';
@@ -24,31 +27,6 @@ const TASK_TIMEOUT_MS = 1000 * 10; // 10 seconds.
  * than 60.
  */
 const MAX_BACKOFF_INTERVALS = 15;
-
-/**
- * Number of poll intervals to sit out after a run of failures.
- *
- * @param failures - Consecutive failures so far, at least one.
- * @returns The number of intervals to skip before trying again.
- */
-function calculateBackoffIntervals(failures: number): number {
-  const base = Math.min(2 ** (failures - 1), MAX_BACKOFF_INTERVALS);
-  const jittered = Math.round(base * (0.5 + Math.random()));
-  return Math.min(Math.max(jittered, 1), MAX_BACKOFF_INTERVALS);
-}
-
-/**
- * Reports whether a failed poll says anything about the network.
- *
- * The runner aborts polls it has superseded or disposed, which is routine. A
- * timeout is different: the request really is hanging and we should back off.
- *
- * @param signal - The signal the poll ran under.
- * @returns True when the failure should count towards the backoff.
- */
-function countsAsNetworkFailure(signal?: AbortSignal): boolean {
-  return !signal?.aborted || signal.reason instanceof TimeoutError;
-}
 
 /**
  * Periodically polls for CCU info changes and emits an event on updates.
@@ -165,6 +143,7 @@ export class ConsumptionPoller implements Toggleable, Disposable {
         this.consecutiveFailures++;
         this.intervalsToSkip = calculateBackoffIntervals(
           this.consecutiveFailures,
+          MAX_BACKOFF_INTERVALS,
         );
       }
       throw err;

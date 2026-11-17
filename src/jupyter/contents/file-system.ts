@@ -32,6 +32,7 @@ import {
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
+import { DirectoryWatcherRegistry } from './directory-watcher-registry';
 import { JupyterConnectionManager } from './sessions';
 
 /**
@@ -68,6 +69,7 @@ export class ContentsFileSystemProvider
   private readonly changeEmitter: EventEmitter<FileChangeEvent[]>;
   private readonly workspaceListener: Disposable;
   private readonly connectionListener: Disposable;
+  private readonly watchers: DirectoryWatcherRegistry;
 
   /**
    * Initializes a new instance.
@@ -81,6 +83,13 @@ export class ContentsFileSystemProvider
   ) {
     this.changeEmitter = new vs.EventEmitter<FileChangeEvent[]>();
     this.onDidChangeFile = this.changeEmitter.event;
+    this.watchers = new DirectoryWatcherRegistry(
+      vs,
+      jupyterConnections,
+      (events) => {
+        this.changeEmitter.fire(events);
+      },
+    );
     this.workspaceListener = vs.workspace.onDidChangeWorkspaceFolders(
       this.dropMatchingConnection.bind(this),
     );
@@ -97,6 +106,7 @@ export class ContentsFileSystemProvider
     this.isDisposed = true;
     this.workspaceListener.dispose();
     this.connectionListener.dispose();
+    this.watchers.dispose();
   }
 
   /**
@@ -132,17 +142,15 @@ export class ContentsFileSystemProvider
   }
 
   /**
-   * All calls are no-ops.
+   * Polls the watched directory's direct children while the experimental
+   * `colab.fileWatching` setting is enabled; otherwise a no-op.
    *
-   * The Jupyter Server REST API does not support watching and Colab has no
-   * socket-based implementation that can easily be used.
-   *
-   * In the future we may consider adding time-based polling to fire events for
-   * files/directories that have been `watch`-ed.
+   * Recursive watches and excludes are not supported: only direct children
+   * are reported. Watching a file reports nothing.
    *
    * @param uri - The URI of the resource.
    * @param _options - Configuration options for the operation.
-   * @returns A no-op disposable.
+   * @returns A disposable that releases the watch.
    */
   @traceMethod
   watch(
@@ -154,6 +162,13 @@ export class ContentsFileSystemProvider
   ): Disposable {
     this.guardDisposed();
     this.throwForVsCodeFile(uri);
+    if (
+      this.vs.workspace
+        .getConfiguration('colab')
+        .get<boolean>('fileWatching', false)
+    ) {
+      return this.watchers.watch(uri);
+    }
     return {
       dispose: () => {
         // No-op

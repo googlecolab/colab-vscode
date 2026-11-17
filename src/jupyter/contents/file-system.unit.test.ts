@@ -6,8 +6,15 @@
 
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { FileChangeEvent, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
+import {
+  FileChangeEvent,
+  Uri,
+  WindowState,
+  WorkspaceConfiguration,
+  WorkspaceFoldersChangeEvent,
+} from 'vscode';
 import { Variant } from '../../colab/types';
+import { Deferred } from '../../test/helpers/async';
 import { TestEventEmitter } from '../../test/helpers/events';
 import { TestUri } from '../../test/helpers/uri';
 import {
@@ -24,6 +31,7 @@ import {
   ResponseError,
 } from '../client/generated';
 import { ColabAssignedServer } from '../servers';
+import { TEST_ONLY } from './directory-poller';
 import { ContentsFileSystemProvider } from './file-system';
 import { JupyterConnectionManager } from './sessions';
 
@@ -90,6 +98,8 @@ describe('ContentsFileSystemProvider', () => {
   let jupyterStub: sinon.SinonStubbedInstance<JupyterConnectionManager>;
   let workspaceEmitter: TestEventEmitter<WorkspaceFoldersChangeEvent>;
   let connectionEmitter: TestEventEmitter<string[]>;
+  let windowEmitter: TestEventEmitter<WindowState>;
+  let fileWatchingEnabled: boolean;
   let fs: ContentsFileSystemProvider;
   let listener: sinon.SinonStub<[FileChangeEvent[]]>;
 
@@ -103,6 +113,15 @@ describe('ContentsFileSystemProvider', () => {
 
   beforeEach(() => {
     vs = newVsCodeStub();
+    fileWatchingEnabled = false;
+    vs.workspace.getConfiguration.withArgs('colab').returns({
+      get: sinon
+        .stub<[string, boolean?], boolean>()
+        .withArgs('fileWatching', false)
+        .callsFake(() => fileWatchingEnabled),
+    } as Pick<WorkspaceConfiguration, 'get'> as WorkspaceConfiguration);
+    windowEmitter = new TestEventEmitter();
+    vs.window.onDidChangeWindowState.callsFake(windowEmitter.event);
     workspaceEmitter = new TestEventEmitter();
     vs.workspace.onDidChangeWorkspaceFolders.callsFake(workspaceEmitter.event);
     jupyterStub = sinon.createStubInstance(JupyterConnectionManager);
@@ -347,13 +366,61 @@ describe('ContentsFileSystemProvider', () => {
       }).to.throw(/FileNotFound/);
     });
 
-    it('no-ops', () => {
-      expect(
-        fs.watch(TestUri.parse('colab://r-abc123/'), {
-          recursive: false,
-          excludes: [],
-        }),
-      ).to.have.property('dispose');
+    it('no-ops while fileWatching is disabled', () => {
+      const watch = fs.watch(TestUri.parse('colab://r-abc123/'), {
+        recursive: false,
+        excludes: [],
+      });
+      expect(watch).to.have.property('dispose');
+      watch.dispose();
+      sinon.assert.notCalled(jupyterStub.get);
+      sinon.assert.notCalled(jupyterStub.getOrCreate);
+    });
+
+    it('polls watched directories while fileWatching is enabled', async () => {
+      const clock = sinon.useFakeTimers();
+      fileWatchingEnabled = true;
+      const client = sinon.createStubInstance(ContentsApi);
+      jupyterStub.get.withArgs('r-abc123').resolves(client);
+      const started = new Deferred<void>();
+      const changed = new Deferred<FileChangeEvent[]>();
+      client.get.onFirstCall().callsFake(() => {
+        started.resolve();
+        return Promise.resolve({ ...CONTENT_DIR.withContents, content: [] });
+      });
+      client.get.onSecondCall().resolves(CONTENT_DIR.withContents);
+      listener.callsFake((events) => {
+        changed.resolve(events);
+      });
+      const uri = TestUri.parse('colab://r-abc123/foo');
+
+      const watch = fs.watch(uri, { recursive: false, excludes: [] });
+      await started.promise;
+      await clock.tickAsync(TEST_ONLY.POLL_INTERVAL_MS);
+      await changed.promise;
+
+      sinon.assert.calledOnceWithExactly(listener, [
+        {
+          type: FileChangeType.Created,
+          uri: TestUri.joinPath(uri, FOO_CONTENT_FILE.name),
+        },
+      ]);
+      sinon.assert.calledTwice(client.get);
+      sinon.assert.notCalled(jupyterStub.getOrCreate);
+      watch.dispose();
+      await clock.tickAsync(TEST_ONLY.POLL_INTERVAL_MS);
+      sinon.assert.calledTwice(client.get);
+    });
+
+    it('releases the registry listeners when the provider is disposed', () => {
+      expect(windowEmitter.hasListeners()).to.be.true;
+      expect(connectionEmitter.hasListeners()).to.be.true;
+
+      fs.dispose();
+      fs.dispose();
+
+      expect(windowEmitter.hasListeners()).to.be.false;
+      expect(connectionEmitter.hasListeners()).to.be.false;
     });
   });
 

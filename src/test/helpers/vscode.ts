@@ -118,6 +118,10 @@ export interface VsCodeStub {
     isTelemetryEnabled: boolean;
   };
   window: {
+    state: vscode.WindowState;
+    onDidChangeWindowState: sinon.SinonStubbedMember<
+      typeof vscode.window.onDidChangeWindowState
+    >;
     withProgress: sinon.SinonStubbedMember<typeof vscode.window.withProgress>;
     showInformationMessage: sinon.SinonStubbedMember<
       typeof vscode.window.showInformationMessage
@@ -324,6 +328,13 @@ export function newVsCodeStub(): VsCodeStub {
       isTelemetryEnabled: true,
     },
     window: {
+      state: { focused: true, active: true },
+      onDidChangeWindowState: sinon
+        .stub<
+          Parameters<typeof vscode.window.onDidChangeWindowState>,
+          ReturnType<typeof vscode.window.onDidChangeWindowState>
+        >()
+        .returns({ dispose: sinon.stub() }),
       withProgress: sinon.stub(),
       showInformationMessage: sinon.stub(),
       showWarningMessage: sinon.stub(),

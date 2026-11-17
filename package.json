@@ -91,6 +91,14 @@
             "experimental"
           ]
         },
+        "colab.fileWatching": {
+          "type": "boolean",
+          "default": false,
+          "description": "Polls folders of mounted Colab servers so files created, changed or deleted on the server show up without a manual refresh. Only the direct children of watched folders are checked.",
+          "tags": [
+            "experimental"
+          ]
+        },
         "colab.terminal": {
           "type": "boolean",
           "default": true,
