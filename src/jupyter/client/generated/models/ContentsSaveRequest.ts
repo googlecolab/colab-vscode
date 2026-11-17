@@ -22,32 +22,22 @@ import { mapValues } from '../runtime';
 export interface ContentsSaveRequest {
     /**
      * The new filename if changed
-     * @type {string}
-     * @memberof ContentsSaveRequest
      */
     name?: string;
     /**
      * New path for file or directory
-     * @type {string}
-     * @memberof ContentsSaveRequest
      */
     path?: string;
     /**
      * Path dtype ('notebook', 'file', 'directory')
-     * @type {string}
-     * @memberof ContentsSaveRequest
      */
     type?: string;
     /**
      * File format ('json', 'text', 'base64')
-     * @type {string}
-     * @memberof ContentsSaveRequest
      */
     format?: string;
     /**
      * The actual body of the document excluding directory type
-     * @type {string}
-     * @memberof ContentsSaveRequest
      */
     content?: string;
 }

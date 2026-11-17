@@ -30,8 +30,6 @@ import {
 export interface IdentityGet200Response {
     /**
      * 
-     * @type {Identity}
-     * @memberof IdentityGet200Response
      */
     identity?: Identity;
     /**
@@ -41,8 +39,6 @@ export interface IdentityGet200Response {
      * If no permission checks were made in the request,
      * this will be empty.
      * 
-     * @type {{ [key: string]: Array<string>; }}
-     * @memberof IdentityGet200Response
      */
     permissions?: { [key: string]: Array<string>; };
 }

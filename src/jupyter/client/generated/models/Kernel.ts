@@ -22,14 +22,10 @@ import { mapValues } from '../runtime';
 export interface Kernel {
     /**
      * uuid of kernel
-     * @type {string}
-     * @memberof Kernel
      */
     id: string;
     /**
      * kernel spec name
-     * @type {string}
-     * @memberof Kernel
      */
     name: string;
     /**
@@ -39,23 +35,17 @@ export interface Kernel {
      * Timestamps will be UTC, indicated 'Z' suffix.
      * Added in notebook server 5.0.
      * 
-     * @type {string}
-     * @memberof Kernel
      */
     lastActivity?: string;
     /**
      * The number of active connections to this kernel.
      * 
-     * @type {number}
-     * @memberof Kernel
      */
     connections?: number;
     /**
      * Current execution state of the kernel (typically 'idle' or 'busy', but may be other values, such as 'starting').
      * Added in notebook server 5.0.
      * 
-     * @type {string}
-     * @memberof Kernel
      */
     executionState?: string;
 }

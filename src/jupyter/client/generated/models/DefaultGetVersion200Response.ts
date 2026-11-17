@@ -22,8 +22,6 @@ import { mapValues } from '../runtime';
 export interface DefaultGetVersion200Response {
     /**
      * The Jupyter Server version number as a string.
-     * @type {string}
-     * @memberof DefaultGetVersion200Response
      */
     version?: string;
 }
