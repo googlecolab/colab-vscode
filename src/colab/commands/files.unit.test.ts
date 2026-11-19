@@ -810,6 +810,46 @@ describe('File Commands', () => {
         await runUpload();
 
         sinon.assert.calledOnce(vsCodeStub.workspace.fs.createDirectory);
+        // Skipping folders counts as cancelled, even with no files to upload.
+        sinon.assert.calledWith(
+          vsCodeStub.window.showWarningMessage,
+          sinon.match(/^Upload to foo cancelled\./),
+        );
+        sinon.assert.notCalled(vsCodeStub.window.showInformationMessage);
+        sinon.assert.calledWith(
+          logStub,
+          sinon.match.any,
+          Outcome.OUTCOME_CANCELLED,
+        );
+      });
+
+      it('reports success when cancelled as the last folder is created', async () => {
+        (assignmentManagerStub.getServers as sinon.SinonStub)
+          .withArgs('extension')
+          .resolves([DEFAULT_SERVER]);
+        vsCodeStub.workspace.fs.stat.resolves({
+          type: vsCodeStub.FileType.Directory,
+          ctime: 0,
+          mtime: 0,
+          size: 0,
+        });
+        vsCodeStub.workspace.fs.readDirectory
+          .withArgs(dirUri)
+          .resolves([['e0', vsCodeStub.FileType.Directory]]);
+        vsCodeStub.workspace.fs.readDirectory.resolves([]);
+        vsCodeStub.workspace.fs.createDirectory.callsFake(() => {
+          cancelSource.cancel();
+          return Promise.resolve();
+        });
+
+        await runUpload();
+
+        sinon.assert.notCalled(vsCodeStub.window.showWarningMessage);
+        sinon.assert.calledWith(
+          logStub,
+          sinon.match.any,
+          Outcome.OUTCOME_SUCCEEDED,
+        );
       });
     });
 

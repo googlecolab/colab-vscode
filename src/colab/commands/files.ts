@@ -106,6 +106,7 @@ export async function upload(
             );
             const fileOps = operations.filter((op) => op.type === 'file');
 
+            let dirsDone = 0;
             for (const op of emptyDirOps) {
               if (signal.aborted) {
                 break;
@@ -119,6 +120,7 @@ export async function upload(
                 );
                 failCount++;
               }
+              dirsDone++;
             }
             let done = 0;
             const budget = new ByteBudget(MAX_IN_FLIGHT_UPLOAD_BYTES);
@@ -153,9 +155,10 @@ export async function upload(
               }),
             );
             skippedCount = fileOps.length - done;
-            // A cancellation that arrives after the last file finished
-            // didn't stop anything.
-            return signal.aborted && skippedCount > 0;
+            // A cancellation that arrives after the last file and folder
+            // finished didn't stop anything.
+            const skippedDirs = emptyDirOps.length - dirsDone;
+            return signal.aborted && skippedCount + skippedDirs > 0;
           } finally {
             onCancel.dispose();
           }

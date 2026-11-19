@@ -436,9 +436,11 @@ export class ContentsFileSystemProvider
           withSignal(signal),
         );
       } catch (error: unknown) {
-        // Concurrent uploads into the same new directory race to create it,
-        // and Jupyter fails the request that loses. That's fine as long as
-        // the directory now exists.
+        // Concurrent uploads into the same new directory may both try to
+        // create it. Colab's contents server handles requests one at a time,
+        // so this shouldn't fail there, but a Jupyter server whose contents
+        // manager handles them concurrently can fail the request that loses.
+        // Either way, that's fine as long as the directory now exists.
         if (signal?.aborted || !(await this.fileExists(client, dir, signal))) {
           throw error;
         }
