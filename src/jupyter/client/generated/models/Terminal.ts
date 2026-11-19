@@ -22,8 +22,6 @@ import { mapValues } from '../runtime';
 export interface Terminal {
     /**
      * name of terminal
-     * @type {string}
-     * @memberof Terminal
      */
     name: string;
     /**
@@ -31,8 +29,6 @@ export interface Terminal {
      * this to identify which terminals have been inactive since a given time.
      * Timestamps will be UTC, indicated 'Z' suffix.
      * 
-     * @type {string}
-     * @memberof Terminal
      */
     lastActivity?: string;
 }

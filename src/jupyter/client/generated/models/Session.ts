@@ -30,32 +30,22 @@ import {
 export interface Session {
     /**
      * 
-     * @type {string}
-     * @memberof Session
      */
     id?: string;
     /**
      * path to the session
-     * @type {string}
-     * @memberof Session
      */
     path?: string;
     /**
      * name of the session
-     * @type {string}
-     * @memberof Session
      */
     name?: string;
     /**
      * session type
-     * @type {string}
-     * @memberof Session
      */
     type?: string;
     /**
      * 
-     * @type {Kernel}
-     * @memberof Session
      */
     kernel?: Kernel;
 }

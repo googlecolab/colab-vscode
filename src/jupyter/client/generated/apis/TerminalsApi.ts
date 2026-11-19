@@ -21,10 +21,16 @@ import {
 } from '../models/Terminal';
 
 export interface TerminalsDeleteRequest {
+    /**
+     * ID of terminal session
+     */
     terminalId: string;
 }
 
 export interface TerminalsGetRequest {
+    /**
+     * ID of terminal session
+     */
     terminalId: string;
 }
 

@@ -22,14 +22,10 @@ import { mapValues } from '../runtime';
 export interface KernelSpecFileHelpLinksInner {
     /**
      * menu item link text
-     * @type {string}
-     * @memberof KernelSpecFileHelpLinksInner
      */
     text: string;
     /**
      * menu item link url
-     * @type {string}
-     * @memberof KernelSpecFileHelpLinksInner
      */
     url: string;
 }

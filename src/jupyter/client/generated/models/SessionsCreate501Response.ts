@@ -22,14 +22,10 @@ import { mapValues } from '../runtime';
 export interface SessionsCreate501Response {
     /**
      * 
-     * @type {string}
-     * @memberof SessionsCreate501Response
      */
     message?: string;
     /**
      * 
-     * @type {string}
-     * @memberof SessionsCreate501Response
      */
     shortMessage?: string;
 }
