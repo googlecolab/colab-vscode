@@ -40,6 +40,12 @@ export interface ContentsSaveRequest {
      * The actual body of the document excluding directory type
      */
     content?: string;
+    /**
+     * 1-based index of the chunk when uploading a file in parts, or -1 for the last chunk. Chunk 1 creates or truncates the file; later chunks append to it.
+     * @type {number}
+     * @memberof ContentsSaveRequest
+     */
+    chunk?: number;
 }
 
 /**
@@ -64,6 +70,7 @@ export function ContentsSaveRequestFromJSONTyped(json: any, ignoreDiscriminator:
         'type': json['type'] == null ? undefined : json['type'],
         'format': json['format'] == null ? undefined : json['format'],
         'content': json['content'] == null ? undefined : json['content'],
+        'chunk': json['chunk'] == null ? undefined : json['chunk'],
     };
 }
 
@@ -83,6 +90,7 @@ export function ContentsSaveRequestToJSONTyped(value?: ContentsSaveRequest | nul
         'type': value['type'],
         'format': value['format'],
         'content': value['content'],
+        'chunk': value['chunk'],
     };
 }
 

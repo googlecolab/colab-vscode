@@ -133,6 +133,12 @@ paths:
                   description:
                     The actual body of the document excluding directory
                     type
+                chunk:
+                  type: integer
+                  description:
+                    "1-based index of the chunk when uploading a file in
+                    parts, or -1 for the last chunk. Chunk 1 creates or
+                    truncates the file; later chunks append to it."
         required: false
       responses:
         "200":
