@@ -27,7 +27,6 @@ import {
 import { ColabAssignedServer } from '../servers';
 import {
   ContentsFileSystemProvider,
-  partialPath,
   UPLOAD_CHUNK_MAX_RETRIES,
   UPLOAD_CHUNK_RETRY_BASE_DELAY_MS,
   UPLOAD_CHUNK_SIZE_BYTES,
@@ -1018,6 +1017,21 @@ describe('ContentsFileSystemProvider', () => {
         sinon.assert.notCalled(contentsStub.rename);
       });
 
+      it('does not move the upload into place when disposed during the last chunk', async () => {
+        contentsStub.save.onThirdCall().callsFake(() => {
+          fs.dispose();
+          return Promise.resolve(FOO_CONTENT_FILE);
+        });
+
+        await expect(
+          fs.writeFile(uri, content, opts),
+        ).to.eventually.rejectedWith(/disposed/);
+
+        sinon.assert.calledThrice(contentsStub.save);
+        sinon.assert.notCalled(contentsStub.delete);
+        sinon.assert.notCalled(contentsStub.rename);
+      });
+
       it('overwrites a partial upload left by an earlier attempt', async () => {
         // A previous failed upload left `foo.bin.partial` behind. The first
         // chunk of a new upload is a plain (non-append) write, which replaces
@@ -1033,12 +1047,6 @@ describe('ContentsFileSystemProvider', () => {
         });
         expect(contentsStub.save.firstCall.args[0].model?.chunk).to.equal(1);
         sinon.assert.calledOnce(contentsStub.rename);
-      });
-
-      it('names the temporary file next to the target with a fixed, visible name', () => {
-        expect(partialPath('/content/foo.bin')).to.equal(
-          '/content/foo.bin.partial',
-        );
       });
 
       describe('retries', () => {
@@ -1265,25 +1273,43 @@ describe('ContentsFileSystemProvider', () => {
         });
 
         for (const [name, size, expected] of [
-          ['below what the server had before the failed append', 10, 10],
+          ['below what the server had before the failed append', 10, '10'],
           // One byte more than the failed append could have written.
-          ['above the end of the failed append', 2 * C + 1, 2 * C + 1],
+          ['above the end of the failed append', 2 * C + 1, String(2 * C + 1)],
+          // Without the check, the upload would treat this as complete and
+          // move a truncated file over the original.
+          ['missing', undefined, 'undefined'],
         ] as const) {
           it(`fails instead of resuming when the server size is ${name}`, async () => {
             contentsStub.save.onSecondCall().rejects(serverError());
-            serverSizeIs(size);
+            contentsStub.get
+              .withArgs({ path: TEMP, content: 0 })
+              .resolves({ ...FOO_CONTENT_FILE, size });
 
             const err = await writeAndRunTimers();
 
             expect(err).to.be.instanceOf(Error);
             expect((err as Error).message).to.equal(
-              `Cannot resume upload of ${TEMP}: expected between ${String(C)} and ${String(2 * C)} bytes on the server, found ${String(expected)}`,
+              `Cannot resume upload of ${TEMP}: expected between ${String(C)} and ${String(2 * C)} bytes on the server, found ${expected}`,
             );
             sinon.assert.calledTwice(contentsStub.save);
             sinon.assert.notCalled(contentsStub.delete);
             sinon.assert.notCalled(contentsStub.rename);
           });
         }
+
+        it('retries a plain 500', async () => {
+          contentsStub.save
+            .onSecondCall()
+            .rejects(new ResponseError(new Response(null, { status: 500 })));
+          serverSizeIs(C);
+
+          expect(await writeAndRunTimers()).to.equal(undefined);
+
+          expect(savedRanges().map((s) => s.chunk)).to.deep.equal([
+            1, 2, 2, -1,
+          ]);
+        });
 
         it('retries a failed size check', async () => {
           contentsStub.save.onSecondCall().rejects(serverError());

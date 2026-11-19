@@ -797,7 +797,7 @@ async function readJupyterErrorMessage(
  * @param path - The path of the file being uploaded.
  * @returns The temporary file's path, e.g. `/content/foo.bin.partial`.
  */
-export function partialPath(path: string): string {
+function partialPath(path: string): string {
   return `${path}.partial`;
 }
 
