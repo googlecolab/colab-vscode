@@ -27,6 +27,7 @@ import {
 import { ColabAssignedServer } from '../servers';
 import {
   ContentsFileSystemProvider,
+  partialFiles,
   UPLOAD_CHUNK_MAX_RETRIES,
   UPLOAD_CHUNK_RETRY_BASE_DELAY_MS,
   UPLOAD_CHUNK_SIZE_BYTES,
@@ -105,6 +106,36 @@ describe('ContentsFileSystemProvider', () => {
     const contentsStub = sinon.createStubInstance(ContentsApi);
     jupyterStub.getOrCreate.withArgs(serverId).resolves(contentsStub);
     return contentsStub;
+  }
+
+  /**
+   * Makes the stub report the size of `tempPath` as what chunk saves wrote to
+   * it, like a server would: chunk 1 replaces the file and later chunks
+   * append. A test that stubs a save or the size itself takes precedence.
+   *
+   * @param contentsStub - The stubbed Contents API client.
+   * @param tempPath - The temporary file the upload writes to.
+   * @returns Adds bytes to the tracked size, for a test simulating a failed
+   * request that was partly or wholly written.
+   */
+  function trackTempFileSize(
+    contentsStub: sinon.SinonStubbedInstance<ContentsApi>,
+    tempPath: string,
+  ): (bytes: number) => void {
+    let size = 0;
+    contentsStub.save.callsFake((req) => {
+      if (req.path === tempPath) {
+        const bytes = Buffer.from(req.model?.content ?? '', 'base64').length;
+        size = req.model?.chunk === 1 ? bytes : size + bytes;
+      }
+      return Promise.resolve(FOO_CONTENT_FILE);
+    });
+    contentsStub.get
+      .withArgs({ path: tempPath, content: 0 })
+      .callsFake(() => Promise.resolve({ ...FOO_CONTENT_FILE, size }));
+    return (bytes) => {
+      size += bytes;
+    };
   }
 
   beforeEach(() => {
@@ -833,11 +864,15 @@ describe('ContentsFileSystemProvider', () => {
           )
           .toString('base64');
       let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
-      const TEMP = '/foo.bin.partial';
+      const TEMP = '/foo.bin.0000abcd.partial';
+      let stubPathFor: sinon.SinonStub;
+      let addWrittenBytes: (bytes: number) => void;
 
       beforeEach(() => {
         contentsStub = stubClient('r-abc123');
         contentsStub.get.resolves(FOO_CONTENT_FILE);
+        stubPathFor = sinon.stub(partialFiles, 'pathFor').returns(TEMP);
+        addWrittenBytes = trackTempFileSize(contentsStub, TEMP);
       });
 
       it('saves content of exactly one chunk in a single non-chunked request', async () => {
@@ -1032,21 +1067,147 @@ describe('ContentsFileSystemProvider', () => {
         sinon.assert.notCalled(contentsStub.rename);
       });
 
-      it('overwrites a partial upload left by an earlier attempt', async () => {
-        // A previous failed upload left `foo.bin.partial` behind. The first
-        // chunk of a new upload is a plain (non-append) write, which replaces
-        // it rather than appending to it.
-        contentsStub.get
-          .withArgs({ path: TEMP, content: 0 })
-          .resolves({ ...FOO_CONTENT_FILE, size: 123 });
+      it('writes each upload to its own temporary file', async () => {
+        stubPathFor.restore();
+        // Real names, so report every temporary file as complete.
+        contentsStub.get.callsFake(({ path }) =>
+          Promise.resolve({
+            ...FOO_CONTENT_FILE,
+            size: path.endsWith('.partial') ? content.length : 0,
+          }),
+        );
 
         await fs.writeFile(uri, content, opts);
+        await fs.writeFile(uri, content, opts);
 
-        expect(contentsStub.save.firstCall.args[0]).to.deep.include({
-          path: TEMP,
+        const temps = contentsStub.rename.getCalls().map((c) => c.args[0].path);
+        expect(temps).to.have.length(2);
+        for (const temp of temps) {
+          expect(temp).to.match(/^\/foo\.bin\.[0-9a-f]{8}\.partial$/);
+        }
+        expect(temps[0]).to.not.equal(temps[1]);
+      });
+
+      it('completes two concurrent uploads of the same file without mixing their data', async () => {
+        stubPathFor.restore();
+        // A minimal in-memory Contents server. Each request yields first, so
+        // the two uploads' requests interleave.
+        const files = new Map<string, Buffer>();
+        const tick = () => new Promise((resolve) => setImmediate(resolve));
+        contentsStub.get.callsFake(async ({ path }) => {
+          await tick();
+          const file = files.get(path);
+          if (!file) {
+            throw NOT_FOUND;
+          }
+          return { ...FOO_CONTENT_FILE, size: file.length };
         });
-        expect(contentsStub.save.firstCall.args[0].model?.chunk).to.equal(1);
-        sinon.assert.calledOnce(contentsStub.rename);
+        contentsStub.save.callsFake(async ({ path, model }) => {
+          await tick();
+          const bytes = Buffer.from(model?.content ?? '', 'base64');
+          const chunk = model?.chunk;
+          files.set(
+            path,
+            chunk === undefined || chunk === 1
+              ? bytes
+              : Buffer.concat([files.get(path) ?? Buffer.alloc(0), bytes]),
+          );
+          return FOO_CONTENT_FILE;
+        });
+        contentsStub.delete.callsFake(async ({ path }) => {
+          await tick();
+          if (!files.delete(path)) {
+            throw NOT_FOUND;
+          }
+        });
+        contentsStub.rename.callsFake(async ({ path, rename }) => {
+          await tick();
+          const to = rename.path ?? '';
+          const file = files.get(path);
+          if (files.has(to)) {
+            throw CONFLICT;
+          }
+          if (!file) {
+            throw NOT_FOUND;
+          }
+          files.delete(path);
+          files.set(to, file);
+          return FOO_CONTENT_FILE;
+        });
+        files.set('/foo.bin', Buffer.from('original'));
+        const a = Buffer.alloc(content.length, 0xaa);
+        const b = Buffer.alloc(content.length, 0xbb);
+
+        await Promise.all([
+          fs.writeFile(uri, a, opts),
+          fs.writeFile(uri, b, opts),
+        ]);
+
+        // One complete upload wins, and no temporary files are left behind.
+        const result = files.get('/foo.bin');
+        expect(
+          result?.equals(a) === true || result?.equals(b) === true,
+        ).to.equal(true);
+        expect([...files.keys()]).to.deep.equal(['/foo.bin']);
+      });
+
+      for (const [name, size] of [
+        ['smaller', content.length - 1],
+        ['larger', content.length + 1],
+      ] as const) {
+        it(`does not replace the original when the finished temporary file is ${name} than the upload`, async () => {
+          contentsStub.get
+            .withArgs({ path: TEMP, content: 0 })
+            .resolves({ ...FOO_CONTENT_FILE, size });
+
+          await expect(
+            fs.writeFile(uri, content, opts),
+          ).to.eventually.rejectedWith(
+            `Upload of /foo.bin is incomplete: expected ${String(content.length)} bytes in ${TEMP}, found ${String(size)}`,
+          );
+
+          sinon.assert.notCalled(contentsStub.delete);
+          sinon.assert.notCalled(contentsStub.rename);
+          sinon.assert.notCalled(listener);
+        });
+      }
+
+      describe('when another upload moves its file into place first', () => {
+        for (const [name, exists] of [
+          ['an existing file', true],
+          ['a new file', false],
+        ] as const) {
+          it(`replaces it so the last upload wins, for ${name}`, async () => {
+            if (!exists) {
+              contentsStub.get
+                .withArgs({ path: '/foo.bin', content: 0 })
+                .rejects(NOT_FOUND);
+            }
+            contentsStub.rename.onFirstCall().rejects(CONFLICT);
+
+            await fs.writeFile(uri, content, opts);
+
+            expect(
+              contentsStub.delete.getCalls().map((c) => c.args[0].path),
+            ).to.deep.equal(exists ? ['/foo.bin', '/foo.bin'] : ['/foo.bin']);
+            sinon.assert.calledTwice(contentsStub.rename);
+            sinon.assert.alwaysCalledWithExactly(contentsStub.rename, {
+              path: TEMP,
+              rename: { path: '/foo.bin' },
+            });
+          });
+        }
+
+        it('gives up, keeping the temporary file, when it happens again', async () => {
+          contentsStub.rename.rejects(CONFLICT);
+
+          await expect(
+            fs.writeFile(uri, content, opts),
+          ).to.eventually.rejectedWith(/FileExists/);
+
+          sinon.assert.calledTwice(contentsStub.rename);
+          sinon.assert.neverCalledWith(contentsStub.delete, { path: TEMP });
+        });
       });
 
       describe('retries', () => {
@@ -1078,13 +1239,16 @@ describe('ContentsFileSystemProvider', () => {
         }
 
         /**
-         * Stubs the size the server reports for the file being uploaded.
+         * Stubs the size the server reports for the temporary file on the next
+         * size check, i.e. the one a retry makes to resync. Later checks report
+         * what the upload has actually written.
          *
          * @param size - The size in bytes.
          */
         function serverSizeIs(size: number) {
           contentsStub.get
             .withArgs({ path: TEMP, content: 0 })
+            .onFirstCall()
             .resolves({ ...FOO_CONTENT_FILE, size });
         }
 
@@ -1105,12 +1269,13 @@ describe('ContentsFileSystemProvider', () => {
           const saves = savedRanges();
           expect(saves.map((s) => s.chunk)).to.deep.equal([1, 1, 2, -1]);
           expect(saves[1].bytes.equals(content.subarray(0, C))).to.equal(true);
-          // Chunk 1 truncates the file, so there's no offset to resync. The
-          // only size check is the existence check on the target.
-          sinon.assert.neverCalledWith(contentsStub.get, {
-            path: TEMP,
-            content: 0,
-          });
+          // Chunk 1 truncates the file, so there's no offset to resync: the
+          // temporary file's size is only read once, to check the finished
+          // upload.
+          sinon.assert.calledOnceWithExactly(
+            contentsStub.get.withArgs({ path: TEMP, content: 0 }),
+            { path: TEMP, content: 0 },
+          );
           sinon.assert.notCalled(contentsStub.delete.withArgs({ path: TEMP }));
         });
 
@@ -1136,9 +1301,11 @@ describe('ContentsFileSystemProvider', () => {
         });
 
         it('resumes mid-chunk when a failed append was partially written', async () => {
-          contentsStub.save.onSecondCall().rejects(networkError());
-          // 100 bytes of chunk 2 made it to disk before the failure.
-          serverSizeIs(C + 100);
+          contentsStub.save.onSecondCall().callsFake(() => {
+            // 100 bytes of chunk 2 made it to disk before the failure.
+            addWrittenBytes(100);
+            return Promise.reject(networkError());
+          });
 
           expect(await writeAndRunTimers()).to.equal(undefined);
 
@@ -1154,8 +1321,11 @@ describe('ContentsFileSystemProvider', () => {
         });
 
         it('completes without resending when a failed final chunk was fully written', async () => {
-          contentsStub.save.onThirdCall().rejects(networkError());
-          serverSizeIs(content.length);
+          contentsStub.save.onThirdCall().callsFake(() => {
+            // The final chunk was written, but its response was lost.
+            addWrittenBytes(content.length - 2 * C);
+            return Promise.reject(networkError());
+          });
 
           expect(await writeAndRunTimers()).to.equal(undefined);
 
@@ -1204,9 +1374,9 @@ describe('ContentsFileSystemProvider', () => {
           // The server only grows when a save succeeds.
           let call = 0;
           let size = 0;
-          contentsStub.get.callsFake(() =>
-            Promise.resolve({ ...FOO_CONTENT_FILE, size }),
-          );
+          contentsStub.get
+            .withArgs({ path: TEMP, content: 0 })
+            .callsFake(() => Promise.resolve({ ...FOO_CONTENT_FILE, size }));
           contentsStub.save.callsFake((req) => {
             call++;
             const attempt = (call - 1) % (UPLOAD_CHUNK_MAX_RETRIES + 1);
