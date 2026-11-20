@@ -15,9 +15,45 @@ import {
   InsufficientQuotaError,
   LongRunningOperationError,
   NotFoundError,
+  redactUrl,
   TooManyAssignmentsError,
   WaitOperationTimeoutError,
 } from './errors';
+
+describe('redactUrl', () => {
+  it('replaces every query value while keeping the keys', () => {
+    expect(redactUrl('https://example.test/a?nbh=secret&authuser=0')).to.equal(
+      'https://example.test/a?nbh=REDACTED&authuser=REDACTED',
+    );
+  });
+
+  it('replaces the whole fragment, keys included', () => {
+    expect(redactUrl('https://example.test/a#nbh=secret')).to.equal(
+      'https://example.test/a#REDACTED',
+    );
+  });
+
+  it('leaves a URL with nothing to redact unchanged', () => {
+    expect(redactUrl('https://example.test/a/b')).to.equal(
+      'https://example.test/a/b',
+    );
+  });
+
+  it('collapses a repeated key to a single redaction', () => {
+    // `set` replaces every occurrence, so the count of a repeated parameter is
+    // lost. Both values are still redacted, which is what matters here.
+    expect(redactUrl('https://example.test/a?x=1&x=2')).to.equal(
+      'https://example.test/a?x=REDACTED',
+    );
+  });
+
+  it('drops the query and fragment from an unparsable URL', () => {
+    expect(redactUrl('/a/b?nbh=secret')).to.equal('/a/b');
+    expect(redactUrl('/a/b#nbh=secret')).to.equal('/a/b');
+    expect(redactUrl('/a/b?foo=bar#nbh=secret')).to.equal('/a/b');
+    expect(redactUrl('not a url')).to.equal('not a url');
+  });
+});
 
 describe('ColabRequestError', () => {
   function buildBadRequestError(url: string, body?: string): ColabRequestError {
