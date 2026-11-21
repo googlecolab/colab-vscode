@@ -13,6 +13,7 @@ import { newVsCodeStub } from '../../test/helpers/vscode';
 // keep them out of the runtime; the deps below are minimal structural fakes.
 import type { ResourceTreeProvider } from '../resource-monitor/resource-tree';
 import type { ContentTreeProvider } from './content-tree';
+import type { FileDownloader } from './file-downloader';
 import { registerContentBrowserCommands } from './register';
 
 describe('registerContentBrowserCommands', () => {
@@ -29,10 +30,14 @@ describe('registerContentBrowserCommands', () => {
     const resourceTree = {
       refresh: sinon.stub(),
     } as Partial<ResourceTreeProvider> as ResourceTreeProvider;
+    const fileDownloader = {
+      download: sinon.stub(),
+    } as FileDownloader;
 
     const disposables = registerContentBrowserCommands(vs.asVsCode(), {
       contentTree,
       resourceTree,
+      fileDownloader,
     });
 
     const registeredIds = vs.commands.registerCommand

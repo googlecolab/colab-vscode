@@ -12,6 +12,7 @@ import {
   Outcome,
 } from '../../telemetry/api';
 import type { ContentItem } from './content-item';
+import type { FileDownloader } from './file-downloader';
 
 /**
  * Creates a new file on the Colab server.
@@ -111,9 +112,14 @@ export async function newFolder(vs: typeof vscode, contextItem: ContentItem) {
  * Downloads a file from the Colab server to the local filesystem.
  *
  * @param vs - The VS Code API instance.
+ * @param fileDownloader - The service that streams the remote file locally.
  * @param contextItem - The tree view context item.
  */
-export async function download(vs: typeof vscode, contextItem: ContentItem) {
+export async function download(
+  vs: typeof vscode,
+  fileDownloader: FileDownloader,
+  contextItem: ContentItem,
+) {
   let outcome = Outcome.OUTCOME_CANCELLED;
   let downloadedBytes = 0;
   try {
@@ -139,9 +145,10 @@ export async function download(vs: typeof vscode, contextItem: ContentItem) {
       },
       async () => {
         try {
-          const content = await vs.workspace.fs.readFile(contextItem.uri);
-          await vs.workspace.fs.writeFile(targetUri, content);
-          downloadedBytes = content.byteLength;
+          downloadedBytes = await fileDownloader.download(
+            contextItem.uri,
+            targetUri,
+          );
           outcome = Outcome.OUTCOME_SUCCEEDED;
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : 'unknown error';
