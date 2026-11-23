@@ -5,6 +5,7 @@
  */
 
 import { Buffer } from 'buffer';
+import { randomUUID } from 'crypto';
 import vscode, {
   Disposable,
   Event,
@@ -54,6 +55,12 @@ export const UPLOAD_CHUNK_MAX_RETRIES = 3;
  * subsequent retry.
  */
 export const UPLOAD_CHUNK_RETRY_BASE_DELAY_MS = 500;
+
+/**
+ * How many times moving a completed chunked upload over its target is retried
+ * after a 409 conflict (e.g. when concurrent uploads finish together).
+ */
+export const UPLOAD_REPLACE_MAX_RETRIES = 3;
 
 /**
  * Defines what VS Code needs to read, write, discover and manage files and
@@ -344,7 +351,10 @@ export class ContentsFileSystemProvider
       if (content.byteLength <= UPLOAD_CHUNK_SIZE_BYTES) {
         await client.save({ path, model: toSaveRequest(content) });
       } else {
-        await this.saveInChunks(client, uri, content, exists);
+        await this.saveInChunks(client, uri, content, {
+          existed: exists,
+          overwrite: options.overwrite,
+        });
       }
 
       const eventType = exists
@@ -493,11 +503,13 @@ export class ContentsFileSystemProvider
   /**
    * Uploads `content` with the Contents API's chunked save.
    *
-   * The chunks go to a temporary file next to the target, which is moved over
-   * the target once complete, so a failed upload never touches an existing
-   * file. Within the temporary file, the first chunk creates or truncates it,
-   * later chunks append to it, and the last one is sent as chunk `-1` to
-   * complete the save.
+   * Like rsync, the chunks go to a temporary file next to the target with a
+   * name unique to this upload, which is moved over the target once complete.
+   * A failed upload never touches an existing file, and concurrent uploads of
+   * the same file can't write into each other's data: each produces a complete
+   * file, and the last to finish wins. Within the temporary file, the first
+   * chunk creates it, later chunks append to it, and the last one is sent as
+   * chunk `-1` to complete the save.
    *
    * A chunk that fails with a network error or a 5xx response is retried up to
    * {@link UPLOAD_CHUNK_MAX_RETRIES} times with exponential backoff. Since a
@@ -505,18 +517,19 @@ export class ContentsFileSystemProvider
    * temporary file's size on the server and resumes from that byte.
    *
    * If the upload still fails, the error is rethrown and the temporary file is
-   * left in place; the next upload of the same file overwrites it.
+   * left in place, and its path is logged.
    *
    * @param client - The Contents API client for the server.
    * @param uri - The file being written.
    * @param content - The full file content. Must be larger than one chunk.
-   * @param existed - Whether the file existed before this write.
+   * @param options - Whether the target already existed and whether it may be
+   * overwritten.
    */
   private async saveInChunks(
     client: ContentsApi,
     uri: Uri,
     content: Uint8Array,
-    existed: boolean,
+    options: { existed: boolean; overwrite: boolean },
   ): Promise<void> {
     const tempPath = partialPath(uri.path);
     const totalBytes = content.byteLength;
@@ -585,7 +598,7 @@ export class ContentsFileSystemProvider
         }
       }
       this.guardDisposed();
-      await this.replaceWith(client, uri.path, tempPath, existed);
+      await this.replaceWith(client, uri.path, tempPath, totalBytes, options);
     } catch (error: unknown) {
       log.warn(
         `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
@@ -602,33 +615,60 @@ export class ContentsFileSystemProvider
   /**
    * Moves a completed upload over its target.
    *
+   * The temporary file's size is checked first, so a temporary file that
+   * doesn't hold exactly this upload is never moved over the original.
+   *
    * Jupyter's rename refuses to overwrite, so an existing target is deleted
-   * first. Between the two requests the target briefly doesn't exist.
+   * first. Between the two requests the target briefly doesn't exist. If
+   * another upload of the same file moves its own file into place in that
+   * window, the rename fails with a conflict; when overwriting is allowed, the
+   * target is deleted and the rename retried up to
+   * {@link UPLOAD_REPLACE_MAX_RETRIES} times, so the last upload to finish
+   * wins, as with rsync.
    *
    * @param client - The Contents API client for the server.
    * @param path - The target path.
    * @param tempPath - The path of the completed upload.
-   * @param existed - Whether the target existed before this write.
+   * @param totalBytes - The size the completed upload must have.
+   * @param options - Whether the target existed before this write and whether
+   * it may be overwritten.
+   * @throws Error when the temporary file's size isn't `totalBytes`.
    */
   private async replaceWith(
     client: ContentsApi,
     path: string,
     tempPath: string,
-    existed: boolean,
+    totalBytes: number,
+    options: { existed: boolean; overwrite: boolean },
   ): Promise<void> {
-    if (existed) {
+    const { size } = await client.get({ path: tempPath, content: 0 });
+    if (size !== totalBytes) {
+      throw new Error(
+        `Upload of ${path} has unexpected size: expected ${String(totalBytes)} bytes in ${tempPath}, found ${String(size)}`,
+      );
+    }
+    let needsDelete = options.existed;
+    for (let attempt = 0; ; attempt++) {
+      if (needsDelete) {
+        await deleteIfExists(client, path);
+      }
       try {
-        await client.delete({ path });
+        await client.rename({ path: tempPath, rename: { path } });
+        return;
       } catch (error: unknown) {
-        // Something else may have removed it since; that's fine.
         if (
-          !(error instanceof ResponseError && error.response.status === 404)
+          !options.overwrite ||
+          !(error instanceof ResponseError && error.response.status === 409) ||
+          attempt >= UPLOAD_REPLACE_MAX_RETRIES
         ) {
           throw error;
         }
+        log.debug(
+          `${path} appeared before ${tempPath} could replace it, likely from a concurrent upload; replacing it again (${String(attempt + 1)}/${String(UPLOAD_REPLACE_MAX_RETRIES)})`,
+        );
+        needsDelete = true;
       }
     }
-    await client.rename({ path: tempPath, rename: { path } });
   }
 
   /**
@@ -788,17 +828,38 @@ async function readJupyterErrorMessage(
 
 /**
  * Builds the path of the temporary file a chunked upload writes to before it
- * is moved over `path`. It sits next to the target so the move is a rename
- * within one directory, and has a fixed name so a partial upload left by a
- * failed attempt is overwritten by the next one rather than piling up. It must
- * not start with a dot, since Jupyter refuses to write hidden files unless
- * configured to allow them.
+ * is moved over `path`. Like rsync's, it sits next to the target so the move
+ * is a rename within one directory, and has a random suffix so concurrent
+ * uploads of the same file each write their own. Unlike rsync's, it doesn't
+ * start with a dot: Jupyter refuses to write hidden files unless configured
+ * to allow them, and a visible name makes a leftover easy to spot.
  *
  * @param path - The path of the file being uploaded.
- * @returns The temporary file's path, e.g. `/content/foo.bin.partial`.
+ * @returns The temporary file's path, e.g.
+ * `/content/foo.bin.1a2b3c4d.partial`.
  */
 function partialPath(path: string): string {
-  return `${path}.partial`;
+  return `${path}.${randomUUID().slice(0, 8)}.partial`;
+}
+
+/**
+ * Deletes a file, ignoring that it doesn't exist.
+ *
+ * @param client - The Contents API client for the server.
+ * @param path - The path of the file to delete.
+ */
+async function deleteIfExists(
+  client: ContentsApi,
+  path: string,
+): Promise<void> {
+  try {
+    await client.delete({ path });
+  } catch (error: unknown) {
+    // Something else may have removed it since; that's fine.
+    if (!(error instanceof ResponseError && error.response.status === 404)) {
+      throw error;
+    }
+  }
 }
 
 /**
