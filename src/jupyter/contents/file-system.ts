@@ -57,6 +57,12 @@ export const UPLOAD_CHUNK_MAX_RETRIES = 3;
 export const UPLOAD_CHUNK_RETRY_BASE_DELAY_MS = 500;
 
 /**
+ * How many times moving a completed chunked upload over its target is retried
+ * after a 409 conflict (e.g. when concurrent uploads finish together).
+ */
+export const UPLOAD_REPLACE_MAX_RETRIES = 3;
+
+/**
  * Defines what VS Code needs to read, write, discover and manage files and
  * folders on the provided assigned Colab Jupyter
  * {@link ColabAssignedServer | server }.
@@ -345,7 +351,10 @@ export class ContentsFileSystemProvider
       if (content.byteLength <= UPLOAD_CHUNK_SIZE_BYTES) {
         await client.save({ path, model: toSaveRequest(content) });
       } else {
-        await this.saveInChunks(client, uri, content, exists);
+        await this.saveInChunks(client, uri, content, {
+          existed: exists,
+          overwrite: options.overwrite,
+        });
       }
 
       const eventType = exists
@@ -513,15 +522,16 @@ export class ContentsFileSystemProvider
    * @param client - The Contents API client for the server.
    * @param uri - The file being written.
    * @param content - The full file content. Must be larger than one chunk.
-   * @param existed - Whether the file existed before this write.
+   * @param options - Whether the target already existed and whether it may be
+   * overwritten.
    */
   private async saveInChunks(
     client: ContentsApi,
     uri: Uri,
     content: Uint8Array,
-    existed: boolean,
+    options: { existed: boolean; overwrite: boolean },
   ): Promise<void> {
-    const tempPath = partialFiles.pathFor(uri.path);
+    const tempPath = partialPath(uri.path);
     const totalBytes = content.byteLength;
     const start = Date.now();
     log.debug(
@@ -588,7 +598,7 @@ export class ContentsFileSystemProvider
         }
       }
       this.guardDisposed();
-      await this.replaceWith(client, uri.path, tempPath, totalBytes, existed);
+      await this.replaceWith(client, uri.path, tempPath, totalBytes, options);
     } catch (error: unknown) {
       log.warn(
         `Upload of ${uri.toString()} failed at byte ${String(offset)} of ${String(totalBytes)}; the partial upload is left at ${tempPath}`,
@@ -611,15 +621,17 @@ export class ContentsFileSystemProvider
    * Jupyter's rename refuses to overwrite, so an existing target is deleted
    * first. Between the two requests the target briefly doesn't exist. If
    * another upload of the same file moves its own file into place in that
-   * window, the rename fails with a conflict; the target is then deleted and
-   * the rename tried once more, so the last upload to finish wins, as with
-   * rsync.
+   * window, the rename fails with a conflict; when overwriting is allowed, the
+   * target is deleted and the rename retried up to
+   * {@link UPLOAD_REPLACE_MAX_RETRIES} times, so the last upload to finish
+   * wins, as with rsync.
    *
    * @param client - The Contents API client for the server.
    * @param path - The target path.
    * @param tempPath - The path of the completed upload.
    * @param totalBytes - The size the completed upload must have.
-   * @param existed - Whether the target existed before this write.
+   * @param options - Whether the target existed before this write and whether
+   * it may be overwritten.
    * @throws Error when the temporary file's size isn't `totalBytes`.
    */
   private async replaceWith(
@@ -627,28 +639,35 @@ export class ContentsFileSystemProvider
     path: string,
     tempPath: string,
     totalBytes: number,
-    existed: boolean,
+    options: { existed: boolean; overwrite: boolean },
   ): Promise<void> {
     const { size } = await client.get({ path: tempPath, content: 0 });
     if (size !== totalBytes) {
       throw new Error(
-        `Upload of ${path} is incomplete: expected ${String(totalBytes)} bytes in ${tempPath}, found ${String(size)}`,
+        `Upload of ${path} has unexpected size: expected ${String(totalBytes)} bytes in ${tempPath}, found ${String(size)}`,
       );
     }
-    if (existed) {
-      await deleteIfExists(client, path);
-    }
-    try {
-      await client.rename({ path: tempPath, rename: { path } });
-    } catch (error: unknown) {
-      if (!(error instanceof ResponseError && error.response.status === 409)) {
-        throw error;
+    let needsDelete = options.existed;
+    for (let attempt = 0; ; attempt++) {
+      if (needsDelete) {
+        await deleteIfExists(client, path);
       }
-      log.debug(
-        `${path} reappeared before ${tempPath} could replace it, likely from a concurrent upload; replacing it again`,
-      );
-      await deleteIfExists(client, path);
-      await client.rename({ path: tempPath, rename: { path } });
+      try {
+        await client.rename({ path: tempPath, rename: { path } });
+        return;
+      } catch (error: unknown) {
+        if (
+          !options.overwrite ||
+          !(error instanceof ResponseError && error.response.status === 409) ||
+          attempt >= UPLOAD_REPLACE_MAX_RETRIES
+        ) {
+          throw error;
+        }
+        log.debug(
+          `${path} appeared before ${tempPath} could replace it, likely from a concurrent upload; replacing it again (${String(attempt + 1)}/${String(UPLOAD_REPLACE_MAX_RETRIES)})`,
+        );
+        needsDelete = true;
+      }
     }
   }
 
@@ -808,26 +827,20 @@ async function readJupyterErrorMessage(
 }
 
 /**
- * Names the temporary files chunked uploads write to. An object so tests can
- * stub it.
+ * Builds the path of the temporary file a chunked upload writes to before it
+ * is moved over `path`. Like rsync's, it sits next to the target so the move
+ * is a rename within one directory, and has a random suffix so concurrent
+ * uploads of the same file each write their own. Unlike rsync's, it doesn't
+ * start with a dot: Jupyter refuses to write hidden files unless configured
+ * to allow them, and a visible name makes a leftover easy to spot.
+ *
+ * @param path - The path of the file being uploaded.
+ * @returns The temporary file's path, e.g.
+ * `/content/foo.bin.1a2b3c4d.partial`.
  */
-export const partialFiles = {
-  /**
-   * Builds the path of the temporary file a chunked upload writes to before it
-   * is moved over `path`. Like rsync's, it sits next to the target so the move
-   * is a rename within one directory, and has a random suffix so concurrent
-   * uploads of the same file each write their own. Unlike rsync's, it doesn't
-   * start with a dot: Jupyter refuses to write hidden files unless configured
-   * to allow them, and a visible name makes a leftover easy to spot.
-   *
-   * @param path - The path of the file being uploaded.
-   * @returns The temporary file's path, e.g.
-   * `/content/foo.bin.1a2b3c4d.partial`.
-   */
-  pathFor(path: string): string {
-    return `${path}.${randomUUID().slice(0, 8)}.partial`;
-  },
-};
+function partialPath(path: string): string {
+  return `${path}.${randomUUID().slice(0, 8)}.partial`;
+}
 
 /**
  * Deletes a file, ignoring that it doesn't exist.

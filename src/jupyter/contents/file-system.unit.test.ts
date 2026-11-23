@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import crypto from 'crypto';
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { FileChangeEvent, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
@@ -27,10 +28,10 @@ import {
 import { ColabAssignedServer } from '../servers';
 import {
   ContentsFileSystemProvider,
-  partialFiles,
   UPLOAD_CHUNK_MAX_RETRIES,
   UPLOAD_CHUNK_RETRY_BASE_DELAY_MS,
   UPLOAD_CHUNK_SIZE_BYTES,
+  UPLOAD_REPLACE_MAX_RETRIES,
 } from './file-system';
 import { JupyterConnectionManager } from './sessions';
 
@@ -865,13 +866,15 @@ describe('ContentsFileSystemProvider', () => {
           .toString('base64');
       let contentsStub: sinon.SinonStubbedInstance<ContentsApi>;
       const TEMP = '/foo.bin.0000abcd.partial';
-      let stubPathFor: sinon.SinonStub;
+      let randomUuidStub: sinon.SinonStub;
       let addWrittenBytes: (bytes: number) => void;
 
       beforeEach(() => {
         contentsStub = stubClient('r-abc123');
         contentsStub.get.resolves(FOO_CONTENT_FILE);
-        stubPathFor = sinon.stub(partialFiles, 'pathFor').returns(TEMP);
+        randomUuidStub = sinon
+          .stub(crypto, 'randomUUID')
+          .returns('0000abcd-0000-4000-8000-000000000000');
         addWrittenBytes = trackTempFileSize(contentsStub, TEMP);
       });
 
@@ -1068,7 +1071,8 @@ describe('ContentsFileSystemProvider', () => {
       });
 
       it('writes each upload to its own temporary file', async () => {
-        stubPathFor.restore();
+        randomUuidStub.restore();
+        contentsStub = stubClient('r-abc123');
         // Real names, so report every temporary file as complete.
         contentsStub.get.callsFake(({ path }) =>
           Promise.resolve({
@@ -1088,10 +1092,11 @@ describe('ContentsFileSystemProvider', () => {
         expect(temps[0]).to.not.equal(temps[1]);
       });
 
-      it('completes two concurrent uploads of the same file without mixing their data', async () => {
-        stubPathFor.restore();
+      it('completes three concurrent uploads of the same file without mixing their data', async () => {
+        randomUuidStub.restore();
+        contentsStub = stubClient('r-abc123');
         // A minimal in-memory Contents server. Each request yields first, so
-        // the two uploads' requests interleave.
+        // the uploads' requests interleave.
         const files = new Map<string, Buffer>();
         const tick = () => new Promise((resolve) => setImmediate(resolve));
         contentsStub.get.callsFake(async ({ path }) => {
@@ -1135,27 +1140,26 @@ describe('ContentsFileSystemProvider', () => {
           return FOO_CONTENT_FILE;
         });
         files.set('/foo.bin', Buffer.from('original'));
-        const a = Buffer.alloc(content.length, 0xaa);
-        const b = Buffer.alloc(content.length, 0xbb);
+        const uploads = [0xaa, 0xbb, 0xcc].map((b) =>
+          Buffer.alloc(content.length, b),
+        );
 
-        await Promise.all([
-          fs.writeFile(uri, a, opts),
-          fs.writeFile(uri, b, opts),
-        ]);
+        await Promise.all(uploads.map((buf) => fs.writeFile(uri, buf, opts)));
 
         // One complete upload wins, and no temporary files are left behind.
         const result = files.get('/foo.bin');
-        expect(
-          result?.equals(a) === true || result?.equals(b) === true,
-        ).to.equal(true);
+        expect(uploads.some((buf) => result?.equals(buf) === true)).to.equal(
+          true,
+        );
         expect([...files.keys()]).to.deep.equal(['/foo.bin']);
       });
 
       for (const [name, size] of [
         ['smaller', content.length - 1],
         ['larger', content.length + 1],
+        ['missing', undefined],
       ] as const) {
-        it(`does not replace the original when the finished temporary file is ${name} than the upload`, async () => {
+        it(`does not replace the original when the finished temporary file size is ${name}`, async () => {
           contentsStub.get
             .withArgs({ path: TEMP, content: 0 })
             .resolves({ ...FOO_CONTENT_FILE, size });
@@ -1163,7 +1167,7 @@ describe('ContentsFileSystemProvider', () => {
           await expect(
             fs.writeFile(uri, content, opts),
           ).to.eventually.rejectedWith(
-            `Upload of /foo.bin is incomplete: expected ${String(content.length)} bytes in ${TEMP}, found ${String(size)}`,
+            `Upload of /foo.bin has unexpected size: expected ${String(content.length)} bytes in ${TEMP}, found ${String(size)}`,
           );
 
           sinon.assert.notCalled(contentsStub.delete);
@@ -1198,15 +1202,50 @@ describe('ContentsFileSystemProvider', () => {
           });
         }
 
-        it('gives up, keeping the temporary file, when it happens again', async () => {
+        it('succeeds when conflicts clear on the last allowed retry', async () => {
+          for (let i = 0; i < UPLOAD_REPLACE_MAX_RETRIES; i++) {
+            contentsStub.rename.onCall(i).rejects(CONFLICT);
+          }
+
+          await fs.writeFile(uri, content, opts);
+
+          sinon.assert.callCount(
+            contentsStub.rename,
+            1 + UPLOAD_REPLACE_MAX_RETRIES,
+          );
+          sinon.assert.callCount(
+            contentsStub.delete,
+            1 + UPLOAD_REPLACE_MAX_RETRIES,
+          );
+        });
+
+        it('gives up, keeping the temporary file, when conflicts exceed the retry limit', async () => {
           contentsStub.rename.rejects(CONFLICT);
 
           await expect(
             fs.writeFile(uri, content, opts),
           ).to.eventually.rejectedWith(/FileExists/);
 
-          sinon.assert.calledTwice(contentsStub.rename);
+          sinon.assert.callCount(
+            contentsStub.rename,
+            1 + UPLOAD_REPLACE_MAX_RETRIES,
+          );
           sinon.assert.neverCalledWith(contentsStub.delete, { path: TEMP });
+        });
+
+        it('fails with FileExists without deleting when overwrite is false', async () => {
+          contentsStub.get
+            .withArgs({ path: '/foo.bin', content: 0 })
+            .rejects(NOT_FOUND);
+          contentsStub.rename.onFirstCall().rejects(CONFLICT);
+
+          await expect(
+            fs.writeFile(uri, content, { create: true, overwrite: false }),
+          ).to.eventually.rejectedWith(/FileExists/);
+
+          sinon.assert.notCalled(contentsStub.delete);
+          sinon.assert.calledOnce(contentsStub.rename);
+          sinon.assert.notCalled(listener);
         });
       });
 
@@ -1238,20 +1277,6 @@ describe('ContentsFileSystemProvider', () => {
           }));
         }
 
-        /**
-         * Stubs the size the server reports for the temporary file on the next
-         * size check, i.e. the one a retry makes to resync. Later checks report
-         * what the upload has actually written.
-         *
-         * @param size - The size in bytes.
-         */
-        function serverSizeIs(size: number) {
-          contentsStub.get
-            .withArgs({ path: TEMP, content: 0 })
-            .onFirstCall()
-            .resolves({ ...FOO_CONTENT_FILE, size });
-        }
-
         async function writeAndRunTimers(): Promise<unknown> {
           const result = fs.writeFile(uri, content, opts).then(
             () => undefined,
@@ -1281,7 +1306,6 @@ describe('ContentsFileSystemProvider', () => {
 
         it('resumes from the server size when a failed append was not written', async () => {
           contentsStub.save.onSecondCall().rejects(serverError());
-          serverSizeIs(C);
 
           expect(await writeAndRunTimers()).to.equal(undefined);
 
@@ -1344,7 +1368,6 @@ describe('ContentsFileSystemProvider', () => {
           contentsStub.save.onSecondCall().rejects(failure);
           contentsStub.save.onThirdCall().rejects(failure);
           contentsStub.save.onCall(3).rejects(failure);
-          serverSizeIs(C);
           const write = fs.writeFile(uri, content, opts);
           const base = UPLOAD_CHUNK_RETRY_BASE_DELAY_MS;
 
@@ -1401,7 +1424,6 @@ describe('ContentsFileSystemProvider', () => {
           contentsStub.save.onThirdCall().rejects(failure);
           contentsStub.save.onCall(3).rejects(failure);
           contentsStub.save.onCall(4).rejects(failure);
-          serverSizeIs(C);
 
           expect(await writeAndRunTimers())
             .to.be.instanceOf(Error)
@@ -1472,7 +1494,6 @@ describe('ContentsFileSystemProvider', () => {
           contentsStub.save
             .onSecondCall()
             .rejects(new ResponseError(new Response(null, { status: 500 })));
-          serverSizeIs(C);
 
           expect(await writeAndRunTimers()).to.equal(undefined);
 
@@ -1499,7 +1520,6 @@ describe('ContentsFileSystemProvider', () => {
 
         it('stops retrying when disposed during the backoff', async () => {
           contentsStub.save.onSecondCall().rejects(serverError());
-          serverSizeIs(C);
           const write = fs.writeFile(uri, content, opts).then(
             () => undefined,
             (e: unknown) => e,
